@@ -1,0 +1,29 @@
+# shellcheck shell=bash
+# Doyaken shared library — common constants and bootstrap
+#
+# Source this from any script:
+#   source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+#
+# Provides: DOYAKEN_DIR, DK_STATE_DIR, DK_LOOP_DIR, dk_repo_root()
+# Also sources: lib/git.sh, lib/session.sh, lib/output.sh, lib/worktree.sh
+
+DOYAKEN_DIR="${DOYAKEN_DIR:-$HOME/work/doyaken}"
+DK_STATE_DIR="$HOME/.claude/.doyaken-phases"
+DK_LOOP_DIR="$HOME/.claude/.doyaken-loops"
+
+# dk_repo_root — print git toplevel or return 1
+dk_repo_root() {
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [[ -z "$root" ]]; then
+    echo "ERROR: Not in a git repository." >&2
+    return 1
+  fi
+  echo "$root"
+}
+
+# Source sibling libraries
+source "$DOYAKEN_DIR/lib/git.sh"
+source "$DOYAKEN_DIR/lib/session.sh"
+source "$DOYAKEN_DIR/lib/output.sh"
+source "$DOYAKEN_DIR/lib/worktree.sh"

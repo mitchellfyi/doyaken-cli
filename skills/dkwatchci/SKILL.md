@@ -1,0 +1,80 @@
+# Skill: dkwatchci
+
+Monitor CI checks after a PR is marked ready for review. Diagnose and fix failures.
+
+## When to Use
+
+- Scheduled via `/loop 2m /dkwatchci` from `/dkpr` after `gh pr ready`
+- Can also be invoked manually for a one-off CI check
+
+## How It Works
+
+Each invocation is a **single check cycle** — `/loop` handles the scheduling. The session context carries state between invocations naturally.
+
+## Steps
+
+### 1. Get PR Info
+
+```bash
+PR_NUM=$(gh pr view --json number -q .number)
+```
+
+### 2. Check CI Status
+
+```bash
+gh pr checks $PR_NUM
+```
+
+Parse each check: name, status (pending/pass/fail), URL.
+
+### 3. Evaluate and Act
+
+**All checks pass:**
+1. Cancel the CI monitoring loop: ask to cancel the `/dkwatchci` loop, or use `CronDelete` with the job ID.
+2. Report:
+   - Total checks: X
+   - Time to green (if known)
+   - Any flaky tests observed
+3. If `/dkwatchreviews` loop is also done (all reviews approved, no unresolved comments), proceed to `/dkcomplete`.
+
+**Any checks still pending:**
+- Do nothing. Wait for the next loop invocation.
+
+**Any checks failed:**
+- Fetch logs and diagnose:
+  ```bash
+  gh run view <run-id> --log-failed
+  ```
+- Diagnose the failure from the logs. Common categories:
+  - **Formatting/linting** — run the project's formatter/linter locally, commit, push
+  - **Type errors** — run the type checker locally, fix errors, commit, push
+  - **Test failures** — run the specific failing test locally, diagnose, fix, commit, push
+  - **Code generation drift** — run the project's code generator, commit if changes, push
+  - **Dependency issues** — check lockfile freshness, install, commit if changes, push
+  - **Secrets scan** — **STOP IMMEDIATELY.** Cancel all loops. Alert the user. Do not auto-fix.
+  - **Infrastructure failure** (Docker pull timeout, OOM in CI) — suggest `gh run rerun <id> --failed` or escalate
+  - **Flaky tests** — if the same test fails intermittently with different error messages or passes on local rerun, treat it as a flaky test. On the first occurrence, retry once via `gh run rerun <id> --failed`. If it fails again on the same test, escalate to the user with the test name and both failure outputs rather than attempting code fixes.
+- After fixing:
+  1. Verify the fix locally (run the specific check).
+  2. Commit with `fix(ci): <description>`.
+  3. Push — triggers a new CI run.
+  4. Wait for the next loop invocation to check the new run.
+
+### 4. Escalation
+
+- **Max 3 fix attempts per check.** After 3 failures on the same check, cancel the loop and escalate to the user with:
+  - The check name and URL
+  - What was tried
+  - The error output
+- **Secrets scan failure**: Cancel all loops. Escalate immediately. Credential rotation may be needed.
+- **Infrastructure failure**: Suggest `gh run rerun <id> --failed` or escalate.
+
+## Timeout
+
+The monitoring loop should be set up alongside a **one-shot 30-minute timeout** via `/dkpr` Step 7. If checks are not all green after 30 minutes, the timeout fires, cancels all monitoring loops, and escalates to the user with a status report.
+
+## Notes
+
+- CI only runs after `gh pr ready` — draft PRs do not trigger CI.
+- A push during CI triggers a new run; the old run is cancelled automatically.
+- Some checks only run when specific paths change (check the project's CI configuration).

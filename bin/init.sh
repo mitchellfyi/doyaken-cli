@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# doyaken init — bootstrap current repo for Doyaken
+# Creates .doyaken/ skeleton, then uses Claude Code CLI to analyze
+# the codebase and generate project-specific configuration.
+set -euo pipefail
+trap 'printf "\nInterrupted.\n"; exit 130' INT
+
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+
+# Parse all flags upfront so they work independently of each other.
+# (Previously --skip-config was unreachable when --skip-analysis was set
+# because the analysis section exited early before config flag was parsed.)
+SKIP_ANALYSIS=0
+SKIP_CONFIG=0
+for arg in "$@"; do
+  case "$arg" in
+    --skip-analysis) SKIP_ANALYSIS=1 ;;
+    --skip-config)   SKIP_CONFIG=1 ;;
+  esac
+done
+
+# Must be in a git repo
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [[ -z "$repo_root" ]]; then
+  echo "ERROR: Not in a git repository."
+  exit 1
+fi
+
+repo_name=$(basename "$repo_root")
+echo "Doyaken — Init: $repo_name"
+echo ""
+
+# ── 1. Create .doyaken/ skeleton ──────────────────────────────────────
+
+mkdir -p "$repo_root/.doyaken"
+
+# .gitignore for worktree artifacts (don't overwrite — user may have added custom entries)
+doyaken_gitignore="$repo_root/.doyaken/.gitignore"
+if [[ ! -f "$doyaken_gitignore" ]]; then
+  cat > "$doyaken_gitignore" << 'GITIGNORE'
+worktrees/
+GITIGNORE
+  dk_done "Created .doyaken/.gitignore"
+else
+  dk_ok ".doyaken/.gitignore already exists"
+fi
+
+# Minimal doyaken.md (will be overwritten by codebase analysis if run)
+doyaken_md="$repo_root/.doyaken/doyaken.md"
+if [[ ! -f "$doyaken_md" ]]; then
+  cat > "$doyaken_md" << 'CLAUDEMD'
+# Doyaken
+
+This project uses Doyaken for workflow automation.
+
+## Autonomous workflow
+
+From the terminal, run `dk <ticket-number>` to start the full autonomous lifecycle (Plan → Implement → Verify → PR → Complete) in an isolated worktree. You can also run `dk "description"` for freeform tasks.
+
+## One-off prompt (no ticket)
+
+Run `dkloop <prompt>` to execute a prompt in a loop until Claude confirms it's fully implemented. Works in the current directory — no worktree or ticket needed.
+
+## Inside Claude Code CLI
+
+If you're already in a Claude Code session, run `/doyaken` to begin the ticket lifecycle interactively.
+
+## Commands
+
+Run `dk help` in the terminal for all available commands.
+CLAUDEMD
+  dk_done "Created .doyaken/doyaken.md (minimal)"
+else
+  dk_ok ".doyaken/doyaken.md already exists"
+fi
+
+# CLAUDE.md with @import
+doyaken_claude_md="$repo_root/.doyaken/CLAUDE.md"
+if [[ -f "$doyaken_claude_md" ]] && grep -qF 'doyaken.md' "$doyaken_claude_md" 2>/dev/null; then
+  dk_ok ".doyaken/CLAUDE.md already imports doyaken.md"
+elif [[ -f "$doyaken_claude_md" ]]; then
+  # File exists but doesn't import doyaken.md — prepend the import
+  { echo '@doyaken.md'; echo ''; cat "$doyaken_claude_md"; } > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
+  dk_done "Added @import to existing .doyaken/CLAUDE.md"
+else
+  cat > "$doyaken_claude_md" << EOF
+@doyaken.md
+EOF
+  dk_done "Created .doyaken/CLAUDE.md with @import"
+fi
+
+echo ""
+echo "Skeleton created."
+
+# ── 2. Codebase analysis via Claude Code CLI ──────────────────────────
+
+if [[ $SKIP_ANALYSIS -eq 1 ]]; then
+  echo ""
+  echo "Skipped codebase analysis (--skip-analysis)."
+  echo "To generate project-specific config later, run:"
+  echo "  claude -p \"\$(cat $DOYAKEN_DIR/prompts/init-analysis.md)\""
+elif ! command -v claude &>/dev/null; then
+  echo ""
+  echo "Claude Code CLI not found. Skipping codebase analysis."
+  echo "Install Claude Code CLI, then run:"
+  echo "  claude -p \"\$(cat $DOYAKEN_DIR/prompts/init-analysis.md)\""
+else
+  echo ""
+  echo "Analyzing codebase with Claude Code CLI..."
+  echo "This discovers your tech stack, quality gates, and conventions."
+  echo ""
+  printf '[....]  Starting analysis...'
+
+  # -p runs a one-shot prompt; Claude writes files directly to .doyaken/
+  # --verbose --output-format stream-json enables real-time progress.
+  set +o pipefail
+  claude -p "$(cat "$DOYAKEN_DIR/prompts/init-analysis.md")" \
+    --dangerously-skip-permissions \
+    --verbose --output-format stream-json --include-partial-messages \
+    | dk_progress_filter
+  CLAUDE_EXIT=${PIPESTATUS[0]}
+  set -o pipefail
+  if [[ $CLAUDE_EXIT -ne 0 ]]; then
+    echo ""
+    echo "WARNING: Codebase analysis exited with code $CLAUDE_EXIT."
+    echo "The .doyaken/ skeleton was created but project-specific config may be incomplete."
+    echo "You can re-run the analysis manually:"
+    echo "  claude -p \"\$(cat $DOYAKEN_DIR/prompts/init-analysis.md)\""
+  fi
+fi
+
+# ── 3. Configure integrations ─────────────────────────────────────────
+
+if [[ $SKIP_CONFIG -eq 0 ]]; then
+  echo ""
+  bash "$DOYAKEN_DIR/bin/config.sh"
+else
+  echo ""
+  echo "Skipped integration config (--skip-config)."
+  echo "To configure later, run: dk config"
+fi
+
+echo ""
+echo "Init complete for: $repo_name"
+echo ""
+echo "What happened:"
+echo "  - .doyaken/ created (worktrees, config, gitignored artifacts)"
+echo "  - .doyaken/CLAUDE.md imports .doyaken/doyaken.md"
+if [[ $SKIP_ANALYSIS -eq 0 ]] && command -v claude &>/dev/null; then
+  echo "  - Claude analyzed the codebase and generated project-specific config"
+fi
+if [[ $SKIP_CONFIG -eq 0 ]]; then
+  echo "  - Integrations configured (ticket tracker, optional MCPs)"
+fi
+echo ""
+echo "Next: run 'dk <ticket-number>' to start a worktree"

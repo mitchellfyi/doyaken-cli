@@ -1,0 +1,109 @@
+# PR Description Template
+
+## PR Title Format
+
+```
+<type>(<scope>): <short description>
+```
+
+If the project uses ticket IDs in PR titles, include them:
+```
+<TICKET-ID>: <type>(<scope>): <short description>
+```
+
+**Types**: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `build`, `ci`, `style`, `revert`
+
+Examples:
+- `feat(database): add KPIs table with demand analytics`
+- `fix(inventory): resolve race condition in batch allocation`
+- `refactor(api): extract payment validation into reusable service`
+- `PROJ-123: feat(auth): add OAuth2 login flow` (with ticket ID)
+
+## PR Description Structure
+
+```markdown
+# [Feature/Fix Name] — [One-line Summary]
+
+## Problem
+
+[2-3 paragraphs: What business/technical problem? What was the current limitation? Why now?]
+
+## Solution
+
+[High-level approach and architecture]
+
+### Technical Implementation
+
+**Component 1** (e.g., Database Schema):
+- [Specific change with detail]
+- [Specific change with detail]
+
+**Component 2** (e.g., API Layer):
+- [Specific change with detail]
+
+### Key Technical Decisions
+
+1. **[Decision]**: Rationale, trade-offs, impact
+2. **[Decision]**: Rationale, trade-offs, impact
+
+## Changes Summary
+
+[Group by area of the codebase, listing files and what changed]
+
+## Testing Performed
+
+- [ ] Unit tests: [coverage, key scenarios]
+- [ ] Integration tests: [scenarios with real dependencies]
+- [ ] E2E tests: [user flows tested]
+- [ ] Manual verification: [what was manually checked]
+
+## Performance and Quality
+
+- Performance improvements (quantify if possible)
+- Code quality measures taken
+- Technical debt addressed
+
+## Business Impact
+
+- User experience improvements
+- New capabilities enabled
+- Risk reduction
+
+## Metrics
+
+- Files changed: X
+- Lines added/removed: +X / -Y
+- Test coverage: X new test cases
+
+## Breaking Changes
+
+- [ ] No breaking changes — fully backward compatible
+OR
+- [Description of breaking change and migration path]
+
+## Deployment Notes
+
+- Database migration required: Yes/No
+- New environment variables: [list]
+- Rollback plan: [description]
+```
+
+## Checklist
+
+- [ ] Problem section explains the "why" (2-3 paragraphs)
+- [ ] Solution describes high-level approach
+- [ ] Key technical decisions with rationale and trade-offs
+- [ ] All changed files listed with specific changes
+- [ ] Testing section with checkmarks and details
+- [ ] Business impact connected to user/business value
+- [ ] Concrete metrics (files, lines, tables)
+- [ ] Breaking changes clearly marked or confirmed none
+- [ ] Deployment notes documented
+
+## What Not to Do
+
+- Vague descriptions ("Fixed some bugs", "Updated code")
+- Missing context (not explaining WHY)
+- No testing details ("Tests pass")
+- No business impact
+- Huge unfocused PRs doing too many unrelated things

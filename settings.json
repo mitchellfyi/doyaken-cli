@@ -1,0 +1,82 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/load-ticket-context.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DOYAKEN_GUARD_EVENT=bash python3 ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/guard-handler.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DOYAKEN_GUARD_EVENT=file python3 ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/guard-handler.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/post-commit-guard.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/phase-loop.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "worktree": {
+    "symlinkDirectories": ["node_modules", ".venv", "vendor", "target", ".next", ".nuxt"]
+  }
+}

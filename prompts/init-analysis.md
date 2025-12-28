@@ -1,0 +1,137 @@
+# Doyaken Init — Codebase Analysis
+
+Analyze this codebase and generate project-specific Doyaken configuration. Write all output files to `.doyaken/` in the current repo.
+
+## Step 1: Analyze the Codebase
+
+Explore the repo to understand:
+
+### Tech Stack
+- Read: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `Gemfile`, `composer.json`, `Makefile`, `CMakeLists.txt`
+- Identify: languages, web frameworks, test frameworks, ORM/database tools, build systems
+- For monorepos: identify each workspace/package and its role
+
+### Quality Gates
+- Read `package.json` `scripts` section, `Makefile` targets, CI workflows (`.github/workflows/`)
+- Find the exact commands for: formatting, linting, type checking, testing, code generation
+- Note any "verify" or "ci" meta-commands that run everything
+
+### Project Structure
+- Is it a monorepo or single app?
+- What directories contain what? (e.g., `src/`, `frontend/`, `backend/`, `packages/`)
+- Where are tests? (co-located, `__tests__/`, `tests/`, `spec/`)
+- What are the main entry points?
+
+### Sensitive & Generated Files
+- What should never be committed? (check `.gitignore`, known patterns)
+- What config files get modified per-environment?
+
+### CI Configuration
+- Read `.github/workflows/*.yml` (or CircleCI, GitLab CI, etc.)
+- Map CI job/step names to local commands
+
+### Conventions
+- Read existing `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, `.editorconfig`, linter configs
+- Note established patterns in the codebase (naming, file organization, test patterns)
+
+## Step 2: Integrations
+
+Integration configuration (ticket tracker, Figma, Sentry, Vercel, Grafana) is handled interactively by `dk config`, which runs after codebase analysis. Include the `## Integrations` section in the `.doyaken/doyaken.md` template below with placeholder values — it will be populated by the config step.
+
+## Step 3: Generate Configuration
+
+Write these files:
+
+### `.doyaken/doyaken.md`
+
+```markdown
+# Doyaken — [Project Name]
+
+## Tech Stack
+[List languages, frameworks, and key tools discovered]
+
+## Quality Gates
+| Check | Command | Scope |
+|-------|---------|-------|
+| Format | [exact command] | [which packages/apps] |
+| Lint | [exact command] | [which packages/apps] |
+| Typecheck | [exact command] | [which packages/apps] |
+| Test | [exact command] | [which packages/apps] |
+| Generate | [exact command or "N/A"] | [what it generates] |
+| All | [single command if available or "N/A"] | [full pipeline] |
+
+## Project Structure
+[Brief description of directory layout and what each area contains]
+
+## Files to Never Commit
+[List files that should never be committed]
+
+## Integrations
+
+| Integration | Tool | Status |
+|-------------|------|--------|
+| Ticket tracker | [Linear MCP / GitHub Issues / none] | [enabled / not configured] |
+| Design | Figma MCP | [enabled / not configured] |
+| Error monitoring | Sentry MCP | [enabled / not configured] |
+| Deployments | Vercel MCP | [enabled / not configured] |
+| Observability | Grafana MCP | [enabled / not configured] |
+
+When an integration is "not configured", skip any workflow steps that reference it.
+For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.
+
+## Rules
+[Reference any rule files generated in .doyaken/rules/]
+
+## Workflow
+Run `/doyaken` to begin the autonomous ticket lifecycle.
+```
+
+### `.doyaken/rules/*.md` (one per major area of the codebase)
+
+For each significant area (e.g., backend, frontend, shared library), generate a rule file with:
+- Architecture patterns specific to this codebase
+- Naming conventions observed in existing code
+- Testing patterns and expectations
+- Common pitfalls or patterns to follow
+- Framework-specific conventions (based on what's actually used)
+
+Name them descriptively: `backend.md`, `frontend.md`, `api.md`, `database.md`, etc.
+
+Only generate rules for areas that have enough established patterns to document. Don't generate rules for trivial or obvious things. Each rule file should be genuinely useful for someone working in that area.
+
+### `.doyaken/guards/*.md` (project-specific guards)
+
+Generate guards for:
+- **Files that should never be committed** — environment-specific files, generated configs. Use `event: commit`, `action: block`.
+- **Framework-specific safety patterns** — e.g., unprotected endpoints, raw SQL, missing validation. Use `event: file`, `action: warn`.
+
+Guard format:
+```markdown
+---
+name: guard-name
+enabled: true
+event: bash|file|commit
+pattern: regex-pattern
+action: warn|block
+---
+
+Message shown when the guard triggers.
+```
+
+Only generate guards that are specific to THIS project. Generic guards (destructive commands, sensitive files, hardcoded secrets) already ship with Doyaken.
+
+## Step 4: Update `.doyaken/CLAUDE.md`
+
+Ensure `.doyaken/CLAUDE.md` imports the generated doyaken.md:
+
+```
+@doyaken.md
+```
+
+## Guidelines
+
+- Be specific and accurate. Use exact commands and paths from the actual codebase.
+- Don't generate speculative content. If you're unsure about a convention, skip it.
+- Keep rules concise. Developers will read these alongside their work.
+- Test any commands you reference by checking they exist (in Makefile, package.json, etc.).
+- For monorepos, document per-package quality gates, not just top-level ones.

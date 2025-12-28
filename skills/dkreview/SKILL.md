@@ -1,0 +1,252 @@
+# Skill: dkreview
+
+Agentic implementation review that combines deterministic tooling with semantic analysis, dependency tracing, and acceptance criteria verification.
+
+## When to Use
+
+- After completing implementation, before running `/dkverify`
+- When you want to catch issues in your own code before pushing
+
+## Overview
+
+Four phases, executed sequentially:
+
+0. **Deterministic Foundation** — machine checks establish a clean baseline
+1. **Review Plan** — assign review depth and applicable passes per file
+2. **Semantic Review** — full-file context, dependency tracing, convention checks
+3. **Fix and Re-Review Loop** — fix findings, re-check, repeat (max 3 iterations)
+
+---
+
+## Phase 0: Deterministic Foundation
+
+Run machine checks first. Don't waste semantic review effort on issues linters catch.
+
+### 0.1 — Scope Analysis
+
+Detect the default branch using the shared library function (see `lib/git.sh`):
+
+```bash
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+DEFAULT_BRANCH=$(dk_default_branch)
+git diff origin/$DEFAULT_BRANCH...HEAD --stat
+git diff origin/$DEFAULT_BRANCH...HEAD --name-only
+git log origin/$DEFAULT_BRANCH..HEAD --oneline
+```
+
+Classify every changed file by its role in the project (e.g., business logic, test, config, migration, documentation, generated code). Use the project's directory structure and naming conventions to determine categories.
+
+Count files and lines changed per category. This drives review depth in Phase 1.
+
+### 0.1a — Auto-Skip Check
+
+If the change is trivial, skip the full semantic review (Phases 1-2) and go straight to Phase 0.2 deterministic checks only:
+
+**Skip semantic review when ALL of these are true:**
+- Total lines changed < 20
+- Only config, docs, or non-logic categories (no business logic)
+- No new files created
+- No security-sensitive files touched — specifically: any file whose path matches `*auth*`, `*permission*`, `*policy*`, `*secret*`, `*token*`, `*credential*`, `*session*`, `*middleware*`, `*guard*`, `*rls*`, `*acl*`, `*.env*`; any migration file; any file under directories like `security/`, `access/`, `iam/`
+
+**Examples that skip:** README typo fix, package version bump, config value change, `.gitignore` update.
+
+**Examples that DON'T skip:** New endpoint (even if small), migration, test changes, any file matching the security-sensitive patterns above, any new middleware or policy file.
+
+### 0.2 — Targeted Deterministic Checks
+
+Discover the project's quality tools (same approach as `/dkverify`) and run checks **only for packages with changed files** (not the entire repo).
+
+For each tool discovered (formatter, linter, type checker, test runner), run it scoped to the affected area. Record failures as findings.
+
+### 0.3 — Generated Code Freshness
+
+If the project uses code generation (detectable from Makefile targets, package.json scripts, or generator config files), and any source files that feed the generator changed, run the generator and check for uncommitted changes. Stage any changes and record as a finding.
+
+---
+
+## Phase 1: Review Plan Generation
+
+For each changed file, assign review depth and applicable passes. This is internal — don't present to the user.
+
+### Review Depth
+
+**Deep** (full-file read + dependency trace + git history):
+- Business logic (services, use cases, core modules)
+- Database queries (repositories, migrations, queries)
+- Security code (auth, access control, middleware)
+- New files (no prior context to lean on)
+
+**Shallow** (diff-only scan):
+- Config changes (package manifests, tool configs, environment examples) — still apply **Pass C (Security)** to dependency changes that could introduce vulnerabilities
+- Import reordering or formatting-only changes
+- Documentation files
+- Generated code
+
+### Pass Assignment
+
+Select which review passes apply per file:
+
+| Pass | Applies when |
+|------|-------------|
+| **A: Correctness** | Business logic, services, data access |
+| **B: Design** | New files, refactored code, complex changes |
+| **C: Security** | Auth, access control, external APIs, data access |
+| **D: Performance** | Database queries, list endpoints, loops, external calls |
+| **E: Testing** | Test files |
+| **F: Style** | All files |
+| **G: Dependency Consistency** | Types, schemas, API contracts, migrations |
+| **H: Acceptance Criteria** | All production code (if ticket context available) |
+| **I: Documentation Quality** | All files with non-obvious logic |
+| **J: Holistic Consistency** | All changed files (cross-file pass) |
+
+---
+
+## Phase 2: Semantic Review
+
+Read the review criteria from `prompts/review.md` for the 10-pass criteria (A-J) and confidence scoring guidelines. Also check the project's CLAUDE.md or `.doyaken/doyaken.md` for project-specific review criteria.
+
+### 2.0 — Cross-File Overview Scan
+
+Before reviewing individual files, scan ALL changed files at the diff level to build a mental model of the full change:
+
+- What is the overall shape of this change? (new feature, refactor, bug fix, etc.)
+- What contracts or interfaces cross file boundaries?
+- What assumptions does File A make about File B?
+- Are there cross-file patterns that should be consistent?
+
+Record cross-file assumptions — these will be verified in Phase 2.2-2.3 and 2.8.
+
+### 2.1 — Full-File Read
+
+For every changed file, `Read` the **entire file** — not just the diff. Evaluate the change within its full context. The diff tells you _what_ changed; the full file tells you whether the change _fits_.
+
+### 2.2 — Dependency Tracing (multi-hop)
+
+For each changed function, class, type, or export, trace consumers up to 3 hops deep:
+
+1. **Hop 1:** `Grep` for imports referencing the changed file → verify each direct consumer is consistent
+2. **Hop 2:** For each direct consumer that re-exports or wraps the changed entity, `Grep` for ITS consumers → verify consistency
+3. **Hop 3:** Continue one more level if hop 2 revealed re-exports, or stop at leaf consumers (non-exported code)
+
+Track the chain: `[Changed] X → [Hop 1] Y ✓ → [Hop 2] Z ✓`
+
+Answer: **"Are all consumers of this changed API updated consistently, including transitive consumers?"**
+
+If a function signature changed but callers weren't updated → finding.
+If a type added a field but serializers don't map it → finding.
+If a type narrowed but consumers still pass the old shape → finding.
+If a transitive consumer depends on the old behavior → finding.
+
+### 2.3 — Cross-Reference Consistency
+
+When files that define contracts (types, schemas, API definitions, database models) change, verify that all dependent code is consistent. Use `Grep` to find imports of the changed file, then verify each consumer handles the change.
+
+### 2.4 — Git History Context
+
+For deep-review files only:
+
+```bash
+git log --oneline -10 -- <file>
+```
+
+If recent `fix:` commits exist → flag as **fragile area**. Apply extra scrutiny on correctness (Pass A).
+
+### 2.5 — Acceptance Criteria Verification
+
+If ticket context is available (from `/dkplan` or `/doyaken` — check task list or plan file):
+
+For each acceptance criterion:
+1. Verify production code implements it (trace to specific file:line)
+2. Verify a test validates it (trace to specific test case)
+
+Flag unmet criteria as **severity: high** findings.
+
+### 2.6 — Convention Checks
+
+Semantic layer on top of linting — catches what machines miss:
+
+- **Architecture violations** — bypassing abstraction layers, cross-module coupling that breaks the project's boundaries
+- **Missing error handling** — unhandled exceptions in new code paths, missing error propagation
+- **Performance anti-patterns** — unbounded queries, N+1 patterns in loops, missing pagination on list operations
+- **Security gaps** — unprotected endpoints, sensitive data in logs or error messages, missing input validation at system boundaries
+- **Test quality** — mocking internals instead of testing behaviour, missing edge case coverage, hardcoded test data
+
+### 2.7 — Documentation Quality
+
+Execute Pass I from `prompts/review.md` on all files with non-obvious logic:
+
+- Functions with complex control flow need "why" comments
+- New public APIs need doc comments
+- Complex regexes, magic numbers, and non-trivial algorithms need explanation
+
+### 2.8 — Holistic Consistency
+
+Execute Pass J from `prompts/review.md` across ALL changed files as a set:
+
+- Review the cross-file assumptions recorded in Phase 2.0
+- Check naming, error handling, logging, and pattern consistency across all changed files
+- This pass catches issues invisible when reviewing files individually
+
+---
+
+## Phase 3: Fix and Re-Review Loop
+
+**Maximum 3 iterations.** After each fix round:
+
+1. Fix all findings — auto-fixable immediately, judgment-required with best attempt
+2. Re-run deterministic checks on affected files (not the full suite)
+3. Re-run semantic review on **ALL changed files from Phase 0.1 scope** — not just files modified by the fix. Fixes can introduce regressions in files that were not directly modified. Specifically check for:
+   - Type mismatches introduced by fix-side signature changes
+   - Behavioral changes visible to callers that were not updated
+   - Test assertions that no longer match fixed behavior
+   - Broken cross-file consistency (naming, patterns, error handling)
+4. New findings → add to list, continue loop
+5. No new findings → exit loop
+
+After 3 iterations, report remaining findings and proceed to `/dkverify`.
+
+---
+
+## Output
+
+Print a structured report at the end:
+
+```
+## Self-Review Report
+
+### Scope
+- Files changed: X (by category breakdown)
+- Review depth: X deep, Y shallow
+
+### Deterministic Checks
+- Format: PASS | Lint: PASS | Typecheck: PASS | Tests: PASS
+
+### Findings (confidence >= 50 only)
+| # | Severity | Confidence | File:Line | Pass | Issue | Fix Applied |
+|---|----------|------------|-----------|------|-------|-------------|
+
+### Filtered Out
+- X finding(s) below confidence threshold (< 50)
+
+### Dependency Trace
+- [Changed] foo.ts → [Checked] bar.ts ✓, baz.ts ✓
+
+### Acceptance Criteria
+- [x] Criterion 1: implemented + tested
+- [ ] Criterion 2: NOT FOUND
+
+### Iterations: N/3
+### Result: PASS | PASS WITH WARNINGS | NEEDS ATTENTION
+```
+
+**Result meanings:**
+- **PASS** — no findings remain, all acceptance criteria met
+- **PASS WITH WARNINGS** — minor findings remain (style, naming) but no correctness/security/performance issues
+- **NEEDS ATTENTION** — findings remain after 3 iterations, or acceptance criteria unmet. Proceed to `/dkverify` but flag to the user.
+
+## Notes
+
+- This skill is for reviewing your own work-in-progress, not for reviewing PRs or others' code.
+- Focus on issues you can actually fix — don't flag existing patterns in the codebase.
+- Be honest about your own code. The goal is to ship high-quality work, not to rubber-stamp it.
+- Deterministic checks run here AND in `/dkverify`. Self-review fixes issues; verify confirms they're fixed. The duplication is intentional.
