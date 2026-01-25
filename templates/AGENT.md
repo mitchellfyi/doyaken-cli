@@ -96,13 +96,51 @@ AGENT_VERBOSE=1 doyaken run 1
 
 ## Quality Gates
 
-Configure quality commands in `.doyaken/manifest.yaml`:
+All code must pass quality gates before being committed. Configure commands in `.doyaken/manifest.yaml`:
 
 ```yaml
 quality:
   test_command: "npm test"
   lint_command: "npm run lint"
   format_command: "npm run format"
+  typecheck_command: "npm run typecheck"
+  build_command: "npm run build"
+  audit_command: "npm audit --audit-level=high"
+```
+
+### Quality Principles
+
+Follow these principles for all code:
+
+- **KISS** - Keep It Simple, Stupid. The simplest solution is usually the best.
+- **YAGNI** - You Aren't Gonna Need It. Don't build features until you need them.
+- **DRY** - Don't Repeat Yourself. Single source of truth for each piece of knowledge.
+- **SOLID** - Single responsibility, Open/closed, Liskov substitution, Interface segregation, Dependency inversion.
+
+### Setting Up Quality Gates
+
+If quality gates are missing, run:
+
+```bash
+doyaken skill setup-quality
+```
+
+This will:
+- Configure linters (ESLint, Ruff, golint, etc.)
+- Set up formatters (Prettier, Black, gofmt)
+- Add type checking (TypeScript, mypy)
+- Create CI pipeline (.github/workflows/ci.yml)
+- Install git hooks (pre-commit)
+- Add security audit commands
+
+### Running Quality Checks
+
+```bash
+# Run all quality checks
+doyaken skill check-quality
+
+# Audit dependencies for vulnerabilities
+doyaken skill audit-deps
 ```
 
 ## Troubleshooting
@@ -123,7 +161,21 @@ mv .doyaken/tasks/3.doing/*.md .doyaken/tasks/2.todo/
 
 Add notes here about this specific project that agents should know:
 
-- Coding conventions to follow
-- Quality standards to maintain
-- Common patterns in this codebase
-- Things to avoid
+### Coding Conventions
+- [Describe naming conventions, file organization, etc.]
+
+### Quality Standards
+- All code must pass lint, typecheck, and tests before commit
+- No console.log, debug code, or commented-out code in commits
+- Handle errors appropriately - no silent failures
+- Keep functions small (< 20 lines ideal)
+- Maximum nesting depth: 3 levels
+
+### Common Patterns
+- [Describe patterns used in this codebase]
+
+### Things to Avoid
+- Premature optimization without measured need
+- Over-engineering or "gold plating"
+- Breaking existing functionality
+- Introducing security vulnerabilities

@@ -72,9 +72,13 @@ Write a triage report in the task's Work Log:
 ### {{TIMESTAMP}} - Triage Complete
 
 Quality gates:
-- Lint: [command]
-- Tests: [command]
-- Build: [command]
+- Lint: [command or "missing"]
+- Types: [command or "missing"]
+- Tests: [command or "missing"]
+- Build: [command or "missing"]
+- Audit: [command or "missing"]
+- CI: [present/missing]
+- Hooks: [present/missing]
 
 Task validation:
 - Context: [clear/unclear]

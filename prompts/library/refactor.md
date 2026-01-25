@@ -156,6 +156,21 @@ Code improvements:
 - [what's better now]
 ```
 
+## Quality Principles for Refactoring
+
+Apply these principles when deciding what to refactor:
+
+- **KISS** - Simplify complex code; remove unnecessary abstraction
+- **YAGNI** - Remove unused code; don't add "just in case" features
+- **DRY** - Extract duplicated logic; single source of truth
+- **SOLID** - Improve separation of concerns; reduce coupling
+
+**After refactoring, code should be:**
+- Easier to understand
+- Easier to test
+- Easier to modify
+- No more complex than necessary
+
 ## Rules
 
 - Run tests after EVERY change
@@ -163,3 +178,4 @@ Code improvements:
 - If tests fail, revert immediately
 - Never combine refactoring with feature work
 - If coverage is low, add tests BEFORE refactoring
+- All quality gates must pass (lint, typecheck, test)

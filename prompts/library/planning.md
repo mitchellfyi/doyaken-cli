@@ -138,6 +138,21 @@ Define verification points during implementation:
 - [ ] `path/to/doc` - [what to add/change]
 ```
 
+## Quality Considerations
+
+When planning, ensure the implementation will follow quality principles:
+
+- **KISS** - Plan the simplest solution that meets the requirements
+- **YAGNI** - Don't plan extra features "just in case"
+- **DRY** - Plan to reuse existing code and patterns
+- **SOLID** - Plan for maintainable, modular architecture
+
+Include in your plan:
+- How will the code be tested?
+- What quality gates must pass? (lint, typecheck, test, build)
+- Are there security implications?
+- Does this follow existing codebase patterns?
+
 ## Planning Anti-Patterns
 
 | Anti-Pattern | Problem | Better Approach |
@@ -147,3 +162,4 @@ Define verification points during implementation:
 | **No verification** | How do you know it's done? | Define done for each step |
 | **Big bang** | One huge step | Break into smaller, verifiable steps |
 | **Ignoring risks** | Surprised by problems | Identify and mitigate upfront |
+| **Over-engineering** | Building more than needed | KISS and YAGNI - simplest solution |

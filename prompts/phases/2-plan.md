@@ -6,6 +6,20 @@ You are planning the implementation for task {{TASK_ID}}.
 
 {{include:library/planning.md}}
 
+## Quality Principles
+
+When planning, ensure the implementation will follow these principles:
+
+- **KISS** - Plan the simplest solution that works
+- **YAGNI** - Don't plan features that aren't required
+- **DRY** - Plan to reuse existing code where possible
+- **SOLID** - Plan for maintainable, modular code
+
+Consider quality gates in your plan:
+- How will the code be tested?
+- What types need to be correct?
+- Are there security implications to audit?
+
 ## Phase-Specific Instructions
 
 Read the task file thoroughly first: {{TASK_FILE}}

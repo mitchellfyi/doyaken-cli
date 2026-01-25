@@ -62,11 +62,15 @@ skills:
 
 # Quality gate commands
 # These are run during the TEST phase to ensure code quality
+# Run 'doyaken skill setup-quality' to auto-configure these
 quality:
   # test_command: "npm test"
   # lint_command: "npm run lint"
   # format_command: "npm run format"
+  # typecheck_command: "npm run typecheck"
   # build_command: "npm run build"
+  # audit_command: "npm audit --audit-level=high"
+  # quality_command: "npm run quality"  # Run all checks at once
 
 # Agent behavior settings
 agent:

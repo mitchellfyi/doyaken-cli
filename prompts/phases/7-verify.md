@@ -2,6 +2,10 @@
 
 You are verifying that task {{TASK_ID}} was managed correctly through all phases.
 
+## Code Quality Standards
+
+{{include:library/code-quality.md}}
+
 ## Purpose
 
 This phase ensures:
@@ -47,10 +51,24 @@ Compare the Plan section to actual changes:
 
 ```bash
 # Run all quality gates one more time
-npm run lint && npm run test && npm run build
+npm run lint          # Lint check
+npm run typecheck     # Type check
+npm run test          # Tests
+npm run build         # Build
+npm audit --audit-level=high  # Security audit
 ```
 
-All must pass. If any fail, task is not complete.
+**All must pass. If any fail, task is NOT complete.**
+
+Quality checklist:
+- [ ] Lint passes with no errors
+- [ ] Type checking passes
+- [ ] All tests pass
+- [ ] Build succeeds
+- [ ] No high/critical security vulnerabilities
+- [ ] No debug code (console.log, debugger, etc.)
+- [ ] No commented-out code
+- [ ] Code follows KISS, YAGNI, DRY, SOLID principles
 
 ## 5) Finalize Task State
 
@@ -102,8 +120,12 @@ Plan execution:
 
 Final quality check:
 - Lint: [pass/fail]
+- Types: [pass/fail]
 - Tests: [pass/fail]
 - Build: [pass/fail]
+- Security audit: [pass/fail]
+- Debug code removed: [yes/no]
+- Follows quality principles: [yes/no]
 
 Task state:
 - Location: [3.doing/ → 4.done/ | kept in 3.doing/]

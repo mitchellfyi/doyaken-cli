@@ -112,3 +112,23 @@ Before marking tests complete:
 - [ ] Tests are deterministic (no random failures)
 - [ ] Test names describe behaviour
 - [ ] No console.log or debug output left in tests
+
+## Quality Gates
+
+Tests are a critical part of quality enforcement:
+
+```bash
+# Run tests
+npm test              # or: pytest, go test, cargo test
+
+# Run with coverage
+npm run test:coverage # or: pytest --cov, go test -cover
+
+# Run in CI
+npm run quality       # lint + typecheck + test + build
+```
+
+All tests must pass before:
+- Committing code (pre-commit hook)
+- Merging pull requests (CI check)
+- Deploying to production

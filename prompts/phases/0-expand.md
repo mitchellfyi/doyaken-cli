@@ -43,6 +43,12 @@ Write specific, testable criteria. Each criterion should be:
 Bad: "Works correctly" / "Handles errors properly"
 Good: "Returns 404 when user not found" / "Logs error message with request ID"
 
+**Always include these quality criteria:**
+- Tests written and passing
+- Quality gates pass (lint, typecheck, test, build)
+- No security vulnerabilities introduced
+- Code follows existing patterns and conventions
+
 ## 5) Identify Edge Cases and Risks
 
 Consider what could go wrong:

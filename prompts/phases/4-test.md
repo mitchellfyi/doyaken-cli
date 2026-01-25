@@ -6,6 +6,10 @@ You are testing the implementation for task {{TASK_ID}}.
 
 {{include:library/testing.md}}
 
+## Code Quality Standards
+
+{{include:library/code-quality.md}}
+
 ## Phase-Specific Instructions
 
 1. **Run existing tests first** - All must pass before writing new tests
