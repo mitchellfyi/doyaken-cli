@@ -1,11 +1,12 @@
 # Doyaken
 
-A standalone multi-project autonomous agent CLI for Claude Code. Install once, use on any project.
+A standalone multi-project autonomous agent CLI that works with any AI coding agent. Install once, use on any project.
 
 **Aliases:** `doyaken`, `dk`
 
 ## Features
 
+- **Agent Agnostic**: Works with Claude, Codex, Gemini, Copilot, or OpenCode
 - **Multi-Project Support**: Manage multiple projects from a single global installation
 - **7-Phase Execution**: Triage → Plan → Implement → Test → Docs → Review → Verify
 - **Self-Healing**: Automatic retries, model fallback, crash recovery
@@ -25,14 +26,10 @@ npm install -g @doyaken/doyaken
 npx doyaken --help
 ```
 
-### Option 2: curl (Per-User or Per-Project)
+### Option 2: curl (Per-User)
 
 ```bash
-# Install to ~/.doyaken (default, per-user)
 curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash
-
-# Install to a specific project
-curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash -s /path/to/project
 ```
 
 ### Option 3: Clone & Install
@@ -79,7 +76,7 @@ dk doctor    # Health check
 | `dk doctor` | Health check |
 | `dk help` | Show help |
 
-> **Note:** `doyaken` and `dk` are interchangeable. Use whichever you prefer.
+> **Note:** `doyaken` and `dk` are interchangeable.
 
 ## Multi-Agent Support
 
@@ -110,15 +107,31 @@ dk --agent codex --model o3 run 1
 dk --agent gemini --model gemini-2.5-flash run 2
 ```
 
-### Per-Project Configuration
+## Agent Workflow
 
-Set the default agent in `.doyaken/manifest.yaml`:
+The agent operates in 7 phases for each task:
 
-```yaml
-agent:
-  name: "codex"
-  model: "gpt-5"
+| Phase | Timeout | Purpose |
+|-------|---------|---------|
+| **TRIAGE** | 2min | Validate task, check dependencies |
+| **PLAN** | 5min | Gap analysis, detailed planning |
+| **IMPLEMENT** | 30min | Execute the plan, write code |
+| **TEST** | 10min | Run tests, add coverage |
+| **DOCS** | 5min | Sync documentation |
+| **REVIEW** | 10min | Code review, create follow-ups |
+| **VERIFY** | 3min | Verify task management, commit |
+
+### Parallel Execution
+
+Run multiple agents simultaneously:
+
+```bash
+dk run 5 &
+dk run 5 &
+dk run 5 &
 ```
+
+Agents coordinate via lock files in `.doyaken/locks/` and will not work on the same task.
 
 ## Project Structure
 
@@ -135,8 +148,8 @@ your-project/
 │   ├── logs/                # Execution logs
 │   ├── state/               # Session recovery
 │   └── locks/               # Parallel coordination
-├── AI-AGENT.md              # Operating manual
-└── TASKBOARD.md             # Generated overview
+├── AI-AGENT.md              # Project-specific agent notes
+└── TASKBOARD.md             # Generated task overview
 ```
 
 ## Project Manifest
@@ -156,22 +169,19 @@ domains:
   production: "https://my-app.com"
   staging: "https://staging.my-app.com"
 
-tools:
-  jira:
-    enabled: true
-    project_key: "MYAPP"
-    base_url: "https://company.atlassian.net"
-
 quality:
   test_command: "npm test"
   lint_command: "npm run lint"
 
 agent:
+  name: "claude"
   model: "opus"
   max_retries: 2
 ```
 
-## Task Priority System
+## Task System
+
+### Task Priority
 
 Tasks use the naming format `PPP-SSS-slug.md`:
 
@@ -184,31 +194,28 @@ Tasks use the naming format `PPP-SSS-slug.md`:
 
 Example: `002-001-add-user-auth.md` = High priority, first in sequence
 
+### Creating Tasks
+
+```bash
+# Via CLI
+dk tasks new "Add user authentication"
+
+# Manually create in .doyaken/tasks/todo/
+# Use the template format
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DOYAKEN_AGENT` | `claude` | AI agent (claude, codex, gemini, copilot, opencode) |
+| `DOYAKEN_AGENT` | `claude` | AI agent to use |
 | `DOYAKEN_MODEL` | agent-specific | Model for the selected agent |
-| `CLAUDE_MODEL` | `opus` | Legacy: Model for Claude (opus, sonnet, haiku) |
 | `AGENT_DRY_RUN` | `0` | Preview without executing |
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase |
-| `TIMEOUT_IMPLEMENT` | `1800` | Implementation timeout (30min) |
+| `TIMEOUT_IMPLEMENT` | `1800` | Implementation timeout (seconds) |
 | `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
-
-## Parallel Execution
-
-Run multiple agents simultaneously:
-
-```bash
-dk run 5 &
-dk run 5 &
-dk run 5 &
-```
-
-Agents coordinate via lock files and will not work on the same task.
 
 ## Migration from `.claude/`
 
@@ -226,24 +233,53 @@ This will:
 - Rename `CLAUDE.md` to `AI-AGENT.md`
 - Register in the global project registry
 
-## Global Installation
+## Troubleshooting
 
-The global installation at `~/.doyaken/` contains:
+```bash
+# Health check
+dk doctor
 
+# View logs
+ls -la .doyaken/logs/
+
+# Reset stuck state
+rm -rf .doyaken/locks/*.lock
+mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
 ```
-~/.doyaken/
-├── bin/doyaken              # CLI binary
-├── lib/                     # Core scripts
-│   ├── cli.sh              # Command dispatcher
-│   ├── core.sh             # Agent logic
-│   ├── registry.sh         # Project registry
-│   ├── migration.sh        # Migration helpers
-│   └── taskboard.sh        # Taskboard generator
-├── prompts/                 # Phase prompts
-├── templates/               # Project templates
-├── config/global.yaml       # Global defaults
-└── projects/registry.yaml   # Project registry
+
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/doyaken/doyaken.git
+cd doyaken
+
+# Install git hooks
+npm run setup
+
+# Run all checks
+npm run check
 ```
+
+### Quality Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run lint` | Lint shell scripts with shellcheck |
+| `npm run validate` | Validate YAML files |
+| `npm run test` | Run test suite |
+| `npm run check` | Run all quality checks |
+| `npm run setup` | Install git hooks |
+
+### Git Hooks
+
+The repository includes git hooks for quality assurance:
+
+- **pre-commit**: Lints staged shell scripts and YAML files
+- **pre-push**: Runs the full test suite
+
+To bypass temporarily: `git commit --no-verify`
 
 ## Requirements
 

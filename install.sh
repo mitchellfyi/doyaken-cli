@@ -299,7 +299,7 @@ EOF
 
   # Create AI-AGENT.md if not exists
   if [ ! -f "$PROJECT_DIR/AI-AGENT.md" ]; then
-    cp "$DOYAKEN_HOME/templates/ai-agent.md" "$PROJECT_DIR/AI-AGENT.md" 2>/dev/null || true
+    cp "$DOYAKEN_HOME/templates/AI-AGENT.md" "$PROJECT_DIR/AI-AGENT.md" 2>/dev/null || true
     log_success "Created AI-AGENT.md"
   fi
 

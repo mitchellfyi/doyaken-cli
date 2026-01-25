@@ -258,7 +258,7 @@ agent_exec_command() {
       ;;
     *)
       # Other agents use just their command name
-      echo "$(_get_agent_cmd "$agent")"
+      _get_agent_cmd "$agent"
       ;;
   esac
 }

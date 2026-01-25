@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+#
+# pre-commit hook - Run quality checks before commit
+#
+set -euo pipefail
+
+# Get the root directory
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+echo "Running pre-commit checks..."
+
+# Get list of staged shell scripts
+STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sh|bash)$' || true)
+STAGED_BIN=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^bin/' || true)
+STAGED_YAML=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ya?ml)$' || true)
+
+ERRORS=0
+
+# Check shell scripts with shellcheck
+if [ -n "$STAGED_SH" ] || [ -n "$STAGED_BIN" ]; then
+  if command -v shellcheck &>/dev/null; then
+    echo "Checking shell scripts..."
+    for file in $STAGED_SH $STAGED_BIN; do
+      if [ -f "$ROOT_DIR/$file" ]; then
+        if ! shellcheck -e SC1091,SC2034 "$ROOT_DIR/$file" >/dev/null 2>&1; then
+          echo -e "${RED}FAIL${NC} $file"
+          shellcheck -e SC1091,SC2034 "$ROOT_DIR/$file" 2>&1 | head -10
+          ERRORS=1
+        else
+          echo -e "${GREEN}PASS${NC} $file"
+        fi
+      fi
+    done
+  else
+    echo -e "${YELLOW}WARN${NC} shellcheck not installed, skipping shell lint"
+  fi
+fi
+
+# Validate YAML files
+if [ -n "$STAGED_YAML" ]; then
+  echo "Checking YAML files..."
+  for file in $STAGED_YAML; do
+    if [ -f "$ROOT_DIR/$file" ]; then
+      # Basic YAML syntax check
+      if command -v yq &>/dev/null; then
+        if ! yq eval '.' "$ROOT_DIR/$file" >/dev/null 2>&1; then
+          echo -e "${RED}FAIL${NC} $file (invalid YAML)"
+          ERRORS=1
+        else
+          echo -e "${GREEN}PASS${NC} $file"
+        fi
+      elif command -v python3 &>/dev/null; then
+        if ! python3 -c "import yaml; yaml.safe_load(open('$ROOT_DIR/$file'))" 2>/dev/null; then
+          echo -e "${RED}FAIL${NC} $file (invalid YAML)"
+          ERRORS=1
+        else
+          echo -e "${GREEN}PASS${NC} $file"
+        fi
+      else
+        echo -e "${YELLOW}SKIP${NC} $file (no YAML validator)"
+      fi
+    fi
+  done
+fi
+
+# Check for common issues
+echo "Checking for common issues..."
+
+# Check for debug statements
+if git diff --cached | grep -E '^\+.*echo.*DEBUG|^\+.*set -x' >/dev/null 2>&1; then
+  echo -e "${YELLOW}WARN${NC} Possible debug statements found"
+fi
+
+# Check for hardcoded paths
+if git diff --cached | grep -E '^\+.*/Users/|^\+.*/home/' >/dev/null 2>&1; then
+  echo -e "${YELLOW}WARN${NC} Possible hardcoded paths found"
+fi
+
+if [ "$ERRORS" -ne 0 ]; then
+  echo ""
+  echo -e "${RED}Pre-commit checks failed. Fix errors before committing.${NC}"
+  echo "To bypass: git commit --no-verify"
+  exit 1
+fi
+
+echo -e "${GREEN}Pre-commit checks passed!${NC}"
+exit 0

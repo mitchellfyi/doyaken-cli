@@ -458,7 +458,7 @@ EOF
 
   # Create AI-AGENT.md if it doesn't exist
   if [ ! -f "$target_dir/AI-AGENT.md" ]; then
-    local agent_md_src="$DOYAKEN_HOME/templates/doyaken.md"
+    local agent_md_src="$DOYAKEN_HOME/templates/AI-AGENT.md"
     if [ -f "$agent_md_src" ]; then
       cp "$agent_md_src" "$target_dir/AI-AGENT.md"
     else
@@ -565,13 +565,13 @@ cmd_tasks() {
         echo "Tasks in $project:"
         echo ""
         echo "TODO:"
-        ls -1 "$DOYAKEN_DIR/tasks/todo/"*.md 2>/dev/null | xargs -I {} basename {} || echo "  (none)"
+        find "$DOYAKEN_DIR/tasks/todo" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
         echo ""
         echo "DOING:"
-        ls -1 "$DOYAKEN_DIR/tasks/doing/"*.md 2>/dev/null | xargs -I {} basename {} || echo "  (none)"
+        find "$DOYAKEN_DIR/tasks/doing" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
         echo ""
         echo "DONE (recent):"
-        ls -1t "$DOYAKEN_DIR/tasks/done/"*.md 2>/dev/null | head -5 | xargs -I {} basename {} || echo "  (none)"
+        find "$DOYAKEN_DIR/tasks/done" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null | head -5 || echo "  (none)"
       fi
       ;;
     new)
@@ -585,7 +585,9 @@ cmd_tasks() {
       # Generate task ID
       local priority="003"
       local sequence
-      sequence=$(printf "%03d" $(($(ls -1 "$DOYAKEN_DIR/tasks/todo/"*.md 2>/dev/null | wc -l | tr -d ' ') + 1)))
+      local todo_count
+      todo_count=$(find "$DOYAKEN_DIR/tasks/todo" -name "*.md" -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+      sequence=$(printf "%03d" $((todo_count + 1)))
       local slug
       slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
       local task_id="${priority}-${sequence}-${slug}"
@@ -762,7 +764,8 @@ cmd_doctor() {
   # Check agents
   echo "AI Agents:"
   for agent in claude codex gemini copilot opencode; do
-    local cmd="${AGENT_COMMANDS[$agent]}"
+    local cmd
+    cmd=$(_get_agent_cmd "$agent")
     if command -v "$cmd" &>/dev/null; then
       if [ "$agent" = "$current_agent" ]; then
         log_success "$agent ($cmd) - ACTIVE"

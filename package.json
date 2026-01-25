@@ -46,8 +46,11 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "test": "bash scripts/test.sh",
-    "lint": "shellcheck lib/*.sh bin/doyaken",
-    "prepublishOnly": "npm run test"
+    "lint": "bash scripts/lint.sh",
+    "validate": "bash scripts/validate-yaml.sh",
+    "check": "bash scripts/check-all.sh",
+    "setup": "bash scripts/setup-hooks.sh",
+    "prepublishOnly": "npm run check"
   },
   "publishConfig": {
     "access": "public"

@@ -24,7 +24,7 @@ You are performing final review for task {{TASK_ID}}.
 
 4. **Create Follow-up Tasks** (if needed)
    For improvements/optimizations discovered:
-   - Create new task files in `.claude/tasks/todo/`
+   - Create new task files in `.doyaken/tasks/todo/`
    - Use priority 003 (Medium) for improvements
    - Use priority 004 (Low) for nice-to-haves
    - Reference this task in the new task's context
@@ -35,7 +35,7 @@ You are performing final review for task {{TASK_ID}}.
    - Update status to `done`
    - Set completed timestamp
    - Write completion summary
-   - Move task file to `.claude/tasks/done/`
+   - Move task file to `.doyaken/tasks/done/`
 
 ## Output
 

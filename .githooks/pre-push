@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# pre-push hook - Run full test suite before push
+#
+set -euo pipefail
+
+# Get the root directory
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+echo "Running pre-push checks..."
+
+# Run full test suite
+if [ -f "$ROOT_DIR/scripts/test.sh" ]; then
+  if ! "$ROOT_DIR/scripts/test.sh"; then
+    echo -e "${RED}Tests failed. Push aborted.${NC}"
+    echo "To bypass: git push --no-verify"
+    exit 1
+  fi
+fi
+
+echo -e "${GREEN}Pre-push checks passed!${NC}"
+exit 0

@@ -7,46 +7,75 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        node-version: [18, 20]
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
       - name: Install shellcheck
-        run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update && sudo apt-get install -y shellcheck
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            brew install shellcheck
-          fi
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
 
       - name: Lint shell scripts
         run: |
-          shellcheck lib/*.sh bin/doyaken install.sh || true
+          chmod +x scripts/lint.sh
+          ./scripts/lint.sh
 
-      - name: Test CLI
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yq
         run: |
-          chmod +x bin/doyaken lib/*.sh
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Validate YAML files
+        run: |
+          chmod +x scripts/validate-yaml.sh
+          ./scripts/validate-yaml.sh
+
+      - name: Check bash syntax
+        run: |
+          for script in lib/*.sh bin/doyaken install.sh scripts/*.sh; do
+            if [ -f "$script" ]; then
+              echo "Checking $script..."
+              bash -n "$script"
+            fi
+          done
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    needs: [lint, validate]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x bin/doyaken lib/*.sh scripts/*.sh install.sh
+
+      - name: Run tests
+        run: ./scripts/test.sh
+
+      - name: Test CLI commands
+        run: |
           ./bin/doyaken --version
           ./bin/doyaken help
-
-      - name: Test install script (dry run)
-        run: |
-          # Test that install script is valid bash
-          bash -n install.sh
+          ./bin/doyaken doctor || true
 
   package:
+    name: Package
     runs-on: ubuntu-latest
     needs: test
 
@@ -61,8 +90,45 @@ jobs:
 
       - name: Verify package.json
         run: |
-          node -e "const pkg = require('./package.json'); console.log('Package:', pkg.name, pkg.version)"
+          node -e "
+            const pkg = require('./package.json');
+            console.log('Package:', pkg.name);
+            console.log('Version:', pkg.version);
+            console.log('Bin:', JSON.stringify(pkg.bin));
+            if (!pkg.bin || !pkg.bin.doyaken) {
+              console.error('Missing bin entry');
+              process.exit(1);
+            }
+          "
 
       - name: Test npm pack
+        run: npm pack --dry-run
+
+  install-test:
+    name: Install Test
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test install script (dry run check)
+        run: bash -n install.sh
+
+      - name: Test local install
         run: |
-          npm pack --dry-run
+          # Test installation to temp directory
+          export DOYAKEN_HOME="$RUNNER_TEMP/doyaken-test"
+          mkdir -p "$DOYAKEN_HOME"
+
+          # Simulate install by copying files
+          cp -r bin lib prompts templates config scripts "$DOYAKEN_HOME/"
+          chmod +x "$DOYAKEN_HOME/bin/doyaken"
+
+          # Test the installed binary
+          "$DOYAKEN_HOME/bin/doyaken" --version
+          "$DOYAKEN_HOME/bin/doyaken" help

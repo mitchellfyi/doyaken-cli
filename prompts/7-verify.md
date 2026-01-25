@@ -27,12 +27,12 @@ You are verifying that task {{TASK_ID}} was managed correctly through all phases
 
 5. **Final Task State**
    If ALL acceptance criteria are met:
-   - Move task file to `.claude/tasks/done/`
+   - Move task file to `.doyaken/tasks/done/`
    - Set Status to `done`
    - Set Completed timestamp
 
    If NOT all criteria are met:
-   - Keep task in `.claude/tasks/doing/`
+   - Keep task in `.doyaken/tasks/doing/`
    - Document what remains in Work Log
    - Create follow-up task if needed
 
@@ -41,10 +41,10 @@ You are verifying that task {{TASK_ID}} was managed correctly through all phases
 
    ```bash
    # Regenerate taskboard
-   .claude/agent/scripts/taskboard.sh
+   doyaken tasks
 
    # Stage and commit task files
-   git add .claude/tasks/ TASKBOARD.md
+   git add .doyaken/tasks/ TASKBOARD.md
    git commit -m "chore: Complete task {{TASK_ID}} [{{TASK_ID}}]" || true
    ```
 

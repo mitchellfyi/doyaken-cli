@@ -1270,7 +1270,7 @@ run_agent_iteration() {
 
   if [ -z "$task_file" ]; then
     log_info "No available tasks (all locked or empty)"
-    log_info "Agent will create one from MISSION.md or wait for tasks"
+    log_info "Agent will create one from PROJECT.md or wait for tasks"
   else
     local task_id
     task_id=$(get_task_id_from_file "$task_file")

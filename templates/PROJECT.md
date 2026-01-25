@@ -1,6 +1,6 @@
-# Project Mission
+# Project
 
-> Replace this with your project's mission statement and goals.
+> Replace this with your project's description and goals.
 
 ## Vision
 
@@ -19,33 +19,18 @@ Things explicitly out of scope:
 - Not trying to do X
 - Won't support Y
 
-## Success Criteria
-
-How do we know when we're done?
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
-
 ## Tech Stack
 
-- Language:
-- Framework:
-- Database:
-- Testing:
-
-## Key Decisions
-
-Important architectural or design decisions:
-
-1. **Decision 1**: Why we chose X over Y
-2. **Decision 2**: Why we structured it this way
+- **Language**:
+- **Framework**:
+- **Database**:
+- **Testing**:
 
 ## Getting Started
 
 ```bash
-# Setup commands
-npm install  # or bundle install, pip install, etc.
+# Install dependencies
+npm install
 
 # Run tests
 npm test
@@ -54,9 +39,16 @@ npm test
 npm run dev
 ```
 
+## Key Decisions
+
+Important architectural or design decisions:
+
+1. **Decision 1**: Why we chose X over Y
+2. **Decision 2**: Why we structured it this way
+
 ## Agent Notes
 
-Things the agent should know:
+Things the agent should know when working on this project:
 
 - Coding conventions to follow
 - Quality standards to maintain
