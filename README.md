@@ -14,7 +14,6 @@ A standalone multi-project autonomous agent CLI that works with any AI coding ag
 - **Skills System**: Reusable prompts with MCP tool integration
 - **MCP Integration**: Connect to GitHub, Linear, Slack, Jira via MCP tools
 - **Project Registry**: Track projects by path, git remote, domains, and services
-- **Legacy Migration**: Seamlessly upgrade existing `.claude/` projects
 
 ## Installation
 
@@ -79,7 +78,6 @@ dk doctor    # Health check
 | `dk status` | Show project status |
 | `dk list` | List all registered projects |
 | `dk manifest` | Show project manifest |
-| `dk migrate` | Upgrade from `.claude/` format |
 | `dk doctor` | Health check |
 | `dk help` | Show help |
 
@@ -323,22 +321,6 @@ dk tasks new "Add user authentication"
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase |
 | `TIMEOUT_IMPLEMENT` | `1800` | Implementation timeout (seconds) |
 | `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
-
-## Migration from `.claude/`
-
-If you have existing projects using the `.claude/` structure:
-
-```bash
-cd /path/to/legacy/project
-dk migrate
-```
-
-This will:
-- Rename `.claude/` to `.doyaken/`
-- Remove embedded agent code
-- Create `manifest.yaml`
-- Rename `CLAUDE.md` to `AGENT.md`
-- Register in the global project registry
 
 ## Troubleshooting
 

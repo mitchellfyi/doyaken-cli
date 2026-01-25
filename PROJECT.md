@@ -12,7 +12,6 @@ Doyaken is a universal task runner for AI coding agents. Install once globally, 
 2. **Multi-Project**: Global installation manages multiple projects via registry
 3. **Autonomous Operation**: 7-phase execution with self-healing and automatic retries
 4. **Parallel Execution**: Multiple agents can work simultaneously with lock coordination
-5. **Easy Migration**: Seamlessly upgrade existing `.claude/` projects to `.doyaken/`
 
 ## Non-Goals
 

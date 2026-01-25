@@ -68,7 +68,6 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
-  ${CYAN}migrate${NC}             Migrate from .claude/ to .doyaken/
   ${CYAN}doctor${NC}              Health check and diagnostics
   ${CYAN}version${NC}             Show version
   ${CYAN}help${NC} [command]      Show help
@@ -142,30 +141,6 @@ ${BOLD}WHAT IT CREATES:${NC}
     state/              Session state
     locks/              Lock files
   AGENT.md              Operating manual (if not exists)
-
-EOF
-      ;;
-    migrate)
-      cat << EOF
-${BOLD}doyaken migrate${NC} - Migrate from .claude/ to .doyaken/
-
-${BOLD}USAGE:${NC}
-  doyaken migrate [path]
-
-${BOLD}DESCRIPTION:${NC}
-  Converts a project from the legacy .claude/ structure to the new
-  .doyaken/ structure. This includes:
-
-  - Renaming .claude/ to .doyaken/
-  - Removing embedded agent code (now global)
-  - Generating manifest.yaml from git info
-  - Renaming CLAUDE.md to AGENT.md
-  - Updating bin/agent wrapper (if exists)
-
-${BOLD}IMPORTANT:${NC}
-  - Commit all changes before migrating
-  - Ensure no tasks are in doing/ state
-  - Back up .claude/ directory first
 
 EOF
       ;;
@@ -254,11 +229,9 @@ require_project() {
 
   if [[ "$project" == LEGACY:* ]]; then
     local legacy_path="${project#LEGACY:}"
-    log_warn "Legacy .claude/ project detected at $legacy_path"
-    log_info "Run 'doyaken migrate' to upgrade to the new format"
-    echo "$legacy_path"
-    export DOYAKEN_LEGACY=1
-    export DOYAKEN_DIR="$legacy_path/.claude"
+    log_error "Legacy .claude/ project detected at $legacy_path"
+    log_info "This project uses an old format. Please run 'doyaken init' in a fresh directory."
+    exit 1
   else
     echo "$project"
     export DOYAKEN_LEGACY=0
@@ -325,7 +298,7 @@ cmd_init() {
   # Check for legacy .claude/
   if [ -d "$target_dir/.claude" ]; then
     log_warn "Legacy .claude/ directory found"
-    log_info "Run 'doyaken migrate' to upgrade instead"
+    log_info "Remove .claude/ first or use a different directory"
     return 1
   fi
 
@@ -908,19 +881,6 @@ cmd_manifest() {
   cat "$manifest"
 }
 
-cmd_migrate() {
-  local target_dir="${1:-$(pwd)}"
-
-  # Resolve to absolute path
-  target_dir=$(cd "$target_dir" 2>/dev/null && pwd) || {
-    log_error "Directory not found: $target_dir"
-    exit 1
-  }
-
-  source "$SCRIPT_DIR/migration.sh"
-  migrate_project "$target_dir"
-}
-
 cmd_doctor() {
   local project
   project=$(detect_project 2>/dev/null) || project=""
@@ -988,7 +948,7 @@ cmd_doctor() {
   if [ -n "$project" ]; then
     if [[ "$project" == LEGACY:* ]]; then
       log_warn "Legacy project: ${project#LEGACY:}"
-      echo "  Run 'doyaken migrate' to upgrade"
+      echo "  Run 'doyaken init' in a new directory instead"
     else
       log_success "Project found: $project"
 
@@ -1276,9 +1236,6 @@ main() {
       ;;
     manifest)
       cmd_manifest
-      ;;
-    migrate)
-      cmd_migrate "${args[@]+"${args[@]}"}"
       ;;
     doctor)
       cmd_doctor
