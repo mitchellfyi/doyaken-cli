@@ -4,7 +4,7 @@ You are diagnosing a problem in the codebase.
 
 ## Debugging Methodology
 
-{{include:modules/debugging.md}}
+{{include:library/debugging.md}}
 
 ## Output Format
 

@@ -392,8 +392,8 @@ run_skill() {
 
   # Include base prompt if available
   local base_prompt=""
-  if [ -f "$DOYAKEN_HOME/prompts/standalone/base.md" ]; then
-    base_prompt=$(cat "$DOYAKEN_HOME/prompts/standalone/base.md")
+  if [ -f "$DOYAKEN_HOME/prompts/library/base.md" ]; then
+    base_prompt=$(cat "$DOYAKEN_HOME/prompts/library/base.md")
     prompt="$base_prompt
 
 ---

@@ -4,7 +4,7 @@ You are planning the implementation for task {{TASK_ID}}.
 
 ## Planning Methodology
 
-{{include:modules/planning.md}}
+{{include:library/planning.md}}
 
 ## Phase-Specific Instructions
 

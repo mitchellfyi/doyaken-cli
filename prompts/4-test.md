@@ -4,7 +4,7 @@ You are testing the implementation for task {{TASK_ID}}.
 
 ## Testing Methodology
 
-{{include:modules/testing.md}}
+{{include:library/testing.md}}
 
 ## Phase-Specific Instructions
 

@@ -4,7 +4,7 @@ You are performing a security-focused code review.
 
 ## Security Methodology
 
-{{include:modules/security.md}}
+{{include:library/security.md}}
 
 ## Findings Format
 

@@ -4,7 +4,7 @@ You are synchronizing documentation for task {{TASK_ID}}.
 
 ## Documentation Standards
 
-{{include:modules/documentation.md}}
+{{include:library/documentation.md}}
 
 ## Phase-Specific Instructions
 

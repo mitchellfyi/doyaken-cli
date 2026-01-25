@@ -2,7 +2,7 @@
 #
 # inject-base-prompt.sh - UserPromptSubmit hook to inject base context
 #
-# This hook adds base instructions from the standalone/base.md prompt to every user prompt,
+# This hook adds base instructions from the library/base.md prompt to every user prompt,
 # ensuring consistent behavior across all interactions.
 #
 # Usage: Configure in .claude/settings.json as a UserPromptSubmit hook
@@ -17,7 +17,7 @@ INPUT=$(cat)
 
 # Determine prompt path (check project first, then global)
 get_prompt_path() {
-  local prompt_name="standalone/base.md"
+  local prompt_name="library/base.md"
   local project_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
   # Check project prompts

@@ -11,11 +11,11 @@ You are implementing task {{TASK_ID}} according to the plan.
 
 ## Error Handling Reference
 
-{{include:modules/error-handling.md}}
+{{include:library/error-handling.md}}
 
 ## Git Workflow
 
-{{include:modules/git-workflow.md}}
+{{include:library/git-workflow.md}}
 
 ## Implementation Process
 

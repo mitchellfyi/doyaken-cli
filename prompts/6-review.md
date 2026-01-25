@@ -4,11 +4,11 @@ You are performing final review for task {{TASK_ID}}.
 
 ## Code Review Methodology
 
-{{include:modules/code-review.md}}
+{{include:library/code-review.md}}
 
 ## Security Review
 
-{{include:modules/security.md}}
+{{include:library/security.md}}
 
 ## Phase-Specific Instructions
 
