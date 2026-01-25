@@ -255,7 +255,7 @@ your-project/
 │   ├── logs/                # Execution logs
 │   ├── state/               # Session recovery
 │   └── locks/               # Parallel coordination
-├── AI-AGENT.md              # Project-specific agent notes
+├── AGENT.md                 # Project-specific agent notes
 └── TASKBOARD.md             # Generated task overview
 ```
 
@@ -337,7 +337,7 @@ This will:
 - Rename `.claude/` to `.doyaken/`
 - Remove embedded agent code
 - Create `manifest.yaml`
-- Rename `CLAUDE.md` to `AI-AGENT.md`
+- Rename `CLAUDE.md` to `AGENT.md`
 - Register in the global project registry
 
 ## Troubleshooting

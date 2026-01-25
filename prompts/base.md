@@ -10,7 +10,7 @@
 
 ## Before Making Any Changes
 
-1. **Read instruction docs** - Look for AI-AGENT.md, CLAUDE.md, CONTRIBUTING.md, README.md
+1. **Read instruction docs** - Look for AGENT.md, CLAUDE.md, CONTRIBUTING.md, README.md
 2. **Understand "done"** - Check CI workflows, scripts, lint/test configs to know what passes
 3. **Follow existing patterns** - Match the architecture and conventions already in use
 4. **Check git status** - Know what's already changed before making more changes

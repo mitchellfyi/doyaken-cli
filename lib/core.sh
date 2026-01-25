@@ -75,9 +75,9 @@ LOGS_DIR="${LOGS_DIR:-$DATA_DIR/logs/claude-loop}"
 STATE_DIR="${STATE_DIR:-$DATA_DIR/state}"
 LOCKS_DIR="${LOCKS_DIR:-$DATA_DIR/locks}"
 
-# Detect operating manual (AI-AGENT.md or CLAUDE.md for legacy)
-if [ -f "$PROJECT_DIR/AI-AGENT.md" ]; then
-  AGENT_MD="$PROJECT_DIR/AI-AGENT.md"
+# Detect operating manual (AGENT.md or CLAUDE.md for legacy)
+if [ -f "$PROJECT_DIR/AGENT.md" ]; then
+  AGENT_MD="$PROJECT_DIR/AGENT.md"
 elif [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
   AGENT_MD="$PROJECT_DIR/CLAUDE.md"
 else
@@ -1071,7 +1071,7 @@ health_check() {
   fi
 
   if [ -z "$AGENT_MD" ]; then
-    log_warn "No AI-AGENT.md or CLAUDE.md found"
+    log_warn "No AGENT.md or CLAUDE.md found"
   else
     log_success "Operating manual exists: $(basename "$AGENT_MD")"
   fi

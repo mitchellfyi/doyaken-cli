@@ -265,8 +265,8 @@ WRAPPER
   mkdir -p "$DOYAKEN_HOME/locks"
 
   # Copy task template
-  if [ -f "$DOYAKEN_HOME/templates/task.md" ]; then
-    cp "$DOYAKEN_HOME/templates/task.md" "$DOYAKEN_HOME/tasks/_templates/"
+  if [ -f "$DOYAKEN_HOME/templates/TASK.md" ]; then
+    cp "$DOYAKEN_HOME/templates/TASK.md" "$DOYAKEN_HOME/tasks/_templates/"
   fi
 
   # Create .gitkeep files
@@ -313,10 +313,10 @@ agent:
 EOF
   log_success "Created project manifest"
 
-  # Create AI-AGENT.md if not exists
-  if [ ! -f "$PROJECT_DIR/AI-AGENT.md" ]; then
-    cp "$DOYAKEN_HOME/templates/AI-AGENT.md" "$PROJECT_DIR/AI-AGENT.md" 2>/dev/null || true
-    log_success "Created AI-AGENT.md"
+  # Create AGENT.md if not exists
+  if [ ! -f "$PROJECT_DIR/AGENT.md" ]; then
+    cp "$DOYAKEN_HOME/templates/AGENT.md" "$PROJECT_DIR/AGENT.md" 2>/dev/null || true
+    log_success "Created AGENT.md"
   fi
 
   # Add to .gitignore

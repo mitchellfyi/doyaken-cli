@@ -68,7 +68,7 @@ for prompt in 0-expand.md 1-triage.md 2-plan.md 3-implement.md 4-test.md 5-docs.
 done
 
 # Test 6: Templates exist
-for template in manifest.yaml task.md PROJECT.md AI-AGENT.md; do
+for template in manifest.yaml TASK.md PROJECT.md AGENT.md; do
   if [ -f "$ROOT_DIR/templates/$template" ]; then
     pass "templates/$template exists"
   else

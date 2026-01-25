@@ -191,18 +191,18 @@ agent:
 EOF
   log_success "Created manifest.yaml"
 
-  # Step 5: Rename CLAUDE.md to AI-AGENT.md
+  # Step 5: Rename CLAUDE.md to AGENT.md
   if [ -f "$project_dir/CLAUDE.md" ]; then
-    log_info "Renaming CLAUDE.md to AI-AGENT.md"
-    mv "$project_dir/CLAUDE.md" "$project_dir/AI-AGENT.md"
+    log_info "Renaming CLAUDE.md to AGENT.md"
+    mv "$project_dir/CLAUDE.md" "$project_dir/AGENT.md"
 
     # Update internal references
-    if [ -f "$project_dir/AI-AGENT.md" ]; then
-      sed -i.bak 's/\.claude\//\.doyaken\//g' "$project_dir/AI-AGENT.md"
-      sed -i.bak 's/CLAUDE\.md/AI-AGENT.md/g' "$project_dir/AI-AGENT.md"
-      rm -f "$project_dir/AI-AGENT.md.bak"
+    if [ -f "$project_dir/AGENT.md" ]; then
+      sed -i.bak 's/\.claude\//\.doyaken\//g' "$project_dir/AGENT.md"
+      sed -i.bak 's/CLAUDE\.md/AGENT.md/g' "$project_dir/AGENT.md"
+      rm -f "$project_dir/AGENT.md.bak"
     fi
-    log_success "Renamed CLAUDE.md to AI-AGENT.md"
+    log_success "Renamed CLAUDE.md to AGENT.md"
   fi
 
   # Step 6: Update TASKBOARD.md references
@@ -258,7 +258,7 @@ EOF
   echo "  - Embedded agent code removed (now global)"
   echo "  - Task folders updated (1.blocked/, 2.todo/, 3.doing/, 4.done/)"
   echo "  - manifest.yaml created"
-  echo "  - CLAUDE.md renamed to AI-AGENT.md"
+  echo "  - CLAUDE.md renamed to AGENT.md"
   echo "  - Project registered in global registry"
   echo ""
   echo "Next steps:"

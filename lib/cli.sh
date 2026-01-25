@@ -141,7 +141,7 @@ ${BOLD}WHAT IT CREATES:${NC}
     logs/               Execution logs
     state/              Session state
     locks/              Lock files
-  AI-AGENT.md           Operating manual (if not exists)
+  AGENT.md              Operating manual (if not exists)
 
 EOF
       ;;
@@ -159,7 +159,7 @@ ${BOLD}DESCRIPTION:${NC}
   - Renaming .claude/ to .doyaken/
   - Removing embedded agent code (now global)
   - Generating manifest.yaml from git info
-  - Renaming CLAUDE.md to AI-AGENT.md
+  - Renaming CLAUDE.md to AGENT.md
   - Updating bin/agent wrapper (if exists)
 
 ${BOLD}IMPORTANT:${NC}
@@ -421,12 +421,12 @@ EOF
   log_success "Created manifest.yaml"
 
   # Copy task template
-  local template_src="$DOYAKEN_HOME/templates/task.md"
+  local template_src="$DOYAKEN_HOME/templates/TASK.md"
   if [ -f "$template_src" ]; then
-    cp "$template_src" "$ai_agent_dir/tasks/_templates/task.md"
+    cp "$template_src" "$ai_agent_dir/tasks/_templates/TASK.md"
   else
     # Fallback: create basic template
-    cat > "$ai_agent_dir/tasks/_templates/task.md" << 'EOF'
+    cat > "$ai_agent_dir/tasks/_templates/TASK.md" << 'EOF'
 # Task: [TITLE]
 
 ## Metadata
@@ -486,14 +486,14 @@ EOF
   fi
   log_success "Created task template"
 
-  # Create AI-AGENT.md if it doesn't exist
-  if [ ! -f "$target_dir/AI-AGENT.md" ]; then
-    local agent_md_src="$DOYAKEN_HOME/templates/AI-AGENT.md"
+  # Create AGENT.md if it doesn't exist
+  if [ ! -f "$target_dir/AGENT.md" ]; then
+    local agent_md_src="$DOYAKEN_HOME/templates/AGENT.md"
     if [ -f "$agent_md_src" ]; then
-      cp "$agent_md_src" "$target_dir/AI-AGENT.md"
+      cp "$agent_md_src" "$target_dir/AGENT.md"
     else
-      cat > "$target_dir/AI-AGENT.md" << 'EOF'
-# AI-AGENT.md - Project Operating Manual
+      cat > "$target_dir/AGENT.md" << 'EOF'
+# AGENT.md - Project Operating Manual
 
 This file configures how AI agents work on this project.
 
@@ -531,7 +531,7 @@ quality:
 
 EOF
     fi
-    log_success "Created AI-AGENT.md"
+    log_success "Created AGENT.md"
   fi
 
   # Register in global registry
@@ -1016,7 +1016,7 @@ cmd_doctor() {
         log_error "  tasks/done missing"
       fi
       [ -f "$ai_agent_dir/manifest.yaml" ] && log_success "  manifest.yaml exists" || log_warn "  manifest.yaml missing"
-      [ -f "$project/AI-AGENT.md" ] && log_success "  AI-AGENT.md exists" || log_warn "  AI-AGENT.md missing"
+      [ -f "$project/AGENT.md" ] && log_success "  AGENT.md exists" || log_warn "  AGENT.md missing"
     fi
   else
     log_info "Not in a project directory"

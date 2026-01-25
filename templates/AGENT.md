@@ -1,4 +1,4 @@
-# AI-AGENT.md - Project Configuration
+# AGENT.md - Project Configuration
 
 This file configures how AI agents work on this project.
 
