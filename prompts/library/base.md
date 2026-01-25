@@ -17,11 +17,19 @@
 
 ## Quality Standards
 
+**Principles** (see [library/code-quality.md](library/code-quality.md)):
+- **KISS** - Keep it simple; complexity is the enemy of reliability
+- **YAGNI** - Don't build what you don't need yet
+- **DRY** - Single source of truth for each piece of knowledge
+- **SOLID** - Single responsibility, open/closed, etc.
+
+**Practices**:
 - Write clear, maintainable code with appropriate tests
 - Update documentation when behavior changes
 - Fix root causes, not symptoms
 - No debug code, console.logs, or commented-out code in commits
 - Handle errors appropriately - don't swallow exceptions silently
+- All code must pass lint, typecheck, and tests before commit
 
 ## Commit Discipline
 

@@ -21,7 +21,11 @@ Quality gates for this repo:
 - Types: [command or "none"]
 - Tests: [command or "none"]
 - Build: [command or "none"]
+- CI: [present/missing]
+- Git hooks: [present/missing]
 ```
+
+**If quality gates are missing**: Flag this as a risk. Suggest running `doyaken skill setup-quality` to configure proper quality gates before implementation.
 
 ## 2) Validate Task File
 
