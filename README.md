@@ -8,9 +8,11 @@ A standalone multi-project autonomous agent CLI that works with any AI coding ag
 
 - **Agent Agnostic**: Works with Claude, Codex, Gemini, Copilot, or OpenCode
 - **Multi-Project Support**: Manage multiple projects from a single global installation
-- **7-Phase Execution**: Triage → Plan → Implement → Test → Docs → Review → Verify
+- **8-Phase Execution**: Expand → Triage → Plan → Implement → Test → Docs → Review → Verify
 - **Self-Healing**: Automatic retries, model fallback, crash recovery
 - **Parallel Agents**: Multiple agents can work simultaneously with lock coordination
+- **Skills System**: Reusable prompts with MCP tool integration
+- **MCP Integration**: Connect to GitHub, Linear, Slack, Jira via MCP tools
 - **Project Registry**: Track projects by path, git remote, domains, and services
 - **Legacy Migration**: Seamlessly upgrade existing `.claude/` projects
 
@@ -70,6 +72,10 @@ dk doctor    # Health check
 | `dk init [path]` | Initialize a new project |
 | `dk tasks` | Show taskboard |
 | `dk tasks new <title>` | Create a new task |
+| `dk skills` | List available skills |
+| `dk skill <name>` | Run a skill |
+| `dk mcp status` | Show MCP integration status |
+| `dk mcp configure` | Generate MCP configs |
 | `dk status` | Show project status |
 | `dk list` | List all registered projects |
 | `dk manifest` | Show project manifest |
@@ -134,6 +140,104 @@ dk run 5 &
 ```
 
 Agents coordinate via lock files in `.doyaken/locks/` and will not work on the same task.
+
+## Skills
+
+Skills are reusable prompts with YAML frontmatter that declare tool requirements:
+
+```bash
+# List available skills
+dk skills
+
+# Run a skill
+dk skill github-import --filter=open
+
+# Show skill info
+dk skill github-import --info
+```
+
+### Built-in Skills
+
+| Skill | Description | Requires |
+|-------|-------------|----------|
+| `github-import` | Import GitHub issues as tasks | GitHub MCP |
+| `github-sync` | Sync task status to GitHub | GitHub MCP |
+| `create-pr` | Create PR from recent commits | GitHub MCP |
+| `notify-slack` | Send Slack notifications | Slack MCP |
+
+### Creating Custom Skills
+
+Create a `.md` file in `~/.doyaken/skills/` (global) or `.doyaken/skills/` (project):
+
+```markdown
+---
+name: my-skill
+description: What this skill does
+requires:
+  - github                     # MCP servers needed
+args:
+  - name: filter
+    description: Filter option
+    default: "open"
+---
+
+# My Skill Prompt
+
+Instructions for the AI agent...
+```
+
+## MCP Integration
+
+Doyaken supports MCP (Model Context Protocol) tools for external integrations:
+
+```bash
+# Show integration status
+dk mcp status
+
+# Generate MCP configs for enabled integrations
+dk mcp configure
+```
+
+### Enabling Integrations
+
+Edit `.doyaken/manifest.yaml`:
+
+```yaml
+integrations:
+  github:
+    enabled: true
+  linear:
+    enabled: false
+  slack:
+    enabled: false
+  jira:
+    enabled: false
+```
+
+After enabling, run `dk mcp configure` to generate the MCP configuration.
+
+### Supported Integrations
+
+| Integration | Description | Required Env Var |
+|-------------|-------------|------------------|
+| GitHub | Issues, PRs, repos | `GITHUB_TOKEN` |
+| Linear | Issues, projects | `LINEAR_API_KEY` |
+| Slack | Messages, channels | `SLACK_BOT_TOKEN` |
+| Jira | Issues, sprints | `JIRA_API_TOKEN` |
+
+### Skill Hooks
+
+Auto-run skills at specific workflow points:
+
+```yaml
+# In manifest.yaml
+skills:
+  hooks:
+    before-triage:
+      - github-import       # Sync issues before starting
+    after-verify:
+      - github-sync         # Update issues after completion
+```
 
 ## Project Structure
 
