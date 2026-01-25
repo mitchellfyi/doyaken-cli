@@ -1,0 +1,14 @@
+# Filesystem MCP Server
+# Provides file system access (read, write, search)
+
+name: filesystem
+description: File system access (read, write, search files)
+command: npx
+args:
+  - "-y"
+  - "@modelcontextprotocol/server-filesystem"
+  - "${DOYAKEN_PROJECT:-.}"
+env: {}
+
+# This server provides access to files within the project directory
+# Useful for agents that need direct file manipulation

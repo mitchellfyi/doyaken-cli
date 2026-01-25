@@ -1,0 +1,18 @@
+# Slack MCP Server
+# Provides access to Slack channels, messages, and users
+
+name: slack
+description: Slack messaging (channels, messages, users)
+command: npx
+args:
+  - "-y"
+  - "slack-mcp-server"
+env:
+  SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
+  SLACK_TEAM_ID: "${SLACK_TEAM_ID}"
+
+# Required scopes for the Slack bot token:
+#   - channels:read
+#   - channels:history
+#   - chat:write
+#   - users:read

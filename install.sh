@@ -128,7 +128,8 @@ mkdir -p "$DOYAKEN_HOME/bin"
 mkdir -p "$DOYAKEN_HOME/lib"
 mkdir -p "$DOYAKEN_HOME/prompts"
 mkdir -p "$DOYAKEN_HOME/templates"
-mkdir -p "$DOYAKEN_HOME/config"
+mkdir -p "$DOYAKEN_HOME/config/mcp/servers"
+mkdir -p "$DOYAKEN_HOME/skills"
 mkdir -p "$DOYAKEN_HOME/projects"
 
 # Copy files
@@ -140,6 +141,9 @@ cp "$SOURCE_DIR/lib/core.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/registry.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/migration.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/taskboard.sh" "$DOYAKEN_HOME/lib/"
+cp "$SOURCE_DIR/lib/agents.sh" "$DOYAKEN_HOME/lib/"
+cp "$SOURCE_DIR/lib/skills.sh" "$DOYAKEN_HOME/lib/"
+cp "$SOURCE_DIR/lib/mcp.sh" "$DOYAKEN_HOME/lib/"
 
 # Prompts
 if [ -d "$SOURCE_DIR/prompts" ]; then
@@ -152,6 +156,16 @@ cp "$SOURCE_DIR/templates"/*.md "$DOYAKEN_HOME/templates/" 2>/dev/null || true
 
 # Config
 cp "$SOURCE_DIR/config/global.yaml" "$DOYAKEN_HOME/config/" 2>/dev/null || true
+
+# MCP server definitions
+if [ -d "$SOURCE_DIR/config/mcp/servers" ]; then
+  cp "$SOURCE_DIR/config/mcp/servers"/*.yaml "$DOYAKEN_HOME/config/mcp/servers/" 2>/dev/null || true
+fi
+
+# Skills
+if [ -d "$SOURCE_DIR/skills" ]; then
+  cp "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
+fi
 
 # Binary
 cp "$SOURCE_DIR/bin/doyaken" "$DOYAKEN_HOME/bin/"

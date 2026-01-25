@@ -1,0 +1,14 @@
+# Linear MCP Server
+# Provides access to Linear issues, projects, and teams
+
+name: linear
+description: Linear issue tracking (issues, projects, teams)
+command: npx
+args:
+  - "-y"
+  - "@anthropic/mcp-server-linear"
+env:
+  LINEAR_API_KEY: "${LINEAR_API_KEY}"
+
+# Get your API key from:
+#   Linear Settings > API > Personal API keys

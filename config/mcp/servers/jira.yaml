@@ -1,0 +1,16 @@
+# Jira MCP Server
+# Provides access to Jira issues, projects, and boards
+
+name: jira
+description: Jira issue tracking (issues, projects, sprints)
+command: npx
+args:
+  - "-y"
+  - "@anthropic/mcp-server-jira"
+env:
+  JIRA_BASE_URL: "${JIRA_BASE_URL}"
+  JIRA_USER_EMAIL: "${JIRA_USER_EMAIL}"
+  JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
+
+# Get your API token from:
+#   https://id.atlassian.com/manage-profile/security/api-tokens

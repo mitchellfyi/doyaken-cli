@@ -20,6 +20,8 @@ DOYAKEN_VERSION="1.0.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/registry.sh"
 source "$SCRIPT_DIR/agents.sh"
+source "$SCRIPT_DIR/skills.sh"
+source "$SCRIPT_DIR/mcp.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -60,6 +62,10 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}tasks${NC}               Show taskboard
   ${CYAN}tasks new${NC} <title>   Create new task interactively
   ${CYAN}task${NC} "<prompt>"     Create and immediately run a single task
+  ${CYAN}skills${NC}              List available skills
+  ${CYAN}skill${NC} <name>        Run a skill
+  ${CYAN}mcp${NC} status          Show MCP integration status
+  ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}migrate${NC}             Migrate from .claude/ to .doyaken/
@@ -1049,6 +1055,107 @@ cmd_version() {
   fi
 }
 
+cmd_skills() {
+  echo ""
+  echo -e "${BOLD}Available Skills${NC}"
+  echo "================"
+  echo ""
+
+  local found=false
+  while IFS='|' read -r name desc location; do
+    [ -z "$name" ] && continue
+    found=true
+    local loc_tag=""
+    [ "$location" = "project" ] && loc_tag=" ${CYAN}[project]${NC}"
+    echo -e "  ${GREEN}$name${NC}$loc_tag"
+    echo "    $desc"
+  done < <(list_skills)
+
+  if [ "$found" = false ]; then
+    echo "  No skills found."
+    echo ""
+    echo "  Skills are prompt templates in:"
+    echo "    - \$DOYAKEN_HOME/skills/ (global)"
+    echo "    - .doyaken/skills/ (project-specific)"
+  fi
+
+  echo ""
+  echo "Run a skill: ${CYAN}doyaken skill <name> [--arg=value]${NC}"
+  echo "Skill info:  ${CYAN}doyaken skill <name> --info${NC}"
+}
+
+cmd_skill() {
+  local name="${1:-}"
+  shift || true
+
+  if [ -z "$name" ]; then
+    log_error "Skill name required"
+    echo "Usage: doyaken skill <name> [--arg=value ...]"
+    echo "       doyaken skill <name> --info"
+    echo ""
+    echo "Run 'doyaken skills' to list available skills"
+    exit 1
+  fi
+
+  # Check for --info flag
+  for arg in "$@"; do
+    if [ "$arg" = "--info" ]; then
+      skill_info "$name"
+      return
+    fi
+  done
+
+  # Detect project (optional for skills)
+  local project
+  project=$(detect_project 2>/dev/null) || project=""
+  if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+    export DOYAKEN_PROJECT="$project"
+    export DOYAKEN_DIR="$project/.doyaken"
+  fi
+
+  # Set agent defaults
+  export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
+  export DOYAKEN_MODEL="${DOYAKEN_MODEL:-$(agent_default_model "$DOYAKEN_AGENT")}"
+
+  run_skill "$name" "$@"
+}
+
+cmd_mcp() {
+  local subcmd="${1:-status}"
+  shift || true
+
+  case "$subcmd" in
+    status)
+      # Detect project
+      local project
+      project=$(detect_project 2>/dev/null) || project=""
+      if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+        export DOYAKEN_PROJECT="$project"
+      fi
+      mcp_status
+      ;;
+    configure)
+      local project
+      project=$(require_project)
+      export DOYAKEN_PROJECT="$project"
+      mcp_configure "$@"
+      ;;
+    doctor)
+      local project
+      project=$(detect_project 2>/dev/null) || project=""
+      if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+        export DOYAKEN_PROJECT="$project"
+      fi
+      mcp_doctor
+      ;;
+    *)
+      log_error "Unknown mcp subcommand: $subcmd"
+      echo "Usage: doyaken mcp [status|configure|doctor]"
+      exit 1
+      ;;
+  esac
+}
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -1175,6 +1282,15 @@ main() {
       ;;
     doctor)
       cmd_doctor
+      ;;
+    skills)
+      cmd_skills
+      ;;
+    skill)
+      cmd_skill "${args[@]+"${args[@]}"}"
+      ;;
+    mcp)
+      cmd_mcp "${args[@]+"${args[@]}"}"
       ;;
     version)
       cmd_version

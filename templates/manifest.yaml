@@ -20,32 +20,45 @@ domains:
   # staging: "https://staging.example.com"
   # docs: "https://docs.example.com"
 
-# External tool integrations
-tools:
-  # GitHub integration
-  # github:
-  #   enabled: true
-  #   repo: "user/repo"
-  #   labels:
-  #     - "doyaken"
-  #     - "automated"
+# MCP Tool Integrations (opt-in)
+# Enable integrations to use MCP tools in skills and workflows
+# Run 'doyaken mcp configure' after enabling to generate configs
+integrations:
+  # GitHub integration (issues, PRs, repos)
+  github:
+    enabled: false
+    # repo: "user/repo"  # Auto-detected from git remote
 
-  # Jira integration
-  # jira:
-  #   enabled: false
-  #   project_key: ""
-  #   base_url: ""
+  # Linear integration (issues, projects)
+  linear:
+    enabled: false
+    # team_id: ""
 
-  # Linear integration
-  # linear:
-  #   enabled: false
-  #   team_id: ""
+  # Jira integration (issues, sprints)
+  jira:
+    enabled: false
+    # project_key: ""
+    # base_url: ""
 
-  # Slack notifications
-  # slack:
-  #   enabled: false
-  #   channel: ""
-  #   webhook_url: ""
+  # Slack integration (notifications)
+  slack:
+    enabled: false
+    # channel: "#dev"
+
+# Skills configuration
+# Skills are prompts that can be run standalone or hooked into the workflow
+skills:
+  # Auto-run skills at specific points in the workflow
+  hooks:
+    # Run before triage phase (e.g., sync issues)
+    before-triage: []
+    # Run after verify phase (e.g., update issue status)
+    after-verify: []
+    # Example:
+    # before-triage:
+    #   - github-import
+    # after-verify:
+    #   - github-sync
 
 # Quality gate commands
 # These are run during the TEST phase to ensure code quality

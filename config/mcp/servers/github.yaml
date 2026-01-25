@@ -1,0 +1,17 @@
+# GitHub MCP Server
+# Provides access to GitHub repositories, issues, PRs, and more
+
+name: github
+description: GitHub API access (issues, PRs, repos)
+command: npx
+args:
+  - "-y"
+  - "@modelcontextprotocol/server-github"
+env:
+  GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+
+# Required permissions for the GitHub token:
+#   - repo (for private repos)
+#   - read:org (for org repos)
+#   - read:user
+#   - user:email
