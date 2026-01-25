@@ -2,37 +2,63 @@
 
 You are expanding task {{TASK_ID}} from a brief prompt into a full specification.
 
-## Your Responsibilities
+## 1) Classify the Intent
 
-1. **Understand the Request**
-   - Read the task's current description/prompt
-   - Identify what the user is asking for
-   - Determine the scope and intent
+Determine what type of work this is:
 
-2. **Analyze the Codebase**
-   - Find relevant files and code related to this task
-   - Understand current architecture and patterns
-   - Identify what exists vs what needs to be built
+| Intent | Description | Signals |
+|--------|-------------|---------|
+| **BUILD** | New feature or capability | "add", "create", "implement", "new" |
+| **FIX** | Bug fix or error resolution | "fix", "broken", "error", "doesn't work" |
+| **IMPROVE** | Enhance existing functionality | "improve", "optimize", "refactor", "better" |
+| **REVIEW** | Audit, analyze, or document | "review", "audit", "check", "document" |
 
-3. **Expand the Task Description**
-   Update the task file's **Context** section with:
-   - Clear explanation of what needs to be done
-   - Why this task matters
-   - What parts of the codebase are affected
-   - Any relevant background information
+This classification guides how thorough the specification needs to be.
 
-4. **Define Acceptance Criteria**
-   Update the task file's **Acceptance Criteria** with specific, testable items:
-   - Each criterion should be verifiable (can check a box when done)
-   - Include functional requirements
-   - Include quality requirements (tests, no regressions)
-   - Be specific - avoid vague criteria like "works correctly"
+## 2) Understand the Request
 
-5. **Identify Scope Boundaries**
-   Add to **Notes** section:
-   - What is IN scope
-   - What is OUT of scope (to prevent scope creep)
-   - Any assumptions being made
+- Read the task's current description/prompt
+- Identify what the user is actually asking for (not what you think they need)
+- Determine the scope - what's the smallest change that solves the problem?
+- Check if this overlaps with or depends on other tasks
+
+## 3) Analyze the Codebase
+
+Before specifying what to build, understand what exists:
+
+- Find ALL files related to this task's domain
+- Understand current architecture and patterns
+- Check existing tests - what's covered, what's missing?
+- Identify what exists vs what needs to be built
+- Note any conventions or patterns to follow
+
+## 4) Define Acceptance Criteria
+
+Write specific, testable criteria. Each criterion should be:
+
+- **Verifiable** - Can objectively check if it's done
+- **Atomic** - One thing per criterion
+- **Necessary** - Actually required for the task (no gold-plating)
+
+Bad: "Works correctly" / "Handles errors properly"
+Good: "Returns 404 when user not found" / "Logs error message with request ID"
+
+## 5) Identify Edge Cases and Risks
+
+Consider what could go wrong:
+
+- What happens with empty/null/invalid input?
+- What if external services fail?
+- Are there race conditions or concurrency concerns?
+- What existing functionality might break?
+
+## 6) Set Scope Boundaries
+
+Prevent scope creep by being explicit:
+
+- **In scope**: What WILL be done
+- **Out of scope**: What WON'T be done (even if related)
+- **Assumptions**: What we're taking for granted
 
 ## Output
 
@@ -41,7 +67,9 @@ Update the task file with expanded specification:
 ```markdown
 ## Context
 
-[Expanded description of what needs to be done and why]
+**Intent**: BUILD / FIX / IMPROVE / REVIEW
+
+[Clear explanation of what needs to be done and why]
 
 - Background: [relevant context]
 - Affected areas: [files/components involved]
@@ -70,6 +98,12 @@ Update the task file with expanded specification:
 
 **Assumptions:**
 - [any assumptions made]
+
+**Edge Cases:**
+- [edge case 1 and how it should be handled]
+
+**Risks:**
+- [potential risk and mitigation]
 ```
 
 Also update the Work Log:
@@ -77,10 +111,12 @@ Also update the Work Log:
 ```markdown
 ### {{TIMESTAMP}} - Task Expanded
 
+- Intent: [BUILD/FIX/IMPROVE/REVIEW]
 - Original prompt: [brief prompt]
 - Scope: [summary of what will be done]
 - Key files: [main files to modify]
-- Estimated complexity: [low/medium/high]
+- Complexity: [low/medium/high]
+- Risks: [key risks identified]
 ```
 
 ## Rules
@@ -91,5 +127,6 @@ Also update the Work Log:
 - Be specific and concrete - vague specs lead to vague implementations
 - If the prompt is unclear, make reasonable assumptions and document them
 - Keep scope focused - create follow-up tasks for related work
+- Prefer the smallest change that solves the problem
 
 Task file: {{TASK_FILE}}

@@ -2,53 +2,82 @@
 
 You are verifying that task {{TASK_ID}} was managed correctly through all phases.
 
-## Your Responsibilities
+## Purpose
 
-1. **Validate Task File State**
-   - Check task file exists in correct location (3.doing/ or 4.done/)
-   - Verify Status field matches actual state
-   - Confirm Started timestamp is set
-   - If complete: Completed timestamp should be set
+This phase ensures:
+1. The task is actually complete (not just "mostly done")
+2. All work is properly documented
+3. Task management is consistent
+4. Changes are committed and tracked
 
-2. **Verify Acceptance Criteria**
-   - ALL criteria should be checked `[x]` if task is complete
-   - Partially complete tasks should have some checked, some not
-   - If task is marked done but criteria are unchecked, FLAG THIS
+## 1) Validate Acceptance Criteria
 
-3. **Check Work Log**
-   - Each phase should have logged its work
-   - Entries should have timestamps
-   - No orphaned "in progress" entries without completion
+**CRITICAL**: Go through EACH acceptance criterion and verify:
 
-4. **Validate Plan Execution**
-   - Compare Plan section to actual changes
-   - Were all planned files created/modified?
-   - Any unplanned changes that should be noted?
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| [criterion 1] | [x] / [ ] | [how verified] |
+| [criterion 2] | [x] / [ ] | [how verified] |
 
-5. **Final Task State**
-   If ALL acceptance criteria are met:
-   - Move task file to `.doyaken/tasks/4.done/`
-   - Set Status to `done`
-   - Set Completed timestamp
+- ALL criteria must be checked `[x]` for task to be complete
+- If any criterion is not met, task is NOT complete
+- "Mostly done" is not done
 
-   If NOT all criteria are met:
-   - Keep task in `.doyaken/tasks/3.doing/`
-   - Document what remains in Work Log
-   - Create follow-up task if needed
+## 2) Verify Work Log Completeness
 
-6. **Commit Task Files**
-   After finalizing task state, commit ALL task-related changes:
+Check that each phase logged its work:
 
-   ```bash
-   # Regenerate taskboard
-   doyaken tasks
+- [ ] EXPAND: Task specification documented
+- [ ] TRIAGE: Quality gates identified, dependencies checked
+- [ ] PLAN: Gap analysis, implementation steps documented
+- [ ] IMPLEMENT: Progress logged, commits referenced
+- [ ] TEST: Test results, coverage documented
+- [ ] DOCS: Documentation changes noted
+- [ ] REVIEW: Findings ledger, review passes documented
 
-   # Stage and commit task files
-   git add .doyaken/tasks/ TASKBOARD.md
-   git commit -m "chore: Complete task {{TASK_ID}} [{{TASK_ID}}]" || true
-   ```
+## 3) Validate Plan Execution
 
-   This ensures task progress is tracked in git history.
+Compare the Plan section to actual changes:
+
+- Were all planned files created/modified?
+- Were any unplanned changes made? (should be documented)
+- Were all planned tests written?
+
+## 4) Run Final Quality Check
+
+```bash
+# Run all quality gates one more time
+npm run lint && npm run test && npm run build
+```
+
+All must pass. If any fail, task is not complete.
+
+## 5) Finalize Task State
+
+**If ALL criteria are met:**
+- Set Status to `done`
+- Set Completed timestamp
+- Clear Assigned To and Assigned At
+- Move task file to `.doyaken/tasks/4.done/`
+
+**If NOT all criteria are met:**
+- Keep task in `.doyaken/tasks/3.doing/`
+- Document what remains in Work Log
+- Create follow-up task if needed
+- Be explicit about what's incomplete
+
+## 6) Commit Task Files
+
+After finalizing:
+
+```bash
+# Regenerate taskboard
+doyaken tasks
+
+# Stage and commit task files
+git add .doyaken/tasks/ TASKBOARD.md
+git commit -m "chore: Complete task {{TASK_ID}} [{{TASK_ID}}]" || true
+```
 
 ## Output
 
@@ -57,18 +86,33 @@ Update task Work Log:
 ```
 ### {{TIMESTAMP}} - Verification Complete
 
-Task location: [3.doing/4.done]
-Status field: [matches/mismatched]
-Acceptance criteria: [X/Y checked]
+Acceptance criteria:
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| [criterion 1] | [x] | [evidence] |
+| [criterion 2] | [x] | [evidence] |
 
-Issues found:
-- [list any discrepancies or "none"]
+Work log completeness:
+- Phases documented: [X/7]
+- Missing: [list or "none"]
 
-Actions taken:
-- [moved to 4.done/ | kept in 3.doing/ | created follow-up]
-- [committed task files to git]
+Plan execution:
+- Planned files modified: [X/Y]
+- Unplanned changes: [list or "none"]
 
-Task verified: [PASS/FAIL]
+Final quality check:
+- Lint: [pass/fail]
+- Tests: [pass/fail]
+- Build: [pass/fail]
+
+Task state:
+- Location: [3.doing/ → 4.done/ | kept in 3.doing/]
+- Reason: [complete | incomplete - what remains]
+
+Commits:
+- Task files committed: [yes/no]
+
+Verification: [PASS/FAIL]
 ```
 
 ## Rules
@@ -79,5 +123,6 @@ Task verified: [PASS/FAIL]
 - Be strict: incomplete tasks should NOT be in 4.done/
 - If verification fails, do not mark task as complete
 - **ALWAYS commit task file changes at the end**
+- "Almost done" is not done - be honest
 
 Task file: {{TASK_FILE}}
