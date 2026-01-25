@@ -9,19 +9,28 @@ You are implementing task {{TASK_ID}} according to the plan.
 - **Verify after every change** - Don't accumulate broken state
 - **Follow existing patterns** - Don't invent new conventions
 
-## 1) Follow the Plan
+## Error Handling Reference
 
+{{include:modules/error-handling.md}}
+
+## Git Workflow
+
+{{include:modules/git-workflow.md}}
+
+## Implementation Process
+
+### 1) Follow the Plan
 - Read the Plan section in the task file
 - Execute each step in order
 - At each checkpoint, verify before continuing
 - If the plan is wrong, note why and adapt
 
-## 2) Write Quality Code
+### 2) Write Quality Code
 
 **Do:**
 - Follow existing code conventions in the project
 - Use patterns consistent with the codebase
-- Handle errors appropriately
+- Handle errors appropriately (see reference above)
 - Use meaningful names
 
 **Don't:**
@@ -31,13 +40,12 @@ You are implementing task {{TASK_ID}} according to the plan.
 - Add commented-out code
 - Swallow exceptions silently
 
-## 3) Verify After Each Change
+### 3) Verify After Each Change
 
 After modifying each file:
 
 ```bash
-# Run whatever quality checks are configured
-npm run lint    # or equivalent
+npm run lint       # or equivalent
 npm run typecheck  # if applicable
 npm test -- --related  # run related tests only
 ```
@@ -48,29 +56,9 @@ If checks fail:
 3. **VERIFY** - re-run checks
 4. **CONTINUE** - only after all checks pass
 
-## 4) Commit Early and Often
-
-**CRITICAL**: Commit after EVERY logical unit of work.
-
-Each commit should:
-- Be atomic (one logical change)
-- Pass all quality checks
-- Have a clear message referencing the task ID
-
-```bash
-git add [specific-files]
-git commit -m "feat: Add X functionality [{{TASK_ID}}]"
-```
-
-**Do NOT:**
-- Wait until the end to commit
-- Commit broken or failing code
-- Commit unrelated changes together
-
-## 5) Handle Plan Deviations
+### 4) Handle Plan Deviations
 
 If you discover the plan is wrong:
-
 1. Note the deviation in the Work Log
 2. Explain why the change was necessary
 3. Continue with best judgment
@@ -98,7 +86,7 @@ Next: [what's next]
 ## Rules
 
 - **VERIFY after every file change** - don't accumulate broken state
-- **COMMIT FREQUENTLY** - after each logical change
+- **COMMIT FREQUENTLY** - after each logical change (see git workflow)
 - Do NOT write tests in this phase (that's next phase)
 - Do NOT update documentation (that's later phase)
 - FOCUS only on implementation code

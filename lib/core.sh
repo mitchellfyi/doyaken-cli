@@ -94,6 +94,51 @@ if [ ! -d "$PROMPTS_DIR" ]; then
   PROMPTS_DIR="$DOYAKEN_HOME/agent/prompts"
 fi
 
+# Process {{include:path}} directives in prompts
+# Allows modules to be referenced and composed into phase prompts
+process_includes() {
+  local content="$1"
+  local max_depth="${2:-5}"  # Prevent infinite recursion
+
+  if [ "$max_depth" -le 0 ]; then
+    echo "$content"
+    return 0
+  fi
+
+  # Find all {{include:path}} patterns
+  local result="$content"
+  local include_pattern='\{\{include:([^}]+)\}\}'
+
+  while [[ "$result" =~ $include_pattern ]]; do
+    local full_match="${BASH_REMATCH[0]}"
+    local include_path="${BASH_REMATCH[1]}"
+
+    # Find the include file (project first, then global)
+    local include_file=""
+    if [ -f "$DATA_DIR/prompts/$include_path" ]; then
+      include_file="$DATA_DIR/prompts/$include_path"
+    elif [ -f "$DOYAKEN_HOME/prompts/$include_path" ]; then
+      include_file="$DOYAKEN_HOME/prompts/$include_path"
+    fi
+
+    if [ -n "$include_file" ] && [ -f "$include_file" ]; then
+      # Read include content and process nested includes
+      local include_content
+      include_content=$(cat "$include_file")
+      include_content=$(process_includes "$include_content" $((max_depth - 1)))
+
+      # Replace the include directive with content
+      result="${result//$full_match/$include_content}"
+    else
+      # Leave the directive if file not found (will show as error in prompt)
+      log_warn "Include file not found: $include_path"
+      break
+    fi
+  done
+
+  echo "$result"
+}
+
 SCRIPTS_DIR="${SCRIPTS_DIR:-$DOYAKEN_HOME/lib}"
 
 # ============================================================================
@@ -826,6 +871,9 @@ build_phase_prompt() {
   prompt="${prompt//\{\{TIMESTAMP\}\}/$timestamp}"
   prompt="${prompt//\{\{RECENT_COMMITS\}\}/$recent_commits}"
   prompt="${prompt//\{\{AGENT_ID\}\}/$AGENT_ID}"
+
+  # Process {{include:path}} directives
+  prompt=$(process_includes "$prompt")
 
   echo "$prompt"
 }

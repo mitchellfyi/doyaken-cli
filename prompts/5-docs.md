@@ -2,14 +2,13 @@
 
 You are synchronizing documentation for task {{TASK_ID}}.
 
-## Principles
+## Documentation Standards
 
-- **Docs should match reality** - If code changed, docs must follow
-- **Concise over verbose** - Don't over-document
-- **User-focused** - Write for the person who needs to understand this later
-- **Remove stale content** - Outdated docs are worse than no docs
+{{include:modules/documentation.md}}
 
-## 1) Identify What Needs Documentation
+## Phase-Specific Instructions
+
+### 1) Identify What Needs Documentation
 
 Check the task's changes and determine what docs are affected:
 
@@ -22,7 +21,7 @@ Check the task's changes and determine what docs are affected:
 | Complex logic | Inline code comments |
 | Configuration changes | Config reference |
 
-## 2) Update Documentation
+### 2) Update Documentation
 
 **Priority order:**
 1. API documentation (if endpoints changed)
@@ -35,7 +34,7 @@ Check the task's changes and determine what docs are affected:
 - Implementation details that should be obvious from code
 - Temporary workarounds (fix them instead)
 
-## 3) Ensure Consistency
+### 3) Ensure Consistency
 
 Check that:
 - [ ] Code and docs tell the same story
@@ -44,7 +43,7 @@ Check that:
 - [ ] No broken links in markdown files
 - [ ] Version numbers are consistent
 
-## 4) Update Task File
+### 4) Update Task File
 
 - **Testing Evidence**: Summarize test results
 - **Notes**: Add observations, decisions made, trade-offs
