@@ -59,6 +59,7 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}list${NC}                List all registered projects
   ${CYAN}tasks${NC}               Show taskboard
   ${CYAN}tasks new${NC} <title>   Create new task interactively
+  ${CYAN}task${NC} "<prompt>"     Create and immediately run a single task
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}migrate${NC}             Migrate from .claude/ to .doyaken/
@@ -97,6 +98,7 @@ ${BOLD}EXAMPLES:${NC}
   doyaken --project ~/app run 1        # Run 1 task in specific project
   doyaken init                         # Initialize current directory
   doyaken tasks new "Add feature X"    # Create new task
+  doyaken task "Fix the login bug"     # Create and run task immediately
   doyaken run 1 -- --sandbox read-only # Pass extra args to agent
 
 ${BOLD}ENVIRONMENT:${NC}
@@ -665,6 +667,129 @@ EOF
   esac
 }
 
+# Run a single task immediately (create and execute)
+cmd_task() {
+  local prompt="$*"
+  if [ -z "$prompt" ]; then
+    log_error "Task prompt required"
+    echo "Usage: doyaken task \"<prompt>\""
+    echo ""
+    echo "Creates a high-priority task and immediately runs it."
+    echo "Use this to work on something specific without managing the backlog."
+    exit 1
+  fi
+
+  local project
+  project=$(require_project)
+
+  export DOYAKEN_PROJECT="$project"
+
+  # Set agent defaults
+  export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
+  export DOYAKEN_MODEL="${DOYAKEN_MODEL:-$(agent_default_model "$DOYAKEN_AGENT")}"
+
+  # Validate agent and model
+  if ! agent_validate "$DOYAKEN_AGENT" "$DOYAKEN_MODEL"; then
+    exit 1
+  fi
+
+  # Generate task ID with high priority (002) to run before medium tasks
+  local priority="002"
+  local sequence
+  local timestamp
+  timestamp=$(date '+%Y-%m-%d %H:%M')
+
+  # Use timestamp-based sequence to ensure uniqueness
+  sequence=$(date '+%H%M%S')
+
+  local slug
+  slug=$(echo "$prompt" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
+  local task_id="${priority}-${sequence}-${slug}"
+  local task_file="$DOYAKEN_DIR/tasks/todo/${task_id}.md"
+
+  log_info "Creating task: $task_id"
+
+  # Create task file
+  cat > "$task_file" << EOF
+# Task: $prompt
+
+## Metadata
+
+| Field       | Value                                                  |
+| ----------- | ------------------------------------------------------ |
+| ID          | \`$task_id\`                                           |
+| Status      | \`todo\`                                               |
+| Priority    | \`$priority\` High (immediate)                         |
+| Created     | \`$timestamp\`                                         |
+| Started     |                                                        |
+| Completed   |                                                        |
+| Blocked By  |                                                        |
+| Blocks      |                                                        |
+| Assigned To |                                                        |
+| Assigned At |                                                        |
+
+---
+
+## Context
+
+Task created via \`doyaken task\` for immediate execution.
+
+Prompt: $prompt
+
+---
+
+## Acceptance Criteria
+
+- [ ] Complete the requested work
+- [ ] Tests written and passing (if applicable)
+- [ ] Quality gates pass
+- [ ] Changes committed with task reference
+
+---
+
+## Plan
+
+(To be filled in during planning phase)
+
+---
+
+## Work Log
+
+### $timestamp - Created
+
+- Task created via CLI for immediate execution
+- Prompt: $prompt
+
+---
+
+## Notes
+
+---
+
+## Links
+
+EOF
+
+  log_success "Created task: $task_id"
+  echo ""
+
+  # Now run the agent for 1 task
+  log_info "Running task with agent: $DOYAKEN_AGENT (model: $DOYAKEN_MODEL)"
+
+  # Determine which core.sh to use
+  local core_script="$DOYAKEN_HOME/lib/core.sh"
+  if [ ! -f "$core_script" ]; then
+    core_script="$SCRIPT_DIR/core.sh"
+  fi
+
+  if [ ! -f "$core_script" ]; then
+    log_error "core.sh not found"
+    exit 1
+  fi
+
+  exec "$core_script" 1
+}
+
 cmd_status() {
   local project
   project=$(require_project)
@@ -976,6 +1101,9 @@ main() {
       ;;
     tasks)
       cmd_tasks "${args[@]+"${args[@]}"}"
+      ;;
+    task)
+      cmd_task "${args[@]+"${args[@]}"}"
       ;;
     status)
       cmd_status

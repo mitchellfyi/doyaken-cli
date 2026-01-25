@@ -66,6 +66,7 @@ dk doctor    # Health check
 |---------|-------------|
 | `dk` | Run 5 tasks in current project |
 | `dk run [N]` | Run N tasks |
+| `dk task "<prompt>"` | Create and immediately run a single task |
 | `dk init [path]` | Initialize a new project |
 | `dk tasks` | Show taskboard |
 | `dk tasks new <title>` | Create a new task |
