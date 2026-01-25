@@ -305,14 +305,14 @@ TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-180}"
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(
-  "EXPAND|0-expand.md|$TIMEOUT_EXPAND|$SKIP_EXPAND"
-  "TRIAGE|1-triage.md|$TIMEOUT_TRIAGE|$SKIP_TRIAGE"
-  "PLAN|2-plan.md|$TIMEOUT_PLAN|$SKIP_PLAN"
-  "IMPLEMENT|3-implement.md|$TIMEOUT_IMPLEMENT|$SKIP_IMPLEMENT"
-  "TEST|4-test.md|$TIMEOUT_TEST|$SKIP_TEST"
-  "DOCS|5-docs.md|$TIMEOUT_DOCS|$SKIP_DOCS"
-  "REVIEW|6-review.md|$TIMEOUT_REVIEW|$SKIP_REVIEW"
-  "VERIFY|7-verify.md|$TIMEOUT_VERIFY|$SKIP_VERIFY"
+  "EXPAND|phases/0-expand.md|$TIMEOUT_EXPAND|$SKIP_EXPAND"
+  "TRIAGE|phases/1-triage.md|$TIMEOUT_TRIAGE|$SKIP_TRIAGE"
+  "PLAN|phases/2-plan.md|$TIMEOUT_PLAN|$SKIP_PLAN"
+  "IMPLEMENT|phases/3-implement.md|$TIMEOUT_IMPLEMENT|$SKIP_IMPLEMENT"
+  "TEST|phases/4-test.md|$TIMEOUT_TEST|$SKIP_TEST"
+  "DOCS|phases/5-docs.md|$TIMEOUT_DOCS|$SKIP_DOCS"
+  "REVIEW|phases/6-review.md|$TIMEOUT_REVIEW|$SKIP_REVIEW"
+  "VERIFY|phases/7-verify.md|$TIMEOUT_VERIFY|$SKIP_VERIFY"
 )
 
 # Model state (for fallback)

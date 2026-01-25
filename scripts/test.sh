@@ -58,12 +58,12 @@ for script in cli.sh core.sh registry.sh taskboard.sh hooks.sh; do
   fi
 done
 
-# Test 5: All prompts exist
+# Test 5: All phase prompts exist
 for prompt in 0-expand.md 1-triage.md 2-plan.md 3-implement.md 4-test.md 5-docs.md 6-review.md 7-verify.md; do
-  if [ -f "$ROOT_DIR/prompts/$prompt" ]; then
-    pass "prompts/$prompt exists"
+  if [ -f "$ROOT_DIR/prompts/phases/$prompt" ]; then
+    pass "prompts/phases/$prompt exists"
   else
-    fail "prompts/$prompt missing"
+    fail "prompts/phases/$prompt missing"
   fi
 done
 
