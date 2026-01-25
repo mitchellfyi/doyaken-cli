@@ -1150,10 +1150,12 @@ main() {
         ;;
       --agent)
         export DOYAKEN_AGENT="$2"
+        export DOYAKEN_AGENT_FROM_CLI=1
         shift 2
         ;;
       --model)
         export DOYAKEN_MODEL="$2"
+        export DOYAKEN_MODEL_FROM_CLI=1
         shift 2
         ;;
       --dry-run)

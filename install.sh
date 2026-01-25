@@ -259,9 +259,23 @@ WRAPPER
   mkdir -p "$DOYAKEN_HOME/tasks/3.doing"
   mkdir -p "$DOYAKEN_HOME/tasks/4.done"
   mkdir -p "$DOYAKEN_HOME/tasks/_templates"
+  mkdir -p "$DOYAKEN_HOME/prompts"
+  mkdir -p "$DOYAKEN_HOME/skills"
   mkdir -p "$DOYAKEN_HOME/logs"
   mkdir -p "$DOYAKEN_HOME/state"
   mkdir -p "$DOYAKEN_HOME/locks"
+
+  # Copy prompts to project (project prompts are the source of truth)
+  if [ -d "$SOURCE_DIR/prompts" ]; then
+    cp "$SOURCE_DIR/prompts"/*.md "$DOYAKEN_HOME/prompts/"
+    log_success "Copied prompts to project"
+  fi
+
+  # Copy skills to project
+  if [ -d "$SOURCE_DIR/skills" ]; then
+    cp "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
+    log_success "Copied skills to project"
+  fi
 
   # Copy task template
   if [ -f "$DOYAKEN_HOME/templates/TASK.md" ]; then

@@ -49,11 +49,11 @@ integrations:
 # Skills are prompts that can be run standalone or hooked into the workflow
 skills:
   # Auto-run skills at specific points in the workflow
+  # Available hooks: before-{phase} and after-{phase} for each phase:
+  #   expand, triage, plan, implement, test, docs, review, verify
   hooks:
-    # Run before triage phase (e.g., sync issues)
-    before-triage: []
-    # Run after verify phase (e.g., update issue status)
-    after-verify: []
+    # before-triage: []     # Run before triage (e.g., sync issues)
+    # after-verify: []      # Run after verify (e.g., update issue status)
     # Example:
     # before-triage:
     #   - github-import

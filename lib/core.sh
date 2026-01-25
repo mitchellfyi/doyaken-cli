@@ -41,6 +41,9 @@ fi
 # Source agent abstraction
 source "$SCRIPT_DIR/agents.sh"
 
+# Source skills for hooks
+source "$SCRIPT_DIR/skills.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -59,15 +62,140 @@ else
   exit 1
 fi
 
-# Global resources (prompts, scripts)
-PROMPTS_DIR="${PROMPTS_DIR:-$DOYAKEN_HOME/prompts}"
+# Prompts: Check project first, then global (project is source of truth)
+# This allows projects to customize phase prompts
+get_prompt_file() {
+  local prompt_name="$1"
 
-# Fallback to agent/prompts if lib/prompts doesn't exist
+  # Check project-specific prompts first
+  if [ -f "$DATA_DIR/prompts/$prompt_name" ]; then
+    echo "$DATA_DIR/prompts/$prompt_name"
+    return 0
+  fi
+
+  # Fall back to global prompts
+  if [ -f "$DOYAKEN_HOME/prompts/$prompt_name" ]; then
+    echo "$DOYAKEN_HOME/prompts/$prompt_name"
+    return 0
+  fi
+
+  # Legacy fallback
+  if [ -f "$DOYAKEN_HOME/agent/prompts/$prompt_name" ]; then
+    echo "$DOYAKEN_HOME/agent/prompts/$prompt_name"
+    return 0
+  fi
+
+  return 1
+}
+
+# For backward compatibility, set PROMPTS_DIR to global location
+PROMPTS_DIR="${PROMPTS_DIR:-$DOYAKEN_HOME/prompts}"
 if [ ! -d "$PROMPTS_DIR" ]; then
   PROMPTS_DIR="$DOYAKEN_HOME/agent/prompts"
 fi
 
 SCRIPTS_DIR="${SCRIPTS_DIR:-$DOYAKEN_HOME/lib}"
+
+# ============================================================================
+# Manifest Loading
+# ============================================================================
+
+MANIFEST_FILE="$DATA_DIR/manifest.yaml"
+
+# Load manifest settings (if yq is available)
+load_manifest() {
+  if [ ! -f "$MANIFEST_FILE" ]; then
+    return 0
+  fi
+
+  if ! command -v yq &>/dev/null; then
+    # Fall back to basic grep-based parsing
+    return 0
+  fi
+
+  # Load agent settings from manifest (only if not set via CLI/env)
+  local manifest_agent manifest_model
+  manifest_agent=$(yq -e '.agent.name // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  manifest_model=$(yq -e '.agent.model // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+
+  # Only apply manifest values if not already set by CLI
+  if [ -z "${DOYAKEN_AGENT_FROM_CLI:-}" ] && [ -n "$manifest_agent" ]; then
+    export DOYAKEN_AGENT="$manifest_agent"
+  fi
+  if [ -z "${DOYAKEN_MODEL_FROM_CLI:-}" ] && [ -n "$manifest_model" ]; then
+    export DOYAKEN_MODEL="$manifest_model"
+  fi
+
+  # Load max retries
+  local manifest_retries
+  manifest_retries=$(yq -e '.agent.max_retries // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ -n "$manifest_retries" ] && [ -z "${AGENT_MAX_RETRIES_FROM_CLI:-}" ]; then
+    export AGENT_MAX_RETRIES="$manifest_retries"
+  fi
+
+  # Load quality gate commands
+  export QUALITY_TEST_CMD=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  export QUALITY_LINT_CMD=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  export QUALITY_FORMAT_CMD=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  export QUALITY_BUILD_CMD=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+
+  # Load custom environment variables from manifest
+  local env_keys
+  env_keys=$(yq -e '.env | keys | .[]' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ -n "$env_keys" ]; then
+    while IFS= read -r key; do
+      [ -z "$key" ] && continue
+      local value
+      value=$(yq -e ".env.${key}" "$MANIFEST_FILE" 2>/dev/null || echo "")
+      if [ -n "$value" ]; then
+        export "$key=$value"
+      fi
+    done <<< "$env_keys"
+  fi
+
+  # Load skill hooks
+  export HOOKS_BEFORE_EXPAND=$(yq -e '.skills.hooks.before-expand // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_EXPAND=$(yq -e '.skills.hooks.after-expand // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_TRIAGE=$(yq -e '.skills.hooks.before-triage // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_TRIAGE=$(yq -e '.skills.hooks.after-triage // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_PLAN=$(yq -e '.skills.hooks.before-plan // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_PLAN=$(yq -e '.skills.hooks.after-plan // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_IMPLEMENT=$(yq -e '.skills.hooks.before-implement // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_IMPLEMENT=$(yq -e '.skills.hooks.after-implement // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_TEST=$(yq -e '.skills.hooks.before-test // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_TEST=$(yq -e '.skills.hooks.after-test // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_DOCS=$(yq -e '.skills.hooks.before-docs // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_DOCS=$(yq -e '.skills.hooks.after-docs // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_REVIEW=$(yq -e '.skills.hooks.before-review // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_REVIEW=$(yq -e '.skills.hooks.after-review // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_BEFORE_VERIFY=$(yq -e '.skills.hooks.before-verify // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  export HOOKS_AFTER_VERIFY=$(yq -e '.skills.hooks.after-verify // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+}
+
+# Run skill hooks for a phase
+run_skill_hooks() {
+  local hook_type="$1"  # "before" or "after"
+  local phase_name="$2" # "EXPAND", "TRIAGE", etc.
+
+  local phase_lower
+  phase_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
+  local hooks_var="HOOKS_${hook_type^^}_${phase_name}"
+  local hooks="${!hooks_var:-}"
+
+  [ -z "$hooks" ] && return 0
+
+  log_info "Running $hook_type-$phase_lower hooks..."
+  for skill_name in $hooks; do
+    [ -z "$skill_name" ] && continue
+    log_info "  Running skill: $skill_name"
+    if ! run_skill "$skill_name" 2>&1 | head -20; then
+      log_warn "  Skill $skill_name failed (continuing anyway)"
+    fi
+  done
+}
+
+# Load manifest early
+load_manifest
 
 # Project-specific directories
 TASKS_DIR="${TASKS_DIR:-$DATA_DIR/tasks}"
@@ -677,13 +805,15 @@ build_phase_prompt() {
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M')
 
-  local template
-  if [ -f "$PROMPTS_DIR/$prompt_file" ]; then
-    template=$(cat "$PROMPTS_DIR/$prompt_file")
-  else
-    log_error "Prompt file not found: $PROMPTS_DIR/$prompt_file"
+  # Find prompt file (project first, then global)
+  local prompt_path
+  prompt_path=$(get_prompt_file "$prompt_file") || {
+    log_error "Prompt file not found: $prompt_file (checked project and global)"
     return 1
-  fi
+  }
+
+  local template
+  template=$(cat "$prompt_path")
 
   local recent_commits=""
   if [[ "$prompt_file" == *"review"* ]]; then
@@ -910,6 +1040,9 @@ run_phase() {
     return 0
   fi
 
+  # Run before-phase skill hooks
+  run_skill_hooks "BEFORE" "$phase_name"
+
   local attempt=1
   local max_attempts="$AGENT_MAX_RETRIES"
 
@@ -919,6 +1052,8 @@ run_phase() {
 
     case $result in
       0)
+        # Run after-phase skill hooks
+        run_skill_hooks "AFTER" "$phase_name"
         return 0
         ;;
       124)
