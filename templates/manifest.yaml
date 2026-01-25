@@ -94,6 +94,29 @@ agent:
   # Auto-commit task state changes
   auto_commit: true
 
+# Agent configuration files
+# These files point to .doyaken/ as the source of truth
+# Run 'doyaken sync' to generate/update agent files
+agent_files:
+  # Enable/disable generation of agent-specific files
+  enabled: false
+
+  # Which agent files to generate (all enabled by default when agent_files.enabled=true)
+  generate:
+    agents_md: true      # AGENTS.md - central index
+    claude_md: true      # CLAUDE.md - Claude Code
+    cursorrules: true    # .cursorrules - Cursor
+    codex_md: true       # CODEX.md - OpenAI Codex
+    gemini_md: true      # GEMINI.md - Google Gemini
+    opencode_json: true  # .opencode.json - OpenCode
+
+  # Copy prompts and skills to project (enables local customization)
+  copy_to_project:
+    prompts_library: false  # .doyaken/prompts/library/
+    prompts_phases: false   # .doyaken/prompts/phases/
+    skills: false           # .doyaken/skills/
+    hooks: false            # .doyaken/hooks/
+
 # Custom environment variables for this project
 # These are set when running the agent
 env: {}

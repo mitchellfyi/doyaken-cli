@@ -143,6 +143,36 @@ doyaken skill check-quality
 doyaken skill audit-deps
 ```
 
+## Multi-Agent Support
+
+Generate configuration files for multiple AI agents:
+
+```bash
+# Sync agent files (generates CLAUDE.md, .cursorrules, etc.)
+doyaken sync
+```
+
+This generates files that point to `.doyaken/` as the source of truth:
+
+| File | Agent |
+|------|-------|
+| `AGENTS.md` | Central index of all prompts |
+| `CLAUDE.md` | Claude Code |
+| `.cursorrules` | Cursor |
+| `CODEX.md` | OpenAI Codex |
+| `GEMINI.md` | Google Gemini |
+| `.opencode.json` | OpenCode |
+
+Configure in `.doyaken/manifest.yaml`:
+
+```yaml
+agent_files:
+  enabled: true
+  copy_to_project:
+    prompts_library: true  # Copy prompts for local customization
+    skills: true           # Copy skills for local customization
+```
+
 ## Troubleshooting
 
 ```bash
@@ -155,6 +185,9 @@ ls -la .doyaken/logs/
 # Reset stuck state
 rm -rf .doyaken/locks/*.lock
 mv .doyaken/tasks/3.doing/*.md .doyaken/tasks/2.todo/
+
+# Regenerate agent files
+doyaken sync
 ```
 
 ## Project-Specific Notes
