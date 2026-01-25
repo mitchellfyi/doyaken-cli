@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node-version: [18, 20]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install shellcheck
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y shellcheck
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew install shellcheck
+          fi
+
+      - name: Lint shell scripts
+        run: |
+          shellcheck lib/*.sh bin/doyaken install.sh || true
+
+      - name: Test CLI
+        run: |
+          chmod +x bin/doyaken lib/*.sh
+          ./bin/doyaken --version
+          ./bin/doyaken help
+
+      - name: Test install script (dry run)
+        run: |
+          # Test that install script is valid bash
+          bash -n install.sh
+
+  package:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify package.json
+        run: |
+          node -e "const pkg = require('./package.json'); console.log('Package:', pkg.name, pkg.version)"
+
+      - name: Test npm pack
+        run: |
+          npm pack --dry-run

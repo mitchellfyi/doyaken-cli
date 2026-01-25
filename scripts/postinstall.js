@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Post-install script for doyaken
+ * Post-install script for @doyaken/doyaken
  *
  * Copies prompts, templates, and config to ~/.doyaken/
  * This allows the CLI to work from any directory.

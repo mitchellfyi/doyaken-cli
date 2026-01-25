@@ -19,7 +19,7 @@ A standalone multi-project autonomous agent CLI for Claude Code. Install once, u
 
 ```bash
 # Install globally
-npm install -g doyaken
+npm install -g @doyaken/doyaken
 
 # Or use npx without installing
 npx doyaken --help
@@ -29,16 +29,16 @@ npx doyaken --help
 
 ```bash
 # Install to ~/.doyaken (default, per-user)
-curl -sSL https://raw.githubusercontent.com/your-org/doyaken/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash
 
 # Install to a specific project
-curl -sSL https://raw.githubusercontent.com/your-org/doyaken/main/install.sh | bash -s /path/to/project
+curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash -s /path/to/project
 ```
 
 ### Option 3: Clone & Install
 
 ```bash
-git clone https://github.com/your-org/doyaken.git
+git clone https://github.com/doyaken/doyaken.git
 cd doyaken
 ./install.sh
 ```

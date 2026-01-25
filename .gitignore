@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# npm
+*.tgz
+package-lock.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+.doyaken/logs/
+.doyaken/state/
+.doyaken/locks/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test output
+coverage/
+.nyc_output/
+
+# Build
+dist/
+build/
+
+# Local dev
+.env
+.env.local

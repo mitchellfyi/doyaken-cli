@@ -1,5 +1,5 @@
 {
-  "name": "doyaken",
+  "name": "@doyaken/doyaken",
   "version": "1.0.0",
   "description": "Autonomous AI agent CLI for software development - install once, use on any project",
   "keywords": [
@@ -9,17 +9,19 @@
     "autonomous",
     "automation",
     "cli",
-    "developer-tools"
+    "developer-tools",
+    "ai-agent",
+    "code-generation"
   ],
   "author": "Mitchell",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/doyaken.git"
+    "url": "git+https://github.com/doyaken/doyaken.git"
   },
-  "homepage": "https://github.com/your-org/doyaken#readme",
+  "homepage": "https://github.com/doyaken/doyaken#readme",
   "bugs": {
-    "url": "https://github.com/your-org/doyaken/issues"
+    "url": "https://github.com/doyaken/doyaken/issues"
   },
   "bin": {
     "doyaken": "./bin/doyaken",
@@ -31,6 +33,7 @@
     "prompts/",
     "templates/",
     "config/",
+    "scripts/",
     "install.sh"
   ],
   "engines": {
@@ -42,7 +45,12 @@
   ],
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "bash scripts/test.sh",
+    "lint": "shellcheck lib/*.sh bin/doyaken",
+    "prepublishOnly": "npm run test"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "preferGlobal": true
 }
