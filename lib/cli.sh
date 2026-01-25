@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 #
-# ai-agent CLI - Command dispatcher for multi-project AI agent
+# doyaken CLI - Command dispatcher for multi-project AI agent
 #
-# This is the main entry point for the ai-agent CLI. It handles subcommand
+# This is the main entry point for the doyaken CLI. It handles subcommand
 # routing, project detection, and delegates to the appropriate handlers.
+#
+# Aliases: doyaken, dk
 #
 set -euo pipefail
 
@@ -11,8 +13,8 @@ set -euo pipefail
 # Global Configuration
 # ============================================================================
 
-AI_AGENT_HOME="${AI_AGENT_HOME:-$HOME/.ai-agent}"
-AI_AGENT_VERSION="1.0.0"
+DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
+DOYAKEN_VERSION="1.0.0"
 
 # Source library files
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,10 +33,10 @@ NC='\033[0m'
 # Logging
 # ============================================================================
 
-log_info() { echo -e "${BLUE}[ai-agent]${NC} $1"; }
-log_success() { echo -e "${GREEN}[ai-agent]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[ai-agent]${NC} $1"; }
-log_error() { echo -e "${RED}[ai-agent]${NC} $1" >&2; }
+log_info() { echo -e "${BLUE}[doyaken]${NC} $1"; }
+log_success() { echo -e "${GREEN}[doyaken]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[doyaken]${NC} $1"; }
+log_error() { echo -e "${RED}[doyaken]${NC} $1" >&2; }
 
 # ============================================================================
 # Help
@@ -42,10 +44,10 @@ log_error() { echo -e "${RED}[ai-agent]${NC} $1" >&2; }
 
 show_help() {
   cat << EOF
-${BOLD}ai-agent${NC} - Autonomous AI agent for software development
+${BOLD}doyaken${NC} - Autonomous AI agent for software development
 
 ${BOLD}USAGE:${NC}
-  ai-agent [command] [options]
+  doyaken [command] [options]
 
 ${BOLD}COMMANDS:${NC}
   ${CYAN}(none)${NC}              Run 5 tasks in auto-detected project
@@ -58,7 +60,7 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}tasks new${NC} <title>   Create new task interactively
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
-  ${CYAN}migrate${NC}             Migrate from .claude/ to .ai-agent/
+  ${CYAN}migrate${NC}             Migrate from .claude/ to .doyaken/
   ${CYAN}doctor${NC}              Health check and diagnostics
   ${CYAN}version${NC}             Show version
   ${CYAN}help${NC} [command]      Show help
@@ -71,15 +73,15 @@ ${BOLD}OPTIONS:${NC}
   --quiet             Minimal output
 
 ${BOLD}EXAMPLES:${NC}
-  ai-agent                              # Run 5 tasks in current project
-  ai-agent run 3                        # Run 3 tasks
-  ai-agent --project ~/app run 1        # Run 1 task in specific project
-  ai-agent init                         # Initialize current directory
-  ai-agent tasks new "Add feature X"    # Create new task
+  doyaken                              # Run 5 tasks in current project
+  doyaken run 3                        # Run 3 tasks
+  doyaken --project ~/app run 1        # Run 1 task in specific project
+  doyaken init                         # Initialize current directory
+  doyaken tasks new "Add feature X"    # Create new task
 
 ${BOLD}ENVIRONMENT:${NC}
-  AI_AGENT_HOME       Global installation directory (default: ~/.ai-agent)
-  AI_AGENT_PROJECT    Override project detection
+  DOYAKEN_HOME       Global installation directory (default: ~/.doyaken)
+  DOYAKEN_PROJECT    Override project detection
   CLAUDE_MODEL        Default model (opus, sonnet, haiku)
 
 EOF
@@ -90,17 +92,17 @@ show_command_help() {
   case "$cmd" in
     init)
       cat << EOF
-${BOLD}ai-agent init${NC} - Initialize a new project
+${BOLD}doyaken init${NC} - Initialize a new project
 
 ${BOLD}USAGE:${NC}
-  ai-agent init [path]
+  doyaken init [path]
 
 ${BOLD}DESCRIPTION:${NC}
-  Creates the .ai-agent/ directory structure and generates a project
+  Creates the .doyaken/ directory structure and generates a project
   manifest from detected git information and project type.
 
 ${BOLD}WHAT IT CREATES:${NC}
-  .ai-agent/
+  .doyaken/
     manifest.yaml       Project metadata
     tasks/todo/         Ready-to-start tasks
     tasks/doing/        In-progress tasks
@@ -115,16 +117,16 @@ EOF
       ;;
     migrate)
       cat << EOF
-${BOLD}ai-agent migrate${NC} - Migrate from .claude/ to .ai-agent/
+${BOLD}doyaken migrate${NC} - Migrate from .claude/ to .doyaken/
 
 ${BOLD}USAGE:${NC}
-  ai-agent migrate [path]
+  doyaken migrate [path]
 
 ${BOLD}DESCRIPTION:${NC}
   Converts a project from the legacy .claude/ structure to the new
-  .ai-agent/ structure. This includes:
+  .doyaken/ structure. This includes:
 
-  - Renaming .claude/ to .ai-agent/
+  - Renaming .claude/ to .doyaken/
   - Removing embedded agent code (now global)
   - Generating manifest.yaml from git info
   - Renaming CLAUDE.md to AI-AGENT.md
@@ -156,8 +158,8 @@ detect_project() {
     return 1
   }
 
-  # Check for .ai-agent/ in current directory
-  if [ -d "$search_dir/.ai-agent" ]; then
+  # Check for .doyaken/ in current directory
+  if [ -d "$search_dir/.doyaken" ]; then
     echo "$search_dir"
     return 0
   fi
@@ -171,7 +173,7 @@ detect_project() {
   # Walk up the directory tree
   local parent="$search_dir"
   while [ "$parent" != "/" ]; do
-    if [ -d "$parent/.ai-agent" ]; then
+    if [ -d "$parent/.doyaken" ]; then
       echo "$parent"
       return 0
     fi
@@ -196,22 +198,22 @@ detect_project() {
 require_project() {
   local project
   project=$(detect_project) || {
-    log_error "Not in an ai-agent project"
-    log_info "Run 'ai-agent init' to initialize this directory"
+    log_error "Not in an doyaken project"
+    log_info "Run 'doyaken init' to initialize this directory"
     exit 1
   }
 
   if [[ "$project" == LEGACY:* ]]; then
     local legacy_path="${project#LEGACY:}"
     log_warn "Legacy .claude/ project detected at $legacy_path"
-    log_info "Run 'ai-agent migrate' to upgrade to the new format"
+    log_info "Run 'doyaken migrate' to upgrade to the new format"
     echo "$legacy_path"
-    export AI_AGENT_LEGACY=1
-    export AI_AGENT_DIR="$legacy_path/.claude"
+    export DOYAKEN_LEGACY=1
+    export DOYAKEN_DIR="$legacy_path/.claude"
   else
     echo "$project"
-    export AI_AGENT_LEGACY=0
-    export AI_AGENT_DIR="$project/.ai-agent"
+    export DOYAKEN_LEGACY=0
+    export DOYAKEN_DIR="$project/.doyaken"
   fi
 }
 
@@ -224,12 +226,12 @@ cmd_run() {
   local project
   project=$(require_project)
 
-  export AI_AGENT_PROJECT="$project"
+  export DOYAKEN_PROJECT="$project"
 
   log_info "Running $num_tasks task(s) in: $project"
 
   # Determine which core.sh to use
-  local core_script="$AI_AGENT_HOME/lib/core.sh"
+  local core_script="$DOYAKEN_HOME/lib/core.sh"
   if [ ! -f "$core_script" ]; then
     # Fallback to script directory (for development)
     core_script="$SCRIPT_DIR/core.sh"
@@ -252,23 +254,23 @@ cmd_init() {
     exit 1
   }
 
-  local ai_agent_dir="$target_dir/.ai-agent"
+  local ai_agent_dir="$target_dir/.doyaken"
 
   # Check if already initialized
   if [ -d "$ai_agent_dir" ]; then
     log_warn "Project already initialized at: $target_dir"
-    log_info "Use 'ai-agent status' to view project info"
+    log_info "Use 'doyaken status' to view project info"
     return 0
   fi
 
   # Check for legacy .claude/
   if [ -d "$target_dir/.claude" ]; then
     log_warn "Legacy .claude/ directory found"
-    log_info "Run 'ai-agent migrate' to upgrade instead"
+    log_info "Run 'doyaken migrate' to upgrade instead"
     return 1
   fi
 
-  log_info "Initializing ai-agent project at: $target_dir"
+  log_info "Initializing doyaken project at: $target_dir"
 
   # Create directory structure
   mkdir -p "$ai_agent_dir/tasks/todo"
@@ -350,7 +352,7 @@ EOF
   log_success "Created manifest.yaml"
 
   # Copy task template
-  local template_src="$AI_AGENT_HOME/templates/task.md"
+  local template_src="$DOYAKEN_HOME/templates/task.md"
   if [ -f "$template_src" ]; then
     cp "$template_src" "$ai_agent_dir/tasks/_templates/task.md"
   else
@@ -417,7 +419,7 @@ EOF
 
   # Create AI-AGENT.md if it doesn't exist
   if [ ! -f "$target_dir/AI-AGENT.md" ]; then
-    local agent_md_src="$AI_AGENT_HOME/templates/ai-agent.md"
+    local agent_md_src="$DOYAKEN_HOME/templates/doyaken.md"
     if [ -f "$agent_md_src" ]; then
       cp "$agent_md_src" "$target_dir/AI-AGENT.md"
     else
@@ -429,18 +431,18 @@ This file configures how AI agents work on this project.
 ## Quick Start
 
 ```bash
-ai-agent run 1    # Run 1 task
-ai-agent tasks    # Show taskboard
-ai-agent status   # Show project status
+doyaken run 1    # Run 1 task
+doyaken tasks    # Show taskboard
+doyaken status   # Show project status
 ```
 
 ## Project Configuration
 
-See `.ai-agent/manifest.yaml` for project settings.
+See `.doyaken/manifest.yaml` for project settings.
 
 ## Task Management
 
-Tasks are stored in `.ai-agent/tasks/`:
+Tasks are stored in `.doyaken/tasks/`:
 - `todo/` - Ready to start
 - `doing/` - In progress
 - `done/` - Completed
@@ -469,9 +471,9 @@ EOF
   log_success "Project initialized successfully!"
   echo ""
   echo "Next steps:"
-  echo "  1. Edit .ai-agent/manifest.yaml to configure your project"
-  echo "  2. Create a task: ai-agent tasks new \"My first task\""
-  echo "  3. Run the agent: ai-agent run 1"
+  echo "  1. Edit .doyaken/manifest.yaml to configure your project"
+  echo "  2. Create a task: doyaken tasks new \"My first task\""
+  echo "  3. Run the agent: doyaken run 1"
 }
 
 cmd_register() {
@@ -510,13 +512,13 @@ cmd_tasks() {
   case "$subcmd" in
     show|"")
       # Generate and show taskboard
-      local taskboard_script="$AI_AGENT_HOME/lib/taskboard.sh"
+      local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
       if [ ! -f "$taskboard_script" ]; then
         taskboard_script="$SCRIPT_DIR/taskboard.sh"
       fi
 
       if [ -f "$taskboard_script" ]; then
-        AI_AGENT_PROJECT="$project" "$taskboard_script"
+        DOYAKEN_PROJECT="$project" "$taskboard_script"
         echo ""
         cat "$project/TASKBOARD.md" 2>/dev/null || log_warn "TASKBOARD.md not found"
       else
@@ -524,31 +526,31 @@ cmd_tasks() {
         echo "Tasks in $project:"
         echo ""
         echo "TODO:"
-        ls -1 "$AI_AGENT_DIR/tasks/todo/"*.md 2>/dev/null | xargs -I {} basename {} || echo "  (none)"
+        ls -1 "$DOYAKEN_DIR/tasks/todo/"*.md 2>/dev/null | xargs -I {} basename {} || echo "  (none)"
         echo ""
         echo "DOING:"
-        ls -1 "$AI_AGENT_DIR/tasks/doing/"*.md 2>/dev/null | xargs -I {} basename {} || echo "  (none)"
+        ls -1 "$DOYAKEN_DIR/tasks/doing/"*.md 2>/dev/null | xargs -I {} basename {} || echo "  (none)"
         echo ""
         echo "DONE (recent):"
-        ls -1t "$AI_AGENT_DIR/tasks/done/"*.md 2>/dev/null | head -5 | xargs -I {} basename {} || echo "  (none)"
+        ls -1t "$DOYAKEN_DIR/tasks/done/"*.md 2>/dev/null | head -5 | xargs -I {} basename {} || echo "  (none)"
       fi
       ;;
     new)
       local title="$*"
       if [ -z "$title" ]; then
         log_error "Task title required"
-        echo "Usage: ai-agent tasks new <title>"
+        echo "Usage: doyaken tasks new <title>"
         exit 1
       fi
 
       # Generate task ID
       local priority="003"
       local sequence
-      sequence=$(printf "%03d" $(($(ls -1 "$AI_AGENT_DIR/tasks/todo/"*.md 2>/dev/null | wc -l | tr -d ' ') + 1)))
+      sequence=$(printf "%03d" $(($(ls -1 "$DOYAKEN_DIR/tasks/todo/"*.md 2>/dev/null | wc -l | tr -d ' ') + 1)))
       local slug
       slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
       local task_id="${priority}-${sequence}-${slug}"
-      local task_file="$AI_AGENT_DIR/tasks/todo/${task_id}.md"
+      local task_file="$DOYAKEN_DIR/tasks/todo/${task_id}.md"
 
       local timestamp
       timestamp=$(date '+%Y-%m-%d %H:%M')
@@ -616,7 +618,7 @@ EOF
       ;;
     *)
       log_error "Unknown tasks subcommand: $subcmd"
-      echo "Usage: ai-agent tasks [show|new <title>]"
+      echo "Usage: doyaken tasks [show|new <title>]"
       exit 1
       ;;
   esac
@@ -631,12 +633,12 @@ cmd_status() {
   echo "=============="
   echo ""
   echo "Path: $project"
-  echo "Data: $AI_AGENT_DIR"
+  echo "Data: $DOYAKEN_DIR"
 
-  if [ "$AI_AGENT_LEGACY" = "1" ]; then
+  if [ "$DOYAKEN_LEGACY" = "1" ]; then
     echo -e "Format: ${YELLOW}Legacy (.claude/)${NC}"
   else
-    echo -e "Format: ${GREEN}Current (.ai-agent/)${NC}"
+    echo -e "Format: ${GREEN}Current (.doyaken/)${NC}"
   fi
 
   # Git info
@@ -655,15 +657,15 @@ cmd_status() {
   echo ""
   echo "Tasks:"
   local todo doing done_count
-  todo=$(find "$AI_AGENT_DIR/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  doing=$(find "$AI_AGENT_DIR/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  done_count=$(find "$AI_AGENT_DIR/tasks/done" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  todo=$(find "$DOYAKEN_DIR/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  doing=$(find "$DOYAKEN_DIR/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  done_count=$(find "$DOYAKEN_DIR/tasks/done" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
   echo "  Todo:  $todo"
   echo "  Doing: $doing"
   echo "  Done:  $done_count"
 
   # Manifest info (if exists)
-  local manifest="$AI_AGENT_DIR/manifest.yaml"
+  local manifest="$DOYAKEN_DIR/manifest.yaml"
   if [ -f "$manifest" ]; then
     echo ""
     echo "Manifest: $manifest"
@@ -682,11 +684,11 @@ cmd_manifest() {
   local project
   project=$(require_project)
 
-  local manifest="$AI_AGENT_DIR/manifest.yaml"
+  local manifest="$DOYAKEN_DIR/manifest.yaml"
 
   if [ ! -f "$manifest" ]; then
     log_error "Manifest not found: $manifest"
-    log_info "Run 'ai-agent init' to create one"
+    log_info "Run 'doyaken init' to create one"
     exit 1
   fi
 
@@ -747,10 +749,10 @@ cmd_doctor() {
   # Check global installation
   echo ""
   echo "Global Installation:"
-  if [ -d "$AI_AGENT_HOME" ]; then
-    log_success "AI_AGENT_HOME exists: $AI_AGENT_HOME"
+  if [ -d "$DOYAKEN_HOME" ]; then
+    log_success "DOYAKEN_HOME exists: $DOYAKEN_HOME"
   else
-    log_warn "AI_AGENT_HOME not found: $AI_AGENT_HOME"
+    log_warn "DOYAKEN_HOME not found: $DOYAKEN_HOME"
   fi
 
   # Check project
@@ -759,12 +761,12 @@ cmd_doctor() {
   if [ -n "$project" ]; then
     if [[ "$project" == LEGACY:* ]]; then
       log_warn "Legacy project: ${project#LEGACY:}"
-      echo "  Run 'ai-agent migrate' to upgrade"
+      echo "  Run 'doyaken migrate' to upgrade"
     else
       log_success "Project found: $project"
 
       # Check project structure
-      local ai_agent_dir="$project/.ai-agent"
+      local ai_agent_dir="$project/.doyaken"
       [ -d "$ai_agent_dir/tasks/todo" ] && log_success "  tasks/todo/ exists" || log_error "  tasks/todo/ missing"
       [ -d "$ai_agent_dir/tasks/doing" ] && log_success "  tasks/doing/ exists" || log_error "  tasks/doing/ missing"
       [ -d "$ai_agent_dir/tasks/done" ] && log_success "  tasks/done/ exists" || log_error "  tasks/done/ missing"
@@ -778,7 +780,7 @@ cmd_doctor() {
   # Registry info
   echo ""
   echo "Registry:"
-  local reg_file="$AI_AGENT_HOME/projects/registry.yaml"
+  local reg_file="$DOYAKEN_HOME/projects/registry.yaml"
   if [ -f "$reg_file" ]; then
     local project_count
     project_count=$(grep -c "^  - path:" "$reg_file" 2>/dev/null || echo "0")
@@ -798,12 +800,12 @@ cmd_doctor() {
 }
 
 cmd_version() {
-  echo "ai-agent version $AI_AGENT_VERSION"
+  echo "doyaken version $DOYAKEN_VERSION"
 
   # Show installation info
-  if [ -f "$AI_AGENT_HOME/VERSION" ]; then
+  if [ -f "$DOYAKEN_HOME/VERSION" ]; then
     local installed_version
-    installed_version=$(cat "$AI_AGENT_HOME/VERSION")
+    installed_version=$(cat "$DOYAKEN_HOME/VERSION")
     echo "Installed: $installed_version"
   fi
 }
@@ -869,7 +871,7 @@ main() {
 
   # Apply project override
   if [ -n "$project_override" ]; then
-    export AI_AGENT_PROJECT="$project_override"
+    export DOYAKEN_PROJECT="$project_override"
   fi
 
   # Default command is run

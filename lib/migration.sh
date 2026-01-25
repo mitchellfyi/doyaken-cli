@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# migration.sh - Migrate projects from .claude/ to .ai-agent/
+# migration.sh - Migrate projects from .claude/ to .doyaken/
 #
 # Handles the conversion of legacy project structure to the new format.
 #
 set -euo pipefail
 
-AI_AGENT_HOME="${AI_AGENT_HOME:-$HOME/.ai-agent}"
+DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
 # Source registry if not already loaded
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,10 +47,10 @@ check_migration_prerequisites() {
     return 1
   fi
 
-  # Check .ai-agent/ doesn't exist
-  if [ -d "$project_dir/.ai-agent" ]; then
-    log_error ".ai-agent/ already exists - manual merge may be needed"
-    log_info "If you want to start fresh, remove .ai-agent/ first"
+  # Check .doyaken/ doesn't exist
+  if [ -d "$project_dir/.doyaken" ]; then
+    log_error ".doyaken/ already exists - manual merge may be needed"
+    log_info "If you want to start fresh, remove .doyaken/ first"
     return 1
   fi
 
@@ -98,7 +98,7 @@ migrate_project() {
   }
 
   local claude_dir="$project_dir/.claude"
-  local ai_agent_dir="$project_dir/.ai-agent"
+  local ai_agent_dir="$project_dir/.doyaken"
 
   echo ""
   echo -e "${BOLD}AI Agent Migration${NC}"
@@ -115,8 +115,8 @@ migrate_project() {
 
   log_info "Starting migration..."
 
-  # Step 1: Rename .claude/ to .ai-agent/
-  log_info "Renaming .claude/ to .ai-agent/"
+  # Step 1: Rename .claude/ to .doyaken/
+  log_info "Renaming .claude/ to .doyaken/"
   mv "$claude_dir" "$ai_agent_dir"
   log_success "Renamed directory"
 
@@ -182,7 +182,7 @@ EOF
 
     # Update internal references
     if [ -f "$project_dir/AI-AGENT.md" ]; then
-      sed -i.bak 's/\.claude\//\.ai-agent\//g' "$project_dir/AI-AGENT.md"
+      sed -i.bak 's/\.claude\//\.doyaken\//g' "$project_dir/AI-AGENT.md"
       sed -i.bak 's/CLAUDE\.md/AI-AGENT.md/g' "$project_dir/AI-AGENT.md"
       rm -f "$project_dir/AI-AGENT.md.bak"
     fi
@@ -192,7 +192,7 @@ EOF
   # Step 6: Update TASKBOARD.md references
   if [ -f "$project_dir/TASKBOARD.md" ]; then
     log_info "Updating TASKBOARD.md references"
-    sed -i.bak 's/\.claude\//\.ai-agent\//g' "$project_dir/TASKBOARD.md"
+    sed -i.bak 's/\.claude\//\.doyaken\//g' "$project_dir/TASKBOARD.md"
     rm -f "$project_dir/TASKBOARD.md.bak"
     log_success "Updated TASKBOARD.md"
   fi
@@ -203,12 +203,12 @@ EOF
     cat > "$project_dir/bin/agent" << 'EOF'
 #!/usr/bin/env bash
 #
-# Legacy wrapper - redirects to global ai-agent CLI
+# Legacy wrapper - redirects to global doyaken CLI
 #
-# This project has been migrated to use the global ai-agent installation.
-# You can now run 'ai-agent' directly from anywhere in this project.
+# This project has been migrated to use the global doyaken installation.
+# You can now run 'doyaken' directly from anywhere in this project.
 #
-exec ai-agent run "$@"
+exec doyaken run "$@"
 EOF
     chmod +x "$project_dir/bin/agent"
     log_success "Updated bin/agent wrapper"
@@ -221,14 +221,14 @@ EOF
 
   # Step 9: Create .gitignore entries if needed
   if [ -f "$project_dir/.gitignore" ]; then
-    if ! grep -q "\.ai-agent/logs" "$project_dir/.gitignore" 2>/dev/null; then
-      log_info "Adding .ai-agent entries to .gitignore"
+    if ! grep -q "\.doyaken/logs" "$project_dir/.gitignore" 2>/dev/null; then
+      log_info "Adding .doyaken entries to .gitignore"
       cat >> "$project_dir/.gitignore" << 'EOF'
 
 # AI Agent (migrated from .claude/)
-.ai-agent/logs/
-.ai-agent/state/
-.ai-agent/locks/
+.doyaken/logs/
+.doyaken/state/
+.doyaken/locks/
 EOF
       log_success "Updated .gitignore"
     fi
@@ -238,22 +238,22 @@ EOF
   echo -e "${GREEN}${BOLD}Migration Complete!${NC}"
   echo ""
   echo "Summary:"
-  echo "  - .claude/ renamed to .ai-agent/"
+  echo "  - .claude/ renamed to .doyaken/"
   echo "  - Embedded agent code removed (now global)"
   echo "  - manifest.yaml created"
   echo "  - CLAUDE.md renamed to AI-AGENT.md"
   echo "  - Project registered in global registry"
   echo ""
   echo "Next steps:"
-  echo "  1. Review .ai-agent/manifest.yaml and add project-specific settings"
-  echo "  2. Run 'ai-agent doctor' to verify the migration"
-  echo "  3. Run 'ai-agent status' to see project info"
+  echo "  1. Review .doyaken/manifest.yaml and add project-specific settings"
+  echo "  2. Run 'doyaken doctor' to verify the migration"
+  echo "  3. Run 'doyaken status' to see project info"
   echo "  4. Commit the changes to git"
   echo ""
   echo "Commands:"
-  echo "  ai-agent run 1          # Run 1 task"
-  echo "  ai-agent tasks          # Show taskboard"
-  echo "  ai-agent status         # Show project status"
+  echo "  doyaken run 1          # Run 1 task"
+  echo "  doyaken tasks          # Show taskboard"
+  echo "  doyaken status         # Show project status"
   echo ""
 
   return 0
@@ -271,7 +271,7 @@ migrate_all() {
   for project in $(find ~ -maxdepth 4 -type d -name ".claude" 2>/dev/null | sed 's/\/.claude$//' | head -20); do
     [ -d "$project" ] || continue
 
-    if [ -d "$project/.ai-agent" ]; then
+    if [ -d "$project/.doyaken" ]; then
       log_info "Skipping (already migrated): $project"
       ((skipped++))
       continue

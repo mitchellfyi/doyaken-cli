@@ -1,0 +1,48 @@
+{
+  "name": "doyaken",
+  "version": "1.0.0",
+  "description": "Autonomous AI agent CLI for software development - install once, use on any project",
+  "keywords": [
+    "ai",
+    "agent",
+    "claude",
+    "autonomous",
+    "automation",
+    "cli",
+    "developer-tools"
+  ],
+  "author": "Mitchell",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/doyaken.git"
+  },
+  "homepage": "https://github.com/your-org/doyaken#readme",
+  "bugs": {
+    "url": "https://github.com/your-org/doyaken/issues"
+  },
+  "bin": {
+    "doyaken": "./bin/doyaken",
+    "dk": "./bin/doyaken"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "prompts/",
+    "templates/",
+    "config/",
+    "install.sh"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "preferGlobal": true
+}

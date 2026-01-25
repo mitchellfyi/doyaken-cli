@@ -1,6 +1,8 @@
-# AI Agent
+# Doyaken
 
 A standalone multi-project autonomous agent CLI for Claude Code. Install once, use on any project.
+
+**Aliases:** `doyaken`, `dk`
 
 ## Features
 
@@ -13,63 +15,79 @@ A standalone multi-project autonomous agent CLI for Claude Code. Install once, u
 
 ## Installation
 
+### Option 1: npm (Recommended)
+
 ```bash
-# Clone the repo
-git clone https://github.com/your-org/ai-agent.git
-cd ai-agent
-
 # Install globally
-./install.sh
+npm install -g doyaken
 
-# Restart your shell or:
-source ~/.zshrc  # or ~/.bashrc
+# Or use npx without installing
+npx doyaken --help
 ```
 
-This installs to `~/.ai-agent/` and adds `ai-agent` to your PATH.
+### Option 2: curl (Per-User or Per-Project)
+
+```bash
+# Install to ~/.doyaken (default, per-user)
+curl -sSL https://raw.githubusercontent.com/your-org/doyaken/main/install.sh | bash
+
+# Install to a specific project
+curl -sSL https://raw.githubusercontent.com/your-org/doyaken/main/install.sh | bash -s /path/to/project
+```
+
+### Option 3: Clone & Install
+
+```bash
+git clone https://github.com/your-org/doyaken.git
+cd doyaken
+./install.sh
+```
 
 ## Quick Start
 
 ```bash
 # Initialize a new project
 cd /path/to/your/project
-ai-agent init
+dk init
 
 # Create a task
-ai-agent tasks new "Add user authentication"
+dk tasks new "Add user authentication"
 
 # Run the agent
-ai-agent run 1     # Run 1 task
-ai-agent           # Run 5 tasks (default)
+dk run 1     # Run 1 task
+dk           # Run 5 tasks (default)
 
 # Check status
-ai-agent status    # Project status
-ai-agent tasks     # Show taskboard
-ai-agent doctor    # Health check
+dk status    # Project status
+dk tasks     # Show taskboard
+dk doctor    # Health check
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `ai-agent` | Run 5 tasks in current project |
-| `ai-agent run [N]` | Run N tasks |
-| `ai-agent init [path]` | Initialize a new project |
-| `ai-agent tasks` | Show taskboard |
-| `ai-agent tasks new <title>` | Create a new task |
-| `ai-agent status` | Show project status |
-| `ai-agent list` | List all registered projects |
-| `ai-agent manifest` | Show project manifest |
-| `ai-agent migrate` | Upgrade from `.claude/` format |
-| `ai-agent doctor` | Health check |
-| `ai-agent help` | Show help |
+| `dk` | Run 5 tasks in current project |
+| `dk run [N]` | Run N tasks |
+| `dk init [path]` | Initialize a new project |
+| `dk tasks` | Show taskboard |
+| `dk tasks new <title>` | Create a new task |
+| `dk status` | Show project status |
+| `dk list` | List all registered projects |
+| `dk manifest` | Show project manifest |
+| `dk migrate` | Upgrade from `.claude/` format |
+| `dk doctor` | Health check |
+| `dk help` | Show help |
+
+> **Note:** `doyaken` and `dk` are interchangeable. Use whichever you prefer.
 
 ## Project Structure
 
-After running `ai-agent init`, your project will have:
+After running `dk init`, your project will have:
 
 ```
 your-project/
-├── .ai-agent/
+├── .doyaken/
 │   ├── manifest.yaml        # Project configuration
 │   ├── tasks/
 │   │   ├── todo/            # Ready to start
@@ -84,7 +102,7 @@ your-project/
 
 ## Project Manifest
 
-Configure your project in `.ai-agent/manifest.yaml`:
+Configure your project in `.doyaken/manifest.yaml`:
 
 ```yaml
 project:
@@ -137,15 +155,16 @@ Example: `002-001-add-user-auth.md` = High priority, first in sequence
 | `AGENT_QUIET` | `0` | Minimal output |
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase |
 | `TIMEOUT_IMPLEMENT` | `1800` | Implementation timeout (30min) |
+| `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
 
 ## Parallel Execution
 
 Run multiple agents simultaneously:
 
 ```bash
-ai-agent run 5 &
-ai-agent run 5 &
-ai-agent run 5 &
+dk run 5 &
+dk run 5 &
+dk run 5 &
 ```
 
 Agents coordinate via lock files and will not work on the same task.
@@ -156,11 +175,11 @@ If you have existing projects using the `.claude/` structure:
 
 ```bash
 cd /path/to/legacy/project
-ai-agent migrate
+dk migrate
 ```
 
 This will:
-- Rename `.claude/` to `.ai-agent/`
+- Rename `.claude/` to `.doyaken/`
 - Remove embedded agent code
 - Create `manifest.yaml`
 - Rename `CLAUDE.md` to `AI-AGENT.md`
@@ -168,11 +187,11 @@ This will:
 
 ## Global Installation
 
-The global installation at `~/.ai-agent/` contains:
+The global installation at `~/.doyaken/` contains:
 
 ```
-~/.ai-agent/
-├── bin/ai-agent             # CLI binary
+~/.doyaken/
+├── bin/doyaken              # CLI binary
 ├── lib/                     # Core scripts
 │   ├── cli.sh              # Command dispatcher
 │   ├── core.sh             # Agent logic
@@ -191,6 +210,7 @@ The global installation at `~/.ai-agent/` contains:
 - Bash 4.0+
 - Git
 - macOS or Linux
+- Node.js 16+ (for npm install)
 
 ## License
 

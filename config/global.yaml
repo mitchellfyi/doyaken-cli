@@ -1,5 +1,5 @@
 # AI Agent Global Configuration
-# Located at ~/.ai-agent/config/global.yaml
+# Located at ~/.doyaken/config/global.yaml
 #
 # These settings apply to all projects unless overridden in project manifest.
 
@@ -54,4 +54,4 @@ tools:
   github:
     # Default labels to add to PRs
     default_labels:
-      - "ai-agent"
+      - "doyaken"

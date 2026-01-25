@@ -6,27 +6,27 @@ This file configures how AI agents work on this project.
 
 ```bash
 # Initialize a project (if not done)
-ai-agent init
+doyaken init
 
 # Create a new task
-ai-agent tasks new "My first task"
+doyaken tasks new "My first task"
 
 # Run the agent for 1 task
-ai-agent run 1
+doyaken run 1
 
 # Run the agent for 5 tasks (default)
-ai-agent
+doyaken
 
 # Show taskboard
-ai-agent tasks
+doyaken tasks
 
 # Check project status
-ai-agent status
+doyaken status
 ```
 
 ## Project Configuration
 
-Project settings are stored in `.ai-agent/manifest.yaml`:
+Project settings are stored in `.doyaken/manifest.yaml`:
 
 ```yaml
 project:
@@ -44,7 +44,7 @@ quality:
 
 ## Task Management
 
-Tasks are stored in `.ai-agent/tasks/`:
+Tasks are stored in `.doyaken/tasks/`:
 - `todo/` - Ready to start
 - `doing/` - In progress (assigned to an agent)
 - `done/` - Completed
@@ -64,10 +64,10 @@ Examples:
 
 ```bash
 # Via CLI
-ai-agent tasks new "Add user authentication"
+doyaken tasks new "Add user authentication"
 
 # Manually
-# Create a file in .ai-agent/tasks/todo/ using the template
+# Create a file in .doyaken/tasks/todo/ using the template
 ```
 
 ## Agent Workflow
@@ -88,31 +88,31 @@ Multiple agents can work simultaneously:
 
 ```bash
 # Terminal 1
-ai-agent run 5 &
+doyaken run 5 &
 
 # Terminal 2
-ai-agent run 5 &
+doyaken run 5 &
 ```
 
-Agents coordinate via lock files in `.ai-agent/locks/`.
+Agents coordinate via lock files in `.doyaken/locks/`.
 
 ## Environment Variables
 
 ```bash
 # Model selection
-CLAUDE_MODEL=sonnet ai-agent run 1
+CLAUDE_MODEL=sonnet doyaken run 1
 
 # Timeout adjustments
-TIMEOUT_IMPLEMENT=3600 ai-agent run 1
+TIMEOUT_IMPLEMENT=3600 doyaken run 1
 
 # Dry run (no execution)
-AGENT_DRY_RUN=1 ai-agent run 1
+AGENT_DRY_RUN=1 doyaken run 1
 
 # Verbose output
-AGENT_VERBOSE=1 ai-agent run 1
+AGENT_VERBOSE=1 doyaken run 1
 
 # Skip specific phases
-SKIP_DOCS=1 ai-agent run 1
+SKIP_DOCS=1 doyaken run 1
 ```
 
 ## Quality Gates
@@ -133,14 +133,14 @@ The agent runs these during the TEST phase.
 
 ```bash
 # Health check
-ai-agent doctor
+doyaken doctor
 
 # View logs
-ls -la .ai-agent/logs/
+ls -la .doyaken/logs/
 
 # Reset stuck state
-rm -rf .ai-agent/locks/*.lock
-mv .ai-agent/tasks/doing/*.md .ai-agent/tasks/todo/
+rm -rf .doyaken/locks/*.lock
+mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
 ```
 
 ## Operating Principles

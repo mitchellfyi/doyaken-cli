@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# registry.sh - Project registry management for ai-agent
+# registry.sh - Project registry management for doyaken
 #
-# Manages the global project registry at ~/.ai-agent/projects/registry.yaml
+# Manages the global project registry at ~/.doyaken/projects/registry.yaml
 #
 set -euo pipefail
 
-AI_AGENT_HOME="${AI_AGENT_HOME:-$HOME/.ai-agent}"
-REGISTRY_FILE="$AI_AGENT_HOME/projects/registry.yaml"
+DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
+REGISTRY_FILE="$DOYAKEN_HOME/projects/registry.yaml"
 
 # Colors (if not already defined)
 RED="${RED:-\033[0;31m}"
@@ -200,8 +200,8 @@ list_projects() {
       local status=""
       local ai_agent_dir=""
 
-      if [ -d "$path/.ai-agent/tasks" ]; then
-        ai_agent_dir="$path/.ai-agent"
+      if [ -d "$path/.doyaken/tasks" ]; then
+        ai_agent_dir="$path/.doyaken"
       elif [ -d "$path/.claude/tasks" ]; then
         ai_agent_dir="$path/.claude"
       fi
@@ -239,10 +239,10 @@ list_projects() {
       elif [[ "$in_project" == 1 && "$line" =~ ^[[:space:]]*registered_at: ]]; then
         # End of this project entry
         local status=""
-        if [ -d "$path/.ai-agent/tasks" ]; then
+        if [ -d "$path/.doyaken/tasks" ]; then
           local todo doing
-          todo=$(find "$path/.ai-agent/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          doing=$(find "$path/.ai-agent/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+          todo=$(find "$path/.doyaken/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+          doing=$(find "$path/.doyaken/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
           status="${todo} todo, ${doing} doing"
         elif [ -d "$path/.claude/tasks" ]; then
           local todo doing

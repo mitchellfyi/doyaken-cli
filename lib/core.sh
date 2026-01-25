@@ -2,7 +2,7 @@
 #
 # AI Agent - Core Logic
 #
-# This is the core agent implementation for the ai-agent CLI.
+# This is the core agent implementation for the doyaken CLI.
 # It executes tasks through a 7-phase workflow with self-healing capabilities.
 #
 # PHASES:
@@ -29,41 +29,41 @@ set -euo pipefail
 # ============================================================================
 
 # Global installation directory
-AI_AGENT_HOME="${AI_AGENT_HOME:-$HOME/.ai-agent}"
+DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
 # Fallback to script location for development
-if [ ! -d "$AI_AGENT_HOME/prompts" ]; then
+if [ ! -d "$DOYAKEN_HOME/prompts" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  AI_AGENT_HOME="$(cd "$SCRIPT_DIR/.." && pwd)"
+  DOYAKEN_HOME="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
 
 # Project directory (set by CLI or auto-detected)
-PROJECT_DIR="${AI_AGENT_PROJECT:-$(pwd)}"
+PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
-# Detect project data directory (.ai-agent/ or .claude/ for legacy)
-if [ -n "${AI_AGENT_DIR:-}" ]; then
+# Detect project data directory (.doyaken/ or .claude/ for legacy)
+if [ -n "${DOYAKEN_DIR:-}" ]; then
   # Explicitly set (e.g., by CLI for legacy support)
-  DATA_DIR="$AI_AGENT_DIR"
-elif [ -d "$PROJECT_DIR/.ai-agent" ]; then
-  DATA_DIR="$PROJECT_DIR/.ai-agent"
+  DATA_DIR="$DOYAKEN_DIR"
+elif [ -d "$PROJECT_DIR/.doyaken" ]; then
+  DATA_DIR="$PROJECT_DIR/.doyaken"
 elif [ -d "$PROJECT_DIR/.claude" ]; then
   # Legacy support
   DATA_DIR="$PROJECT_DIR/.claude"
 else
-  echo "Error: No .ai-agent/ or .claude/ directory found in $PROJECT_DIR"
-  echo "Run 'ai-agent init' to initialize this directory"
+  echo "Error: No .doyaken/ or .claude/ directory found in $PROJECT_DIR"
+  echo "Run 'doyaken init' to initialize this directory"
   exit 1
 fi
 
 # Global resources (prompts, scripts)
-PROMPTS_DIR="${PROMPTS_DIR:-$AI_AGENT_HOME/prompts}"
+PROMPTS_DIR="${PROMPTS_DIR:-$DOYAKEN_HOME/prompts}"
 
 # Fallback to agent/prompts if lib/prompts doesn't exist
 if [ ! -d "$PROMPTS_DIR" ]; then
-  PROMPTS_DIR="$AI_AGENT_HOME/agent/prompts"
+  PROMPTS_DIR="$DOYAKEN_HOME/agent/prompts"
 fi
 
-SCRIPTS_DIR="${SCRIPTS_DIR:-$AI_AGENT_HOME/lib}"
+SCRIPTS_DIR="${SCRIPTS_DIR:-$DOYAKEN_HOME/lib}"
 
 # Project-specific directories
 TASKS_DIR="${TASKS_DIR:-$DATA_DIR/tasks}"
@@ -944,7 +944,7 @@ validate_environment() {
 
   if ! [[ "$NUM_TASKS" =~ ^[0-9]+$ ]]; then
     log_error "Invalid number of tasks: $NUM_TASKS"
-    echo "Usage: ai-agent run [number_of_tasks]"
+    echo "Usage: doyaken run [number_of_tasks]"
     exit 1
   fi
 
@@ -1196,15 +1196,15 @@ cleanup() {
     rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
 
     # Run taskboard regeneration
-    local taskboard_script="$AI_AGENT_HOME/lib/taskboard.sh"
+    local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
     if [ ! -f "$taskboard_script" ]; then
       taskboard_script="$SCRIPTS_DIR/taskboard.sh"
     fi
     if [ -x "$taskboard_script" ]; then
-      AI_AGENT_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
+      DOYAKEN_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
     fi
 
-    log_info "Task preserved in doing/ - run 'ai-agent' to resume"
+    log_info "Task preserved in doing/ - run 'doyaken' to resume"
   else
     log_info "Cleaning up..."
 
@@ -1222,12 +1222,12 @@ cleanup() {
     done
 
     # Run taskboard regeneration
-    local taskboard_script="$AI_AGENT_HOME/lib/taskboard.sh"
+    local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
     if [ ! -f "$taskboard_script" ]; then
       taskboard_script="$SCRIPTS_DIR/taskboard.sh"
     fi
     if [ -x "$taskboard_script" ]; then
-      AI_AGENT_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
+      DOYAKEN_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
     fi
   fi
 }
@@ -1336,7 +1336,7 @@ main() {
   show_task_summary
 
   if [ "$failed" -gt 0 ]; then
-    log_warn "Some tasks failed - run 'ai-agent' again to retry"
+    log_warn "Some tasks failed - run 'doyaken' again to retry"
     exit 1
   fi
 
