@@ -23,6 +23,7 @@ Quality gates for this repo:
 - Build: [command or "none"]
 - CI: [present/missing]
 - Git hooks: [present/missing]
+- Dep audit: [command or "none"]
 ```
 
 **If quality gates are missing**: Flag this as a risk. Suggest running `doyaken skill setup-quality` to configure proper quality gates before implementation.

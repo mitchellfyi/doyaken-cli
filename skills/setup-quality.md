@@ -102,14 +102,16 @@ Add to package.json (Node.js) or Makefile:
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "quality": "npm run lint && npm run typecheck && npm run test"
+    "audit": "npm audit --audit-level=high",
+    "audit:fix": "npm audit fix",
+    "quality": "npm run lint && npm run typecheck && npm run test && npm run audit"
   }
 }
 ```
 
 Or Makefile:
 ```makefile
-.PHONY: lint format typecheck test quality
+.PHONY: lint format typecheck test audit quality
 
 lint:
 	ruff check .
@@ -123,7 +125,10 @@ typecheck:
 test:
 	pytest
 
-quality: lint typecheck test
+audit:
+	pip-audit
+
+quality: lint typecheck test audit
 ```
 
 ### 5) Set Up CI Pipeline
@@ -162,6 +167,9 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Security audit
+        run: npm audit --audit-level=high
+
       - name: Build
         run: npm run build
 ```
@@ -179,6 +187,7 @@ quality:
     - npm run lint
     - npm run typecheck
     - npm run test
+    - npm audit --audit-level=high
     - npm run build
 ```
 
