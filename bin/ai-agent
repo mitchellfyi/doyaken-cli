@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# ai-agent - Autonomous AI agent for software development
+#
+# This is the main entry point for the ai-agent CLI.
+# It sets up the environment and delegates to lib/cli.sh
+#
+set -euo pipefail
+
+# Determine the installation directory
+if [ -n "${AI_AGENT_HOME:-}" ]; then
+  # Explicitly set
+  INSTALL_DIR="$AI_AGENT_HOME"
+elif [ -L "${BASH_SOURCE[0]}" ]; then
+  # Symlinked binary - resolve to actual location
+  REAL_PATH="$(readlink "${BASH_SOURCE[0]}")"
+  INSTALL_DIR="$(cd "$(dirname "$REAL_PATH")/.." && pwd)"
+else
+  # Direct execution
+  INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+# Export for use by other scripts
+export AI_AGENT_HOME="$INSTALL_DIR"
+
+# Check for lib/cli.sh
+CLI_SCRIPT="$INSTALL_DIR/lib/cli.sh"
+if [ ! -f "$CLI_SCRIPT" ]; then
+  echo "Error: cli.sh not found at $CLI_SCRIPT" >&2
+  echo "AI_AGENT_HOME=$INSTALL_DIR" >&2
+  exit 1
+fi
+
+# Make sure scripts are executable
+chmod +x "$CLI_SCRIPT" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/lib/core.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/lib/taskboard.sh" 2>/dev/null || true
+
+# Execute the CLI
+exec "$CLI_SCRIPT" "$@"

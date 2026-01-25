@@ -1,136 +1,196 @@
-# AI Agent Framework
+# AI Agent
 
-A standalone, phase-based autonomous agent system for Claude Code that enables fully autonomous task execution with self-healing capabilities and parallel operation support.
+A standalone multi-project autonomous agent CLI for Claude Code. Install once, use on any project.
 
 ## Features
 
-- **7-Phase Execution**: Each task goes through Triage, Plan, Implement, Test, Docs, Review, and Verify phases
-- **Self-Healing**: Automatic retries with exponential backoff, model fallback, and crash recovery
-- **Parallel Support**: Multiple agents can work simultaneously with lock-based coordination
-- **Task Management**: File-based task tracking with priority ordering and dependency management
-- **Quality Gates**: Integrated quality checks at each phase
+- **Multi-Project Support**: Manage multiple projects from a single global installation
+- **7-Phase Execution**: Triage → Plan → Implement → Test → Docs → Review → Verify
+- **Self-Healing**: Automatic retries, model fallback, crash recovery
+- **Parallel Agents**: Multiple agents can work simultaneously with lock coordination
+- **Project Registry**: Track projects by path, git remote, domains, and services
+- **Legacy Migration**: Seamlessly upgrade existing `.claude/` projects
+
+## Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/your-org/ai-agent.git
+cd ai-agent
+
+# Install globally
+./install.sh
+
+# Restart your shell or:
+source ~/.zshrc  # or ~/.bashrc
+```
+
+This installs to `~/.ai-agent/` and adds `ai-agent` to your PATH.
 
 ## Quick Start
 
-### 1. Install into Your Project
-
 ```bash
-# Clone this repo
-git clone https://github.com/your-org/ai-agent.git
-
-# Install into your project
-cd ai-agent
-./agent/install.sh /path/to/your/project
-```
-
-### 2. Create Your First Task
-
-```bash
+# Initialize a new project
 cd /path/to/your/project
-cp .claude/tasks/_templates/task.md .claude/tasks/todo/003-001-my-first-task.md
-# Edit the task file with your requirements
+ai-agent init
+
+# Create a task
+ai-agent tasks new "Add user authentication"
+
+# Run the agent
+ai-agent run 1     # Run 1 task
+ai-agent           # Run 5 tasks (default)
+
+# Check status
+ai-agent status    # Project status
+ai-agent tasks     # Show taskboard
+ai-agent doctor    # Health check
 ```
 
-### 3. Run the Agent
+## Commands
 
-```bash
-# Run single task
-./bin/agent 1
+| Command | Description |
+|---------|-------------|
+| `ai-agent` | Run 5 tasks in current project |
+| `ai-agent run [N]` | Run N tasks |
+| `ai-agent init [path]` | Initialize a new project |
+| `ai-agent tasks` | Show taskboard |
+| `ai-agent tasks new <title>` | Create a new task |
+| `ai-agent status` | Show project status |
+| `ai-agent list` | List all registered projects |
+| `ai-agent manifest` | Show project manifest |
+| `ai-agent migrate` | Upgrade from `.claude/` format |
+| `ai-agent doctor` | Health check |
+| `ai-agent help` | Show help |
 
-# Run 5 tasks (default)
-./bin/agent
+## Project Structure
 
-# Run in parallel
-./bin/agent 5 &
-./bin/agent 5 &
+After running `ai-agent init`, your project will have:
+
+```
+your-project/
+├── .ai-agent/
+│   ├── manifest.yaml        # Project configuration
+│   ├── tasks/
+│   │   ├── todo/            # Ready to start
+│   │   ├── doing/           # In progress
+│   │   └── done/            # Completed
+│   ├── logs/                # Execution logs
+│   ├── state/               # Session recovery
+│   └── locks/               # Parallel coordination
+├── AI-AGENT.md              # Operating manual
+└── TASKBOARD.md             # Generated overview
 ```
 
-## Directory Structure
+## Project Manifest
 
-```
-.claude/
-  agent/
-    run.sh           # Entry point script
-    install.sh       # Installation script
-    lib/
-      core.sh        # Core agent logic (1400+ lines)
-    prompts/
-      1-triage.md    # Phase 1: Validate task
-      2-plan.md      # Phase 2: Gap analysis & planning
-      3-implement.md # Phase 3: Write code
-      4-test.md      # Phase 4: Run tests
-      5-docs.md      # Phase 5: Sync documentation
-      6-review.md    # Phase 6: Code review
-      7-verify.md    # Phase 7: Task verification
-    scripts/
-      taskboard.sh   # Generate TASKBOARD.md
-  tasks/
-    todo/            # Tasks ready to start
-    doing/           # Tasks in progress
-    done/            # Completed tasks
-    _templates/
-      task.md        # Task file template
-  logs/              # Run logs
-  state/             # Session state for recovery
-  locks/             # Lock files for parallel ops
+Configure your project in `.ai-agent/manifest.yaml`:
 
-bin/
-  agent              # Main agent script (symlink)
+```yaml
+project:
+  name: "my-app"
+  description: "My awesome app"
 
-CLAUDE.md            # Agent operating manual
-TASKBOARD.md         # Generated task overview
-MISSION.md           # Project goals (you create this)
+git:
+  remote: "git@github.com:user/my-app.git"
+  branch: "main"
+
+domains:
+  production: "https://my-app.com"
+  staging: "https://staging.my-app.com"
+
+tools:
+  jira:
+    enabled: true
+    project_key: "MYAPP"
+    base_url: "https://company.atlassian.net"
+
+quality:
+  test_command: "npm test"
+  lint_command: "npm run lint"
+
+agent:
+  model: "opus"
+  max_retries: 2
 ```
 
 ## Task Priority System
 
-Tasks are named with priority prefixes:
+Tasks use the naming format `PPP-SSS-slug.md`:
 
-| Prefix | Priority | Use For |
-|--------|----------|---------|
-| 001    | Critical | Blocking issues, security, broken functionality |
-| 002    | High     | Important features, significant bugs |
-| 003    | Medium   | Normal work, improvements |
-| 004    | Low      | Nice-to-have, cleanup |
+| Priority | Code | Use For |
+|----------|------|---------|
+| Critical | 001  | Blocking, security, broken |
+| High     | 002  | Important features, bugs |
+| Medium   | 003  | Normal work |
+| Low      | 004  | Nice-to-have, cleanup |
 
 Example: `002-001-add-user-auth.md` = High priority, first in sequence
 
-## Configuration
-
-Environment variables for customization:
+## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAUDE_MODEL` | `opus` | Model to use (opus, sonnet, haiku) |
+| `CLAUDE_MODEL` | `opus` | Model (opus, sonnet, haiku) |
 | `AGENT_DRY_RUN` | `0` | Preview without executing |
-| `AGENT_VERBOSE` | `0` | More output |
-| `AGENT_MAX_RETRIES` | `2` | Max retry attempts per phase |
-| `AGENT_NAME` | `worker-N` | Agent identifier |
+| `AGENT_VERBOSE` | `0` | Detailed output |
+| `AGENT_QUIET` | `0` | Minimal output |
+| `AGENT_MAX_RETRIES` | `2` | Retries per phase |
+| `TIMEOUT_IMPLEMENT` | `1800` | Implementation timeout (30min) |
 
-Phase timeouts (in seconds):
+## Parallel Execution
 
-| Variable | Default | Phase |
-|----------|---------|-------|
-| `TIMEOUT_TRIAGE` | 120 | Triage (2min) |
-| `TIMEOUT_PLAN` | 300 | Planning (5min) |
-| `TIMEOUT_IMPLEMENT` | 1800 | Implementation (30min) |
-| `TIMEOUT_TEST` | 600 | Testing (10min) |
-| `TIMEOUT_DOCS` | 300 | Documentation (5min) |
-| `TIMEOUT_REVIEW` | 300 | Review (5min) |
-| `TIMEOUT_VERIFY` | 120 | Verification (2min) |
+Run multiple agents simultaneously:
+
+```bash
+ai-agent run 5 &
+ai-agent run 5 &
+ai-agent run 5 &
+```
+
+Agents coordinate via lock files and will not work on the same task.
+
+## Migration from `.claude/`
+
+If you have existing projects using the `.claude/` structure:
+
+```bash
+cd /path/to/legacy/project
+ai-agent migrate
+```
+
+This will:
+- Rename `.claude/` to `.ai-agent/`
+- Remove embedded agent code
+- Create `manifest.yaml`
+- Rename `CLAUDE.md` to `AI-AGENT.md`
+- Register in the global project registry
+
+## Global Installation
+
+The global installation at `~/.ai-agent/` contains:
+
+```
+~/.ai-agent/
+├── bin/ai-agent             # CLI binary
+├── lib/                     # Core scripts
+│   ├── cli.sh              # Command dispatcher
+│   ├── core.sh             # Agent logic
+│   ├── registry.sh         # Project registry
+│   ├── migration.sh        # Migration helpers
+│   └── taskboard.sh        # Taskboard generator
+├── prompts/                 # Phase prompts
+├── templates/               # Project templates
+├── config/global.yaml       # Global defaults
+└── projects/registry.yaml   # Project registry
+```
 
 ## Requirements
 
-- Claude Code CLI installed and authenticated
+- Claude Code CLI (installed and authenticated)
 - Bash 4.0+
 - Git
 - macOS or Linux
-
-
-### Use with Claude
-
-`claude --dangerously-skip-permissions --model opus --permission-mode bypassPermissions`
-
 
 ## License
 

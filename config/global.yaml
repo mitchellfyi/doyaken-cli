@@ -1,0 +1,57 @@
+# AI Agent Global Configuration
+# Located at ~/.ai-agent/config/global.yaml
+#
+# These settings apply to all projects unless overridden in project manifest.
+
+version: 1
+
+# Default settings for all projects
+defaults:
+  # Model selection (opus, sonnet, haiku)
+  model: "opus"
+
+  # Fallback model when rate limited
+  fallback_model: "sonnet"
+
+  # Default number of tasks per run
+  tasks_per_run: 5
+
+  # Maximum retry attempts per phase
+  max_retries: 2
+
+  # Base retry delay in seconds
+  retry_delay: 5
+
+  # Lock timeout in seconds (3 hours)
+  lock_timeout: 10800
+
+  # Heartbeat interval in seconds (1 hour)
+  heartbeat_interval: 3600
+
+# Output settings
+output:
+  # Progress mode (one-line updates)
+  progress_mode: true
+
+  # Verbose logging
+  verbose: false
+
+  # Quiet mode (minimal output)
+  quiet: false
+
+# Phase timeouts in seconds
+timeouts:
+  triage: 120
+  plan: 300
+  implement: 1800
+  test: 600
+  docs: 300
+  review: 600
+  verify: 180
+
+# Tool-specific global defaults
+tools:
+  github:
+    # Default labels to add to PRs
+    default_labels:
+      - "ai-agent"
