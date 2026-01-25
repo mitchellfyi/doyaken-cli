@@ -9,10 +9,11 @@ Each file can be:
 
 ## Available Prompts
 
-### Methodology
+### Principles
 
 | File | Description |
 |------|-------------|
+| [code-quality.md](code-quality.md) | SOLID, DRY, KISS, YAGNI - core quality principles |
 | [testing.md](testing.md) | Testing methodology, test pyramid, AAA pattern |
 | [code-review.md](code-review.md) | Multi-pass review process, findings ledger |
 | [planning.md](planning.md) | Gap analysis, implementation planning |

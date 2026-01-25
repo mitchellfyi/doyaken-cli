@@ -2,14 +2,11 @@
 
 You are implementing task {{TASK_ID}} according to the plan.
 
-## Mindset
+## Code Quality Principles
 
-- **Minimal and correct** - The smallest change that solves the problem
-- **Boring code over clever code** - Prefer readability over cleverness
-- **Verify after every change** - Don't accumulate broken state
-- **Follow existing patterns** - Don't invent new conventions
+{{include:library/code-quality.md}}
 
-## Error Handling Reference
+## Error Handling
 
 {{include:library/error-handling.md}}
 
@@ -25,22 +22,7 @@ You are implementing task {{TASK_ID}} according to the plan.
 - At each checkpoint, verify before continuing
 - If the plan is wrong, note why and adapt
 
-### 2) Write Quality Code
-
-**Do:**
-- Follow existing code conventions in the project
-- Use patterns consistent with the codebase
-- Handle errors appropriately (see reference above)
-- Use meaningful names
-
-**Don't:**
-- Over-engineer - do what's needed, no more
-- Add features not in the spec
-- Leave debug code or console.logs
-- Add commented-out code
-- Swallow exceptions silently
-
-### 3) Verify After Each Change
+### 2) Verify After Each Change
 
 After modifying each file:
 

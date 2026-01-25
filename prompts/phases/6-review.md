@@ -2,6 +2,10 @@
 
 You are performing final review for task {{TASK_ID}}.
 
+## Code Quality Standards
+
+{{include:library/code-quality.md}}
+
 ## Code Review Methodology
 
 {{include:library/code-review.md}}
