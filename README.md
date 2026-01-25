@@ -81,6 +81,45 @@ dk doctor    # Health check
 
 > **Note:** `doyaken` and `dk` are interchangeable. Use whichever you prefer.
 
+## Multi-Agent Support
+
+Doyaken supports multiple AI coding agents. Use `--agent` to switch between them:
+
+```bash
+dk --agent claude run 1      # Use Claude (default)
+dk --agent codex run 1       # Use OpenAI Codex
+dk --agent gemini run 1      # Use Google Gemini
+dk --agent copilot run 1     # Use GitHub Copilot
+dk --agent opencode run 1    # Use OpenCode
+```
+
+### Supported Agents & Models
+
+| Agent | Command | Models | Install |
+|-------|---------|--------|---------|
+| **claude** (default) | `claude` | opus, sonnet, haiku | `npm i -g @anthropic-ai/claude-code` |
+| **codex** | `codex` | gpt-5, o3, o4-mini | `npm i -g @openai/codex` |
+| **gemini** | `gemini` | gemini-2.5-pro, gemini-2.5-flash | `npm i -g @google/gemini-cli` |
+| **copilot** | `copilot` | claude-sonnet-4.5, gpt-5 | `npm i -g @github/copilot` |
+| **opencode** | `opencode` | claude-sonnet-4, gpt-5 | `npm i -g opencode-ai` |
+
+### Specifying Models
+
+```bash
+dk --agent codex --model o3 run 1
+dk --agent gemini --model gemini-2.5-flash run 2
+```
+
+### Per-Project Configuration
+
+Set the default agent in `.doyaken/manifest.yaml`:
+
+```yaml
+agent:
+  name: "codex"
+  model: "gpt-5"
+```
+
 ## Project Structure
 
 After running `dk init`, your project will have:
@@ -149,7 +188,9 @@ Example: `002-001-add-user-auth.md` = High priority, first in sequence
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAUDE_MODEL` | `opus` | Model (opus, sonnet, haiku) |
+| `DOYAKEN_AGENT` | `claude` | AI agent (claude, codex, gemini, copilot, opencode) |
+| `DOYAKEN_MODEL` | agent-specific | Model for the selected agent |
+| `CLAUDE_MODEL` | `opus` | Legacy: Model for Claude (opus, sonnet, haiku) |
 | `AGENT_DRY_RUN` | `0` | Preview without executing |
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
@@ -206,7 +247,12 @@ The global installation at `~/.doyaken/` contains:
 
 ## Requirements
 
-- Claude Code CLI (installed and authenticated)
+- At least one AI coding agent CLI installed:
+  - [Claude Code](https://claude.ai/cli) (default)
+  - [OpenAI Codex](https://github.com/openai/codex)
+  - [Google Gemini CLI](https://github.com/google-gemini/gemini-cli)
+  - [GitHub Copilot CLI](https://github.com/github/copilot-cli)
+  - [OpenCode](https://opencode.ai)
 - Bash 4.0+
 - Git
 - macOS or Linux

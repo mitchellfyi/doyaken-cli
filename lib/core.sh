@@ -32,10 +32,13 @@ set -euo pipefail
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
 # Fallback to script location for development
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ ! -d "$DOYAKEN_HOME/prompts" ]; then
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   DOYAKEN_HOME="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
+
+# Source agent abstraction
+source "$SCRIPT_DIR/agents.sh"
 
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
@@ -85,7 +88,16 @@ fi
 # ============================================================================
 
 NUM_TASKS="${1:-5}"
-CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
+
+# Agent configuration
+DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
+DOYAKEN_MODEL="${DOYAKEN_MODEL:-$(agent_default_model "$DOYAKEN_AGENT")}"
+
+# Legacy support: CLAUDE_MODEL overrides DOYAKEN_MODEL for claude agent
+if [ "$DOYAKEN_AGENT" = "claude" ] && [ -n "${CLAUDE_MODEL:-}" ]; then
+  DOYAKEN_MODEL="$CLAUDE_MODEL"
+fi
+
 AGENT_DRY_RUN="${AGENT_DRY_RUN:-0}"
 AGENT_VERBOSE="${AGENT_VERBOSE:-0}"
 AGENT_QUIET="${AGENT_QUIET:-0}"
@@ -127,7 +139,8 @@ PHASES=(
 )
 
 # Model state (for fallback)
-CURRENT_MODEL="$CLAUDE_MODEL"
+CURRENT_AGENT="$DOYAKEN_AGENT"
+CURRENT_MODEL="$DOYAKEN_MODEL"
 MODEL_FALLBACK_TRIGGERED=0
 
 # Generate unique agent ID with nicer default (atomic to prevent race conditions)
@@ -579,21 +592,62 @@ fallback_to_sonnet() {
     return 1
   fi
 
-  if [ "$CURRENT_MODEL" = "sonnet" ]; then
-    log_warn "Already using sonnet, cannot fall back further"
-    return 1
-  fi
+  # Agent-specific fallback logic
+  case "$CURRENT_AGENT" in
+    claude)
+      if [ "$CURRENT_MODEL" = "sonnet" ] || [ "$CURRENT_MODEL" = "haiku" ]; then
+        log_warn "Already using $CURRENT_MODEL, cannot fall back further"
+        return 1
+      fi
+      log_model "Falling back from $CURRENT_MODEL to sonnet due to rate limits"
+      CURRENT_MODEL="sonnet"
+      ;;
+    codex)
+      if [ "$CURRENT_MODEL" = "o4-mini" ]; then
+        log_warn "Already using o4-mini, cannot fall back further"
+        return 1
+      fi
+      log_model "Falling back from $CURRENT_MODEL to o4-mini due to rate limits"
+      CURRENT_MODEL="o4-mini"
+      ;;
+    gemini)
+      if [ "$CURRENT_MODEL" = "gemini-2.5-flash" ]; then
+        log_warn "Already using gemini-2.5-flash, cannot fall back further"
+        return 1
+      fi
+      log_model "Falling back from $CURRENT_MODEL to gemini-2.5-flash due to rate limits"
+      CURRENT_MODEL="gemini-2.5-flash"
+      ;;
+    copilot)
+      if [ "$CURRENT_MODEL" = "claude-sonnet-4" ]; then
+        log_warn "Already using claude-sonnet-4, cannot fall back further"
+        return 1
+      fi
+      log_model "Falling back from $CURRENT_MODEL to claude-sonnet-4 due to rate limits"
+      CURRENT_MODEL="claude-sonnet-4"
+      ;;
+    opencode)
+      if [ "$CURRENT_MODEL" = "claude-sonnet-4" ]; then
+        log_warn "Already using claude-sonnet-4, cannot fall back further"
+        return 1
+      fi
+      log_model "Falling back from $CURRENT_MODEL to claude-sonnet-4 due to rate limits"
+      CURRENT_MODEL="claude-sonnet-4"
+      ;;
+    *)
+      log_warn "Unknown agent $CURRENT_AGENT, cannot fall back"
+      return 1
+      ;;
+  esac
 
-  log_model "Falling back from $CURRENT_MODEL to sonnet due to rate limits"
-  CURRENT_MODEL="sonnet"
   MODEL_FALLBACK_TRIGGERED=1
   return 0
 }
 
 reset_model() {
   if [ "$MODEL_FALLBACK_TRIGGERED" = "1" ]; then
-    log_model "Resetting model back to $CLAUDE_MODEL after successful run"
-    CURRENT_MODEL="$CLAUDE_MODEL"
+    log_model "Resetting model back to $DOYAKEN_MODEL after successful run"
+    CURRENT_MODEL="$DOYAKEN_MODEL"
     MODEL_FALLBACK_TRIGGERED=0
   fi
 }
@@ -644,6 +698,8 @@ run_phase_once() {
   local phase_log="$RUN_LOG_DIR/phase-${phase_name_lower}-$task_id-attempt${attempt}.log"
 
   log_phase "Starting $phase_name phase (attempt $attempt)"
+  echo "  Agent: $CURRENT_AGENT"
+  echo "  Model: $CURRENT_MODEL"
   echo "  Timeout: ${timeout}s"
   echo "  Log: $phase_log"
 
@@ -654,48 +710,121 @@ run_phase_once() {
     return 1
   fi
 
-  local claude_args=(
-    "--dangerously-skip-permissions"
-    "--permission-mode" "bypassPermissions"
-    "--model" "$CURRENT_MODEL"
-  )
+  # Write prompt to temp file for agent_run
+  local prompt_tmp_file
+  prompt_tmp_file=$(mktemp)
+  echo "$prompt" > "$prompt_tmp_file"
 
   local output_mode="stream"
   if [ "$AGENT_QUIET" = "1" ]; then
     output_mode="quiet"
-    claude_args+=("-p")
   elif [ "$AGENT_PROGRESS" = "1" ]; then
     output_mode="progress"
-    claude_args+=("--output-format" "stream-json" "--verbose")
-  else
-    claude_args+=("--output-format" "stream-json" "--verbose")
   fi
 
   local exit_code=0
 
   echo ""
   echo -e "${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
-  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_name (attempt $attempt)${NC}"
+  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_name (attempt $attempt) [$CURRENT_AGENT]${NC}"
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
-  if [ "$output_mode" = "progress" ]; then
-    if command -v gtimeout &> /dev/null; then
-      gtimeout "${timeout}s" claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
-    elif command -v timeout &> /dev/null; then
-      timeout "${timeout}s" claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
-    else
-      claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
-    fi
-  else
-    if command -v gtimeout &> /dev/null; then
-      gtimeout "${timeout}s" claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
-    elif command -v timeout &> /dev/null; then
-      timeout "${timeout}s" claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
-    else
-      claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
-    fi
+  # Build timeout prefix
+  local timeout_prefix=""
+  if command -v gtimeout &> /dev/null; then
+    timeout_prefix="gtimeout ${timeout}s"
+  elif command -v timeout &> /dev/null; then
+    timeout_prefix="timeout ${timeout}s"
   fi
+
+  # Run the agent based on type
+  case "$CURRENT_AGENT" in
+    claude)
+      local claude_args=(
+        "--dangerously-skip-permissions"
+        "--permission-mode" "bypassPermissions"
+        "--model" "$CURRENT_MODEL"
+      )
+      if [ "$output_mode" = "quiet" ]; then
+        claude_args+=("-p")
+      elif [ "$output_mode" = "progress" ]; then
+        claude_args+=("--output-format" "stream-json" "--verbose")
+      else
+        claude_args+=("--output-format" "stream-json" "--verbose")
+      fi
+
+      if [ "$output_mode" = "progress" ]; then
+        if [ -n "$timeout_prefix" ]; then
+          $timeout_prefix claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+        else
+          claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+        fi
+      else
+        if [ -n "$timeout_prefix" ]; then
+          $timeout_prefix claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
+        else
+          claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
+        fi
+      fi
+      ;;
+
+    codex)
+      local codex_args=("exec" "--full-auto")
+      [ -n "$CURRENT_MODEL" ] && codex_args+=("-m" "$CURRENT_MODEL")
+      codex_args+=("$(cat "$prompt_tmp_file")")
+
+      if [ -n "$timeout_prefix" ]; then
+        $timeout_prefix codex "${codex_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      else
+        codex "${codex_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      fi
+      ;;
+
+    gemini)
+      local gemini_args=("--yolo")
+      [ -n "$CURRENT_MODEL" ] && gemini_args+=("-m" "$CURRENT_MODEL")
+      gemini_args+=("-p" "$(cat "$prompt_tmp_file")")
+
+      if [ -n "$timeout_prefix" ]; then
+        $timeout_prefix gemini "${gemini_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      else
+        gemini "${gemini_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      fi
+      ;;
+
+    copilot)
+      local copilot_args=("--auto")
+      [ -n "$CURRENT_MODEL" ] && copilot_args+=("-m" "$CURRENT_MODEL")
+      copilot_args+=("$(cat "$prompt_tmp_file")")
+
+      if [ -n "$timeout_prefix" ]; then
+        $timeout_prefix copilot "${copilot_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      else
+        copilot "${copilot_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      fi
+      ;;
+
+    opencode)
+      local opencode_args=("--auto")
+      [ -n "$CURRENT_MODEL" ] && opencode_args+=("--model" "$CURRENT_MODEL")
+      opencode_args+=("-m" "$(cat "$prompt_tmp_file")")
+
+      if [ -n "$timeout_prefix" ]; then
+        $timeout_prefix opencode "${opencode_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      else
+        opencode "${opencode_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      fi
+      ;;
+
+    *)
+      log_error "Unknown agent: $CURRENT_AGENT"
+      rm -f "$prompt_tmp_file"
+      return 1
+      ;;
+  esac
+
+  rm -f "$prompt_tmp_file"
 
   echo ""
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
@@ -714,7 +843,7 @@ run_phase_once() {
       if grep -qiE "rate.?limit|overloaded|429|502|503|504|capacity|quota" "$phase_log" 2>/dev/null; then
         log_heal "Rate limit detected in $phase_name"
         if fallback_to_sonnet; then
-          log_heal "Will retry $phase_name with sonnet"
+          log_heal "Will retry $phase_name with fallback model"
         fi
         return 2
       fi
@@ -876,12 +1005,16 @@ health_check() {
   log_step "Running health checks..."
 
   local issues=0
+  local agent_cmd
+  agent_cmd=$(agent_command "$CURRENT_AGENT")
 
-  if ! command -v claude &> /dev/null; then
-    log_error "Claude CLI not found"
+  # Check if selected agent is installed
+  if ! command -v "$agent_cmd" &> /dev/null; then
+    log_error "$CURRENT_AGENT CLI ($agent_cmd) not found"
+    agent_install_instructions "$CURRENT_AGENT"
     ((issues++))
   else
-    log_success "Claude CLI available"
+    log_success "$CURRENT_AGENT CLI ($agent_cmd) available"
   fi
 
   if command -v gtimeout &> /dev/null; then
@@ -1246,13 +1379,14 @@ trap cleanup EXIT
 # ============================================================================
 
 main() {
-  log_header "AI Agent Runner (Phase-Based)"
+  log_header "Doyaken Agent Runner (Phase-Based)"
   echo ""
   echo "  Project: $PROJECT_DIR"
   echo "  Data: $DATA_DIR"
-  echo "  Agent ID: $AGENT_ID"
+  echo "  Worker ID: $AGENT_ID"
   echo "  Tasks to run: $NUM_TASKS"
-  echo "  Model: $CLAUDE_MODEL (fallback: sonnet)"
+  echo "  AI Agent: $DOYAKEN_AGENT"
+  echo "  Model: $DOYAKEN_MODEL"
   echo "  Max retries: $AGENT_MAX_RETRIES per phase"
   echo "  Lock timeout: ${AGENT_LOCK_TIMEOUT}s ($(( AGENT_LOCK_TIMEOUT / 3600 ))h)"
   echo "  Heartbeat: ${AGENT_HEARTBEAT}s ($(( AGENT_HEARTBEAT / 60 ))min)"

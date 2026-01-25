@@ -19,6 +19,7 @@ DOYAKEN_VERSION="1.0.0"
 # Source library files
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/registry.sh"
+source "$SCRIPT_DIR/agents.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -67,14 +68,24 @@ ${BOLD}COMMANDS:${NC}
 
 ${BOLD}OPTIONS:${NC}
   --project <path>    Specify project path (overrides auto-detect)
-  --model <name>      Use specific model (opus, sonnet, haiku)
+  --agent <name>      Use specific agent (claude, codex, gemini, copilot, opencode)
+  --model <name>      Use specific model (depends on agent)
   --dry-run           Preview without executing
   --verbose           Show detailed output
   --quiet             Minimal output
 
+${BOLD}AGENTS & MODELS:${NC}
+  claude (default)    opus, sonnet, haiku, claude-opus-4, claude-sonnet-4
+  codex               gpt-5, o3, o4-mini, gpt-5-codex
+  gemini              gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
+  copilot             claude-sonnet-4.5, claude-sonnet-4, gpt-5
+  opencode            claude-sonnet-4, claude-opus-4, gpt-5, gemini-2.5-pro
+
 ${BOLD}EXAMPLES:${NC}
   doyaken                              # Run 5 tasks in current project
   doyaken run 3                        # Run 3 tasks
+  doyaken --agent codex run 1          # Run with OpenAI Codex
+  doyaken --agent gemini --model gemini-2.5-flash run 2
   doyaken --project ~/app run 1        # Run 1 task in specific project
   doyaken init                         # Initialize current directory
   doyaken tasks new "Add feature X"    # Create new task
@@ -82,7 +93,8 @@ ${BOLD}EXAMPLES:${NC}
 ${BOLD}ENVIRONMENT:${NC}
   DOYAKEN_HOME       Global installation directory (default: ~/.doyaken)
   DOYAKEN_PROJECT    Override project detection
-  CLAUDE_MODEL        Default model (opus, sonnet, haiku)
+  DOYAKEN_AGENT      Default agent (claude, codex, gemini, copilot, opencode)
+  DOYAKEN_MODEL      Default model for the agent
 
 EOF
 }
@@ -228,7 +240,17 @@ cmd_run() {
 
   export DOYAKEN_PROJECT="$project"
 
+  # Set agent defaults
+  export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
+  export DOYAKEN_MODEL="${DOYAKEN_MODEL:-$(agent_default_model "$DOYAKEN_AGENT")}"
+
+  # Validate agent and model
+  if ! agent_validate "$DOYAKEN_AGENT" "$DOYAKEN_MODEL"; then
+    exit 1
+  fi
+
   log_info "Running $num_tasks task(s) in: $project"
+  log_info "Agent: $DOYAKEN_AGENT (model: $DOYAKEN_MODEL)"
 
   # Determine which core.sh to use
   local core_script="$DOYAKEN_HOME/lib/core.sh"
@@ -344,6 +366,14 @@ quality:
 
 # Agent behavior settings
 agent:
+  # Agent to use: claude, codex, gemini, copilot, opencode
+  name: "claude"
+  # Model depends on agent:
+  #   claude: opus, sonnet, haiku
+  #   codex: gpt-5, o3, o4-mini
+  #   gemini: gemini-2.5-pro, gemini-2.5-flash
+  #   copilot: claude-sonnet-4.5, gpt-5
+  #   opencode: claude-sonnet-4, gpt-5
   model: "opus"
   max_retries: 2
   parallel_workers: 2
@@ -713,20 +743,33 @@ cmd_doctor() {
   project=$(detect_project 2>/dev/null) || project=""
 
   echo ""
-  echo -e "${BOLD}AI Agent Health Check${NC}"
-  echo "====================="
+  echo -e "${BOLD}Doyaken Health Check${NC}"
+  echo "===================="
   echo ""
 
   local issues=0
+  local current_agent="${DOYAKEN_AGENT:-claude}"
 
-  # Check Claude CLI
-  if command -v claude &>/dev/null; then
-    log_success "Claude CLI installed"
-  else
-    log_error "Claude CLI not found"
-    echo "  Install from: https://claude.ai/cli"
-    ((issues++))
-  fi
+  # Check agents
+  echo "AI Agents:"
+  for agent in claude codex gemini copilot opencode; do
+    local cmd="${AGENT_COMMANDS[$agent]}"
+    if command -v "$cmd" &>/dev/null; then
+      if [ "$agent" = "$current_agent" ]; then
+        log_success "$agent ($cmd) - ACTIVE"
+      else
+        log_success "$agent ($cmd)"
+      fi
+    else
+      if [ "$agent" = "$current_agent" ]; then
+        log_error "$agent ($cmd) - NOT INSTALLED (selected agent!)"
+        agent_install_instructions "$agent"
+        ((issues++))
+      else
+        echo -e "  ${YELLOW}○${NC} $agent ($cmd) - not installed"
+      fi
+    fi
+  done
 
   # Check timeout command
   if command -v gtimeout &>/dev/null; then
@@ -826,8 +869,12 @@ main() {
         project_override="$2"
         shift 2
         ;;
+      --agent)
+        export DOYAKEN_AGENT="$2"
+        shift 2
+        ;;
       --model)
-        export CLAUDE_MODEL="$2"
+        export DOYAKEN_MODEL="$2"
         shift 2
         ;;
       --dry-run)

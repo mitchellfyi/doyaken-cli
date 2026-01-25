@@ -57,7 +57,15 @@ quality:
 
 # Agent behavior settings
 agent:
-  # Default model (opus, sonnet, haiku)
+  # AI agent to use: claude (default), codex, gemini, copilot, opencode
+  name: "claude"
+
+  # Model to use (depends on agent):
+  #   claude:   opus, sonnet, haiku, claude-opus-4, claude-sonnet-4
+  #   codex:    gpt-5, o3, o4-mini, gpt-5-codex
+  #   gemini:   gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
+  #   copilot:  claude-sonnet-4.5, claude-sonnet-4, gpt-5
+  #   opencode: claude-sonnet-4, claude-opus-4, gpt-5, gemini-2.5-pro
   model: "opus"
 
   # Maximum retry attempts per phase
