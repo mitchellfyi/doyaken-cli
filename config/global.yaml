@@ -7,10 +7,18 @@ version: 1
 
 # Default settings for all projects
 defaults:
-  # Model selection (opus, sonnet, haiku)
+  # AI agent to use: claude, codex, gemini, copilot, opencode
+  agent: "claude"
+
+  # Model selection (depends on agent):
+  #   claude:   opus, sonnet, haiku
+  #   codex:    gpt-5, o3, o4-mini
+  #   gemini:   gemini-2.5-pro, gemini-2.5-flash
+  #   copilot:  claude-sonnet-4.5, gpt-5
+  #   opencode: claude-sonnet-4, gpt-5
   model: "opus"
 
-  # Fallback model when rate limited
+  # Fallback model when rate limited (agent-specific)
   fallback_model: "sonnet"
 
   # Default number of tasks per run
