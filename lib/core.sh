@@ -3,9 +3,10 @@
 # AI Agent - Core Logic
 #
 # This is the core agent implementation for the doyaken CLI.
-# It executes tasks through a 7-phase workflow with self-healing capabilities.
+# It executes tasks through an 8-phase workflow with self-healing capabilities.
 #
 # PHASES:
+#   0. EXPAND    - Expand brief prompt into full task specification (2min)
 #   1. TRIAGE    - Validate task, check dependencies (2min)
 #   2. PLAN      - Gap analysis, detailed planning (5min)
 #   3. IMPLEMENT - Execute the plan, write code (30min)
@@ -110,6 +111,7 @@ AGENT_HEARTBEAT="${AGENT_HEARTBEAT:-3600}"
 AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
 
 # Phase skip flags (set to 1 to skip)
+SKIP_EXPAND="${SKIP_EXPAND:-0}"
 SKIP_TRIAGE="${SKIP_TRIAGE:-0}"
 SKIP_PLAN="${SKIP_PLAN:-0}"
 SKIP_IMPLEMENT="${SKIP_IMPLEMENT:-0}"
@@ -119,6 +121,7 @@ SKIP_REVIEW="${SKIP_REVIEW:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
 
 # Phase timeouts (in seconds)
+TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-120}"
 TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-120}"
 TIMEOUT_PLAN="${TIMEOUT_PLAN:-300}"
 TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-1800}"
@@ -129,6 +132,7 @@ TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-180}"
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(
+  "EXPAND|0-expand.md|$TIMEOUT_EXPAND|$SKIP_EXPAND"
   "TRIAGE|1-triage.md|$TIMEOUT_TRIAGE|$SKIP_TRIAGE"
   "PLAN|2-plan.md|$TIMEOUT_PLAN|$SKIP_PLAN"
   "IMPLEMENT|3-implement.md|$TIMEOUT_IMPLEMENT|$SKIP_IMPLEMENT"
@@ -1317,7 +1321,7 @@ run_agent_iteration() {
   log_step "Running modular phase-based execution..."
   echo "  Task: $task_id"
   echo "  Model: $CURRENT_MODEL"
-  echo "  Phases: TRIAGE → PLAN → IMPLEMENT → TEST → DOCS → REVIEW → VERIFY"
+  echo "  Phases: EXPAND → TRIAGE → PLAN → IMPLEMENT → TEST → DOCS → REVIEW → VERIFY"
   if [ "$AGENT_QUIET" = "1" ]; then
     echo "  Output: quiet"
   elif [ "$AGENT_PROGRESS" != "1" ]; then
@@ -1439,6 +1443,7 @@ main() {
   fi
   echo ""
   echo "  Phases:"
+  echo "    0. EXPAND    ${TIMEOUT_EXPAND}s  $([ "$SKIP_EXPAND" = "1" ] && echo "[SKIP]" || echo "")"
   echo "    1. TRIAGE    ${TIMEOUT_TRIAGE}s  $([ "$SKIP_TRIAGE" = "1" ] && echo "[SKIP]" || echo "")"
   echo "    2. PLAN      ${TIMEOUT_PLAN}s  $([ "$SKIP_PLAN" = "1" ] && echo "[SKIP]" || echo "")"
   echo "    3. IMPLEMENT ${TIMEOUT_IMPLEMENT}s  $([ "$SKIP_IMPLEMENT" = "1" ] && echo "[SKIP]" || echo "")"

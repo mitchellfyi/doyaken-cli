@@ -49,6 +49,7 @@ output:
 
 # Phase timeouts in seconds
 timeouts:
+  expand: 120
   triage: 120
   plan: 300
   implement: 1800

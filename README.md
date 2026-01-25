@@ -110,10 +110,11 @@ dk --agent gemini --model gemini-2.5-flash run 2
 
 ## Agent Workflow
 
-The agent operates in 7 phases for each task:
+The agent operates in 8 phases for each task:
 
 | Phase | Timeout | Purpose |
 |-------|---------|---------|
+| **EXPAND** | 2min | Expand brief prompt into full task specification |
 | **TRIAGE** | 2min | Validate task, check dependencies |
 | **PLAN** | 5min | Gap analysis, detailed planning |
 | **IMPLEMENT** | 30min | Execute the plan, write code |

@@ -59,7 +59,7 @@ for script in cli.sh core.sh registry.sh migration.sh taskboard.sh; do
 done
 
 # Test 5: All prompts exist
-for prompt in 1-triage.md 2-plan.md 3-implement.md 4-test.md 5-docs.md 6-review.md 7-verify.md; do
+for prompt in 0-expand.md 1-triage.md 2-plan.md 3-implement.md 4-test.md 5-docs.md 6-review.md 7-verify.md; do
   if [ -f "$ROOT_DIR/prompts/$prompt" ]; then
     pass "prompts/$prompt exists"
   else
