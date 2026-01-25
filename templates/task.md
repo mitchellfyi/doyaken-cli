@@ -5,7 +5,7 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `PPP-SSS-slug`                                         |
-| Status      | `todo` / `doing` / `done`                              |
+| Status      | `blocked` / `todo` / `doing` / `done`                  |
 | Priority    | `001` Critical / `002` High / `003` Medium / `004` Low |
 | Created     | `YYYY-MM-DD HH:MM`                                     |
 | Started     |                                                        |

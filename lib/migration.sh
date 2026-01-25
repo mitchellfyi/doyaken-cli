@@ -127,6 +127,22 @@ migrate_project() {
     log_success "Removed embedded agent code"
   fi
 
+  # Step 2b: Rename task folders to numbered format
+  log_info "Updating task folder structure"
+  if [ -d "$ai_agent_dir/tasks/todo" ] && [ ! -d "$ai_agent_dir/tasks/2.todo" ]; then
+    mv "$ai_agent_dir/tasks/todo" "$ai_agent_dir/tasks/2.todo"
+  fi
+  if [ -d "$ai_agent_dir/tasks/doing" ] && [ ! -d "$ai_agent_dir/tasks/3.doing" ]; then
+    mv "$ai_agent_dir/tasks/doing" "$ai_agent_dir/tasks/3.doing"
+  fi
+  if [ -d "$ai_agent_dir/tasks/done" ] && [ ! -d "$ai_agent_dir/tasks/4.done" ]; then
+    mv "$ai_agent_dir/tasks/done" "$ai_agent_dir/tasks/4.done"
+  fi
+  # Create 1.blocked folder (new)
+  mkdir -p "$ai_agent_dir/tasks/1.blocked"
+  touch "$ai_agent_dir/tasks/1.blocked/.gitkeep"
+  log_success "Updated task folders to numbered format"
+
   # Step 3: Detect git info
   local git_remote=""
   local git_branch="main"
@@ -240,6 +256,7 @@ EOF
   echo "Summary:"
   echo "  - .claude/ renamed to .doyaken/"
   echo "  - Embedded agent code removed (now global)"
+  echo "  - Task folders updated (1.blocked/, 2.todo/, 3.doing/, 4.done/)"
   echo "  - manifest.yaml created"
   echo "  - CLAUDE.md renamed to AI-AGENT.md"
   echo "  - Project registered in global registry"

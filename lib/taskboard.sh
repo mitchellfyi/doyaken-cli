@@ -39,13 +39,32 @@ log_success() {
   echo -e "${GREEN}[taskboard]${NC} $1"
 }
 
+# Get the actual folder path, supporting both old and new naming
+get_task_folder() {
+  local state="$1"
+  case "$state" in
+    blocked) [ -d "$TASKS_DIR/1.blocked" ] && echo "$TASKS_DIR/1.blocked" && return ;;
+    todo)    [ -d "$TASKS_DIR/2.todo" ] && echo "$TASKS_DIR/2.todo" && return ;;
+    doing)   [ -d "$TASKS_DIR/3.doing" ] && echo "$TASKS_DIR/3.doing" && return ;;
+    done)    [ -d "$TASKS_DIR/4.done" ] && echo "$TASKS_DIR/4.done" && return ;;
+  esac
+  echo "$TASKS_DIR/$state"
+}
+
+# Get folder paths
+BLOCKED_DIR=$(get_task_folder "blocked")
+TODO_DIR=$(get_task_folder "todo")
+DOING_DIR=$(get_task_folder "doing")
+DONE_DIR=$(get_task_folder "done")
+
 # Count tasks in each state
-count_todo=$(find "$TASKS_DIR/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-count_doing=$(find "$TASKS_DIR/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-count_done=$(find "$TASKS_DIR/done" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+count_blocked=$(find "$BLOCKED_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+count_todo=$(find "$TODO_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+count_doing=$(find "$DOING_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+count_done=$(find "$DONE_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 
 log_info "Generating TASKBOARD.md..."
-log_info "Found: $count_todo todo, $count_doing doing, $count_done done"
+log_info "Found: $count_blocked blocked, $count_todo todo, $count_doing doing, $count_done done"
 
 # Start generating the taskboard
 cat > "$OUTPUT_FILE" << 'HEADER'
@@ -69,8 +88,9 @@ else
 fi
 
 # Add counts
-echo "| Doing | $count_doing |" >> "$OUTPUT_FILE"
+echo "| Blocked | $count_blocked |" >> "$OUTPUT_FILE"
 echo "| Todo | $count_todo |" >> "$OUTPUT_FILE"
+echo "| Doing | $count_doing |" >> "$OUTPUT_FILE"
 echo "| Done | $count_done |" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
@@ -98,6 +118,32 @@ get_assigned_agent() {
   grep "| Assigned To |" "$file" 2>/dev/null | sed 's/.*| Assigned To | *//' | sed 's/ *|.*//' | tr -d '`' || echo ""
 }
 
+# Get folder basename for links
+get_folder_name() {
+  local dir="$1"
+  basename "$dir"
+}
+
+# Blocked section
+echo "---" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+echo "## Blocked" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+
+if [ "$count_blocked" -eq 0 ]; then
+  echo "_No blocked tasks_" >> "$OUTPUT_FILE"
+else
+  blocked_folder=$(get_folder_name "$BLOCKED_DIR")
+  for file in $(find "$BLOCKED_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
+    [ -f "$file" ] || continue
+    filename=$(basename "$file")
+    title=$(get_task_title "$file")
+    priority=$(get_priority_label "$filename")
+    echo "- **[$filename]($TASK_PATH_PREFIX/$blocked_folder/$filename)** - $title [$priority]" >> "$OUTPUT_FILE"
+  done
+fi
+echo "" >> "$OUTPUT_FILE"
+
 # In Progress section
 echo "---" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
@@ -107,7 +153,8 @@ echo "" >> "$OUTPUT_FILE"
 if [ "$count_doing" -eq 0 ]; then
   echo "_No tasks in progress_" >> "$OUTPUT_FILE"
 else
-  for file in "$TASKS_DIR/doing"/*.md; do
+  doing_folder=$(get_folder_name "$DOING_DIR")
+  for file in "$DOING_DIR"/*.md; do
     [ -f "$file" ] || continue
     filename=$(basename "$file")
     title=$(get_task_title "$file")
@@ -115,7 +162,7 @@ else
     agent=$(get_assigned_agent "$file")
     agent_info=""
     [ -n "$agent" ] && agent_info=" (${agent})"
-    echo "- **[$filename]($TASK_PATH_PREFIX/doing/$filename)** - $title [$priority]$agent_info" >> "$OUTPUT_FILE"
+    echo "- **[$filename]($TASK_PATH_PREFIX/$doing_folder/$filename)** - $title [$priority]$agent_info" >> "$OUTPUT_FILE"
   done
 fi
 echo "" >> "$OUTPUT_FILE"
@@ -129,13 +176,14 @@ echo "" >> "$OUTPUT_FILE"
 if [ "$count_todo" -eq 0 ]; then
   echo "_No pending tasks_" >> "$OUTPUT_FILE"
 else
+  todo_folder=$(get_folder_name "$TODO_DIR")
   # Sort by filename (which gives priority order)
-  for file in $(find "$TASKS_DIR/todo" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
+  for file in $(find "$TODO_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
     [ -f "$file" ] || continue
     filename=$(basename "$file")
     title=$(get_task_title "$file")
     priority=$(get_priority_label "$filename")
-    echo "- **[$filename]($TASK_PATH_PREFIX/todo/$filename)** - $title [$priority]" >> "$OUTPUT_FILE"
+    echo "- **[$filename]($TASK_PATH_PREFIX/$todo_folder/$filename)** - $title [$priority]" >> "$OUTPUT_FILE"
   done
 fi
 echo "" >> "$OUTPUT_FILE"
@@ -149,12 +197,13 @@ echo "" >> "$OUTPUT_FILE"
 if [ "$count_done" -eq 0 ]; then
   echo "_No completed tasks_" >> "$OUTPUT_FILE"
 else
+  done_folder=$(get_folder_name "$DONE_DIR")
   # Sort by modification time, most recent first, limit to 10
-  for file in $(find "$TASKS_DIR/done" -maxdepth 1 -name "*.md" -exec ls -t {} + 2>/dev/null | head -10); do
+  for file in $(find "$DONE_DIR" -maxdepth 1 -name "*.md" -exec ls -t {} + 2>/dev/null | head -10); do
     [ -f "$file" ] || continue
     filename=$(basename "$file")
     title=$(get_task_title "$file")
-    echo "- **[$filename]($TASK_PATH_PREFIX/done/$filename)** - $title" >> "$OUTPUT_FILE"
+    echo "- **[$filename]($TASK_PATH_PREFIX/$done_folder/$filename)** - $title" >> "$OUTPUT_FILE"
   done
 fi
 echo "" >> "$OUTPUT_FILE"

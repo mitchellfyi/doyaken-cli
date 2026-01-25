@@ -1076,7 +1076,7 @@ health_check() {
     log_success "Operating manual exists: $(basename "$AGENT_MD")"
   fi
 
-  for dir in todo doing "done" _templates; do
+  for dir in 1.blocked 2.todo 3.doing 4.done _templates; do
     if [ ! -d "$TASKS_DIR/$dir" ]; then
       log_warn "Creating missing directory: $TASKS_DIR/$dir"
       mkdir -p "$TASKS_DIR/$dir"
@@ -1137,9 +1137,25 @@ validate_environment() {
 # Task Management
 # ============================================================================
 
+# Get the actual folder path, supporting both old and new naming
+get_task_folder() {
+  local state="$1"
+  # Check for new numbered naming first
+  case "$state" in
+    blocked) [ -d "$TASKS_DIR/1.blocked" ] && echo "$TASKS_DIR/1.blocked" && return ;;
+    todo)    [ -d "$TASKS_DIR/2.todo" ] && echo "$TASKS_DIR/2.todo" && return ;;
+    doing)   [ -d "$TASKS_DIR/3.doing" ] && echo "$TASKS_DIR/3.doing" && return ;;
+    done)    [ -d "$TASKS_DIR/4.done" ] && echo "$TASKS_DIR/4.done" && return ;;
+  esac
+  # Fall back to old naming
+  echo "$TASKS_DIR/$state"
+}
+
 count_tasks() {
   local state="$1"
-  find "$TASKS_DIR/$state" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' '
+  local dir
+  dir=$(get_task_folder "$state")
+  find "$dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' '
 }
 
 count_locked_tasks() {
@@ -1147,7 +1163,9 @@ count_locked_tasks() {
 }
 
 get_doing_task_for_agent() {
-  for file in "$TASKS_DIR/doing"/*.md; do
+  local doing_dir
+  doing_dir=$(get_task_folder "doing")
+  for file in "$doing_dir"/*.md; do
     [ -f "$file" ] || continue
     local task_id
     task_id=$(get_task_id_from_file "$file")
@@ -1176,7 +1194,9 @@ get_next_available_task() {
     return 0
   fi
 
-  for file in $(find "$TASKS_DIR/todo" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
+  local todo_dir
+  todo_dir=$(get_task_folder "todo")
+  for file in $(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
     [ -f "$file" ] || continue
     local task_id
     task_id=$(get_task_id_from_file "$file")
@@ -1194,6 +1214,7 @@ get_next_available_task() {
 
 show_task_summary() {
   log_info "Task Summary:"
+  echo "  - Blocked: $(count_tasks blocked)"
   echo "  - Todo:    $(count_tasks todo)"
   echo "  - Doing:   $(count_tasks doing)"
   echo "  - Done:    $(count_tasks "done")"
@@ -1289,8 +1310,9 @@ run_agent_iteration() {
         return 1
       fi
 
-      local new_path
-      new_path="$TASKS_DIR/doing/$(basename "$task_file")"
+      local new_path doing_dir
+      doing_dir=$(get_task_folder "doing")
+      new_path="$doing_dir/$(basename "$task_file")"
       mv "$task_file" "$new_path"
       task_file="$new_path"
 
@@ -1344,8 +1366,9 @@ run_agent_iteration() {
 
     reset_model
 
-    local done_file
-    done_file="$TASKS_DIR/done/$(basename "$task_file")"
+    local done_file done_dir
+    done_dir=$(get_task_folder "done")
+    done_file="$done_dir/$(basename "$task_file")"
     if [ -f "$done_file" ]; then
       release_lock "$task_id"
       unassign_task "$done_file"
@@ -1391,7 +1414,9 @@ cleanup() {
 
     rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
 
-    for file in "$TASKS_DIR/doing"/*.md; do
+    local doing_dir
+    doing_dir=$(get_task_folder "doing")
+    for file in "$doing_dir"/*.md; do
       [ -f "$file" ] || continue
       if grep -q "$AGENT_ID" "$file" 2>/dev/null; then
         unassign_task "$file"

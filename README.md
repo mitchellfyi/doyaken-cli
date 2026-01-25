@@ -144,9 +144,10 @@ your-project/
 ├── .doyaken/
 │   ├── manifest.yaml        # Project configuration
 │   ├── tasks/
-│   │   ├── todo/            # Ready to start
-│   │   ├── doing/           # In progress
-│   │   └── done/            # Completed
+│   │   ├── 1.blocked/       # Blocked tasks
+│   │   ├── 2.todo/          # Ready to start
+│   │   ├── 3.doing/         # In progress
+│   │   └── 4.done/          # Completed
 │   ├── logs/                # Execution logs
 │   ├── state/               # Session recovery
 │   └── locks/               # Parallel coordination

@@ -33,9 +33,10 @@ Project settings are stored in `.doyaken/manifest.yaml`. Edit it to configure:
 ## Task Management
 
 Tasks are stored in `.doyaken/tasks/`:
-- `todo/` - Ready to start
-- `doing/` - In progress (assigned to an agent)
-- `done/` - Completed
+- `1.blocked/` - Blocked tasks (waiting on something)
+- `2.todo/` - Ready to start
+- `3.doing/` - In progress (assigned to an agent)
+- `4.done/` - Completed
 
 ### Task Naming Format
 
@@ -50,13 +51,14 @@ Tasks are stored in `.doyaken/tasks/`:
 # Via CLI
 doyaken tasks new "Add user authentication"
 
-# Manually: create file in .doyaken/tasks/todo/
+# Manually: create file in .doyaken/tasks/2.todo/
 ```
 
 ## Agent Workflow
 
-The agent operates in 7 phases per task:
+The agent operates in 8 phases per task:
 
+0. **EXPAND** - Expand brief prompt into full task specification
 1. **TRIAGE** - Validate task, check dependencies
 2. **PLAN** - Gap analysis, detailed planning
 3. **IMPLEMENT** - Execute the plan, write code
@@ -114,7 +116,7 @@ ls -la .doyaken/logs/
 
 # Reset stuck state
 rm -rf .doyaken/locks/*.lock
-mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
+mv .doyaken/tasks/3.doing/*.md .doyaken/tasks/2.todo/
 ```
 
 ## Project-Specific Notes

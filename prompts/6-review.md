@@ -24,7 +24,7 @@ You are performing final review for task {{TASK_ID}}.
 
 4. **Create Follow-up Tasks** (if needed)
    For improvements/optimizations discovered:
-   - Create new task files in `.doyaken/tasks/todo/`
+   - Create new task files in `.doyaken/tasks/2.todo/`
    - Use priority 003 (Medium) for improvements
    - Use priority 004 (Low) for nice-to-haves
    - Reference this task in the new task's context
@@ -35,7 +35,7 @@ You are performing final review for task {{TASK_ID}}.
    - Update status to `done`
    - Set completed timestamp
    - Write completion summary
-   - Move task file to `.doyaken/tasks/done/`
+   - Move task file to `.doyaken/tasks/4.done/`
 
 ## Output
 
@@ -65,7 +65,7 @@ Final status: COMPLETE
 - Fix critical issues immediately
 - Create tasks for non-critical improvements (don't scope creep)
 - Be honest about what's done vs what's remaining
-- If task cannot be completed, explain why and leave in doing/
+- If task cannot be completed, explain why and leave in 3.doing/
 
 Task file: {{TASK_FILE}}
 Recent commits: {{RECENT_COMMITS}}

@@ -11,7 +11,7 @@ You are a project manager validating task {{TASK_ID}} before work begins.
 
 2. **Check Dependencies**
    - Review `Blocked By` field - are those tasks actually done?
-   - Check `.doyaken/tasks/done/` for completed dependencies
+   - Check `.doyaken/tasks/4.done/` for completed dependencies
    - If blocked, do NOT proceed - report the blocker
 
 3. **Verify Task Readiness**

@@ -241,9 +241,10 @@ WRAPPER
   log_success "Created project wrappers at $PROJECT_BIN/{doyaken,dk}"
 
   # Initialize project structure
-  mkdir -p "$DOYAKEN_HOME/tasks/todo"
-  mkdir -p "$DOYAKEN_HOME/tasks/doing"
-  mkdir -p "$DOYAKEN_HOME/tasks/done"
+  mkdir -p "$DOYAKEN_HOME/tasks/1.blocked"
+  mkdir -p "$DOYAKEN_HOME/tasks/2.todo"
+  mkdir -p "$DOYAKEN_HOME/tasks/3.doing"
+  mkdir -p "$DOYAKEN_HOME/tasks/4.done"
   mkdir -p "$DOYAKEN_HOME/tasks/_templates"
   mkdir -p "$DOYAKEN_HOME/logs"
   mkdir -p "$DOYAKEN_HOME/state"
@@ -255,9 +256,10 @@ WRAPPER
   fi
 
   # Create .gitkeep files
-  touch "$DOYAKEN_HOME/tasks/todo/.gitkeep"
-  touch "$DOYAKEN_HOME/tasks/doing/.gitkeep"
-  touch "$DOYAKEN_HOME/tasks/done/.gitkeep"
+  touch "$DOYAKEN_HOME/tasks/1.blocked/.gitkeep"
+  touch "$DOYAKEN_HOME/tasks/2.todo/.gitkeep"
+  touch "$DOYAKEN_HOME/tasks/3.doing/.gitkeep"
+  touch "$DOYAKEN_HOME/tasks/4.done/.gitkeep"
   touch "$DOYAKEN_HOME/logs/.gitkeep"
   touch "$DOYAKEN_HOME/state/.gitkeep"
   touch "$DOYAKEN_HOME/locks/.gitkeep"

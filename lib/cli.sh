@@ -127,9 +127,10 @@ ${BOLD}DESCRIPTION:${NC}
 ${BOLD}WHAT IT CREATES:${NC}
   .doyaken/
     manifest.yaml       Project metadata
-    tasks/todo/         Ready-to-start tasks
-    tasks/doing/        In-progress tasks
-    tasks/done/         Completed tasks
+    tasks/1.blocked/    Blocked tasks (waiting on something)
+    tasks/2.todo/       Ready-to-start tasks
+    tasks/3.doing/      In-progress tasks
+    tasks/4.done/       Completed tasks
     tasks/_templates/   Task templates
     logs/               Execution logs
     state/              Session state
@@ -166,6 +167,25 @@ EOF
       show_help
       ;;
   esac
+}
+
+# ============================================================================
+# Task Folder Helpers
+# ============================================================================
+
+# Get the actual folder path, supporting both old and new naming
+get_task_folder() {
+  local base_dir="$1"
+  local state="$2"
+  # Check for new numbered naming first
+  case "$state" in
+    blocked) [ -d "$base_dir/tasks/1.blocked" ] && echo "$base_dir/tasks/1.blocked" && return ;;
+    todo)    [ -d "$base_dir/tasks/2.todo" ] && echo "$base_dir/tasks/2.todo" && return ;;
+    doing)   [ -d "$base_dir/tasks/3.doing" ] && echo "$base_dir/tasks/3.doing" && return ;;
+    done)    [ -d "$base_dir/tasks/4.done" ] && echo "$base_dir/tasks/4.done" && return ;;
+  esac
+  # Fall back to old naming
+  echo "$base_dir/tasks/$state"
 }
 
 # ============================================================================
@@ -306,18 +326,20 @@ cmd_init() {
   log_info "Initializing doyaken project at: $target_dir"
 
   # Create directory structure
-  mkdir -p "$ai_agent_dir/tasks/todo"
-  mkdir -p "$ai_agent_dir/tasks/doing"
-  mkdir -p "$ai_agent_dir/tasks/done"
+  mkdir -p "$ai_agent_dir/tasks/1.blocked"
+  mkdir -p "$ai_agent_dir/tasks/2.todo"
+  mkdir -p "$ai_agent_dir/tasks/3.doing"
+  mkdir -p "$ai_agent_dir/tasks/4.done"
   mkdir -p "$ai_agent_dir/tasks/_templates"
   mkdir -p "$ai_agent_dir/logs"
   mkdir -p "$ai_agent_dir/state"
   mkdir -p "$ai_agent_dir/locks"
 
   # Create .gitkeep files
-  touch "$ai_agent_dir/tasks/todo/.gitkeep"
-  touch "$ai_agent_dir/tasks/doing/.gitkeep"
-  touch "$ai_agent_dir/tasks/done/.gitkeep"
+  touch "$ai_agent_dir/tasks/1.blocked/.gitkeep"
+  touch "$ai_agent_dir/tasks/2.todo/.gitkeep"
+  touch "$ai_agent_dir/tasks/3.doing/.gitkeep"
+  touch "$ai_agent_dir/tasks/4.done/.gitkeep"
   touch "$ai_agent_dir/logs/.gitkeep"
   touch "$ai_agent_dir/state/.gitkeep"
   touch "$ai_agent_dir/locks/.gitkeep"
@@ -566,14 +588,22 @@ cmd_tasks() {
         # Fallback: simple list
         echo "Tasks in $project:"
         echo ""
+        local blocked_dir todo_dir doing_dir done_dir
+        blocked_dir=$(get_task_folder "$DOYAKEN_DIR" "blocked")
+        todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+        doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
+        done_dir=$(get_task_folder "$DOYAKEN_DIR" "done")
+        echo "BLOCKED:"
+        find "$blocked_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
+        echo ""
         echo "TODO:"
-        find "$DOYAKEN_DIR/tasks/todo" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
+        find "$todo_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
         echo ""
         echo "DOING:"
-        find "$DOYAKEN_DIR/tasks/doing" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
+        find "$doing_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
         echo ""
         echo "DONE (recent):"
-        find "$DOYAKEN_DIR/tasks/done" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null | head -5 || echo "  (none)"
+        find "$done_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null | head -5 || echo "  (none)"
       fi
       ;;
     new)
@@ -588,12 +618,14 @@ cmd_tasks() {
       local priority="003"
       local sequence
       local todo_count
-      todo_count=$(find "$DOYAKEN_DIR/tasks/todo" -name "*.md" -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+      local todo_dir
+      todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+      todo_count=$(find "$todo_dir" -name "*.md" -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
       sequence=$(printf "%03d" $((todo_count + 1)))
       local slug
       slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
       local task_id="${priority}-${sequence}-${slug}"
-      local task_file="$DOYAKEN_DIR/tasks/todo/${task_id}.md"
+      local task_file="$todo_dir/${task_id}.md"
 
       local timestamp
       timestamp=$(date '+%Y-%m-%d %H:%M')
@@ -705,7 +737,9 @@ cmd_task() {
   local slug
   slug=$(echo "$prompt" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
   local task_id="${priority}-${sequence}-${slug}"
-  local task_file="$DOYAKEN_DIR/tasks/todo/${task_id}.md"
+  local todo_dir
+  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+  local task_file="$todo_dir/${task_id}.md"
 
   log_info "Creating task: $task_id"
 
@@ -822,13 +856,20 @@ cmd_status() {
   # Task counts
   echo ""
   echo "Tasks:"
-  local todo doing done_count
-  todo=$(find "$DOYAKEN_DIR/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  doing=$(find "$DOYAKEN_DIR/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  done_count=$(find "$DOYAKEN_DIR/tasks/done" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  echo "  Todo:  $todo"
-  echo "  Doing: $doing"
-  echo "  Done:  $done_count"
+  local blocked_dir todo_dir doing_dir done_dir
+  blocked_dir=$(get_task_folder "$DOYAKEN_DIR" "blocked")
+  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+  doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
+  done_dir=$(get_task_folder "$DOYAKEN_DIR" "done")
+  local blocked todo doing done_count
+  blocked=$(find "$blocked_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  done_count=$(find "$done_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  echo "  Blocked: $blocked"
+  echo "  Todo:    $todo"
+  echo "  Doing:   $doing"
+  echo "  Done:    $done_count"
 
   # Manifest info (if exists)
   local manifest="$DOYAKEN_DIR/manifest.yaml"
@@ -945,11 +986,29 @@ cmd_doctor() {
     else
       log_success "Project found: $project"
 
-      # Check project structure
+      # Check project structure (supports both old and new folder naming)
       local ai_agent_dir="$project/.doyaken"
-      [ -d "$ai_agent_dir/tasks/todo" ] && log_success "  tasks/todo/ exists" || log_error "  tasks/todo/ missing"
-      [ -d "$ai_agent_dir/tasks/doing" ] && log_success "  tasks/doing/ exists" || log_error "  tasks/doing/ missing"
-      [ -d "$ai_agent_dir/tasks/done" ] && log_success "  tasks/done/ exists" || log_error "  tasks/done/ missing"
+      # Check for numbered folders first, fall back to old naming
+      if [ -d "$ai_agent_dir/tasks/1.blocked" ] || [ -d "$ai_agent_dir/tasks/blocked" ]; then
+        log_success "  tasks/blocked exists"
+      else
+        log_warn "  tasks/blocked missing (optional)"
+      fi
+      if [ -d "$ai_agent_dir/tasks/2.todo" ] || [ -d "$ai_agent_dir/tasks/todo" ]; then
+        log_success "  tasks/todo exists"
+      else
+        log_error "  tasks/todo missing"
+      fi
+      if [ -d "$ai_agent_dir/tasks/3.doing" ] || [ -d "$ai_agent_dir/tasks/doing" ]; then
+        log_success "  tasks/doing exists"
+      else
+        log_error "  tasks/doing missing"
+      fi
+      if [ -d "$ai_agent_dir/tasks/4.done" ] || [ -d "$ai_agent_dir/tasks/done" ]; then
+        log_success "  tasks/done exists"
+      else
+        log_error "  tasks/done missing"
+      fi
       [ -f "$ai_agent_dir/manifest.yaml" ] && log_success "  manifest.yaml exists" || log_warn "  manifest.yaml missing"
       [ -f "$project/AI-AGENT.md" ] && log_success "  AI-AGENT.md exists" || log_warn "  AI-AGENT.md missing"
     fi

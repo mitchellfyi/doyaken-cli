@@ -5,7 +5,7 @@ You are verifying that task {{TASK_ID}} was managed correctly through all phases
 ## Your Responsibilities
 
 1. **Validate Task File State**
-   - Check task file exists in correct location (doing/ or done/)
+   - Check task file exists in correct location (3.doing/ or 4.done/)
    - Verify Status field matches actual state
    - Confirm Started timestamp is set
    - If complete: Completed timestamp should be set
@@ -27,12 +27,12 @@ You are verifying that task {{TASK_ID}} was managed correctly through all phases
 
 5. **Final Task State**
    If ALL acceptance criteria are met:
-   - Move task file to `.doyaken/tasks/done/`
+   - Move task file to `.doyaken/tasks/4.done/`
    - Set Status to `done`
    - Set Completed timestamp
 
    If NOT all criteria are met:
-   - Keep task in `.doyaken/tasks/doing/`
+   - Keep task in `.doyaken/tasks/3.doing/`
    - Document what remains in Work Log
    - Create follow-up task if needed
 
@@ -57,7 +57,7 @@ Update task Work Log:
 ```
 ### {{TIMESTAMP}} - Verification Complete
 
-Task location: [doing/done]
+Task location: [3.doing/4.done]
 Status field: [matches/mismatched]
 Acceptance criteria: [X/Y checked]
 
@@ -65,7 +65,7 @@ Issues found:
 - [list any discrepancies or "none"]
 
 Actions taken:
-- [moved to done/ | kept in doing/ | created follow-up]
+- [moved to 4.done/ | kept in 3.doing/ | created follow-up]
 - [committed task files to git]
 
 Task verified: [PASS/FAIL]
@@ -76,7 +76,7 @@ Task verified: [PASS/FAIL]
 - Do NOT write any code
 - Do NOT modify source files
 - ONLY verify and update task file state
-- Be strict: incomplete tasks should NOT be in done/
+- Be strict: incomplete tasks should NOT be in 4.done/
 - If verification fails, do not mark task as complete
 - **ALWAYS commit task file changes at the end**
 
