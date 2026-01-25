@@ -130,6 +130,7 @@ mkdir -p "$DOYAKEN_HOME/prompts"
 mkdir -p "$DOYAKEN_HOME/templates"
 mkdir -p "$DOYAKEN_HOME/config/mcp/servers"
 mkdir -p "$DOYAKEN_HOME/skills"
+mkdir -p "$DOYAKEN_HOME/hooks"
 mkdir -p "$DOYAKEN_HOME/projects"
 
 # Copy files
@@ -143,6 +144,7 @@ cp "$SOURCE_DIR/lib/taskboard.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/agents.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/skills.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/mcp.sh" "$DOYAKEN_HOME/lib/"
+cp "$SOURCE_DIR/lib/hooks.sh" "$DOYAKEN_HOME/lib/"
 
 # Prompts
 if [ -d "$SOURCE_DIR/prompts" ]; then
@@ -164,6 +166,12 @@ fi
 # Skills
 if [ -d "$SOURCE_DIR/skills" ]; then
   cp "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
+fi
+
+# Hooks
+if [ -d "$SOURCE_DIR/hooks" ]; then
+  cp "$SOURCE_DIR/hooks"/*.sh "$DOYAKEN_HOME/hooks/" 2>/dev/null || true
+  chmod +x "$DOYAKEN_HOME/hooks"/*.sh 2>/dev/null || true
 fi
 
 # Binary

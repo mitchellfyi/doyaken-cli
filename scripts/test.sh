@@ -50,7 +50,7 @@ else
 fi
 
 # Test 4: All lib scripts exist
-for script in cli.sh core.sh registry.sh taskboard.sh; do
+for script in cli.sh core.sh registry.sh taskboard.sh hooks.sh; do
   if [ -f "$ROOT_DIR/lib/$script" ]; then
     pass "lib/$script exists"
   else

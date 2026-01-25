@@ -22,6 +22,7 @@ source "$SCRIPT_DIR/registry.sh"
 source "$SCRIPT_DIR/agents.sh"
 source "$SCRIPT_DIR/skills.sh"
 source "$SCRIPT_DIR/mcp.sh"
+source "$SCRIPT_DIR/hooks.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -66,6 +67,8 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}skill${NC} <name>        Run a skill
   ${CYAN}mcp${NC} status          Show MCP integration status
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
+  ${CYAN}hooks${NC}               List available CLI agent hooks
+  ${CYAN}hooks${NC} install       Install hooks to .claude/settings.json
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
@@ -1250,6 +1253,9 @@ main() {
       ;;
     mcp)
       cmd_mcp "${args[@]+"${args[@]}"}"
+      ;;
+    hooks)
+      hooks_main "${args[@]+"${args[@]}"}"
       ;;
     version)
       cmd_version
