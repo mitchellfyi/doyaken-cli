@@ -143,6 +143,16 @@ CURRENT_AGENT="$DOYAKEN_AGENT"
 CURRENT_MODEL="$DOYAKEN_MODEL"
 MODEL_FALLBACK_TRIGGERED=0
 
+# Pass-through arguments for the underlying agent CLI
+# Set via DOYAKEN_PASSTHROUGH_ARGS environment variable (space-separated)
+# or via -- separator on command line
+if [ -n "${DOYAKEN_PASSTHROUGH_ARGS:-}" ]; then
+  # Convert space-separated string to array
+  read -r -a DOYAKEN_PASSTHROUGH_ARGS <<< "$DOYAKEN_PASSTHROUGH_ARGS"
+else
+  DOYAKEN_PASSTHROUGH_ARGS=()
+fi
+
 # Generate unique agent ID with nicer default (atomic to prevent race conditions)
 if [ -z "${AGENT_NAME:-}" ]; then
   # Ensure locks directory exists
@@ -710,11 +720,6 @@ run_phase_once() {
     return 1
   fi
 
-  # Write prompt to temp file for agent_run
-  local prompt_tmp_file
-  prompt_tmp_file=$(mktemp)
-  echo "$prompt" > "$prompt_tmp_file"
-
   local output_mode="stream"
   if [ "$AGENT_QUIET" = "1" ]; then
     output_mode="quiet"
@@ -731,100 +736,135 @@ run_phase_once() {
   echo ""
 
   # Build timeout prefix
-  local timeout_prefix=""
+  local timeout_cmd=""
   if command -v gtimeout &> /dev/null; then
-    timeout_prefix="gtimeout ${timeout}s"
+    timeout_cmd="gtimeout"
   elif command -v timeout &> /dev/null; then
-    timeout_prefix="timeout ${timeout}s"
+    timeout_cmd="timeout"
   fi
 
-  # Run the agent based on type
+  # Build agent command using abstraction functions
+  # Each agent uses its correct autonomous mode flags
+  local agent_args=()
+
   case "$CURRENT_AGENT" in
     claude)
-      local claude_args=(
-        "--dangerously-skip-permissions"
-        "--permission-mode" "bypassPermissions"
-        "--model" "$CURRENT_MODEL"
-      )
-      if [ "$output_mode" = "quiet" ]; then
-        claude_args+=("-p")
-      elif [ "$output_mode" = "progress" ]; then
-        claude_args+=("--output-format" "stream-json" "--verbose")
-      else
-        claude_args+=("--output-format" "stream-json" "--verbose")
+      # Claude: --dangerously-skip-permissions --permission-mode bypassPermissions --model <model>
+      agent_args+=("--dangerously-skip-permissions")
+      agent_args+=("--permission-mode" "bypassPermissions")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("--model" "$CURRENT_MODEL")
+      if [ "$output_mode" != "quiet" ]; then
+        agent_args+=("--output-format" "stream-json" "--verbose")
       fi
+      # Add any pass-through args
+      if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
+        agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
+      fi
+      agent_args+=("-p" "$prompt")
 
       if [ "$output_mode" = "progress" ]; then
-        if [ -n "$timeout_prefix" ]; then
-          $timeout_prefix claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+        if [ -n "$timeout_cmd" ]; then
+          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
         else
-          claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
         fi
       else
-        if [ -n "$timeout_prefix" ]; then
-          $timeout_prefix claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
+        if [ -n "$timeout_cmd" ]; then
+          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
         else
-          claude "${claude_args[@]}" "$prompt" 2>&1 | tee "$phase_log" || exit_code=$?
+          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
         fi
       fi
       ;;
 
     codex)
-      local codex_args=("exec" "--full-auto")
-      [ -n "$CURRENT_MODEL" ] && codex_args+=("-m" "$CURRENT_MODEL")
-      codex_args+=("$(cat "$prompt_tmp_file")")
+      # Codex: codex exec --dangerously-bypass-approvals-and-sandbox -m <model> <prompt>
+      agent_args+=("exec")
+      agent_args+=("--dangerously-bypass-approvals-and-sandbox")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
+      if [ "$output_mode" != "quiet" ]; then
+        agent_args+=("--verbose")
+      fi
+      # Add any pass-through args
+      if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
+        agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
+      fi
+      agent_args+=("$prompt")
 
-      if [ -n "$timeout_prefix" ]; then
-        $timeout_prefix codex "${codex_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      if [ -n "$timeout_cmd" ]; then
+        $timeout_cmd "${timeout}s" codex "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       else
-        codex "${codex_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+        codex "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       fi
       ;;
 
     gemini)
-      local gemini_args=("--yolo")
-      [ -n "$CURRENT_MODEL" ] && gemini_args+=("-m" "$CURRENT_MODEL")
-      gemini_args+=("-p" "$(cat "$prompt_tmp_file")")
+      # Gemini: gemini --yolo -m <model> -p <prompt>
+      agent_args+=("--yolo")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
+      if [ "$output_mode" != "quiet" ]; then
+        agent_args+=("--verbose")
+      fi
+      # Add any pass-through args
+      if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
+        agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
+      fi
+      agent_args+=("-p" "$prompt")
 
-      if [ -n "$timeout_prefix" ]; then
-        $timeout_prefix gemini "${gemini_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      if [ -n "$timeout_cmd" ]; then
+        $timeout_cmd "${timeout}s" gemini "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       else
-        gemini "${gemini_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+        gemini "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       fi
       ;;
 
     copilot)
-      local copilot_args=("--auto")
-      [ -n "$CURRENT_MODEL" ] && copilot_args+=("-m" "$CURRENT_MODEL")
-      copilot_args+=("$(cat "$prompt_tmp_file")")
+      # Copilot: copilot --allow-all-tools --allow-all-paths -m <model> -p <prompt>
+      agent_args+=("--allow-all-tools")
+      agent_args+=("--allow-all-paths")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
+      if [ "$output_mode" != "quiet" ]; then
+        agent_args+=("--verbose")
+      fi
+      # Add any pass-through args
+      if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
+        agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
+      fi
+      agent_args+=("-p" "$prompt")
 
-      if [ -n "$timeout_prefix" ]; then
-        $timeout_prefix copilot "${copilot_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      if [ -n "$timeout_cmd" ]; then
+        $timeout_cmd "${timeout}s" copilot "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       else
-        copilot "${copilot_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+        copilot "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       fi
       ;;
 
     opencode)
-      local opencode_args=("--auto")
-      [ -n "$CURRENT_MODEL" ] && opencode_args+=("--model" "$CURRENT_MODEL")
-      opencode_args+=("-m" "$(cat "$prompt_tmp_file")")
+      # OpenCode: opencode run --auto-approve --model <model> <prompt>
+      agent_args+=("run")
+      agent_args+=("--auto-approve")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("--model" "$CURRENT_MODEL")
+      if [ "$output_mode" != "quiet" ]; then
+        agent_args+=("--print-logs")
+      fi
+      # Add any pass-through args
+      if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
+        agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
+      fi
+      agent_args+=("$prompt")
 
-      if [ -n "$timeout_prefix" ]; then
-        $timeout_prefix opencode "${opencode_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+      if [ -n "$timeout_cmd" ]; then
+        $timeout_cmd "${timeout}s" opencode "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       else
-        opencode "${opencode_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
+        opencode "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
       fi
       ;;
 
     *)
       log_error "Unknown agent: $CURRENT_AGENT"
-      rm -f "$prompt_tmp_file"
       return 1
       ;;
   esac
-
-  rm -f "$prompt_tmp_file"
 
   echo ""
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"

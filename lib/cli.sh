@@ -73,6 +73,7 @@ ${BOLD}OPTIONS:${NC}
   --dry-run           Preview without executing
   --verbose           Show detailed output
   --quiet             Minimal output
+  -- <args>           Pass additional arguments to the underlying agent CLI
 
 ${BOLD}AGENTS & MODELS:${NC}
   claude (default)    opus, sonnet, haiku, claude-opus-4, claude-sonnet-4
@@ -80,6 +81,13 @@ ${BOLD}AGENTS & MODELS:${NC}
   gemini              gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
   copilot             claude-sonnet-4.5, claude-sonnet-4, gpt-5
   opencode            claude-sonnet-4, claude-opus-4, gpt-5, gemini-2.5-pro
+
+${BOLD}AUTONOMOUS MODE FLAGS (automatically applied):${NC}
+  claude:   --dangerously-skip-permissions --permission-mode bypassPermissions
+  codex:    --dangerously-bypass-approvals-and-sandbox
+  gemini:   --yolo
+  copilot:  --allow-all-tools --allow-all-paths
+  opencode: --auto-approve
 
 ${BOLD}EXAMPLES:${NC}
   doyaken                              # Run 5 tasks in current project
@@ -89,6 +97,7 @@ ${BOLD}EXAMPLES:${NC}
   doyaken --project ~/app run 1        # Run 1 task in specific project
   doyaken init                         # Initialize current directory
   doyaken tasks new "Add feature X"    # Create new task
+  doyaken run 1 -- --sandbox read-only # Pass extra args to agent
 
 ${BOLD}ENVIRONMENT:${NC}
   DOYAKEN_HOME       Global installation directory (default: ~/.doyaken)
@@ -862,8 +871,24 @@ main() {
   local project_override=""
   local cmd=""
   local args=()
+  local passthrough_args=()
+  local parsing_passthrough=false
 
   while [ $# -gt 0 ]; do
+    # Check for -- separator (pass remaining args to agent)
+    if [ "$1" = "--" ]; then
+      parsing_passthrough=true
+      shift
+      continue
+    fi
+
+    # If we've seen --, collect as passthrough args
+    if [ "$parsing_passthrough" = true ]; then
+      passthrough_args+=("$1")
+      shift
+      continue
+    fi
+
     case "$1" in
       --project)
         project_override="$2"
@@ -915,6 +940,11 @@ main() {
         ;;
     esac
   done
+
+  # Export passthrough args for core.sh
+  if [ ${#passthrough_args[@]} -gt 0 ]; then
+    export DOYAKEN_PASSTHROUGH_ARGS="${passthrough_args[*]}"
+  fi
 
   # Apply project override
   if [ -n "$project_override" ]; then

@@ -9,6 +9,8 @@
 #   - copilot         - GitHub Copilot CLI
 #   - opencode        - OpenCode CLI
 #
+# Each agent runs in fully autonomous mode with permissions bypassed.
+#
 
 # Agent registry with default models
 # Using declare -A requires bash 4+
@@ -122,217 +124,168 @@ agent_list_all() {
   echo "claude codex gemini copilot opencode"
 }
 
-# Build the command to run an agent with a prompt
-# Returns the full command array
-agent_build_command() {
-  local agent="$1"
-  local model="$2"
-  local prompt_file="$3"
-  local dangerously_skip_permissions="${4:-false}"
-  local print_only="${5:-false}"
+# =============================================================================
+# Agent-specific autonomous mode flags
+# =============================================================================
+#
+# Each agent has different flags for:
+#   1. Skipping permissions/sandbox (autonomous mode)
+#   2. Model selection
+#   3. Prompt input
+#
+# References:
+#   - Claude: --dangerously-skip-permissions --permission-mode bypassPermissions
+#   - Codex:  --dangerously-bypass-approvals-and-sandbox (or --yolo)
+#   - Gemini: --yolo (or --approval-mode=yolo)
+#   - Copilot: --allow-all-tools --allow-all-paths
+#   - OpenCode: Uses opencode run with --auto-approve
+# =============================================================================
 
-  local cmd="${AGENT_COMMANDS[$agent]:-claude}"
+# Build base autonomous args for an agent (without model or prompt)
+# Usage: agent_autonomous_args <agent>
+agent_autonomous_args() {
+  local agent="$1"
 
   case "$agent" in
     claude)
-      # Claude Code CLI
-      # claude --dangerously-skip-permissions --model <model> -p "prompt"
-      local args=()
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--dangerously-skip-permissions")
-      fi
-      if [[ -n "$model" ]]; then
-        args+=("--model" "$model")
-      fi
-      if [[ "$print_only" == "true" ]]; then
-        args+=("--print")
-      fi
-      args+=("-p" "$(cat "$prompt_file")")
-      echo "claude ${args[*]}"
+      # Claude Code CLI - full bypass mode
+      echo "--dangerously-skip-permissions --permission-mode bypassPermissions"
       ;;
-
     codex)
-      # OpenAI Codex CLI
-      # codex exec -m <model> "prompt" or codex -m <model> for interactive
-      local args=("exec")
-      if [[ -n "$model" ]]; then
-        args+=("-m" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--full-auto")
-      else
-        args+=("--auto-edit")
-      fi
-      args+=("$(cat "$prompt_file")")
-      echo "codex ${args[*]}"
+      # OpenAI Codex CLI - full autonomous mode
+      # --dangerously-bypass-approvals-and-sandbox is equivalent to --yolo
+      echo "--dangerously-bypass-approvals-and-sandbox"
       ;;
-
     gemini)
-      # Google Gemini CLI
-      # gemini -m <model> "prompt" or interactive mode
-      local args=()
-      if [[ -n "$model" ]]; then
-        args+=("-m" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--yolo")  # Full auto mode
-      fi
-      args+=("-p" "$(cat "$prompt_file")")
-      echo "gemini ${args[*]}"
+      # Google Gemini CLI - yolo mode for auto-approval
+      echo "--yolo"
       ;;
-
     copilot)
-      # GitHub Copilot CLI
-      # copilot -m <model> "prompt"
-      local args=()
-      if [[ -n "$model" ]]; then
-        args+=("-m" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--auto")
-      fi
-      args+=("$(cat "$prompt_file")")
-      echo "copilot ${args[*]}"
+      # GitHub Copilot CLI - allow all tools and paths
+      echo "--allow-all-tools --allow-all-paths"
       ;;
-
     opencode)
-      # OpenCode CLI
-      # opencode --model <model> --provider <provider> "prompt"
-      local args=()
-      if [[ -n "$model" ]]; then
-        args+=("--model" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--auto")
-      fi
-      args+=("-m" "$(cat "$prompt_file")")
-      echo "opencode ${args[*]}"
+      # OpenCode CLI - auto-approve mode
+      echo "--auto-approve"
       ;;
-
     *)
-      echo "claude -p \"$(cat "$prompt_file")\""
+      echo ""
       ;;
   esac
 }
 
-# Run an agent with a prompt file
-# Usage: agent_run <agent> <model> <prompt_file> [dangerously_skip_permissions] [timeout]
-agent_run() {
+# Build model args for an agent
+# Usage: agent_model_args <agent> <model>
+agent_model_args() {
   local agent="$1"
   local model="$2"
-  local prompt_file="$3"
-  local dangerously_skip_permissions="${4:-false}"
-  local timeout="${5:-}"
 
-  local cmd="${AGENT_COMMANDS[$agent]:-claude}"
-
-  # Check if agent is installed
-  if ! command -v "$cmd" &>/dev/null; then
-    echo "Error: Agent '$agent' ($cmd) is not installed" >&2
-    return 1
-  fi
-
-  # Build timeout prefix if specified
-  local timeout_prefix=""
-  if [[ -n "$timeout" ]]; then
-    if command -v timeout &>/dev/null; then
-      timeout_prefix="timeout $timeout"
-    elif command -v gtimeout &>/dev/null; then
-      timeout_prefix="gtimeout $timeout"
-    fi
+  if [[ -z "$model" ]]; then
+    echo ""
+    return
   fi
 
   case "$agent" in
     claude)
-      local args=()
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--dangerously-skip-permissions")
-      fi
-      if [[ -n "$model" ]]; then
-        args+=("--model" "$model")
-      fi
-      args+=("-p" "$(cat "$prompt_file")")
-
-      if [[ -n "$timeout_prefix" ]]; then
-        $timeout_prefix claude "${args[@]}"
-      else
-        claude "${args[@]}"
-      fi
+      echo "--model $model"
       ;;
-
     codex)
-      local args=("exec")
-      if [[ -n "$model" ]]; then
-        args+=("-m" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--full-auto")
-      else
-        args+=("--auto-edit")
-      fi
-      args+=("$(cat "$prompt_file")")
-
-      if [[ -n "$timeout_prefix" ]]; then
-        $timeout_prefix codex "${args[@]}"
-      else
-        codex "${args[@]}"
-      fi
+      echo "-m $model"
       ;;
-
     gemini)
-      local args=()
-      if [[ -n "$model" ]]; then
-        args+=("-m" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--yolo")
-      fi
-      args+=("-p" "$(cat "$prompt_file")")
-
-      if [[ -n "$timeout_prefix" ]]; then
-        $timeout_prefix gemini "${args[@]}"
-      else
-        gemini "${args[@]}"
-      fi
+      echo "-m $model"
       ;;
-
     copilot)
-      local args=()
-      if [[ -n "$model" ]]; then
-        args+=("-m" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--auto")
-      fi
-      args+=("$(cat "$prompt_file")")
-
-      if [[ -n "$timeout_prefix" ]]; then
-        $timeout_prefix copilot "${args[@]}"
-      else
-        copilot "${args[@]}"
-      fi
+      echo "-m $model"
       ;;
-
     opencode)
-      local args=()
-      if [[ -n "$model" ]]; then
-        args+=("--model" "$model")
-      fi
-      if [[ "$dangerously_skip_permissions" == "true" ]]; then
-        args+=("--auto")
-      fi
-      args+=("-m" "$(cat "$prompt_file")")
-
-      if [[ -n "$timeout_prefix" ]]; then
-        $timeout_prefix opencode "${args[@]}"
-      else
-        opencode "${args[@]}"
-      fi
+      # OpenCode uses provider/model format, but we accept just model name
+      echo "--model $model"
       ;;
-
     *)
-      echo "Error: Unknown agent '$agent'" >&2
-      return 1
+      echo ""
+      ;;
+  esac
+}
+
+# Build prompt args for an agent
+# Usage: agent_prompt_args <agent> <prompt_text>
+agent_prompt_args() {
+  local agent="$1"
+  local prompt="$2"
+
+  case "$agent" in
+    claude)
+      # Claude uses -p for prompt
+      echo "-p"
+      ;;
+    codex)
+      # Codex exec takes prompt as positional arg
+      echo ""
+      ;;
+    gemini)
+      # Gemini uses -p for prompt
+      echo "-p"
+      ;;
+    copilot)
+      # Copilot uses -p or --prompt
+      echo "-p"
+      ;;
+    opencode)
+      # OpenCode run takes message as positional
+      echo ""
+      ;;
+    *)
+      echo "-p"
+      ;;
+  esac
+}
+
+# Build the execution command for an agent
+# Usage: agent_exec_command <agent>
+# Returns: The base command (e.g., "codex exec" vs just "codex")
+agent_exec_command() {
+  local agent="$1"
+
+  case "$agent" in
+    codex)
+      # Codex uses "codex exec" for non-interactive execution
+      echo "codex exec"
+      ;;
+    opencode)
+      # OpenCode uses "opencode run" for non-interactive execution
+      echo "opencode run"
+      ;;
+    *)
+      # Other agents use just their command name
+      echo "$(_get_agent_cmd "$agent")"
+      ;;
+  esac
+}
+
+# Build verbose/output args for an agent (for progress tracking)
+# Usage: agent_verbose_args <agent>
+agent_verbose_args() {
+  local agent="$1"
+
+  case "$agent" in
+    claude)
+      echo "--output-format stream-json --verbose"
+      ;;
+    codex)
+      echo "--verbose"
+      ;;
+    gemini)
+      echo "--verbose"
+      ;;
+    copilot)
+      echo "--verbose"
+      ;;
+    opencode)
+      echo "--print-logs"
+      ;;
+    *)
+      echo ""
       ;;
   esac
 }
@@ -430,4 +383,16 @@ agent_status() {
       echo -e "  ${RED:-}✗${NC:-} $agent ($cmd) - not installed"
     fi
   done
+}
+
+# Print autonomous mode flags for reference
+agent_show_flags() {
+  local agent="$1"
+
+  echo "Autonomous mode flags for $agent:"
+  echo "  Base command: $(agent_exec_command "$agent")"
+  echo "  Auto flags:   $(agent_autonomous_args "$agent")"
+  echo "  Model flag:   $(agent_model_args "$agent" "<model>")"
+  echo "  Prompt flag:  $(agent_prompt_args "$agent")"
+  echo "  Verbose:      $(agent_verbose_args "$agent")"
 }
