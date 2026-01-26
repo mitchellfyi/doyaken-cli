@@ -1,0 +1,14 @@
+# AI Agent Project Registry
+# Auto-generated - do not edit manually unless you know what you're doing
+
+version: 1
+
+projects:
+  - path: "/var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.OA54XZy70p"
+    name: "tmp.OA54XZy70p"
+    git_remote: ""
+    registered_at: "2026-01-26T00:29:01Z"
+    last_active: "2026-01-26T00:29:01Z"
+
+# Path aliases for quick access
+aliases: {}
