@@ -1,10 +1,14 @@
-# Phase 7: VERIFY (Task Management Validation)
+# Phase 7: VERIFY (Task Management & CI Validation)
 
-You are verifying that task {{TASK_ID}} was managed correctly through all phases.
+You are verifying that task {{TASK_ID}} was managed correctly and CI passes.
 
 ## Code Quality Standards
 
 {{include:library/code-quality.md}}
+
+## CI/CD Best Practices
+
+{{include:library/ci-workflow.md}}
 
 ## Purpose
 
@@ -13,6 +17,7 @@ This phase ensures:
 2. All work is properly documented
 3. Task management is consistent
 4. Changes are committed and tracked
+5. **CI passes on the pushed changes**
 
 ## 1) Validate Acceptance Criteria
 
@@ -70,21 +75,90 @@ Quality checklist:
 - [ ] No commented-out code
 - [ ] Code follows KISS, YAGNI, DRY, SOLID principles
 
-## 5) Finalize Task State
+## 5) Push Changes and Verify CI
 
-**If ALL criteria are met:**
+**CRITICAL: A task is NOT complete until CI passes.**
+
+### 5a) Push Changes
+
+```bash
+# Ensure all changes are committed
+git status
+
+# Push to remote
+git push
+```
+
+### 5b) Monitor CI Status
+
+```bash
+# Watch the CI run
+gh run watch
+
+# Or check status
+gh run list --limit 1
+```
+
+### 5c) If CI Fails - Fix It
+
+**Do NOT mark the task complete if CI fails.**
+
+1. **Get failure details:**
+   ```bash
+   gh run view --log-failed
+   ```
+
+2. **Identify the failure type:**
+   - Syntax error?
+   - Missing dependency in CI?
+   - Environment difference (Linux vs macOS)?
+   - Test failure?
+   - Permission issue?
+
+3. **Fix the issue:**
+   - Make the necessary changes
+   - Commit with message: `fix(ci): [description]`
+   - Push and watch CI again
+
+4. **Iterate until CI is green:**
+   ```bash
+   git push && gh run watch
+   ```
+
+**Common CI fixes:**
+- Add `chmod +x` for scripts in workflow
+- Use portable bash commands (not macOS-specific)
+- Add missing tool installation steps
+- Fix case-sensitivity issues (Linux is case-sensitive)
+- Add proper error handling
+
+### 5d) CI Verification Checklist
+
+- [ ] Changes pushed to remote
+- [ ] CI workflow triggered
+- [ ] All CI jobs pass:
+  - [ ] Lint job
+  - [ ] Test job (all matrix combinations)
+  - [ ] Build job
+  - [ ] Any deployment jobs
+
+**If CI doesn't pass, go back to step 5c. Do not proceed.**
+
+## 6) Finalize Task State
+
+**Only if ALL criteria are met AND CI passes:**
 - Set Status to `done`
 - Set Completed timestamp
 - Clear Assigned To and Assigned At
 - Move task file to `.doyaken/tasks/4.done/`
 
-**If NOT all criteria are met:**
+**If NOT all criteria are met OR CI fails:**
 - Keep task in `.doyaken/tasks/3.doing/`
 - Document what remains in Work Log
 - Create follow-up task if needed
 - Be explicit about what's incomplete
 
-## 6) Commit Task Files
+## 7) Commit Task Files
 
 After finalizing:
 
@@ -95,6 +169,10 @@ doyaken tasks
 # Stage and commit task files
 git add .doyaken/tasks/ TASKBOARD.md
 git commit -m "chore: Complete task {{TASK_ID}} [{{TASK_ID}}]" || true
+
+# Push and verify CI one more time
+git push
+gh run watch
 ```
 
 ## Output
@@ -127,24 +205,35 @@ Final quality check:
 - Debug code removed: [yes/no]
 - Follows quality principles: [yes/no]
 
+CI Verification:
+- Push: [done]
+- CI Run: [link to run or run ID]
+- CI Status: [pass/fail]
+- CI Jobs:
+  - lint: [pass/fail]
+  - test (ubuntu): [pass/fail]
+  - test (macos): [pass/fail]
+  - build: [pass/fail]
+- CI Fixes Applied: [count or "none needed"]
+
 Task state:
 - Location: [3.doing/ → 4.done/ | kept in 3.doing/]
 - Reason: [complete | incomplete - what remains]
 
 Commits:
 - Task files committed: [yes/no]
+- Final push verified: [yes/no]
 
 Verification: [PASS/FAIL]
 ```
 
 ## Rules
 
-- Do NOT write any code
-- Do NOT modify source files
-- ONLY verify and update task file state
+- Do NOT mark task complete if CI fails
+- Fix CI failures before completing
 - Be strict: incomplete tasks should NOT be in 4.done/
-- If verification fails, do not mark task as complete
-- **ALWAYS commit task file changes at the end**
+- If CI cannot be fixed quickly, document blockers and keep in 3.doing/
 - "Almost done" is not done - be honest
+- **CI passing is a hard requirement for completion**
 
 Task file: {{TASK_FILE}}
