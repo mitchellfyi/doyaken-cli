@@ -433,7 +433,7 @@ show_no_tasks_menu() {
   esac
 }
 
-# Run comprehensive code review
+# Run comprehensive code review using skills
 run_code_review() {
   local project="$1"
 
@@ -450,100 +450,30 @@ run_code_review() {
   local choice
   read -rp "Enter choice [1-5]: " choice
 
-  local task_title task_context
+  local skill_name skill_args
   case "$choice" in
     1)
-      task_title="Comprehensive codebase review"
-      task_context="Perform a comprehensive review of the entire codebase including:
-
-**Architecture Review:**
-- Evaluate overall architecture and design patterns
-- Identify coupling issues and suggest decoupling strategies
-- Review module boundaries and dependencies
-- Assess scalability and maintainability
-
-**Code Quality:**
-- Check for SOLID, DRY, KISS, YAGNI violations
-- Identify code smells and anti-patterns
-- Review error handling and edge cases
-- Assess test coverage and quality
-
-**Security Audit:**
-- Check for OWASP Top 10 vulnerabilities
-- Review authentication and authorization
-- Identify potential injection points
-- Assess data validation and sanitization
-
-**Performance:**
-- Identify potential bottlenecks
-- Review database queries and I/O operations
-- Check for memory leaks or inefficiencies
-
-**Documentation:**
-- Review inline documentation quality
-- Check README and API documentation
-- Identify undocumented complex logic
-
-Create follow-up tasks for each significant finding."
+      skill_name="review-codebase"
+      skill_args="--scope=full"
       ;;
     2)
-      task_title="Security audit"
-      task_context="Perform a comprehensive security audit:
-
-- OWASP Top 10 vulnerability check
-- Authentication/authorization review
-- Input validation and sanitization
-- Secrets management review
-- Dependency vulnerability scan
-- SQL injection, XSS, CSRF checks
-- API security review
-
-Create tasks for each security issue found, prioritized by severity."
+      skill_name="security-audit"
+      skill_args=""
       ;;
     3)
-      task_title="Performance analysis"
-      task_context="Analyze performance across the codebase:
-
-- Identify N+1 queries and database bottlenecks
-- Review caching strategies
-- Check for memory leaks
-- Analyze algorithmic complexity
-- Review async/parallel processing opportunities
-- Profile critical paths
-
-Create tasks for each optimization opportunity."
+      skill_name="performance-audit"
+      skill_args=""
       ;;
     4)
-      task_title="Code quality and technical debt assessment"
-      task_context="Assess code quality and technical debt:
-
-- SOLID principles compliance
-- DRY violations
-- Code duplication analysis
-- Cyclomatic complexity review
-- Test coverage gaps
-- Outdated dependencies
-- Deprecated API usage
-- TODO/FIXME/HACK comment review
-
-Create prioritized tasks to address technical debt."
+      skill_name="tech-debt"
+      skill_args=""
       ;;
     5)
       echo ""
       local target_path
       read -rp "Path to review (relative to project root): " target_path
-      task_title="Review $target_path"
-      task_context="Perform a focused review of: $target_path
-
-Include:
-- Code quality and patterns
-- Security considerations
-- Performance implications
-- Test coverage
-- Documentation
-- Suggested improvements
-
-Create follow-up tasks for findings."
+      skill_name="review-codebase"
+      skill_args="--scope=path --path=$target_path"
       ;;
     *)
       log_warn "Invalid choice"
@@ -551,32 +481,15 @@ Create follow-up tasks for findings."
       ;;
   esac
 
-  # Create the task
-  local priority="002"
-  local sequence
-  sequence=$(date '+%H%M%S')
-  local slug
-  slug=$(echo "$task_title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
-  local task_id="${priority}-${sequence}-${slug}"
-  local todo_dir
-  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
-
-  log_info "Creating review task: $task_id"
-
-  local task_file
-  task_file=$(create_task_file "$task_id" "$task_title" "$priority" "High" "$todo_dir" "$task_context")
-
-  log_success "Created task: $task_id"
+  echo ""
+  log_info "Running skill: $skill_name $skill_args"
   echo ""
 
-  local run_now
-  read -rp "Run this task now? [Y/n]: " run_now
-  if [ "$run_now" != "n" ] && [ "$run_now" != "N" ]; then
-    cmd_run 1
-  fi
+  # Run the skill
+  run_skill "$skill_name" $skill_args
 }
 
-# Run feature discovery
+# Run feature discovery using skills
 run_feature_discovery() {
   local project="$1"
 
@@ -594,107 +507,23 @@ run_feature_discovery() {
   local choice
   read -rp "Enter choice [1-4]: " choice
 
-  local task_title task_context
+  local skill_name skill_args
   case "$choice" in
     1)
-      task_title="Feature discovery and roadmap planning"
-      task_context="Research and identify the best features to implement next:
-
-**Competitor Analysis:**
-- Identify similar projects/products in the space
-- Analyze their feature sets
-- Find features they have that we're missing
-- Identify their weaknesses we can capitalize on
-
-**Industry Trends:**
-- Research current trends in this domain
-- Identify emerging technologies or patterns
-- Look for opportunities to innovate
-
-**Gap Analysis:**
-- Review our current feature set
-- Identify missing essential features
-- Find areas needing improvement
-- Check documentation and examples
-
-**User Value Assessment:**
-- Prioritize features by user impact
-- Consider implementation complexity
-- Balance quick wins vs. strategic features
-
-**Output:**
-Create 3-5 prioritized feature tasks with:
-- Clear problem statement
-- Proposed solution approach
-- Expected user benefit
-- Rough complexity estimate"
+      skill_name="feature-discover"
+      skill_args="--scope=full"
       ;;
     2)
-      task_title="Competitor analysis"
-      task_context="Analyze competitors and similar projects:
-
-**Research:**
-- Find 3-5 similar projects/products
-- Document their feature sets
-- Identify their unique selling points
-- Note their weaknesses
-
-**Comparison:**
-- Create feature comparison matrix
-- Identify our unique advantages
-- Find features we're missing
-- Spot differentiation opportunities
-
-**Recommendations:**
-Create tasks for:
-- Features to add (competitive parity)
-- Unique features to develop (differentiation)
-- Improvements to existing features"
+      skill_name="feature-discover"
+      skill_args="--scope=competitors"
       ;;
     3)
-      task_title="Missing features analysis"
-      task_context="Analyze what features are typically expected but missing:
-
-**Based on Project Type:**
-- Research standard features for this type of project
-- Check best practices and conventions
-- Review community expectations
-
-**Feature Audit:**
-- List all current features
-- Compare against industry standards
-- Identify gaps and missing functionality
-
-**Quality of Life:**
-- Error messages and handling
-- CLI UX and help text
-- Configuration options
-- Documentation completeness
-
-Create prioritized tasks for missing features."
+      skill_name="feature-discover"
+      skill_args="--scope=gaps"
       ;;
     4)
-      task_title="UX improvement analysis"
-      task_context="Analyze and improve user experience:
-
-**CLI/Interface Review:**
-- Command naming and discoverability
-- Help text clarity
-- Error message helpfulness
-- Progress and feedback
-
-**Workflow Analysis:**
-- Common user journeys
-- Pain points and friction
-- Opportunities to simplify
-- Better defaults
-
-**Documentation:**
-- Getting started experience
-- Example quality
-- FAQ and troubleshooting
-
-Create tasks for UX improvements."
+      skill_name="ux-audit"
+      skill_args="--focus=full"
       ;;
     *)
       log_warn "Invalid choice"
@@ -702,29 +531,12 @@ Create tasks for UX improvements."
       ;;
   esac
 
-  # Create the task
-  local priority="002"
-  local sequence
-  sequence=$(date '+%H%M%S')
-  local slug
-  slug=$(echo "$task_title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
-  local task_id="${priority}-${sequence}-${slug}"
-  local todo_dir
-  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
-
-  log_info "Creating discovery task: $task_id"
-
-  local task_file
-  task_file=$(create_task_file "$task_id" "$task_title" "$priority" "High" "$todo_dir" "$task_context")
-
-  log_success "Created task: $task_id"
+  echo ""
+  log_info "Running skill: $skill_name $skill_args"
   echo ""
 
-  local run_now
-  read -rp "Run this task now? [Y/n]: " run_now
-  if [ "$run_now" != "n" ] && [ "$run_now" != "N" ]; then
-    cmd_run 1
-  fi
+  # Run the skill
+  run_skill "$skill_name" $skill_args
 }
 
 cmd_init() {

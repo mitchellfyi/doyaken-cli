@@ -101,7 +101,7 @@ for script in "$ROOT_DIR/lib/"*.sh; do
 done
 
 # Test 10: All skills exist
-for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md; do
+for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md review-codebase.md security-audit.md performance-audit.md tech-debt.md feature-discover.md ux-audit.md; do
   if [ -f "$ROOT_DIR/skills/$skill" ]; then
     pass "skills/$skill exists"
   else
@@ -128,7 +128,7 @@ for agent_template in AGENTS.md CLAUDE.md .cursorrules CODEX.md GEMINI.md openco
 done
 
 # Test 13: Library prompts exist
-for lib_prompt in code-quality.md testing.md code-review.md planning.md security.md base.md; do
+for lib_prompt in code-quality.md testing.md code-review.md planning.md security.md base.md architecture-review.md technical-debt.md competitor-analysis.md feature-discovery.md ux-review.md performance.md; do
   if [ -f "$ROOT_DIR/prompts/library/$lib_prompt" ]; then
     pass "prompts/library/$lib_prompt exists"
   else
