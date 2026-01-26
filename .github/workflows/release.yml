@@ -8,7 +8,6 @@ on:
 permissions:
   contents: write
   id-token: write
-  packages: write
 
 jobs:
   release:
@@ -18,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js for npm
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -48,17 +47,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Setup Node.js for GitHub Packages
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@doyaken'
-
-      - name: Publish to GitHub Packages
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Note: GitHub Packages requires package scope to match repo owner.
+      # To enable GitHub Packages, create a 'doyaken' org and transfer this repo.
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
