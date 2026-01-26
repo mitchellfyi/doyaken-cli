@@ -9,6 +9,12 @@ prompts/
 │   ├── security.md
 │   ├── testing.md
 │   └── ... (20+ modules)
+├── vendors/     # Vendor-specific prompt libraries
+│   ├── vercel/  # Vercel, Next.js, React optimization
+│   │   ├── react-best-practices.md
+│   │   ├── web-design-guidelines.md
+│   │   └── deployment.md
+│   └── ...      # Future vendors (aws, gcp, etc.)
 ├── phases/      # Workflow phases (compose from library)
 │   ├── 0-expand.md
 │   ├── 1-triage.md
@@ -91,13 +97,21 @@ Phases compose from library:
 ### Syntax
 
 ```markdown
+# Core library
 {{include:library/security.md}}
+
+# Vendor library
+{{include:vendors/vercel/react-best-practices.md}}
 ```
 
 ### Resolution Order
 
 1. Project: `.doyaken/prompts/library/security.md`
 2. Global: `$DOYAKEN_HOME/prompts/library/security.md`
+
+For vendor prompts:
+1. Project: `.doyaken/prompts/vendors/vercel/react-best-practices.md`
+2. Global: `$DOYAKEN_HOME/prompts/vendors/vercel/react-best-practices.md`
 
 ### Nesting
 
@@ -152,7 +166,28 @@ Now apply these standards to {{DOYAKEN_PROJECT}}...
 [...]
 ```
 
+## Vendor Prompts
+
+Vendor-specific libraries extend doyaken with specialized knowledge:
+
+| Vendor | Description | MCP Required |
+|--------|-------------|--------------|
+| [vercel](vendors/vercel/) | Next.js, React, deployment patterns | Optional |
+
+### Using Vendor Prompts
+
+```markdown
+# In a skill
+{{include:vendors/vercel/react-best-practices.md}}
+
+# In a phase
+{{include:vendors/vercel/web-design-guidelines.md}}
+```
+
+See [vendors/README.md](vendors/README.md) for full documentation.
+
 ## See Also
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Full architecture documentation
 - [skills/](../skills/) - Skills that compose from library
+- [vendors/](vendors/) - Vendor-specific prompt libraries

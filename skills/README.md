@@ -83,6 +83,19 @@ Skills **compose from library prompts** - they don't contain methodology directl
 | `notify-slack` | Slack notifications | Slack MCP |
 | `sync-agents` | Sync agent files | - |
 
+### Vendor Skills
+
+Vendor-specific skills are namespaced with `vendor:skill` format:
+
+| Skill | Description | Requires |
+|-------|-------------|----------|
+| `vercel:deploy` | Deploy to Vercel | Vercel MCP |
+| `vercel:react-review` | React/Next.js code review | - |
+| `vercel:ui-audit` | Accessibility & UX audit | - |
+| `vercel:perf-audit` | Performance optimization audit | - |
+
+See [vendors/README.md](vendors/README.md) for full vendor skill documentation.
+
 ### Prompt-Based Skills
 
 Every library prompt has a corresponding skill prefixed with `prompt-`:
@@ -275,11 +288,63 @@ Check MCP status: `doyaken mcp status`
 
 Skills are loaded from (in order):
 1. Project: `.doyaken/skills/`
-2. Global: `$DOYAKEN_HOME/skills/`
+2. Project vendors: `.doyaken/skills/vendors/<vendor>/`
+3. Global: `$DOYAKEN_HOME/skills/`
+4. Global vendors: `$DOYAKEN_HOME/skills/vendors/<vendor>/`
 
 Project skills override global skills with the same name.
+
+## Vendor Skills
+
+### Namespacing
+
+Vendor skills use a `vendor:skill` format to avoid naming conflicts:
+
+```bash
+# Core skills (no prefix)
+doyaken skill security-audit
+
+# Vendor skills (vendor: prefix)
+doyaken skill vercel:deploy
+doyaken skill vercel:react-review
+```
+
+### Using in Workflows
+
+```yaml
+# .doyaken/manifest.yaml
+skills:
+  hooks:
+    after-review:
+      - vercel:react-review
+    after-verify:
+      - vercel:deploy
+```
+
+### Creating Vendor Skills
+
+Create skills in `skills/vendors/<vendor>/`:
+
+```markdown
+---
+name: vendor:skill-name
+description: What this skill does
+requires:
+  - vendor  # MCP server requirement
+---
+
+# Skill Title
+
+{{include:vendors/vendor/methodology.md}}
+
+[Instructions...]
+```
+
+See [vendors/README.md](vendors/README.md) for details.
 
 ## See Also
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Full architecture documentation
 - [prompts/library/](../prompts/library/) - Source of truth for methodology
+- [prompts/vendors/](../prompts/vendors/) - Vendor-specific prompts
+- [vendors/](vendors/) - Vendor skill implementations

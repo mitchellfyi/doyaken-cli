@@ -1,0 +1,104 @@
+{
+  "$schema": "https://mcp.supabase.com/schema.json",
+  "_comment": "Supabase MCP configuration",
+  "_docs": "https://supabase.com/docs/guides/getting-started/mcp",
+
+  "name": "supabase",
+  "description": "Supabase MCP - manage databases, auth, storage, and functions",
+
+  "server": {
+    "remote": {
+      "url": "https://mcp.supabase.com/mcp",
+      "transport": "http",
+      "auth": "oauth"
+    },
+    "local": {
+      "url": "http://localhost:54321/mcp",
+      "note": "Requires Supabase CLI: supabase start"
+    }
+  },
+
+  "queryParams": {
+    "project_ref": "Restrict to specific project",
+    "read_only": "Enable read-only mode (true/false)",
+    "features": "Comma-separated list of tool groups"
+  },
+
+  "tools": {
+    "account": [
+      "list_projects",
+      "get_project",
+      "create_project",
+      "pause_project",
+      "restore_project"
+    ],
+    "database": [
+      "list_tables",
+      "list_extensions",
+      "list_migrations",
+      "apply_migration",
+      "execute_sql"
+    ],
+    "development": [
+      "get_project_url",
+      "get_publishable_keys",
+      "generate_typescript_types"
+    ],
+    "functions": [
+      "list_edge_functions",
+      "get_edge_function",
+      "deploy_edge_function"
+    ],
+    "debugging": [
+      "get_logs",
+      "get_advisors"
+    ],
+    "branching": [
+      "create_branch",
+      "list_branches",
+      "delete_branch",
+      "merge_branch"
+    ],
+    "storage": [
+      "list_storage_buckets",
+      "get_storage_config",
+      "update_storage_config"
+    ]
+  },
+
+  "security": {
+    "recommendations": [
+      "Use development projects, not production",
+      "Enable read_only for real data",
+      "Scope to specific project when possible",
+      "Use branching for safe testing",
+      "Keep manual approval enabled"
+    ]
+  },
+
+  "setup": {
+    "claudeCode": {
+      "command": "claude mcp add supabase https://mcp.supabase.com/mcp",
+      "projectScoped": "claude mcp add supabase 'https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF'",
+      "readOnly": "claude mcp add supabase 'https://mcp.supabase.com/mcp?read_only=true'"
+    },
+    "cursor": {
+      "config": {
+        "mcpServers": {
+          "supabase": {
+            "url": "https://mcp.supabase.com/mcp"
+          }
+        }
+      }
+    }
+  },
+
+  "manifest": {
+    "integrations": {
+      "supabase": {
+        "enabled": true,
+        "project_ref": ""
+      }
+    }
+  }
+}

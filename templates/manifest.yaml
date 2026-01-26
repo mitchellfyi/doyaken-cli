@@ -29,6 +29,14 @@ integrations:
     enabled: false
     # repo: "user/repo"  # Auto-detected from git remote
 
+  # Vercel integration (deployments, docs, projects)
+  # MCP Server: https://mcp.vercel.com
+  # Skills: vercel:deploy, vercel:react-review, vercel:ui-audit, vercel:perf-audit
+  vercel:
+    enabled: false
+    # team: "your-team"       # Optional: Vercel team slug
+    # project: "your-project" # Optional: Vercel project slug
+
   # Linear integration (issues, projects)
   linear:
     enabled: false

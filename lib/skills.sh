@@ -9,27 +9,81 @@
 set -euo pipefail
 
 # Skills search paths (project first, then global)
+# Includes both root skills and vendor skills
 get_skill_paths() {
   local paths=()
 
-  # Project-specific skills
+  # Project-specific skills (root)
   if [ -n "${DOYAKEN_PROJECT:-}" ] && [ -d "$DOYAKEN_PROJECT/.doyaken/skills" ]; then
     paths+=("$DOYAKEN_PROJECT/.doyaken/skills")
   fi
 
-  # Global skills (shipped with doyaken)
+  # Project-specific vendor skills
+  if [ -n "${DOYAKEN_PROJECT:-}" ] && [ -d "$DOYAKEN_PROJECT/.doyaken/skills/vendors" ]; then
+    for vendor_dir in "$DOYAKEN_PROJECT/.doyaken/skills/vendors"/*/; do
+      [ -d "$vendor_dir" ] && paths+=("$vendor_dir")
+    done
+  fi
+
+  # Global skills (root)
   if [ -d "$DOYAKEN_HOME/skills" ]; then
     paths+=("$DOYAKEN_HOME/skills")
+  fi
+
+  # Global vendor skills
+  if [ -d "$DOYAKEN_HOME/skills/vendors" ]; then
+    for vendor_dir in "$DOYAKEN_HOME/skills/vendors"/*/; do
+      [ -d "$vendor_dir" ] && paths+=("$vendor_dir")
+    done
   fi
 
   printf '%s\n' "${paths[@]}"
 }
 
+# Get vendor name from skill path
+# Returns empty if not a vendor skill
+get_vendor_from_path() {
+  local path="$1"
+  if [[ "$path" == */vendors/*/* ]]; then
+    # Extract vendor name from path like .../vendors/vercel/skill.md
+    local vendor
+    vendor=$(echo "$path" | sed 's|.*/vendors/\([^/]*\)/.*|\1|')
+    echo "$vendor"
+  fi
+}
+
 # Find skill file by name
+# Supports both simple names (security-audit) and vendor-namespaced (vercel:deploy)
 # Returns the full path to the skill file, or empty if not found
 find_skill() {
   local name="$1"
+  local vendor=""
+  local skill_name="$name"
 
+  # Check for vendor:skill format
+  if [[ "$name" == *:* ]]; then
+    vendor="${name%%:*}"
+    skill_name="${name#*:}"
+  fi
+
+  # If vendor specified, search vendor directories first
+  if [ -n "$vendor" ]; then
+    # Project vendor skills
+    if [ -n "${DOYAKEN_PROJECT:-}" ] && [ -f "$DOYAKEN_PROJECT/.doyaken/skills/vendors/$vendor/${skill_name}.md" ]; then
+      echo "$DOYAKEN_PROJECT/.doyaken/skills/vendors/$vendor/${skill_name}.md"
+      return 0
+    fi
+
+    # Global vendor skills
+    if [ -f "$DOYAKEN_HOME/skills/vendors/$vendor/${skill_name}.md" ]; then
+      echo "$DOYAKEN_HOME/skills/vendors/$vendor/${skill_name}.md"
+      return 0
+    fi
+
+    return 1
+  fi
+
+  # No vendor specified - search all paths
   while IFS= read -r dir; do
     if [ -f "$dir/${name}.md" ]; then
       echo "$dir/${name}.md"
@@ -140,7 +194,8 @@ get_skill_args() {
 }
 
 # List all available skills
-# Output format: name|description|location
+# Output format: name|description|location|vendor
+# Vendor skills are displayed with vendor:skill format
 list_skills() {
   local shown=()
 
@@ -150,28 +205,55 @@ list_skills() {
     for skill_file in "$dir"/*.md; do
       [ -f "$skill_file" ] || continue
 
-      local name
-      name=$(basename "$skill_file" .md)
+      # Skip README files
+      [[ "$(basename "$skill_file")" == "README.md" ]] && continue
+
+      local base_name
+      base_name=$(basename "$skill_file" .md)
+
+      # Determine if this is a vendor skill
+      local vendor
+      vendor=$(get_vendor_from_path "$skill_file")
+
+      # Build display name (vendor:skill or just skill)
+      local display_name="$base_name"
+      if [ -n "$vendor" ]; then
+        display_name="${vendor}:${base_name}"
+      fi
 
       # Skip if we've already shown this skill (project overrides global)
       local already_shown=false
       for s in "${shown[@]:-}"; do
-        [ "$s" = "$name" ] && already_shown=true && break
+        [ "$s" = "$display_name" ] && already_shown=true && break
       done
       [ "$already_shown" = true ] && continue
 
-      shown+=("$name")
+      shown+=("$display_name")
 
       local desc
       desc=$(get_skill_description "$skill_file")
       [ -z "$desc" ] && desc="No description"
 
       local location="global"
-      [[ "$dir" == *"/.doyaken/skills" ]] && location="project"
+      [[ "$dir" == *"/.doyaken/skills"* ]] && [[ "$dir" != "$DOYAKEN_HOME"* ]] && location="project"
 
-      echo "${name}|${desc}|${location}"
+      # Add vendor info to output
+      echo "${display_name}|${desc}|${location}|${vendor:-builtin}"
     done
   done < <(get_skill_paths)
+}
+
+# List vendor skills only
+# Output format: name|description|location|vendor
+list_vendor_skills() {
+  list_skills | grep -v '|builtin$' || true
+}
+
+# List skills by vendor
+# Usage: list_skills_by_vendor <vendor>
+list_skills_by_vendor() {
+  local vendor="$1"
+  list_skills | grep "|${vendor}$" || true
 }
 
 # Show skill info
