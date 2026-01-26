@@ -50,7 +50,7 @@ else
 fi
 
 # Test 4: All lib scripts exist
-for script in cli.sh core.sh registry.sh taskboard.sh hooks.sh; do
+for script in cli.sh core.sh registry.sh taskboard.sh hooks.sh agents.sh skills.sh mcp.sh; do
   if [ -f "$ROOT_DIR/lib/$script" ]; then
     pass "lib/$script exists"
   else
@@ -99,6 +99,69 @@ for script in "$ROOT_DIR/lib/"*.sh; do
     fail "lib/$name has syntax errors"
   fi
 done
+
+# Test 10: All skills exist
+for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md; do
+  if [ -f "$ROOT_DIR/skills/$skill" ]; then
+    pass "skills/$skill exists"
+  else
+    fail "skills/$skill missing"
+  fi
+done
+
+# Test 11: All hooks exist
+for hook in quality-check.sh quality-gates-check.sh security-check.sh; do
+  if [ -f "$ROOT_DIR/hooks/$hook" ]; then
+    pass "hooks/$hook exists"
+  else
+    fail "hooks/$hook missing"
+  fi
+done
+
+# Test 12: Agent templates exist
+for agent_template in AGENTS.md CLAUDE.md .cursorrules CODEX.md GEMINI.md opencode.json; do
+  if [ -f "$ROOT_DIR/templates/agents/$agent_template" ]; then
+    pass "templates/agents/$agent_template exists"
+  else
+    fail "templates/agents/$agent_template missing"
+  fi
+done
+
+# Test 13: Library prompts exist
+for lib_prompt in code-quality.md testing.md code-review.md planning.md security.md base.md; do
+  if [ -f "$ROOT_DIR/prompts/library/$lib_prompt" ]; then
+    pass "prompts/library/$lib_prompt exists"
+  else
+    fail "prompts/library/$lib_prompt missing"
+  fi
+done
+
+# Test 14: Functional test - init creates correct structure
+TEST_DIR=$(mktemp -d)
+trap "rm -rf $TEST_DIR" EXIT
+
+if DOYAKEN_HOME="$ROOT_DIR" "$ROOT_DIR/bin/doyaken" init "$TEST_DIR" >/dev/null 2>&1; then
+  # Check created structure
+  if [ -d "$TEST_DIR/.doyaken/tasks/2.todo" ]; then
+    pass "init creates tasks/2.todo"
+  else
+    fail "init missing tasks/2.todo"
+  fi
+
+  if [ -f "$TEST_DIR/.doyaken/manifest.yaml" ]; then
+    pass "init creates manifest.yaml"
+  else
+    fail "init missing manifest.yaml"
+  fi
+
+  if [ -f "$TEST_DIR/AGENT.md" ]; then
+    pass "init creates AGENT.md"
+  else
+    fail "init missing AGENT.md"
+  fi
+else
+  fail "init command failed"
+fi
 
 # Summary
 echo ""

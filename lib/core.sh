@@ -198,23 +198,17 @@ load_manifest() {
     done <<< "$env_keys"
   fi
 
-  # Load skill hooks
-  export HOOKS_BEFORE_EXPAND=$(yq -e '.skills.hooks.before-expand // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_EXPAND=$(yq -e '.skills.hooks.after-expand // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_TRIAGE=$(yq -e '.skills.hooks.before-triage // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_TRIAGE=$(yq -e '.skills.hooks.after-triage // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_PLAN=$(yq -e '.skills.hooks.before-plan // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_PLAN=$(yq -e '.skills.hooks.after-plan // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_IMPLEMENT=$(yq -e '.skills.hooks.before-implement // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_IMPLEMENT=$(yq -e '.skills.hooks.after-implement // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_TEST=$(yq -e '.skills.hooks.before-test // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_TEST=$(yq -e '.skills.hooks.after-test // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_DOCS=$(yq -e '.skills.hooks.before-docs // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_DOCS=$(yq -e '.skills.hooks.after-docs // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_REVIEW=$(yq -e '.skills.hooks.before-review // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_REVIEW=$(yq -e '.skills.hooks.after-review // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_BEFORE_VERIFY=$(yq -e '.skills.hooks.before-verify // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-  export HOOKS_AFTER_VERIFY=$(yq -e '.skills.hooks.after-verify // [] | .[]' "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+  # Load skill hooks for all phases
+  local phases="expand triage plan implement test docs review verify"
+  local hook_types="before after"
+  for phase in $phases; do
+    for hook_type in $hook_types; do
+      local var_name="HOOKS_${hook_type^^}_${phase^^}"
+      local hook_value
+      hook_value=$(yq -e ".skills.hooks.${hook_type}-${phase} // [] | .[]" "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+      export "$var_name=$hook_value"
+    done
+  done
 }
 
 # Run skill hooks for a phase

@@ -69,6 +69,7 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
   ${CYAN}hooks${NC} install       Install hooks to .claude/settings.json
+  ${CYAN}sync${NC}                Generate agent files (CLAUDE.md, .cursorrules, etc.)
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
@@ -170,6 +171,79 @@ get_task_folder() {
   esac
   # Fall back to old naming
   echo "$base_dir/tasks/$state"
+}
+
+# Create a task file with standard format
+# Args: task_id, title, priority, priority_label, todo_dir, [context]
+create_task_file() {
+  local task_id="$1"
+  local title="$2"
+  local priority="$3"
+  local priority_label="$4"
+  local todo_dir="$5"
+  local context="${6:-Why does this task exist?}"
+  local task_file="$todo_dir/${task_id}.md"
+  local timestamp
+  timestamp=$(date '+%Y-%m-%d %H:%M')
+
+  cat > "$task_file" << EOF
+# Task: $title
+
+## Metadata
+
+| Field       | Value                                                  |
+| ----------- | ------------------------------------------------------ |
+| ID          | \`$task_id\`                                           |
+| Status      | \`todo\`                                               |
+| Priority    | \`$priority\` $priority_label                          |
+| Created     | \`$timestamp\`                                         |
+| Started     |                                                        |
+| Completed   |                                                        |
+| Blocked By  |                                                        |
+| Blocks      |                                                        |
+| Assigned To |                                                        |
+| Assigned At |                                                        |
+
+---
+
+## Context
+
+$context
+
+---
+
+## Acceptance Criteria
+
+- [ ] Complete the requested work
+- [ ] Tests written and passing (if applicable)
+- [ ] Quality gates pass
+- [ ] Changes committed with task reference
+
+---
+
+## Plan
+
+(To be filled in during planning phase)
+
+---
+
+## Work Log
+
+### $timestamp - Created
+
+- Task created via CLI
+
+---
+
+## Notes
+
+---
+
+## Links
+
+EOF
+
+  echo "$task_file"
 }
 
 # ============================================================================
@@ -598,77 +672,19 @@ cmd_tasks() {
 
       # Generate task ID
       local priority="003"
-      local sequence
-      local todo_count
       local todo_dir
       todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+      local todo_count
       todo_count=$(find "$todo_dir" -name "*.md" -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+      local sequence
       sequence=$(printf "%03d" $((todo_count + 1)))
       local slug
       slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
       local task_id="${priority}-${sequence}-${slug}"
-      local task_file="$todo_dir/${task_id}.md"
 
-      local timestamp
-      timestamp=$(date '+%Y-%m-%d %H:%M')
-
-      # Create task file
-      cat > "$task_file" << EOF
-# Task: $title
-
-## Metadata
-
-| Field       | Value                                                  |
-| ----------- | ------------------------------------------------------ |
-| ID          | \`$task_id\`                                           |
-| Status      | \`todo\`                                               |
-| Priority    | \`$priority\` Medium                                   |
-| Created     | \`$timestamp\`                                         |
-| Started     |                                                        |
-| Completed   |                                                        |
-| Blocked By  |                                                        |
-| Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
-
----
-
-## Context
-
-Why does this task exist?
-
----
-
-## Acceptance Criteria
-
-- [ ] Implement the feature
-- [ ] Tests written and passing
-- [ ] Quality gates pass
-- [ ] Changes committed with task reference
-
----
-
-## Plan
-
-(To be filled in during planning phase)
-
----
-
-## Work Log
-
-### $timestamp - Created
-
-- Task created via CLI
-
----
-
-## Notes
-
----
-
-## Links
-
-EOF
+      # Create task file using helper
+      local task_file
+      task_file=$(create_task_file "$task_id" "$title" "$priority" "Medium" "$todo_dir")
 
       log_success "Created task: $task_id"
       echo "  File: $task_file"
@@ -709,82 +725,23 @@ cmd_task() {
 
   # Generate task ID with high priority (002) to run before medium tasks
   local priority="002"
-  local sequence
-  local timestamp
-  timestamp=$(date '+%Y-%m-%d %H:%M')
-
   # Use timestamp-based sequence to ensure uniqueness
+  local sequence
   sequence=$(date '+%H%M%S')
-
   local slug
   slug=$(echo "$prompt" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
   local task_id="${priority}-${sequence}-${slug}"
   local todo_dir
   todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
-  local task_file="$todo_dir/${task_id}.md"
 
   log_info "Creating task: $task_id"
 
-  # Create task file
-  cat > "$task_file" << EOF
-# Task: $prompt
+  # Create task file using helper with custom context
+  local context="Task created via \`doyaken task\` for immediate execution.
 
-## Metadata
-
-| Field       | Value                                                  |
-| ----------- | ------------------------------------------------------ |
-| ID          | \`$task_id\`                                           |
-| Status      | \`todo\`                                               |
-| Priority    | \`$priority\` High (immediate)                         |
-| Created     | \`$timestamp\`                                         |
-| Started     |                                                        |
-| Completed   |                                                        |
-| Blocked By  |                                                        |
-| Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
-
----
-
-## Context
-
-Task created via \`doyaken task\` for immediate execution.
-
-Prompt: $prompt
-
----
-
-## Acceptance Criteria
-
-- [ ] Complete the requested work
-- [ ] Tests written and passing (if applicable)
-- [ ] Quality gates pass
-- [ ] Changes committed with task reference
-
----
-
-## Plan
-
-(To be filled in during planning phase)
-
----
-
-## Work Log
-
-### $timestamp - Created
-
-- Task created via CLI for immediate execution
-- Prompt: $prompt
-
----
-
-## Notes
-
----
-
-## Links
-
-EOF
+Prompt: $prompt"
+  local task_file
+  task_file=$(create_task_file "$task_id" "$prompt" "$priority" "High (immediate)" "$todo_dir" "$context")
 
   log_success "Created task: $task_id"
   echo ""
@@ -1119,6 +1076,26 @@ cmd_mcp() {
   esac
 }
 
+cmd_sync() {
+  local project
+  project=$(require_project)
+
+  log_info "Syncing agent files to: $project"
+
+  # Use the sync script
+  local sync_script="$DOYAKEN_HOME/scripts/sync-agent-files.sh"
+  if [ ! -f "$sync_script" ]; then
+    sync_script="$SCRIPT_DIR/../scripts/sync-agent-files.sh"
+  fi
+
+  if [ -f "$sync_script" ]; then
+    "$sync_script" "$project"
+  else
+    log_error "sync-agent-files.sh not found"
+    exit 1
+  fi
+}
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -1256,6 +1233,9 @@ main() {
       ;;
     hooks)
       hooks_main "${args[@]+"${args[@]}"}"
+      ;;
+    sync)
+      cmd_sync
       ;;
     version)
       cmd_version

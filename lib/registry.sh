@@ -81,9 +81,22 @@ add_to_registry() {
     # Fallback: manual YAML append (less robust but works)
     # Find the projects: [] line and replace it, or append to projects list
     if grep -q "^projects: \[\]$" "$REGISTRY_FILE"; then
-      # Empty projects list - replace it
-      sed -i.bak "s/^projects: \[\]$/projects:\n  - path: \"$path\"\n    name: \"$name\"\n    git_remote: \"$git_remote\"\n    registered_at: \"$timestamp\"\n    last_active: \"$timestamp\"/" "$REGISTRY_FILE"
-      rm -f "${REGISTRY_FILE}.bak"
+      # Empty projects list - use awk for cross-platform compatibility
+      local temp_file
+      temp_file=$(mktemp)
+      awk -v path="$path" -v name="$name" -v remote="$git_remote" -v ts="$timestamp" '
+        /^projects: \[\]$/ {
+          print "projects:"
+          print "  - path: \"" path "\""
+          print "    name: \"" name "\""
+          print "    git_remote: \"" remote "\""
+          print "    registered_at: \"" ts "\""
+          print "    last_active: \"" ts "\""
+          next
+        }
+        { print }
+      ' "$REGISTRY_FILE" > "$temp_file"
+      mv "$temp_file" "$REGISTRY_FILE"
     else
       # Append to existing projects list
       # Find the line after "projects:" and insert there
