@@ -17,11 +17,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/doyaken/doyaken.git"
+    "url": "git+https://github.com/mitchellfyi/doyaken.ai.git"
   },
-  "homepage": "https://github.com/doyaken/doyaken#readme",
+  "homepage": "https://github.com/mitchellfyi/doyaken.ai#readme",
   "bugs": {
-    "url": "https://github.com/doyaken/doyaken/issues"
+    "url": "https://github.com/mitchellfyi/doyaken.ai/issues"
   },
   "bin": {
     "doyaken": "./bin/doyaken",
