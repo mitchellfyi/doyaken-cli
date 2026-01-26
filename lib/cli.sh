@@ -336,6 +336,20 @@ cmd_run() {
     exit 1
   fi
 
+  # Check if there are any tasks to run
+  local todo_dir doing_dir
+  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+  doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
+  local todo_count doing_count
+  todo_count=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  doing_count=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+
+  if [ "$todo_count" -eq 0 ] && [ "$doing_count" -eq 0 ]; then
+    # No tasks available - show interactive menu
+    show_no_tasks_menu "$project"
+    return $?
+  fi
+
   log_info "Running $num_tasks task(s) in: $project"
   log_info "Agent: $DOYAKEN_AGENT (model: $DOYAKEN_MODEL)"
 
@@ -352,6 +366,365 @@ cmd_run() {
   fi
 
   exec "$core_script" "$num_tasks"
+}
+
+# Show menu when no tasks are available
+show_no_tasks_menu() {
+  local project="$1"
+
+  echo ""
+  echo -e "${BOLD}No tasks in backlog${NC}"
+  echo ""
+  echo "What would you like to do?"
+  echo ""
+  echo -e "  ${CYAN}1${NC}) ${GREEN}Code Review${NC} - Comprehensive review of the codebase"
+  echo "     Analyze architecture, code quality, security, and suggest improvements"
+  echo ""
+  echo -e "  ${CYAN}2${NC}) ${GREEN}Feature Discovery${NC} - Research and suggest the next best feature"
+  echo "     Analyze competitors, industry trends, and identify opportunities"
+  echo ""
+  echo -e "  ${CYAN}3${NC}) ${GREEN}Create Task${NC} - Create a new task manually"
+  echo "     Use: doyaken tasks new \"<description>\""
+  echo ""
+  echo -e "  ${CYAN}4${NC}) ${GREEN}Quick Task${NC} - Create and immediately run a task"
+  echo "     Use: doyaken task \"<prompt>\""
+  echo ""
+  echo -e "  ${CYAN}q${NC}) Quit"
+  echo ""
+
+  local choice
+  read -rp "Enter choice [1-4, q]: " choice
+
+  case "$choice" in
+    1)
+      run_code_review "$project"
+      ;;
+    2)
+      run_feature_discovery "$project"
+      ;;
+    3)
+      echo ""
+      local title
+      read -rp "Task title: " title
+      if [ -n "$title" ]; then
+        cmd_tasks "new" "$title"
+      else
+        log_warn "No title provided"
+      fi
+      ;;
+    4)
+      echo ""
+      local prompt
+      read -rp "Task prompt: " prompt
+      if [ -n "$prompt" ]; then
+        cmd_task "$prompt"
+      else
+        log_warn "No prompt provided"
+      fi
+      ;;
+    q|Q|"")
+      log_info "Exiting"
+      return 0
+      ;;
+    *)
+      log_warn "Invalid choice: $choice"
+      return 1
+      ;;
+  esac
+}
+
+# Run comprehensive code review
+run_code_review() {
+  local project="$1"
+
+  echo ""
+  echo -e "${BOLD}Code Review Options${NC}"
+  echo ""
+  echo -e "  ${CYAN}1${NC}) Full codebase review (architecture, quality, security)"
+  echo -e "  ${CYAN}2${NC}) Security audit only"
+  echo -e "  ${CYAN}3${NC}) Performance analysis"
+  echo -e "  ${CYAN}4${NC}) Code quality & technical debt"
+  echo -e "  ${CYAN}5${NC}) Review specific directory/module"
+  echo ""
+
+  local choice
+  read -rp "Enter choice [1-5]: " choice
+
+  local task_title task_context
+  case "$choice" in
+    1)
+      task_title="Comprehensive codebase review"
+      task_context="Perform a comprehensive review of the entire codebase including:
+
+**Architecture Review:**
+- Evaluate overall architecture and design patterns
+- Identify coupling issues and suggest decoupling strategies
+- Review module boundaries and dependencies
+- Assess scalability and maintainability
+
+**Code Quality:**
+- Check for SOLID, DRY, KISS, YAGNI violations
+- Identify code smells and anti-patterns
+- Review error handling and edge cases
+- Assess test coverage and quality
+
+**Security Audit:**
+- Check for OWASP Top 10 vulnerabilities
+- Review authentication and authorization
+- Identify potential injection points
+- Assess data validation and sanitization
+
+**Performance:**
+- Identify potential bottlenecks
+- Review database queries and I/O operations
+- Check for memory leaks or inefficiencies
+
+**Documentation:**
+- Review inline documentation quality
+- Check README and API documentation
+- Identify undocumented complex logic
+
+Create follow-up tasks for each significant finding."
+      ;;
+    2)
+      task_title="Security audit"
+      task_context="Perform a comprehensive security audit:
+
+- OWASP Top 10 vulnerability check
+- Authentication/authorization review
+- Input validation and sanitization
+- Secrets management review
+- Dependency vulnerability scan
+- SQL injection, XSS, CSRF checks
+- API security review
+
+Create tasks for each security issue found, prioritized by severity."
+      ;;
+    3)
+      task_title="Performance analysis"
+      task_context="Analyze performance across the codebase:
+
+- Identify N+1 queries and database bottlenecks
+- Review caching strategies
+- Check for memory leaks
+- Analyze algorithmic complexity
+- Review async/parallel processing opportunities
+- Profile critical paths
+
+Create tasks for each optimization opportunity."
+      ;;
+    4)
+      task_title="Code quality and technical debt assessment"
+      task_context="Assess code quality and technical debt:
+
+- SOLID principles compliance
+- DRY violations
+- Code duplication analysis
+- Cyclomatic complexity review
+- Test coverage gaps
+- Outdated dependencies
+- Deprecated API usage
+- TODO/FIXME/HACK comment review
+
+Create prioritized tasks to address technical debt."
+      ;;
+    5)
+      echo ""
+      local target_path
+      read -rp "Path to review (relative to project root): " target_path
+      task_title="Review $target_path"
+      task_context="Perform a focused review of: $target_path
+
+Include:
+- Code quality and patterns
+- Security considerations
+- Performance implications
+- Test coverage
+- Documentation
+- Suggested improvements
+
+Create follow-up tasks for findings."
+      ;;
+    *)
+      log_warn "Invalid choice"
+      return 1
+      ;;
+  esac
+
+  # Create the task
+  local priority="002"
+  local sequence
+  sequence=$(date '+%H%M%S')
+  local slug
+  slug=$(echo "$task_title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
+  local task_id="${priority}-${sequence}-${slug}"
+  local todo_dir
+  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+
+  log_info "Creating review task: $task_id"
+
+  local task_file
+  task_file=$(create_task_file "$task_id" "$task_title" "$priority" "High" "$todo_dir" "$task_context")
+
+  log_success "Created task: $task_id"
+  echo ""
+
+  local run_now
+  read -rp "Run this task now? [Y/n]: " run_now
+  if [ "$run_now" != "n" ] && [ "$run_now" != "N" ]; then
+    cmd_run 1
+  fi
+}
+
+# Run feature discovery
+run_feature_discovery() {
+  local project="$1"
+
+  echo ""
+  echo -e "${BOLD}Feature Discovery${NC}"
+  echo ""
+  echo "This will analyze the project and research opportunities for new features."
+  echo ""
+  echo -e "  ${CYAN}1${NC}) Full discovery (competitors, trends, user needs)"
+  echo -e "  ${CYAN}2${NC}) Competitor analysis only"
+  echo -e "  ${CYAN}3${NC}) Missing features analysis (based on project type)"
+  echo -e "  ${CYAN}4${NC}) User experience improvements"
+  echo ""
+
+  local choice
+  read -rp "Enter choice [1-4]: " choice
+
+  local task_title task_context
+  case "$choice" in
+    1)
+      task_title="Feature discovery and roadmap planning"
+      task_context="Research and identify the best features to implement next:
+
+**Competitor Analysis:**
+- Identify similar projects/products in the space
+- Analyze their feature sets
+- Find features they have that we're missing
+- Identify their weaknesses we can capitalize on
+
+**Industry Trends:**
+- Research current trends in this domain
+- Identify emerging technologies or patterns
+- Look for opportunities to innovate
+
+**Gap Analysis:**
+- Review our current feature set
+- Identify missing essential features
+- Find areas needing improvement
+- Check documentation and examples
+
+**User Value Assessment:**
+- Prioritize features by user impact
+- Consider implementation complexity
+- Balance quick wins vs. strategic features
+
+**Output:**
+Create 3-5 prioritized feature tasks with:
+- Clear problem statement
+- Proposed solution approach
+- Expected user benefit
+- Rough complexity estimate"
+      ;;
+    2)
+      task_title="Competitor analysis"
+      task_context="Analyze competitors and similar projects:
+
+**Research:**
+- Find 3-5 similar projects/products
+- Document their feature sets
+- Identify their unique selling points
+- Note their weaknesses
+
+**Comparison:**
+- Create feature comparison matrix
+- Identify our unique advantages
+- Find features we're missing
+- Spot differentiation opportunities
+
+**Recommendations:**
+Create tasks for:
+- Features to add (competitive parity)
+- Unique features to develop (differentiation)
+- Improvements to existing features"
+      ;;
+    3)
+      task_title="Missing features analysis"
+      task_context="Analyze what features are typically expected but missing:
+
+**Based on Project Type:**
+- Research standard features for this type of project
+- Check best practices and conventions
+- Review community expectations
+
+**Feature Audit:**
+- List all current features
+- Compare against industry standards
+- Identify gaps and missing functionality
+
+**Quality of Life:**
+- Error messages and handling
+- CLI UX and help text
+- Configuration options
+- Documentation completeness
+
+Create prioritized tasks for missing features."
+      ;;
+    4)
+      task_title="UX improvement analysis"
+      task_context="Analyze and improve user experience:
+
+**CLI/Interface Review:**
+- Command naming and discoverability
+- Help text clarity
+- Error message helpfulness
+- Progress and feedback
+
+**Workflow Analysis:**
+- Common user journeys
+- Pain points and friction
+- Opportunities to simplify
+- Better defaults
+
+**Documentation:**
+- Getting started experience
+- Example quality
+- FAQ and troubleshooting
+
+Create tasks for UX improvements."
+      ;;
+    *)
+      log_warn "Invalid choice"
+      return 1
+      ;;
+  esac
+
+  # Create the task
+  local priority="002"
+  local sequence
+  sequence=$(date '+%H%M%S')
+  local slug
+  slug=$(echo "$task_title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
+  local task_id="${priority}-${sequence}-${slug}"
+  local todo_dir
+  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+
+  log_info "Creating discovery task: $task_id"
+
+  local task_file
+  task_file=$(create_task_file "$task_id" "$task_title" "$priority" "High" "$todo_dir" "$task_context")
+
+  log_success "Created task: $task_id"
+  echo ""
+
+  local run_now
+  read -rp "Run this task now? [Y/n]: " run_now
+  if [ "$run_now" != "n" ] && [ "$run_now" != "N" ]; then
+    cmd_run 1
+  fi
 }
 
 cmd_init() {
