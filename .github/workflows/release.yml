@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  packages: write
 
 jobs:
   release:
@@ -17,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js for npm
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -47,6 +48,18 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Setup Node.js for GitHub Packages
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@doyaken'
+
+      - name: Publish to GitHub Packages
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -59,7 +72,7 @@ jobs:
             npm install -g @doyaken/doyaken
 
             # curl
-            curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash
+            curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken.ai/main/install.sh | bash
             ```
 
             ## Quick Start
@@ -70,5 +83,5 @@ jobs:
             dk run 1          # Run 1 task
             ```
 
-            See [README](https://github.com/doyaken/doyaken#readme) for full documentation.
+            See [README](https://github.com/mitchellfyi/doyaken.ai#readme) for full documentation.
           generate_release_notes: true

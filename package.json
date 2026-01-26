@@ -1,6 +1,6 @@
 {
   "name": "@doyaken/doyaken",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Autonomous AI agent CLI for software development - install once, use on any project",
   "keywords": [
     "ai",
