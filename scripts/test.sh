@@ -100,12 +100,21 @@ for script in "$ROOT_DIR/lib/"*.sh; do
   fi
 done
 
-# Test 10: All skills exist
-for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md review-codebase.md security-audit.md performance-audit.md tech-debt.md feature-discover.md ux-audit.md; do
+# Test 10: Core skills exist
+for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md review-codebase.md security-audit.md performance-audit.md tech-debt.md feature-discover.md ux-audit.md workflow.md mcp-status.md; do
   if [ -f "$ROOT_DIR/skills/$skill" ]; then
     pass "skills/$skill exists"
   else
     fail "skills/$skill missing"
+  fi
+done
+
+# Test 10b: Prompt-based skills exist
+for prompt_skill in prompt-code-quality.md prompt-security.md prompt-testing.md prompt-code-review.md prompt-planning.md; do
+  if [ -f "$ROOT_DIR/skills/$prompt_skill" ]; then
+    pass "skills/$prompt_skill exists"
+  else
+    fail "skills/$prompt_skill missing"
   fi
 done
 

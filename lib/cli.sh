@@ -69,7 +69,8 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
   ${CYAN}hooks${NC} install       Install hooks to .claude/settings.json
-  ${CYAN}sync${NC}                Generate agent files (CLAUDE.md, .cursorrules, etc.)
+  ${CYAN}sync${NC}                Sync agent files, prompts, skills, and commands
+  ${CYAN}commands${NC}            Regenerate slash commands (.claude/commands/)
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
@@ -539,6 +540,84 @@ run_feature_discovery() {
   run_skill "$skill_name" $skill_args
 }
 
+# Generate slash commands for Claude Code
+# Creates .claude/commands/ directory with commands that invoke skills
+generate_slash_commands() {
+  local target_dir="$1"
+  local commands_dir="$target_dir/.claude/commands"
+
+  mkdir -p "$commands_dir"
+
+  # Generate commands from skills
+  local skills_dir="$DOYAKEN_HOME/skills"
+  if [ -d "$skills_dir" ]; then
+    for skill_file in "$skills_dir"/*.md; do
+      [ -f "$skill_file" ] || continue
+      [ "$(basename "$skill_file")" = "README.md" ] && continue
+
+      local name
+      name=$(basename "$skill_file" .md)
+
+      # Extract description from frontmatter
+      local description=""
+      description=$(awk '
+        /^---$/ { if (started) exit; started = 1; next }
+        started && /^description:/ {
+          gsub(/^description:[[:space:]]*/, "")
+          gsub(/"/, "")
+          print
+          exit
+        }
+      ' "$skill_file")
+      [ -z "$description" ] && description="Run the $name skill"
+
+      # Create command file that invokes the skill
+      cat > "$commands_dir/${name}.md" << EOF
+---
+description: $description
+---
+
+Run the doyaken skill: $name
+
+\`\`\`bash
+doyaken skill $name \$ARGUMENTS
+\`\`\`
+
+If doyaken is not available, apply this methodology:
+
+$(tail -n +$(awk '/^---$/{count++; if(count==2){print NR; exit}}' "$skill_file") "$skill_file")
+EOF
+    done
+  fi
+
+  # Generate commands from library prompts (direct access)
+  local library_dir="$DOYAKEN_HOME/prompts/library"
+  if [ -d "$library_dir" ]; then
+    for prompt_file in "$library_dir"/*.md; do
+      [ -f "$prompt_file" ] || continue
+      [ "$(basename "$prompt_file")" = "README.md" ] && continue
+
+      local name
+      name=$(basename "$prompt_file" .md)
+
+      # Create command that loads the library prompt directly
+      cat > "$commands_dir/${name}.md" << EOF
+---
+description: Apply $name methodology
+---
+
+$(cat "$prompt_file")
+
+---
+
+Apply this methodology to the current context. If given a specific file or code, analyze it according to these guidelines.
+EOF
+    done
+  fi
+
+  log_success "Generated slash commands (.claude/commands/)"
+}
+
 cmd_init() {
   local target_dir="${1:-$(pwd)}"
 
@@ -769,6 +848,23 @@ EOF
     log_success "Created AGENT.md"
   fi
 
+  # Copy prompt library for project customization
+  if [ -d "$DOYAKEN_HOME/prompts/library" ]; then
+    mkdir -p "$ai_agent_dir/prompts/library"
+    cp -r "$DOYAKEN_HOME/prompts/library/"*.md "$ai_agent_dir/prompts/library/" 2>/dev/null || true
+    log_success "Copied prompt library (${ai_agent_dir}/prompts/library/)"
+  fi
+
+  # Copy skills for project customization
+  if [ -d "$DOYAKEN_HOME/skills" ]; then
+    mkdir -p "$ai_agent_dir/skills"
+    cp -r "$DOYAKEN_HOME/skills/"*.md "$ai_agent_dir/skills/" 2>/dev/null || true
+    log_success "Copied skills (${ai_agent_dir}/skills/)"
+  fi
+
+  # Generate slash commands for Claude Code
+  generate_slash_commands "$target_dir"
+
   # Register in global registry
   add_to_registry "$target_dir" "$project_name" "$git_remote"
 
@@ -778,6 +874,13 @@ EOF
   echo "  1. Edit .doyaken/manifest.yaml to configure your project"
   echo "  2. Create a task: doyaken tasks new \"My first task\""
   echo "  3. Run the agent: doyaken run 1"
+  echo ""
+  echo "Slash commands available:"
+  echo "  /workflow    - Run 8-phase workflow"
+  echo "  /code-review - Perform code review"
+  echo "  /security    - Security checklist"
+  echo "  /testing     - Testing methodology"
+  echo "  (and more - see .claude/commands/)"
 }
 
 cmd_register() {
@@ -1267,7 +1370,7 @@ cmd_sync() {
 
   log_info "Syncing agent files to: $project"
 
-  # Use the sync script
+  # Use the sync script for agent files
   local sync_script="$DOYAKEN_HOME/scripts/sync-agent-files.sh"
   if [ ! -f "$sync_script" ]; then
     sync_script="$SCRIPT_DIR/../scripts/sync-agent-files.sh"
@@ -1278,6 +1381,60 @@ cmd_sync() {
   else
     log_error "sync-agent-files.sh not found"
     exit 1
+  fi
+
+  # Regenerate slash commands
+  log_info "Regenerating slash commands..."
+  generate_slash_commands "$project"
+
+  # Update prompts library
+  local ai_agent_dir="$project/.doyaken"
+  if [ -d "$DOYAKEN_HOME/prompts/library" ]; then
+    mkdir -p "$ai_agent_dir/prompts/library"
+    cp -r "$DOYAKEN_HOME/prompts/library/"*.md "$ai_agent_dir/prompts/library/" 2>/dev/null || true
+    log_success "Updated prompt library"
+  fi
+
+  # Update skills
+  if [ -d "$DOYAKEN_HOME/skills" ]; then
+    mkdir -p "$ai_agent_dir/skills"
+    cp -r "$DOYAKEN_HOME/skills/"*.md "$ai_agent_dir/skills/" 2>/dev/null || true
+    log_success "Updated skills"
+  fi
+}
+
+cmd_commands() {
+  local project
+  project=$(require_project)
+
+  log_info "Regenerating slash commands..."
+  generate_slash_commands "$project"
+
+  # List generated commands
+  local commands_dir="$project/.claude/commands"
+  if [ -d "$commands_dir" ]; then
+    local count
+    count=$(find "$commands_dir" -name "*.md" | wc -l | tr -d ' ')
+    log_success "Generated $count slash commands"
+    echo ""
+    echo "Available commands:"
+    for cmd_file in "$commands_dir"/*.md; do
+      [ -f "$cmd_file" ] || continue
+      local name
+      name=$(basename "$cmd_file" .md)
+      local desc
+      desc=$(awk '
+        /^---$/ { if (started) exit; started = 1; next }
+        started && /^description:/ {
+          gsub(/^description:[[:space:]]*/, "")
+          print
+          exit
+        }
+      ' "$cmd_file")
+      printf "  /%s - %s\n" "$name" "${desc:-No description}"
+    done | sort | head -20
+    echo ""
+    echo "  (showing first 20, see .claude/commands/ for all)"
   fi
 }
 
@@ -1421,6 +1578,9 @@ main() {
       ;;
     sync)
       cmd_sync
+      ;;
+    commands)
+      cmd_commands
       ;;
     version)
       cmd_version

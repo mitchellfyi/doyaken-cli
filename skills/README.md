@@ -42,29 +42,36 @@ Skills **compose from library prompts** - they don't contain methodology directl
 
 ## Available Skills
 
+### Workflow & System
+
+| Skill | Description | Slash Command |
+|-------|-------------|---------------|
+| `workflow` | Run 8-phase task workflow | `/workflow` |
+| `mcp-status` | Check MCP integrations | `/mcp-status` |
+
 ### Code Review & Audit
 
-| Skill | Description | Library Includes |
-|-------|-------------|------------------|
-| `review-codebase` | Full codebase review | code-review, architecture-review, code-quality, security, performance |
-| `security-audit` | OWASP security assessment | security |
-| `performance-audit` | Performance analysis | performance |
-| `tech-debt` | Technical debt assessment | technical-debt |
+| Skill | Description | Slash Command |
+|-------|-------------|---------------|
+| `review-codebase` | Full codebase review | `/review-codebase` |
+| `security-audit` | OWASP security assessment | `/security-audit` |
+| `performance-audit` | Performance analysis | `/performance-audit` |
+| `tech-debt` | Technical debt assessment | `/tech-debt` |
 
 ### Quality
 
-| Skill | Description | Library Includes |
-|-------|-------------|------------------|
-| `check-quality` | Run quality checks | code-quality |
-| `setup-quality` | Configure quality tools | - |
-| `audit-deps` | Audit dependencies | - |
+| Skill | Description | Slash Command |
+|-------|-------------|---------------|
+| `check-quality` | Run quality checks | `/check-quality` |
+| `setup-quality` | Configure quality tools | `/setup-quality` |
+| `audit-deps` | Audit dependencies | `/audit-deps` |
 
 ### Discovery & Planning
 
-| Skill | Description | Library Includes |
-|-------|-------------|------------------|
-| `feature-discover` | Feature research | feature-discovery, competitor-analysis |
-| `ux-audit` | UX assessment | ux-review |
+| Skill | Description | Slash Command |
+|-------|-------------|---------------|
+| `feature-discover` | Feature research | `/feature-discover` |
+| `ux-audit` | UX assessment | `/ux-audit` |
 
 ### Integrations
 
@@ -75,6 +82,36 @@ Skills **compose from library prompts** - they don't contain methodology directl
 | `create-pr` | Create pull request | GitHub MCP |
 | `notify-slack` | Slack notifications | Slack MCP |
 | `sync-agents` | Sync agent files | - |
+
+### Prompt-Based Skills
+
+Every library prompt has a corresponding skill prefixed with `prompt-`:
+
+| Skill | Description | Slash Command |
+|-------|-------------|---------------|
+| `prompt-code-quality` | Apply SOLID, DRY, KISS, YAGNI | `/prompt-code-quality` |
+| `prompt-security` | OWASP security checklist | `/prompt-security` |
+| `prompt-testing` | Testing methodology | `/prompt-testing` |
+| `prompt-code-review` | Multi-pass code review | `/prompt-code-review` |
+| `prompt-planning` | Implementation planning | `/prompt-planning` |
+| `prompt-debugging` | Debugging methodology | `/prompt-debugging` |
+| `prompt-performance` | Performance analysis | `/prompt-performance` |
+| `prompt-architecture-review` | Architecture assessment | `/prompt-architecture-review` |
+| ... | (one for each library prompt) | |
+
+## Slash Commands
+
+Skills are automatically available as slash commands in Claude Code:
+
+```bash
+# Regenerate slash commands
+doyaken commands
+
+# Commands are stored in:
+.claude/commands/
+```
+
+On `doyaken init`, slash commands are automatically generated. Use `doyaken sync` or `doyaken commands` to regenerate after updates.
 
 ## Skill Structure
 
