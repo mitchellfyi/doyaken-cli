@@ -152,7 +152,23 @@ for lib_prompt in quality.md testing.md review.md planning.md review-security.md
   fi
 done
 
-# Test 14: Functional test - init creates correct structure
+# Test 14: Auto-timeout function works
+# Test that read_with_timeout auto-selects from valid options
+TIMEOUT_RESULT=$(bash -c 'source "'"$ROOT_DIR"'/lib/cli.sh" 2>/dev/null; DOYAKEN_AUTO_TIMEOUT=1 read_with_timeout test_var "Test: " a b c d; echo "$test_var"' 2>&1 | tail -1)
+if [[ "$TIMEOUT_RESULT" =~ ^[abcd]$ ]]; then
+  pass "Auto-timeout selects valid option"
+else
+  fail "Auto-timeout failed (got: $TIMEOUT_RESULT)"
+fi
+
+# Test 15: Auto-timeout default is 60 seconds
+if grep -q 'DOYAKEN_AUTO_TIMEOUT:-60' "$ROOT_DIR/lib/cli.sh"; then
+  pass "Auto-timeout defaults to 60 seconds"
+else
+  fail "Auto-timeout default is not 60 seconds"
+fi
+
+# Test 16: Functional test - init creates correct structure
 TEST_DIR=$(mktemp -d)
 TEST_HOME=$(mktemp -d)  # Isolated DOYAKEN_HOME to avoid polluting repo
 trap "rm -rf $TEST_DIR $TEST_HOME" EXIT

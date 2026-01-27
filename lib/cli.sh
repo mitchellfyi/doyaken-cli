@@ -48,6 +48,48 @@ log_warn() { echo -e "${YELLOW}[doyaken]${NC} $1"; }
 log_error() { echo -e "${RED}[doyaken]${NC} $1" >&2; }
 
 # ============================================================================
+# Auto-timeout for autonomous mode
+# ============================================================================
+
+# Read user input with optional timeout and random fallback
+# Usage: read_with_timeout <var_name> <prompt> <valid_options...>
+# Returns: Sets the variable to user input or random choice on timeout
+# Example: read_with_timeout choice "Enter [1-3]: " 1 2 3
+read_with_timeout() {
+  local var_name="$1"
+  local prompt="$2"
+  shift 2
+  local -a options=("$@")
+  local timeout="${DOYAKEN_AUTO_TIMEOUT:-60}"
+  local result=""
+  local num_options="${#options[@]}"
+
+  if [ "$timeout" -gt 0 ] && [ "$num_options" -gt 0 ]; then
+    # Show timeout indicator
+    echo -e "  ${YELLOW}(auto-select in ${timeout}s)${NC}"
+    echo ""
+
+    # Read with timeout - use printf for prompt to avoid -p issues
+    printf "%s" "$prompt"
+    if read -r -t "$timeout" result 2>/dev/null; then
+      # User provided input
+      eval "$var_name=\"\$result\""
+    else
+      # Timeout - pick random option
+      echo ""
+      local random_idx=$((RANDOM % num_options))
+      result="${options[$random_idx]}"
+      log_info "Auto-selected option: $result"
+      eval "$var_name=\"\$result\""
+    fi
+  else
+    # No timeout - normal read
+    read -rp "$prompt" result
+    eval "$var_name=\"\$result\""
+  fi
+}
+
+# ============================================================================
 # Help
 # ============================================================================
 
@@ -117,10 +159,12 @@ ${BOLD}EXAMPLES:${NC}
   doyaken run 1 -- --sandbox read-only # Pass extra args to agent
 
 ${BOLD}ENVIRONMENT:${NC}
-  DOYAKEN_HOME       Global installation directory (default: ~/.doyaken)
-  DOYAKEN_PROJECT    Override project detection
-  DOYAKEN_AGENT      Default agent (claude, codex, gemini, copilot, opencode)
-  DOYAKEN_MODEL      Default model for the agent
+  DOYAKEN_HOME         Global installation directory (default: ~/.doyaken)
+  DOYAKEN_PROJECT      Override project detection
+  DOYAKEN_AGENT        Default agent (claude, codex, gemini, copilot, opencode)
+  DOYAKEN_MODEL        Default model for the agent
+  DOYAKEN_AUTO_TIMEOUT Auto-select menu options after N seconds (default: 60)
+                       Set to 0 to disable and wait for user input
 
 EOF
 }
@@ -400,7 +444,9 @@ show_no_tasks_menu() {
   echo ""
 
   local choice
-  read -rp "Enter choice [1-4, q]: " choice
+  # Auto-timeout only selects from options 1-2 (Code Review, Feature Discovery)
+  # Options 3-4 require user input and are not suitable for auto-selection
+  read_with_timeout choice "Enter choice [1-4, q]: " 1 2
 
   case "$choice" in
     1)
@@ -455,7 +501,8 @@ run_code_review() {
   echo ""
 
   local choice
-  read -rp "Enter choice [1-5]: " choice
+  # Auto-timeout selects from options 1-4 (option 5 requires path input)
+  read_with_timeout choice "Enter choice [1-5]: " 1 2 3 4
 
   local skill_name skill_args
   case "$choice" in
@@ -464,15 +511,15 @@ run_code_review() {
       skill_args="--scope=full"
       ;;
     2)
-      skill_name="security-audit"
+      skill_name="audit-security"
       skill_args=""
       ;;
     3)
-      skill_name="performance-audit"
+      skill_name="audit-performance"
       skill_args=""
       ;;
     4)
-      skill_name="tech-debt"
+      skill_name="audit-debt"
       skill_args=""
       ;;
     5)
@@ -512,24 +559,25 @@ run_feature_discovery() {
   echo ""
 
   local choice
-  read -rp "Enter choice [1-4]: " choice
+  # All options 1-4 are suitable for auto-selection
+  read_with_timeout choice "Enter choice [1-4]: " 1 2 3 4
 
   local skill_name skill_args
   case "$choice" in
     1)
-      skill_name="feature-discover"
+      skill_name="research-features"
       skill_args="--scope=full"
       ;;
     2)
-      skill_name="feature-discover"
+      skill_name="research-features"
       skill_args="--scope=competitors"
       ;;
     3)
-      skill_name="feature-discover"
+      skill_name="research-features"
       skill_args="--scope=gaps"
       ;;
     4)
-      skill_name="ux-audit"
+      skill_name="audit-ux"
       skill_args="--focus=full"
       ;;
     *)

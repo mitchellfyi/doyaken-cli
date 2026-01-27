@@ -70,8 +70,8 @@ Skills **compose from library prompts** - they don't contain methodology directl
 
 | Skill | Description | Slash Command |
 |-------|-------------|---------------|
-| `feature-discover` | Feature research | `/feature-discover` |
-| `ux-audit` | UX assessment | `/ux-audit` |
+| `research-features` | Feature research | `/research-features` |
+| `audit-ux` | UX assessment | `/audit-ux` |
 
 ### Integrations
 
@@ -79,7 +79,7 @@ Skills **compose from library prompts** - they don't contain methodology directl
 |-------|-------------|----------|
 | `github-import` | Import GitHub issues | GitHub MCP |
 | `github-sync` | Sync task status | GitHub MCP |
-| `create-pr` | Create pull request | GitHub MCP |
+| `github-pr` | Create pull request | GitHub MCP |
 | `notify-slack` | Slack notifications | Slack MCP |
 | `sync-agents` | Sync agent files | - |
 

@@ -340,6 +340,7 @@ dk tasks new "Add user authentication"
 |----------|---------|-------------|
 | `DOYAKEN_AGENT` | `claude` | AI agent to use |
 | `DOYAKEN_MODEL` | agent-specific | Model for the selected agent |
+| `DOYAKEN_AUTO_TIMEOUT` | `60` | Auto-select menu options after N seconds (0 to disable) |
 | `AGENT_DRY_RUN` | `0` | Preview without executing |
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
