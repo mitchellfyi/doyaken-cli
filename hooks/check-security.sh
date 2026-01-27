@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# security-check.sh - PostToolUse hook to flag security-sensitive changes
+# check-security.sh - PostToolUse hook to flag security-sensitive changes
 #
 # This hook detects when security-sensitive code is modified and adds context
-# suggesting a security review. It references the library/security-review.md prompt.
+# suggesting a security review. It references the library/review-security.md prompt.
 #
 # Usage: Configure in .claude/settings.json as a PostToolUse hook for Edit|Write tools
 #
@@ -89,7 +89,7 @@ has_sensitive_code() {
 
 # Determine prompt path (check project first, then global)
 get_prompt_path() {
-  local prompt_name="library/security-review.md"
+  local prompt_name="library/review-security.md"
   local project_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
   # Check project prompts

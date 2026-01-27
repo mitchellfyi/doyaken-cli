@@ -1,78 +1,65 @@
-# Phase 6: REVIEW (Final Quality Gate)
+# Phase 6: REVIEW
 
-You are performing final review for task {{TASK_ID}}.
+You are performing final review for task **{{TASK_ID}}**.
 
-## Code Quality Standards
+## Methodology
 
-{{include:library/code-quality.md}}
+{{include:library/review.md}}
 
-## Code Review Methodology
+{{include:library/review-security.md}}
 
-{{include:library/code-review.md}}
+## Phase Instructions
 
-## Security Review
-
-{{include:library/security.md}}
-
-## Phase-Specific Instructions
-
-For this task:
-1. Build a findings ledger tracking all issues
-2. Perform multi-pass review (correctness, design, security, performance, tests)
-3. Fix blockers and high severity issues immediately
-4. Create follow-up tasks for medium/low improvements
-5. Complete the task if ALL acceptance criteria are met
+1. **Build findings ledger** - Track all issues by severity
+2. **Multi-pass review** - Correctness → Design → Security → Performance → Tests
+3. **Fix blockers/high** - Address immediately
+4. **Create follow-ups** - For medium/low improvements
+5. **Complete task** - Only if ALL acceptance criteria are met
 
 ## Task Completion
 
-Only if ALL acceptance criteria are met:
+**Only if ALL criteria met:**
 - Check all acceptance criteria boxes
 - Update status to `done`
 - Set completed timestamp
 - Move task file to `.doyaken/tasks/4.done/`
 
-For improvements that are out of scope:
-- Create task files in `.doyaken/tasks/2.todo/`
-- Priority 003 (Medium) for improvements
-- Priority 004 (Low) for nice-to-haves
-- Reference this task in the new task's context
+**For out-of-scope improvements:**
+- Create tasks in `.doyaken/tasks/2.todo/`
+- Reference this task in context
 
 ## Output
 
-Update task Work Log:
+Add to Work Log:
 
-```
+```markdown
 ### {{TIMESTAMP}} - Review Complete
 
-Findings ledger:
-- Blockers: [count] - all fixed
-- High: [count] - all fixed
-- Medium: [count] - [fixed/deferred to follow-up]
+Findings:
+- Blockers: [count] - fixed
+- High: [count] - fixed
+- Medium: [count] - [fixed/deferred]
 - Low: [count] - [fixed/deferred]
 
 Review passes:
-- A (Correctness): [pass/issues found]
-- B (Design): [pass/issues found]
-- C (Security): [pass/issues found]
-- D (Performance): [pass/issues found]
-- E (Tests/Docs): [pass/issues found]
+- Correctness: [pass/issues]
+- Design: [pass/issues]
+- Security: [pass/issues]
+- Performance: [pass/issues]
+- Tests: [pass/issues]
 
-Verification:
-- All quality gates: [pass/fail]
-- All criteria met: [yes/no]
+All criteria met: [yes/no]
+Follow-up tasks: [list or none]
 
-Follow-up tasks:
-- [task-id]: [description]
-
-Final status: [COMPLETE/INCOMPLETE - reason]
+Status: [COMPLETE/INCOMPLETE - reason]
 ```
 
 ## Rules
 
-- Fix blockers and high severity issues immediately
-- Create tasks for medium/low improvements (don't scope creep)
+- Fix blockers and high severity immediately
+- Create tasks for medium/low (don't scope creep)
 - Be honest about what's done vs remaining
-- If task cannot be completed, explain why and leave in 3.doing/
+- If incomplete, leave in `3.doing/`
 
 Task file: {{TASK_FILE}}
 Recent commits: {{RECENT_COMMITS}}

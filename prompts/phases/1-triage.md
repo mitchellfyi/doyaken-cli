@@ -1,74 +1,19 @@
-# Phase 1: TRIAGE (Project Manager)
+# Phase 1: TRIAGE
 
-You are a project manager validating task {{TASK_ID}} before work begins.
+You are validating task **{{TASK_ID}}** before work begins.
 
-## 1) Discover Project Conventions
+## Phase Instructions
 
-Before validating, understand what "done" means for this repo:
-
-**Check for:**
-- CI workflows (`.github/workflows/`, `.gitlab-ci.yml`)
-- Quality scripts (`package.json` scripts, `Makefile`, `scripts/`)
-- Lint/format/typecheck configs (`.eslintrc`, `.prettierrc`, `tsconfig.json`, etc.)
-- Test framework and coverage requirements
-- Documentation requirements
-
-**Output a quick summary:**
-```
-Quality gates for this repo:
-- Lint: [command or "none"]
-- Format: [command or "none"]
-- Types: [command or "none"]
-- Tests: [command or "none"]
-- Build: [command or "none"]
-- CI: [present/missing]
-- Git hooks: [present/missing]
-- Dep audit: [command or "none"]
-```
-
-**If quality gates are missing**: Flag this as a risk. Suggest running `doyaken skill setup-quality` to configure proper quality gates before implementation.
-
-## 2) Validate Task File
-
-Check the task file is ready for implementation:
-
-- [ ] Context section explains the problem clearly
-- [ ] Acceptance criteria are specific and testable
-- [ ] Scope boundaries are defined (in/out of scope)
-- [ ] No vague criteria like "works correctly"
-
-If the spec is weak, STOP and note what needs clarification.
-
-## 3) Check Dependencies
-
-- Review `Blocked By` field - are those tasks actually complete?
-- Check `.doyaken/tasks/4.done/` for completed dependencies
-- If blocked, do NOT proceed - report the blocker
-
-## 4) Assess Complexity and Risk
-
-Based on the task spec, assess:
-
-| Factor | Rating |
-|--------|--------|
-| Files affected | few (1-3) / some (4-10) / many (10+) |
-| Risk of regression | low / medium / high |
-| Test coverage needed | minimal / moderate / extensive |
-| Documentation updates | none / some / significant |
-
-## 5) Update Task Metadata
-
-If the task is ready:
-- Set Status to `doing`
-- Set Started timestamp
-- Set Assigned To to `{{AGENT_ID}}`
-- Set Assigned At to `{{TIMESTAMP}}`
+1. **Discover quality gates** - Check CI, lint/format/test/build commands
+2. **Validate task file** - Context clear? Criteria testable? Scope defined?
+3. **Check dependencies** - Are blockers resolved?
+4. **Assess complexity** - Files affected, risk level, test coverage needed
 
 ## Output
 
-Write a triage report in the task's Work Log:
+Add to Work Log:
 
-```
+```markdown
 ### {{TIMESTAMP}} - Triage Complete
 
 Quality gates:
@@ -76,29 +21,29 @@ Quality gates:
 - Types: [command or "missing"]
 - Tests: [command or "missing"]
 - Build: [command or "missing"]
-- Audit: [command or "missing"]
-- CI: [present/missing]
-- Hooks: [present/missing]
 
 Task validation:
 - Context: [clear/unclear]
 - Criteria: [specific/vague]
 - Dependencies: [none/satisfied/blocked by X]
 
-Complexity assessment:
+Complexity:
 - Files: [few/some/many]
 - Risk: [low/medium/high]
-- Test coverage: [minimal/moderate/extensive]
 
-Ready to proceed: [yes/no - reason]
+Ready: [yes/no - reason]
 ```
+
+If ready, update task metadata:
+- Status: `doing`
+- Started: `{{TIMESTAMP}}`
+- Assigned To: `{{AGENT_ID}}`
 
 ## Rules
 
-- Do NOT write any code in this phase
-- Do NOT modify any source files
-- ONLY update the task file metadata and work log
+- Do NOT write code - only update the task file
 - If task is not ready, explain why and STOP
 - If blocked, report the blocker and do not proceed
+- If quality gates are missing, flag as risk
 
 Task file: {{TASK_FILE}}

@@ -1,5 +1,5 @@
 ---
-name: security-audit
+name: audit-security
 description: OWASP-based security audit of the codebase
 args:
   - name: path
@@ -22,7 +22,7 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 
 ## Security Review Framework
 
-{{include:library/security.md}}
+{{include:library/review-security.md}}
 
 ## Audit Process
 

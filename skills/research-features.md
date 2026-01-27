@@ -1,5 +1,5 @@
 ---
-name: feature-discover
+name: research-features
 description: Research and discover the next best feature to build
 args:
   - name: scope
@@ -22,7 +22,7 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 
 ## Discovery Framework
 
-{{include:library/feature-discovery.md}}
+{{include:library/research-features.md}}
 
 ## Discovery Process
 
@@ -41,7 +41,7 @@ First, understand what the project currently offers:
 #### Full Discovery
 
 **A. Competitor Analysis**
-{{include:library/competitor-analysis.md}}
+{{include:library/research-competitors.md}}
 
 Research 3-5 similar projects:
 - What features do they have that we don't?
@@ -66,7 +66,7 @@ Research 3-5 similar projects:
 
 {{#if scope == "competitors"}}
 #### Competitor Analysis Focus
-{{include:library/competitor-analysis.md}}
+{{include:library/research-competitors.md}}
 
 Deep dive into competitors:
 1. Identify 3-5 direct competitors
@@ -88,7 +88,7 @@ Based on the project type, identify expected features:
 
 {{#if scope == "ux"}}
 #### UX Improvement Focus
-{{include:library/ux-review.md}}
+{{include:library/review-ux.md}}
 
 Focus on user experience:
 1. First-run experience

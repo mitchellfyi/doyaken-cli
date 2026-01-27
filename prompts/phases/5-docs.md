@@ -1,74 +1,41 @@
-# Phase 5: DOCS (Documentation Sync)
+# Phase 5: DOCS
 
-You are synchronizing documentation for task {{TASK_ID}}.
+You are synchronizing documentation for task **{{TASK_ID}}**.
 
-## Documentation Standards
+## Methodology
 
-{{include:library/documentation.md}}
+{{include:library/docs.md}}
 
-## Phase-Specific Instructions
+## Phase Instructions
 
-### 1) Identify What Needs Documentation
+1. **Identify** what needs documentation based on changes made
+2. **Update** docs in priority order: API → README → Architecture → Inline
+3. **Verify consistency** - Code and docs tell the same story
+4. **Update task file** - Add notes, observations, trade-offs
 
-Check the task's changes and determine what docs are affected:
+## What to Document
 
 | Change Type | Documentation Needed |
 |-------------|---------------------|
 | New API endpoint | API docs, possibly README |
 | New feature | README if user-facing |
 | Changed behaviour | Update existing docs |
-| New pattern/service | Architecture docs |
 | Complex logic | Inline code comments |
-| Configuration changes | Config reference |
-
-### 2) Update Documentation
-
-**Priority order:**
-1. API documentation (if endpoints changed)
-2. README (if user-facing features changed)
-3. Architecture/design docs (if patterns changed)
-4. Inline comments (for non-obvious logic only)
-
-**What NOT to document:**
-- Obvious code (avoid `// increment counter` comments)
-- Implementation details that should be obvious from code
-- Temporary workarounds (fix them instead)
-
-### 3) Ensure Consistency
-
-Check that:
-- [ ] Code and docs tell the same story
-- [ ] Examples in docs actually work
-- [ ] References to renamed/moved code are updated
-- [ ] No broken links in markdown files
-- [ ] Version numbers are consistent
-
-### 4) Update Task File
-
-- **Testing Evidence**: Summarize test results
-- **Notes**: Add observations, decisions made, trade-offs
-- **Links**: Add references to related files, PRs, issues
 
 ## Output
 
-Update task Work Log:
+Add to Work Log:
 
-```
+```markdown
 ### {{TIMESTAMP}} - Documentation Sync
 
 Docs updated:
-- `path/to/doc` - [what was added/changed]
-- `README.md` - [what was updated]
+- `path/to/doc` - [change]
 
 Inline comments:
-- `path/to/file:line` - [what was documented]
+- `path/to/file:line` - [what]
 
-Consistency checks:
-- Code matches docs: [yes/no]
-- Examples verified: [yes/no/na]
-- Links checked: [yes/no]
-
-No docs needed: [list any areas where docs were considered but not added, with reason]
+Consistency: [verified/issues found]
 ```
 
 ## Rules
@@ -77,7 +44,6 @@ No docs needed: [list any areas where docs were considered but not added, with r
 - Do NOT change functionality
 - ONLY update documentation and comments
 - Keep docs concise - don't over-document
-- Use consistent formatting with existing docs
-- Remove outdated content rather than leaving it
+- Remove outdated content
 
 Task file: {{TASK_FILE}}

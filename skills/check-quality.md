@@ -22,7 +22,7 @@ Auto-fix: {{ARGS.fix}}
 
 ## Quality Standards
 
-{{include:library/code-quality.md}}
+{{include:library/quality.md}}
 
 ## Instructions
 

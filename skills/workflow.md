@@ -114,7 +114,7 @@ Finalize:
 
 Apply these standards throughout:
 
-{{include:library/code-quality.md}}
+{{include:library/quality.md}}
 
 ## Output
 

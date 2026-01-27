@@ -56,19 +56,11 @@
 
 ### 1. Code Analysis
 
-Run automated tools:
-```bash
-# JavaScript/TypeScript
-npx eslint . --format json
-npx madge --circular .  # circular dependencies
-
-# Python
-ruff check . --output-format json
-radon cc . -j  # cyclomatic complexity
-
-# General
-tokei .  # lines of code by language
-```
+Run automated tools for:
+- Linting issues (syntax, style, common errors)
+- Circular dependency detection
+- Cyclomatic complexity measurement
+- Lines of code by file/module
 
 ### 2. Manual Review
 
@@ -83,31 +75,18 @@ Check for:
 
 ### 3. Test Coverage
 
-```bash
-# JavaScript
-npm test -- --coverage
-
-# Python
-pytest --cov=. --cov-report=json
-
-# Go
-go test -coverprofile=coverage.out ./...
-```
+Run coverage tools to identify:
+- Overall coverage percentage
+- Files with low coverage
+- Critical paths without tests
+- Coverage trends over time
 
 ### 4. Dependency Audit
 
-```bash
-# JavaScript
-npm audit
-npm outdated
-
-# Python
-pip-audit
-pip list --outdated
-
-# General
-dependabot/renovate reports
-```
+Check for:
+- Security vulnerabilities in dependencies
+- Outdated dependencies (check latest versions)
+- Automated update reports (Dependabot, Renovate, etc.)
 
 ## Debt Categorization
 

@@ -1,5 +1,5 @@
 ---
-name: tech-debt
+name: audit-debt
 description: Technical debt assessment and prioritization
 args:
   - name: path
@@ -22,7 +22,7 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 
 ## Assessment Framework
 
-{{include:library/technical-debt.md}}
+{{include:library/review-debt.md}}
 
 ## Assessment Process
 

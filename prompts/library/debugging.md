@@ -117,9 +117,9 @@ Strategic logging points:
 
 ### Print Debugging
 Simple but effective:
-```javascript
-console.log('>>> checkpoint 1', { variable });
-```
+- Add logging at suspicious locations
+- Include relevant variable values
+- Use markers to identify output (e.g., ">>> checkpoint 1")
 
 Clean up after! Never commit debug logs.
 

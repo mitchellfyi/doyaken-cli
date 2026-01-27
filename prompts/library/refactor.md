@@ -18,15 +18,10 @@ You are refactoring code without changing its external behaviour.
 
 Before any refactoring:
 
-```bash
-# Check coverage on the code you'll change
-npm test -- --coverage --collectCoverageFrom="path/to/file.ts"
-```
-
-**If coverage is low:**
-1. Write characterization tests (tests that document current behaviour)
-2. Cover the main paths and edge cases
-3. Only then proceed with refactoring
+1. Check coverage on the code you'll change
+2. If coverage is low, write characterization tests first
+3. Cover the main paths and edge cases
+4. Only then proceed with refactoring
 
 ## 2) Identify the Refactoring Type
 
@@ -63,67 +58,37 @@ Step 2: ...
 For EACH step:
 
 1. Make the change
-2. Run tests: `npm test`
+2. Run tests
 3. If tests pass, commit
 4. If tests fail, revert and reconsider
-
-```bash
-# After each step
-npm test && git commit -am "refactor: [description]"
-```
 
 **Do NOT combine multiple steps into one commit.**
 
 ## 5) Common Refactoring Patterns
 
 ### Extract Function
-```
-// Before
-function processOrder(order) {
-  // ... validation logic ...
-  // ... calculation logic ...
-  // ... notification logic ...
-}
-
-// After
-function processOrder(order) {
-  validateOrder(order);
-  const total = calculateTotal(order);
-  notifyCustomer(order, total);
-}
-```
+Pull related code into a named function:
+- Identify cohesive code block
+- Extract to function with descriptive name
+- Replace original with function call
 
 ### Rename for Clarity
-```
-// Before
-const d = new Date();
-const t = d.getTime();
-
-// After
-const currentDate = new Date();
-const timestampMs = currentDate.getTime();
-```
+Replace cryptic names with descriptive ones:
+- Single-letter variables → meaningful names
+- Abbreviations → full words
+- Verbs for functions, nouns for data
 
 ### Remove Duplication (DRY)
-```
-// Before
-function getUserName(user) { return user?.name || 'Anonymous'; }
-function getAuthorName(author) { return author?.name || 'Anonymous'; }
-
-// After
-function getName(entity, fallback = 'Anonymous') {
-  return entity?.name || fallback;
-}
-```
+Extract duplicated logic:
+- Find similar code blocks
+- Parameterize differences
+- Extract shared logic
 
 ### Simplify Conditionals
-```
-// Before
-if (user !== null && user !== undefined && user.isActive === true) { ... }
-
-// After
-if (user?.isActive) { ... }
-```
+Make conditionals easier to read:
+- Early returns instead of deep nesting
+- Guard clauses
+- Extract complex conditions to named functions
 
 ## 6) What NOT to Do
 
@@ -178,4 +143,4 @@ Apply these principles when deciding what to refactor:
 - If tests fail, revert immediately
 - Never combine refactoring with feature work
 - If coverage is low, add tests BEFORE refactoring
-- All quality gates must pass (lint, typecheck, test)
+- All quality gates must pass

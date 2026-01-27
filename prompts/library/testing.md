@@ -1,4 +1,4 @@
-# Testing Methodology
+# Testing
 
 ## Principles
 
@@ -9,12 +9,10 @@
 
 ## Test Pyramid
 
-Choose the right level of test:
-
 | Level | Speed | Scope | Use when |
 |-------|-------|-------|----------|
-| **Unit** | Fast (ms) | Single function/class | Pure logic, algorithms, transformations |
-| **Integration** | Medium (s) | Multiple units + deps | Database, API calls, component interactions |
+| **Unit** | Fast (ms) | Single function/class | Pure logic, algorithms |
+| **Integration** | Medium (s) | Multiple units + deps | Database, API calls |
 | **E2E** | Slow (10s+) | Full system | Critical user journeys only |
 
 **Default to unit tests.** Move up only when lower levels can't catch the bug.
@@ -23,112 +21,54 @@ Choose the right level of test:
 
 **Always test:**
 - Happy path (normal inputs → expected outputs)
-- Edge cases (empty, null, boundary values, max/min)
-- Error cases (invalid input, failures, exceptions)
+- Edge cases (empty, null, boundary values)
+- Error cases (invalid input, failures)
 - State transitions (if stateful)
 
 **Skip testing:**
-- Framework code / library internals
+- Framework/library internals
 - Simple getters/setters with no logic
 - Private methods (test through public interface)
 
-## AAA Pattern (Arrange-Act-Assert)
+## AAA Pattern
 
-Structure every test clearly:
+Structure every test:
+1. **Arrange** - set up test data
+2. **Act** - call the function
+3. **Assert** - verify the result
 
-```javascript
-describe('ModuleName', () => {
-  describe('functionName', () => {
-    it('should [expected behaviour] when [condition]', () => {
-      // Arrange - set up test data
-      const input = createTestInput();
+## Test Names
 
-      // Act - call the function
-      const result = functionUnderTest(input);
+**Good:** `should return empty array when input is empty`
+**Bad:** `test1`, `works`, `handles stuff`
 
-      // Assert - verify the result
-      expect(result).toEqual(expectedOutput);
-    });
-  });
-});
-```
+## Mocking
 
-## Good Test Names
+- Mock external dependencies (APIs, databases)
+- Don't mock the thing you're testing
+- Prefer fakes over mocks when possible
+- Reset mocks between tests
 
-**Good:**
-- `should return empty array when input is empty`
-- `should throw ValidationError when email is invalid`
-- `should retry 3 times before failing`
+## Coverage
 
-**Bad:**
-- `test1`, `works`, `handles stuff`
+- Aim for 80%+ on critical paths
+- Don't chase 100% - diminishing returns
+- Coverage ≠ quality
 
-## Mocking Strategy
-
-Use mocks sparingly:
-
-- **Mock external dependencies** (APIs, databases, file system)
-- **Don't mock the thing you're testing**
-- **Prefer fakes over mocks** when possible (in-memory DB, test server)
-- **Reset mocks between tests** to avoid state leakage
-
-## Coverage Guidance
-
-- **Line coverage** - Aim for 80%+ on critical paths
-- **Branch coverage** - All if/else branches exercised
-- **Don't chase 100%** - Diminishing returns after ~85%
-- **Coverage ≠ quality** - You can have 100% coverage and miss bugs
-
-## Test Smells to Avoid
+## Test Smells
 
 | Smell | Problem | Fix |
 |-------|---------|-----|
-| **Flaky tests** | Pass/fail randomly | Remove time dependencies, use deterministic data |
-| **Slow tests** | > 100ms for unit test | Mock I/O, reduce setup |
-| **Test interdependence** | Tests fail when run alone | Ensure each test is isolated |
-| **Assertion-free tests** | Test runs but proves nothing | Add meaningful assertions |
-| **Magic numbers** | `expect(result).toBe(42)` | Use named constants or explain |
-
-## Test File Organization
-
-Mirror source file structure:
-```
-src/
-  services/
-    UserService.js
-tests/
-  services/
-    UserService.test.js
-```
+| **Flaky** | Pass/fail randomly | Remove time dependencies |
+| **Slow** | > 100ms for unit | Mock I/O |
+| **Interdependent** | Fail when run alone | Isolate each test |
+| **No assertions** | Proves nothing | Add meaningful assertions |
 
 ## Checklist
 
-Before marking tests complete:
-
-- [ ] All existing tests still pass
-- [ ] New code has corresponding tests
-- [ ] Edge cases are covered
-- [ ] Error paths are tested
-- [ ] Tests are deterministic (no random failures)
-- [ ] Test names describe behaviour
-- [ ] No console.log or debug output left in tests
-
-## Quality Gates
-
-Tests are a critical part of quality enforcement:
-
-```bash
-# Run tests
-npm test              # or: pytest, go test, cargo test
-
-# Run with coverage
-npm run test:coverage # or: pytest --cov, go test -cover
-
-# Run in CI
-npm run quality       # lint + typecheck + test + build
-```
-
-All tests must pass before:
-- Committing code (pre-commit hook)
-- Merging pull requests (CI check)
-- Deploying to production
+- [ ] All existing tests pass
+- [ ] New code has tests
+- [ ] Edge cases covered
+- [ ] Error paths tested
+- [ ] Tests are deterministic
+- [ ] No debug output in tests

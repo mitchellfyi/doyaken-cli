@@ -1,5 +1,5 @@
 ---
-name: ux-audit
+name: audit-ux
 description: User experience audit and improvement recommendations
 args:
   - name: focus
@@ -22,7 +22,7 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 
 ## UX Review Framework
 
-{{include:library/ux-review.md}}
+{{include:library/review-ux.md}}
 
 ## Audit Process
 

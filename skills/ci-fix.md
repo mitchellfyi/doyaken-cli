@@ -22,7 +22,7 @@ Auto-fix: {{ARGS.auto-fix}}
 
 ## CI Best Practices
 
-{{include:library/ci-workflow.md}}
+{{include:library/ci.md}}
 
 ## Diagnosis Process
 

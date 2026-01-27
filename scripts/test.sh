@@ -101,7 +101,7 @@ for script in "$ROOT_DIR/lib/"*.sh; do
 done
 
 # Test 10: Core skills exist
-for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md review-codebase.md security-audit.md performance-audit.md tech-debt.md feature-discover.md ux-audit.md workflow.md mcp-status.md; do
+for skill in setup-quality.md check-quality.md audit-deps.md audit-security.md audit-performance.md audit-debt.md audit-ux.md sync-agents.md review-codebase.md research-features.md workflow.md mcp-status.md; do
   if [ -f "$ROOT_DIR/skills/$skill" ]; then
     pass "skills/$skill exists"
   else
@@ -109,17 +109,8 @@ for skill in setup-quality.md check-quality.md audit-deps.md sync-agents.md revi
   fi
 done
 
-# Test 10b: Prompt-based skills exist
-for prompt_skill in prompt-code-quality.md prompt-security.md prompt-testing.md prompt-code-review.md prompt-planning.md; do
-  if [ -f "$ROOT_DIR/skills/$prompt_skill" ]; then
-    pass "skills/$prompt_skill exists"
-  else
-    fail "skills/$prompt_skill missing"
-  fi
-done
-
 # Test 11: All hooks exist
-for hook in quality-check.sh quality-gates-check.sh security-check.sh; do
+for hook in check-quality.sh check-quality-gates.sh check-security.sh; do
   if [ -f "$ROOT_DIR/hooks/$hook" ]; then
     pass "hooks/$hook exists"
   else
@@ -137,7 +128,7 @@ for agent_template in AGENTS.md CLAUDE.md .cursorrules CODEX.md GEMINI.md openco
 done
 
 # Test 13: Library prompts exist
-for lib_prompt in code-quality.md testing.md code-review.md planning.md security.md base.md architecture-review.md technical-debt.md competitor-analysis.md feature-discovery.md ux-review.md performance.md; do
+for lib_prompt in quality.md testing.md review.md planning.md review-security.md base.md review-architecture.md review-debt.md research-competitors.md research-features.md review-ux.md review-performance.md; do
   if [ -f "$ROOT_DIR/prompts/library/$lib_prompt" ]; then
     pass "prompts/library/$lib_prompt exists"
   else

@@ -26,7 +26,7 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 
 ## Review Methodology
 
-{{include:library/code-review.md}}
+{{include:library/review.md}}
 
 ## Scope-Specific Instructions
 
@@ -36,16 +36,16 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 Perform a complete review covering all areas:
 
 1. **Architecture Review**
-{{include:library/architecture-review.md}}
+{{include:library/review-architecture.md}}
 
 2. **Code Quality**
-{{include:library/code-quality.md}}
+{{include:library/quality.md}}
 
 3. **Security Audit**
-{{include:library/security.md}}
+{{include:library/review-security.md}}
 
 4. **Performance Analysis**
-{{include:library/performance.md}}
+{{include:library/review-performance.md}}
 
 5. **Documentation Review**
 Check README, API docs, inline comments, and architecture docs.
@@ -54,18 +54,18 @@ Check README, API docs, inline comments, and architecture docs.
 
 {{#if scope == "security"}}
 ### Security-Focused Review
-{{include:library/security.md}}
+{{include:library/review-security.md}}
 {{/if}}
 
 {{#if scope == "performance"}}
 ### Performance-Focused Review
-{{include:library/performance.md}}
+{{include:library/review-performance.md}}
 {{/if}}
 
 {{#if scope == "quality"}}
 ### Code Quality Review
-{{include:library/code-quality.md}}
-{{include:library/technical-debt.md}}
+{{include:library/quality.md}}
+{{include:library/review-debt.md}}
 {{/if}}
 
 ## Process

@@ -22,7 +22,7 @@ Install git hooks: {{ARGS.hooks}}
 
 ## Quality Principles
 
-{{include:library/code-quality.md}}
+{{include:library/quality.md}}
 
 ## Instructions
 

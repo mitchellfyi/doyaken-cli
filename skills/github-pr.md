@@ -1,5 +1,5 @@
 ---
-name: create-pr
+name: github-pr
 description: Create a GitHub pull request from recent commits
 requires:
   - github

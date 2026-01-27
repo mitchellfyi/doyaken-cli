@@ -94,7 +94,7 @@ if [ -n "$ISSUES" ]; then
   cat << EOF
 {
   "hookSpecificOutput": {
-    "additionalContext": "QUALITY CHECK: Issues detected after modifying $FILE_PATH:$ISSUES\n\nPlease fix these issues before continuing. Refer to prompts/library/code-quality.md for quality standards."
+    "additionalContext": "QUALITY CHECK: Issues detected after modifying $FILE_PATH:$ISSUES\n\nPlease fix these issues before continuing. Refer to prompts/library/quality.md for quality standards."
   }
 }
 EOF

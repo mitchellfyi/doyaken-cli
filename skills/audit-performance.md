@@ -1,5 +1,5 @@
 ---
-name: performance-audit
+name: audit-performance
 description: Performance analysis and optimization recommendations
 args:
   - name: path
@@ -22,7 +22,7 @@ Create follow-up tasks: {{ARGS.create-tasks}}
 
 ## Performance Review Framework
 
-{{include:library/performance.md}}
+{{include:library/review-performance.md}}
 
 ## Audit Process
 
