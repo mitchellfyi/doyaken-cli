@@ -156,14 +156,13 @@ This generates files that point to `.doyaken/` as the source of truth:
 
 | File | Agent |
 |------|-------|
-| `AGENTS.md` | Central index for all agents |
+| `AGENTS.md` | Industry standard (Codex, OpenCode) |
 | `CLAUDE.md` | Claude Code |
 | `.cursor/rules/*.mdc` | Cursor (modern) |
 | `.cursorrules` | Cursor (legacy) |
-| `CODEX.md` | OpenAI Codex |
 | `GEMINI.md` | Google Gemini |
-| `COPILOT.md` | GitHub Copilot |
-| `.opencode.json` | OpenCode |
+| `.github/copilot-instructions.md` | GitHub Copilot |
+| `.opencode.json` | OpenCode (config) |
 
 Configure in `.doyaken/manifest.yaml`:
 

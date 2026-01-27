@@ -23,12 +23,11 @@ npm-debug.log*
 AGENT.md
 AGENTS.md
 CLAUDE.md
-CODEX.md
 GEMINI.md
-COPILOT.md
 .cursorrules
 .cursor/
 .claude/
+.github/copilot-instructions.md
 .opencode.json
 
 # OS

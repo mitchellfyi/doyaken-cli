@@ -13,14 +13,13 @@
 #   project_dir  Target project directory (default: current directory)
 #
 # Generated Files:
-#   AGENTS.md         - Central source of truth for all AI agents
-#   CLAUDE.md         - Claude Code configuration
-#   .cursorrules      - Cursor configuration (legacy)
-#   .cursor/rules/    - Cursor modern rules (.mdc files)
-#   CODEX.md          - OpenAI Codex configuration
-#   GEMINI.md         - Google Gemini configuration
-#   COPILOT.md        - GitHub Copilot configuration
-#   .opencode.json    - OpenCode configuration
+#   AGENTS.md                       - Central source of truth (used by Codex, OpenCode)
+#   CLAUDE.md                       - Claude Code configuration
+#   .cursorrules                    - Cursor configuration (legacy)
+#   .cursor/rules/                  - Cursor modern rules (.mdc files)
+#   GEMINI.md                       - Google Gemini configuration
+#   .github/copilot-instructions.md - GitHub Copilot configuration
+#   .opencode.json                  - OpenCode configuration
 #
 
 set -euo pipefail
@@ -107,10 +106,15 @@ log_success "Generated AGENT.md (pointer to AGENTS.md)"
 
 sync_file "CLAUDE.md"
 sync_file ".cursorrules"
-sync_file "CODEX.md"
 sync_file "GEMINI.md"
-sync_file "COPILOT.md"
 sync_file "opencode.json" ".opencode.json"
+
+# GitHub Copilot uses .github/copilot-instructions.md
+if [ -f "$TEMPLATES_DIR/.github/copilot-instructions.md" ]; then
+    mkdir -p "$PROJECT_DIR/.github"
+    process_template "$TEMPLATES_DIR/.github/copilot-instructions.md" "$PROJECT_DIR/.github/copilot-instructions.md"
+    log_success "Generated .github/copilot-instructions.md"
+fi
 
 # Sync Cursor modern rules (.cursor/rules/*.mdc)
 if [ -d "$TEMPLATES_DIR/cursor" ]; then
@@ -169,14 +173,13 @@ echo ""
 log_success "Agent files synced successfully!"
 echo ""
 echo "Generated files:"
-echo "  - AGENTS.md           (central source of truth)"
-echo "  - CLAUDE.md           (Claude Code)"
-echo "  - .cursorrules        (Cursor - legacy)"
-echo "  - .cursor/rules/*.mdc (Cursor - modern)"
-echo "  - CODEX.md            (OpenAI Codex)"
-echo "  - GEMINI.md           (Google Gemini)"
-echo "  - COPILOT.md          (GitHub Copilot)"
-echo "  - .opencode.json      (OpenCode)"
+echo "  - AGENTS.md                       (Codex, OpenCode - industry standard)"
+echo "  - CLAUDE.md                       (Claude Code)"
+echo "  - .cursorrules                    (Cursor - legacy)"
+echo "  - .cursor/rules/*.mdc             (Cursor - modern)"
+echo "  - GEMINI.md                       (Google Gemini)"
+echo "  - .github/copilot-instructions.md (GitHub Copilot)"
+echo "  - .opencode.json                  (OpenCode config)"
 echo ""
 echo "All files point to .doyaken/ as the source of truth."
 echo "To update, edit files in .doyaken/ and run: doyaken sync"

@@ -26,11 +26,12 @@ This creates agent-specific configuration files that point to `.doyaken/` as the
 
 | File | Agent | Description |
 |------|-------|-------------|
-| `AGENTS.md` | All | Central index of all prompts and skills |
+| `AGENTS.md` | Codex, OpenCode | Industry standard instructions file |
 | `CLAUDE.md` | Claude Code | Instructions for Claude |
-| `.cursorrules` | Cursor | Instructions with @file includes |
-| `CODEX.md` | OpenAI Codex | Instructions for Codex |
+| `.cursorrules` | Cursor | Legacy instructions file |
+| `.cursor/rules/*.mdc` | Cursor | Modern rules format |
 | `GEMINI.md` | Google Gemini | Instructions for Gemini |
+| `.github/copilot-instructions.md` | GitHub Copilot | Instructions for Copilot |
 | `.opencode.json` | OpenCode | JSON configuration |
 
 ## Instructions
@@ -90,12 +91,13 @@ Agent Files Sync Complete
 Project: {{DOYAKEN_PROJECT}}
 
 Generated files:
-- [x] AGENTS.md (central source of truth)
+- [x] AGENTS.md (Codex, OpenCode - industry standard)
 - [x] CLAUDE.md (Claude Code)
-- [x] .cursorrules (Cursor)
-- [x] CODEX.md (OpenAI Codex)
+- [x] .cursorrules (Cursor - legacy)
+- [x] .cursor/rules/*.mdc (Cursor - modern)
 - [x] GEMINI.md (Google Gemini)
-- [x] .opencode.json (OpenCode)
+- [x] .github/copilot-instructions.md (GitHub Copilot)
+- [x] .opencode.json (OpenCode config)
 
 [If copy-prompts=true:]
 Copied to .doyaken/:

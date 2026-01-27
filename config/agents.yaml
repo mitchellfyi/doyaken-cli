@@ -108,10 +108,12 @@ agents:
     install:
       npm: "@openai/codex"
       brew: "codex"
-      docs: "https://github.com/openai/codex"
+      docs: "https://developers.openai.com/codex/cli/"
 
+    # Codex uses AGENTS.md - the industry standard for coding agents
+    # See: https://developers.openai.com/codex/guides/agents-md
     config:
-      file: "CODEX.md"
+      file: "AGENTS.md"
       format: "markdown"
       location: "root"
 
@@ -168,10 +170,12 @@ agents:
     cli_command: "copilot"
     install:
       npm: "@github/copilot"
-      docs: "https://github.com/github/copilot-cli"
+      docs: "https://docs.github.com/en/copilot"
 
+    # Copilot uses .github/copilot-instructions.md
+    # See: https://docs.github.com/en/copilot/how-tos/configure-custom-instructions
     config:
-      file: "COPILOT.md"
+      file: ".github/copilot-instructions.md"
       format: "markdown"
       location: "root"
 
@@ -198,10 +202,14 @@ agents:
     install:
       npm: "opencode-ai@latest"
       script: "curl -fsSL https://opencode.ai/install | bash"
-      docs: "https://github.com/opencode-ai/opencode"
+      docs: "https://opencode.ai/docs/"
 
+    # OpenCode reads AGENTS.md for rules (also falls back to CLAUDE.md)
+    # Config in opencode.json for model/provider settings
+    # See: https://opencode.ai/docs/rules/
     config:
-      file: "opencode.json"
+      rules_file: "AGENTS.md"
+      config_file: "opencode.json"
       format: "json"
       location: "root"
 
@@ -221,10 +229,11 @@ agents:
         - gemini-2.5-pro
 
 # Template mappings - which template files to use for each agent
+# Note: AGENTS.md is the central source of truth, used by Codex and OpenCode
 templates:
   claude: "templates/agents/CLAUDE.md"
   cursor: "templates/agents/cursor/"  # Directory with .mdc files
-  codex: "templates/agents/CODEX.md"
+  codex: "templates/agents/AGENTS.md"  # Codex uses AGENTS.md standard
   gemini: "templates/agents/GEMINI.md"
-  copilot: "templates/agents/COPILOT.md"
-  opencode: "templates/agents/opencode.json"
+  copilot: "templates/agents/.github/copilot-instructions.md"
+  opencode: "templates/agents/opencode.json"  # Plus AGENTS.md for rules

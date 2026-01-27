@@ -119,13 +119,20 @@ for hook in check-quality.sh check-quality-gates.sh check-security.sh; do
 done
 
 # Test 12: Agent templates exist
-for agent_template in AGENTS.md CLAUDE.md .cursorrules CODEX.md GEMINI.md COPILOT.md opencode.json; do
+for agent_template in AGENTS.md CLAUDE.md .cursorrules GEMINI.md opencode.json; do
   if [ -f "$ROOT_DIR/templates/agents/$agent_template" ]; then
     pass "templates/agents/$agent_template exists"
   else
     fail "templates/agents/$agent_template missing"
   fi
 done
+
+# Test 12a: GitHub Copilot instructions template exists
+if [ -f "$ROOT_DIR/templates/agents/.github/copilot-instructions.md" ]; then
+  pass "templates/agents/.github/copilot-instructions.md exists"
+else
+  fail "templates/agents/.github/copilot-instructions.md missing"
+fi
 
 # Test 12b: Cursor modern rules exist
 for cursor_rule in doyaken.mdc quality.mdc testing.mdc security.mdc; do

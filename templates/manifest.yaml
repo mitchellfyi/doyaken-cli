@@ -111,12 +111,12 @@ agent_files:
 
   # Which agent files to generate (all enabled by default when agent_files.enabled=true)
   generate:
-    agents_md: true      # AGENTS.md - central index
+    agents_md: true      # AGENTS.md - industry standard (Codex, OpenCode)
     claude_md: true      # CLAUDE.md - Claude Code
-    cursorrules: true    # .cursorrules - Cursor
-    codex_md: true       # CODEX.md - OpenAI Codex
+    cursorrules: true    # .cursorrules + .cursor/rules/*.mdc - Cursor
     gemini_md: true      # GEMINI.md - Google Gemini
-    opencode_json: true  # .opencode.json - OpenCode
+    copilot_md: true     # .github/copilot-instructions.md - GitHub Copilot
+    opencode_json: true  # .opencode.json - OpenCode config
 
   # Copy prompts and skills to project (enables local customization)
   copy_to_project:
