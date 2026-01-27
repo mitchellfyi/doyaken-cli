@@ -372,7 +372,6 @@ EOF
 .doyaken/logs/
 .doyaken/state/
 .doyaken/locks/
-.claude/
 EOF
       log_success "Updated .gitignore"
     fi

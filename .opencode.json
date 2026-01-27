@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.dev/schema/config.json",
+  "instructions": {
+    "primary": "AGENTS.md",
+    "files": [
+      "AGENTS.md",
+      "PROJECT.md",
+      ".doyaken/manifest.yaml"
+    ],
+    "prompts": ".doyaken/prompts/library/",
+    "phases": ".doyaken/prompts/phases/",
+    "skills": ".doyaken/skills/"
+  },
+  "tasks": {
+    "directory": ".doyaken/tasks/",
+    "states": ["1.blocked", "2.todo", "3.doing", "4.done"]
+  }
+}

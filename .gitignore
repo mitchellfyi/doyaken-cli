@@ -15,9 +15,6 @@ npm-debug.log*
 .doyaken/state/
 .doyaken/locks/
 
-# Claude Code slash commands (auto-generated from skills by dk sync)
-.claude/
-
 # OS
 .DS_Store
 Thumbs.db

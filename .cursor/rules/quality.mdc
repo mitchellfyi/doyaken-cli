@@ -1,0 +1,35 @@
+---
+description: "Code quality standards and review guidelines"
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs"]
+---
+
+# Code Quality Rules
+
+When writing or reviewing code, follow these principles:
+
+## Core Principles
+
+- **KISS** - Keep it simple; avoid unnecessary complexity
+- **YAGNI** - Don't add features until needed
+- **DRY** - Don't repeat yourself; extract shared logic
+- **SOLID** - Single responsibility, open/closed, etc.
+
+## Code Standards
+
+- Functions should do one thing well
+- Keep functions under 50 lines when possible
+- Meaningful names over comments
+- Handle errors explicitly
+- No magic numbers or strings
+
+## Before Committing
+
+Ensure all quality gates pass:
+- Linting passes
+- Type checking passes (if applicable)
+- Tests pass
+- Build succeeds
+
+## Reference
+
+For detailed guidelines, see `.doyaken/prompts/library/quality.md`
