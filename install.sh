@@ -53,10 +53,10 @@ Options:
 
 Examples:
   # User-level install (recommended for personal use)
-  curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash
+  curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash
 
   # Project-level install (for team/repo-specific setup)
-  curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash -s -- --project
+  curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash -s -- --project
 EOF
       exit 0
       ;;

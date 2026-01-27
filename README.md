@@ -30,14 +30,14 @@ npx doyaken --help
 ### Option 2: curl (Per-User)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/doyaken/doyaken/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash
 ```
 
 ### Option 3: Clone & Install
 
 ```bash
-git clone https://github.com/doyaken/doyaken.git
-cd doyaken
+git clone https://github.com/mitchellfyi/doyaken-cli.git
+cd doyaken-cli
 ./install.sh
 ```
 
@@ -366,8 +366,8 @@ mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
 ### Setup
 
 ```bash
-git clone https://github.com/doyaken/doyaken.git
-cd doyaken
+git clone https://github.com/mitchellfyi/doyaken-cli.git
+cd doyaken-cli
 
 # Install git hooks
 npm run setup

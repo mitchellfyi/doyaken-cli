@@ -19,7 +19,7 @@
     "type": "git",
     "url": "git+https://github.com/mitchellfyi/doyaken-cli.git"
   },
-  "homepage": "https://github.com/mitchellfyi/doyaken-cli#readme",
+  "homepage": "https://doyaken.ai",
   "bugs": {
     "url": "https://github.com/mitchellfyi/doyaken-cli/issues"
   },
