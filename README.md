@@ -71,6 +71,7 @@ dk doctor    # Health check
 | `dk init [path]` | Initialize a new project |
 | `dk tasks` | Show taskboard |
 | `dk tasks new <title>` | Create a new task |
+| `dk tasks view <id>` | View a specific task |
 | `dk skills` | List available skills |
 | `dk skill <name>` | Run a skill |
 | `dk mcp status` | Show MCP integration status |
@@ -89,6 +90,7 @@ Doyaken supports multiple AI coding agents. Use `--agent` to switch between them
 
 ```bash
 dk --agent claude run 1      # Use Claude (default)
+dk --agent cursor run 1      # Use Cursor
 dk --agent codex run 1       # Use OpenAI Codex
 dk --agent gemini run 1      # Use Google Gemini
 dk --agent copilot run 1     # Use GitHub Copilot
@@ -100,10 +102,11 @@ dk --agent opencode run 1    # Use OpenCode
 | Agent | Command | Models | Install |
 |-------|---------|--------|---------|
 | **claude** (default) | `claude` | opus, sonnet, haiku | `npm i -g @anthropic-ai/claude-code` |
-| **codex** | `codex` | gpt-5, o3, o4-mini | `npm i -g @openai/codex` |
+| **cursor** | `cursor agent` | claude-sonnet-4, gpt-4o | `curl https://cursor.com/install -fsS \| bash` |
+| **codex** | `codex exec` | gpt-5, o3, o4-mini | `npm i -g @openai/codex` |
 | **gemini** | `gemini` | gemini-2.5-pro, gemini-2.5-flash | `npm i -g @google/gemini-cli` |
 | **copilot** | `copilot` | claude-sonnet-4.5, gpt-5 | `npm i -g @github/copilot` |
-| **opencode** | `opencode` | claude-sonnet-4, gpt-5 | `npm i -g opencode-ai` |
+| **opencode** | `opencode run` | claude-sonnet-4, gpt-5 | `npm i -g opencode-ai` |
 
 ### Specifying Models
 
@@ -373,7 +376,8 @@ To bypass temporarily: `git commit --no-verify`
 ## Requirements
 
 - At least one AI coding agent CLI installed:
-  - [Claude Code](https://claude.ai/cli) (default)
+  - [Claude Code](https://claude.ai/code) (default)
+  - [Cursor CLI](https://cursor.com/docs/cli)
   - [OpenAI Codex](https://github.com/openai/codex)
   - [Google Gemini CLI](https://github.com/google-gemini/gemini-cli)
   - [GitHub Copilot CLI](https://github.com/github/copilot-cli)

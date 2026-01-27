@@ -4,13 +4,13 @@
 
 ## Vision
 
-Doyaken is a universal task runner for AI coding agents. Install once globally, use on any project. It manages the task lifecycle, coordinates parallel agents, and provides self-healing execution - regardless of which underlying AI agent (Claude, Codex, Gemini, Copilot, OpenCode) you choose to use.
+Doyaken is a universal task runner for AI coding agents. Install once globally, use on any project. It manages the task lifecycle, coordinates parallel agents, and provides self-healing execution - regardless of which underlying AI agent (Claude, Cursor, Codex, Gemini, Copilot, OpenCode) you choose to use.
 
 ## Goals
 
 1. **Agent Agnostic**: Support multiple AI coding agents with a consistent interface
 2. **Multi-Project**: Global installation manages multiple projects via registry
-3. **Autonomous Operation**: 7-phase execution with self-healing and automatic retries
+3. **Autonomous Operation**: 8-phase execution with self-healing and automatic retries
 4. **Parallel Execution**: Multiple agents can work simultaneously with lock coordination
 
 ## Non-Goals
@@ -28,7 +28,7 @@ Things explicitly out of scope:
 - **Package Manager**: npm (for global distribution)
 - **Config Format**: YAML (manifest, registry, global config)
 - **Task Format**: Markdown
-- **Supported Agents**: Claude Code, OpenAI Codex, Google Gemini, GitHub Copilot, OpenCode
+- **Supported Agents**: Claude Code, Cursor, OpenAI Codex, Google Gemini, GitHub Copilot, OpenCode
 
 ## Getting Started
 
@@ -55,7 +55,7 @@ dk doctor
 1. **Bash over Node/Python**: Minimal dependencies, runs anywhere with a shell
 2. **YAML for config**: Human-readable, easy to edit, good tooling support
 3. **Global + Local split**: Core logic global, project data local (`.doyaken/`)
-4. **7-phase execution**: Triage → Plan → Implement → Test → Docs → Review → Verify
+4. **8-phase execution**: Expand → Triage → Plan → Implement → Test → Docs → Review → Verify
 5. **Lock-based coordination**: File locks for parallel agent safety
 
 ## Agent Notes

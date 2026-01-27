@@ -33,7 +33,7 @@ Doyaken follows a **library-first, composition-based** architecture for all prom
                     ┌─────────────────────────────────────┐
                     │     AI Agent Execution              │
                     │                                     │
-                    │  claude, codex, gemini, etc.        │
+                    │  claude, cursor, codex, gemini, etc.│
                     └─────────────────────────────────────┘
 ```
 
