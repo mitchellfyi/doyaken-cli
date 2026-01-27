@@ -37,7 +37,8 @@ get_skill_paths() {
     done
   fi
 
-  printf '%s\n' "${paths[@]}"
+  # Only print if array has elements (avoids unbound variable error with set -u)
+  [ ${#paths[@]} -gt 0 ] && printf '%s\n' "${paths[@]}"
 }
 
 # Get vendor name from skill path

@@ -235,7 +235,7 @@ list_projects() {
       [ ${#remote} -gt 38 ] && display_remote="${display_remote}.."
 
       printf "%-50s %-40s %s\n" "$display_path" "$display_remote" "$status"
-    done
+    done || true  # Avoid exit code 1 from read when no more input
   else
     # Fallback: parse with grep/awk
     local in_project=0

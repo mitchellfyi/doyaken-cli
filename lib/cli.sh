@@ -16,7 +16,7 @@ set -euo pipefail
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
 # Get version from package.json (relative to lib/ directory)
-DOYAKEN_VERSION="0.1.4"
+DOYAKEN_VERSION="0.1.5"
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/../package.json" ]; then
   DOYAKEN_VERSION=$(grep '"version"' "$(dirname "${BASH_SOURCE[0]}")/../package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 fi
@@ -332,6 +332,7 @@ cmd_run() {
   project=$(require_project)
 
   export DOYAKEN_PROJECT="$project"
+  export DOYAKEN_DIR="$project/.doyaken"
 
   # Set agent defaults
   export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
