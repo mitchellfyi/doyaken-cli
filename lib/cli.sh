@@ -865,6 +865,7 @@ cmd_tasks() {
 
   local project
   project=$(require_project)
+  local doyaken_dir="$project/.doyaken"
 
   case "$subcmd" in
     show|"")
@@ -883,10 +884,10 @@ cmd_tasks() {
         echo "Tasks in $project:"
         echo ""
         local blocked_dir todo_dir doing_dir done_dir
-        blocked_dir=$(get_task_folder "$DOYAKEN_DIR" "blocked")
-        todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
-        doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
-        done_dir=$(get_task_folder "$DOYAKEN_DIR" "done")
+        blocked_dir=$(get_task_folder "$doyaken_dir" "blocked")
+        todo_dir=$(get_task_folder "$doyaken_dir" "todo")
+        doing_dir=$(get_task_folder "$doyaken_dir" "doing")
+        done_dir=$(get_task_folder "$doyaken_dir" "done")
         echo "BLOCKED:"
         find "$blocked_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
         echo ""
@@ -911,7 +912,7 @@ cmd_tasks() {
       # Generate task ID
       local priority="003"
       local todo_dir
-      todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+      todo_dir=$(get_task_folder "$doyaken_dir" "todo")
       local todo_count
       todo_count=$(find "$todo_dir" -name "*.md" -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
       local sequence
@@ -927,9 +928,41 @@ cmd_tasks() {
       log_success "Created task: $task_id"
       echo "  File: $task_file"
       ;;
+    view)
+      local task_pattern="$*"
+      if [ -z "$task_pattern" ]; then
+        log_error "Task ID or pattern required"
+        echo "Usage: doyaken tasks view <task-id-pattern>"
+        exit 1
+      fi
+
+      # Search all task directories for matching file
+      local task_file=""
+      local blocked_dir todo_dir doing_dir done_dir
+      blocked_dir=$(get_task_folder "$doyaken_dir" "blocked")
+      todo_dir=$(get_task_folder "$doyaken_dir" "todo")
+      doing_dir=$(get_task_folder "$doyaken_dir" "doing")
+      done_dir=$(get_task_folder "$doyaken_dir" "done")
+
+      for dir in "$doing_dir" "$todo_dir" "$blocked_dir" "$done_dir"; do
+        local found
+        found=$(find "$dir" -maxdepth 1 -name "*${task_pattern}*.md" 2>/dev/null | head -1)
+        if [ -n "$found" ]; then
+          task_file="$found"
+          break
+        fi
+      done
+
+      if [ -z "$task_file" ]; then
+        log_error "No task found matching: $task_pattern"
+        exit 1
+      fi
+
+      cat "$task_file"
+      ;;
     *)
       log_error "Unknown tasks subcommand: $subcmd"
-      echo "Usage: doyaken tasks [show|new <title>]"
+      echo "Usage: doyaken tasks [show|new <title>|view <task-id>]"
       exit 1
       ;;
   esac
@@ -949,6 +982,7 @@ cmd_task() {
 
   local project
   project=$(require_project)
+  local doyaken_dir="$project/.doyaken"
 
   export DOYAKEN_PROJECT="$project"
 
@@ -970,7 +1004,7 @@ cmd_task() {
   slug=$(echo "$prompt" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
   local task_id="${priority}-${sequence}-${slug}"
   local todo_dir
-  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
+  todo_dir=$(get_task_folder "$doyaken_dir" "todo")
 
   log_info "Creating task: $task_id"
 
@@ -1004,19 +1038,16 @@ Prompt: $prompt"
 cmd_status() {
   local project
   project=$(require_project)
+  local doyaken_dir="$project/.doyaken"
 
   echo ""
   echo -e "${BOLD}Project Status${NC}"
   echo "=============="
   echo ""
   echo "Path: $project"
-  echo "Data: $DOYAKEN_DIR"
+  echo "Data: $doyaken_dir"
 
-  if [ "$DOYAKEN_LEGACY" = "1" ]; then
-    echo -e "Format: ${YELLOW}Legacy (.claude/)${NC}"
-  else
-    echo -e "Format: ${GREEN}Current (.doyaken/)${NC}"
-  fi
+  echo -e "Format: ${GREEN}Current (.doyaken/)${NC}"
 
   # Git info
   if [ -d "$project/.git" ]; then
@@ -1034,10 +1065,10 @@ cmd_status() {
   echo ""
   echo "Tasks:"
   local blocked_dir todo_dir doing_dir done_dir
-  blocked_dir=$(get_task_folder "$DOYAKEN_DIR" "blocked")
-  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
-  doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
-  done_dir=$(get_task_folder "$DOYAKEN_DIR" "done")
+  blocked_dir=$(get_task_folder "$doyaken_dir" "blocked")
+  todo_dir=$(get_task_folder "$doyaken_dir" "todo")
+  doing_dir=$(get_task_folder "$doyaken_dir" "doing")
+  done_dir=$(get_task_folder "$doyaken_dir" "done")
   local blocked todo doing done_count
   blocked=$(find "$blocked_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
   todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
@@ -1049,7 +1080,7 @@ cmd_status() {
   echo "  Done:    $done_count"
 
   # Manifest info (if exists)
-  local manifest="$DOYAKEN_DIR/manifest.yaml"
+  local manifest="$doyaken_dir/manifest.yaml"
   if [ -f "$manifest" ]; then
     echo ""
     echo "Manifest: $manifest"
@@ -1067,8 +1098,9 @@ cmd_status() {
 cmd_manifest() {
   local project
   project=$(require_project)
+  local doyaken_dir="$project/.doyaken"
 
-  local manifest="$DOYAKEN_DIR/manifest.yaml"
+  local manifest="$doyaken_dir/manifest.yaml"
 
   if [ ! -f "$manifest" ]; then
     log_error "Manifest not found: $manifest"

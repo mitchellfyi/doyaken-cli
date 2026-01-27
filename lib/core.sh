@@ -218,8 +218,11 @@ run_skill_hooks() {
 
   local phase_lower
   phase_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
-  local hooks_var="HOOKS_${hook_type^^}_${phase_name}"
-  local hooks="${!hooks_var:-}"
+  local hook_type_upper
+  hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
+  local hooks_var="HOOKS_${hook_type_upper}_${phase_name}"
+  local hooks=""
+  eval "hooks=\${$hooks_var:-}"
 
   [ -z "$hooks" ] && return 0
 
@@ -1169,7 +1172,7 @@ ITERATION="$iteration"
 STATUS="$status"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 NUM_TASKS="$NUM_TASKS"
-MODEL="$CLAUDE_MODEL"
+MODEL="${DOYAKEN_MODEL:-opus}"
 LOG_DIR="$RUN_LOG_DIR"
 EOF
   log_info "Session state saved: $session_id (iteration $iteration)"
