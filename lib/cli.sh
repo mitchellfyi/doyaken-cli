@@ -800,66 +800,16 @@ EOF
   fi
   log_success "Created task template"
 
-  # Create AGENT.md if it doesn't exist
-  if [ ! -f "$target_dir/AGENT.md" ]; then
-    local agent_md_src="$DOYAKEN_HOME/templates/AGENT.md"
-    if [ -f "$agent_md_src" ]; then
-      cp "$agent_md_src" "$target_dir/AGENT.md"
-    else
-      cat > "$target_dir/AGENT.md" << 'EOF'
-# AGENT.md - Project Operating Manual
-
-This file configures how AI agents work on this project.
-
-## Quick Start
-
-```bash
-doyaken run 1    # Run 1 task
-doyaken tasks    # Show taskboard
-doyaken status   # Show project status
-```
-
-## Project Configuration
-
-See `.doyaken/manifest.yaml` for project settings.
-
-## Task Management
-
-Tasks are stored in `.doyaken/tasks/`:
-- `todo/` - Ready to start
-- `doing/` - In progress
-- `done/` - Completed
-
-Task files use the format: `PPP-SSS-slug.md`
-- PPP = Priority (001=Critical, 002=High, 003=Medium, 004=Low)
-- SSS = Sequence within priority
-
-## Quality Gates
-
-Configure in manifest.yaml:
-```yaml
-quality:
-  test_command: "npm test"
-  lint_command: "npm run lint"
-```
-
-EOF
-    fi
-    log_success "Created AGENT.md"
+  # Sync all agent files (AGENTS.md, CLAUDE.md, .cursorrules, etc.)
+  local sync_script="$DOYAKEN_HOME/scripts/sync-agent-files.sh"
+  if [ ! -f "$sync_script" ]; then
+    sync_script="$SCRIPT_DIR/../scripts/sync-agent-files.sh"
   fi
 
-  # Copy prompt library for project customization
-  if [ -d "$DOYAKEN_HOME/prompts/library" ]; then
-    mkdir -p "$ai_agent_dir/prompts/library"
-    cp -r "$DOYAKEN_HOME/prompts/library/"*.md "$ai_agent_dir/prompts/library/" 2>/dev/null || true
-    log_success "Copied prompt library (${ai_agent_dir}/prompts/library/)"
-  fi
-
-  # Copy skills for project customization
-  if [ -d "$DOYAKEN_HOME/skills" ]; then
-    mkdir -p "$ai_agent_dir/skills"
-    cp -r "$DOYAKEN_HOME/skills/"*.md "$ai_agent_dir/skills/" 2>/dev/null || true
-    log_success "Copied skills (${ai_agent_dir}/skills/)"
+  if [ -f "$sync_script" ]; then
+    "$sync_script" "$target_dir"
+  else
+    log_warn "sync-agent-files.sh not found - manually copy agent templates"
   fi
 
   # Generate slash commands for Claude Code

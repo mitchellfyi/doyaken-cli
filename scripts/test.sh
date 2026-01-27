@@ -119,11 +119,20 @@ for hook in check-quality.sh check-quality-gates.sh check-security.sh; do
 done
 
 # Test 12: Agent templates exist
-for agent_template in AGENTS.md CLAUDE.md .cursorrules CODEX.md GEMINI.md opencode.json; do
+for agent_template in AGENTS.md CLAUDE.md .cursorrules CODEX.md GEMINI.md COPILOT.md opencode.json; do
   if [ -f "$ROOT_DIR/templates/agents/$agent_template" ]; then
     pass "templates/agents/$agent_template exists"
   else
     fail "templates/agents/$agent_template missing"
+  fi
+done
+
+# Test 12b: Cursor modern rules exist
+for cursor_rule in doyaken.mdc quality.mdc testing.mdc security.mdc; do
+  if [ -f "$ROOT_DIR/templates/agents/cursor/$cursor_rule" ]; then
+    pass "templates/agents/cursor/$cursor_rule exists"
+  else
+    fail "templates/agents/cursor/$cursor_rule missing"
   fi
 done
 
@@ -154,8 +163,14 @@ if DOYAKEN_HOME="$ROOT_DIR" "$ROOT_DIR/bin/doyaken" init "$TEST_DIR" >/dev/null 
     fail "init missing manifest.yaml"
   fi
 
+  if [ -f "$TEST_DIR/AGENTS.md" ]; then
+    pass "init creates AGENTS.md"
+  else
+    fail "init missing AGENTS.md"
+  fi
+
   if [ -f "$TEST_DIR/AGENT.md" ]; then
-    pass "init creates AGENT.md"
+    pass "init creates AGENT.md (backward compat)"
   else
     fail "init missing AGENT.md"
   fi

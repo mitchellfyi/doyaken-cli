@@ -13,12 +13,14 @@
 #   project_dir  Target project directory (default: current directory)
 #
 # Generated Files:
-#   AGENTS.md     - Central source of truth listing all prompts
-#   CLAUDE.md     - Claude Code configuration
-#   .cursorrules  - Cursor configuration
-#   CODEX.md      - OpenAI Codex configuration
-#   GEMINI.md     - Google Gemini configuration
-#   .opencode.json - OpenCode configuration
+#   AGENTS.md         - Central source of truth for all AI agents
+#   CLAUDE.md         - Claude Code configuration
+#   .cursorrules      - Cursor configuration (legacy)
+#   .cursor/rules/    - Cursor modern rules (.mdc files)
+#   CODEX.md          - OpenAI Codex configuration
+#   GEMINI.md         - Google Gemini configuration
+#   COPILOT.md        - GitHub Copilot configuration
+#   .opencode.json    - OpenCode configuration
 #
 
 set -euo pipefail
@@ -92,11 +94,35 @@ sync_file() {
 
 # Generate all agent files
 sync_file "AGENTS.md"
+
+# Create AGENT.md as a pointer to AGENTS.md for backward compatibility
+cat > "$PROJECT_DIR/AGENT.md" << 'EOF'
+# Project Instructions
+
+See [AGENTS.md](./AGENTS.md) for complete AI agent instructions.
+
+This file exists for backward compatibility. All instructions are in AGENTS.md.
+EOF
+log_success "Generated AGENT.md (pointer to AGENTS.md)"
+
 sync_file "CLAUDE.md"
 sync_file ".cursorrules"
 sync_file "CODEX.md"
 sync_file "GEMINI.md"
+sync_file "COPILOT.md"
 sync_file "opencode.json" ".opencode.json"
+
+# Sync Cursor modern rules (.cursor/rules/*.mdc)
+if [ -d "$TEMPLATES_DIR/cursor" ]; then
+    log_info "Syncing Cursor modern rules..."
+    mkdir -p "$PROJECT_DIR/.cursor/rules"
+    for mdc_file in "$TEMPLATES_DIR/cursor"/*.mdc; do
+        [ -f "$mdc_file" ] || continue
+        mdc_filename=$(basename "$mdc_file")
+        process_template "$mdc_file" "$PROJECT_DIR/.cursor/rules/$mdc_filename"
+        log_success "Generated .cursor/rules/$mdc_filename"
+    done
+fi
 
 # Copy prompts library to project if it doesn't exist
 if [ ! -d "$PROJECT_DIR/.doyaken/prompts/library" ]; then
@@ -143,12 +169,14 @@ echo ""
 log_success "Agent files synced successfully!"
 echo ""
 echo "Generated files:"
-echo "  - AGENTS.md      (central source of truth)"
-echo "  - CLAUDE.md      (Claude Code)"
-echo "  - .cursorrules   (Cursor)"
-echo "  - CODEX.md       (OpenAI Codex)"
-echo "  - GEMINI.md      (Google Gemini)"
-echo "  - .opencode.json (OpenCode)"
+echo "  - AGENTS.md           (central source of truth)"
+echo "  - CLAUDE.md           (Claude Code)"
+echo "  - .cursorrules        (Cursor - legacy)"
+echo "  - .cursor/rules/*.mdc (Cursor - modern)"
+echo "  - CODEX.md            (OpenAI Codex)"
+echo "  - GEMINI.md           (Google Gemini)"
+echo "  - COPILOT.md          (GitHub Copilot)"
+echo "  - .opencode.json      (OpenCode)"
 echo ""
 echo "All files point to .doyaken/ as the source of truth."
 echo "To update, edit files in .doyaken/ and run: doyaken sync"

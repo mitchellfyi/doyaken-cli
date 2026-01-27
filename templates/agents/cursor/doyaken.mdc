@@ -1,6 +1,11 @@
-# Gemini Instructions
+---
+description: "Core project configuration and AI instructions"
+alwaysApply: true
+---
 
-See [AGENTS.md](./AGENTS.md) for complete project instructions.
+# Project Instructions
+
+See `AGENTS.md` for complete project instructions.
 
 ## Key Files
 
@@ -14,3 +19,7 @@ See [AGENTS.md](./AGENTS.md) for complete project instructions.
 - Prompts: `.doyaken/prompts/library/`
 - Skills: `.doyaken/skills/`
 - Phases: `.doyaken/prompts/phases/`
+
+## Quality Standards
+
+All code must pass quality gates before commit. Follow KISS, YAGNI, DRY, SOLID principles.

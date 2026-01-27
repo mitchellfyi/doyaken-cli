@@ -4,6 +4,7 @@
 #
 # Supported agents:
 #   - claude (default) - Anthropic Claude Code CLI
+#   - cursor          - Cursor CLI
 #   - codex           - OpenAI Codex CLI
 #   - gemini          - Google Gemini CLI
 #   - copilot         - GitHub Copilot CLI
@@ -17,6 +18,7 @@
 if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
   declare -A AGENT_COMMANDS
   AGENT_COMMANDS[claude]="claude"
+  AGENT_COMMANDS[cursor]="cursor"
   AGENT_COMMANDS[codex]="codex"
   AGENT_COMMANDS[gemini]="gemini"
   AGENT_COMMANDS[copilot]="copilot"
@@ -24,6 +26,7 @@ if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
 
   declare -A AGENT_DEFAULT_MODELS
   AGENT_DEFAULT_MODELS[claude]="opus"
+  AGENT_DEFAULT_MODELS[cursor]="claude-sonnet-4"
   AGENT_DEFAULT_MODELS[codex]="gpt-5"
   AGENT_DEFAULT_MODELS[gemini]="gemini-2.5-pro"
   AGENT_DEFAULT_MODELS[copilot]="claude-sonnet-4.5"
@@ -31,6 +34,7 @@ if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
 
   declare -A AGENT_MODELS
   AGENT_MODELS[claude]="opus sonnet haiku claude-opus-4 claude-sonnet-4 claude-sonnet-4.5"
+  AGENT_MODELS[cursor]="claude-sonnet-4 claude-sonnet-4.5 gpt-4o gpt-4o-mini"
   AGENT_MODELS[codex]="gpt-5 o3 o4-mini gpt-5-codex"
   AGENT_MODELS[gemini]="gemini-2.5-pro gemini-2.5-flash gemini-3-pro"
   AGENT_MODELS[copilot]="claude-sonnet-4.5 claude-sonnet-4 gpt-5"
@@ -42,6 +46,7 @@ _get_agent_cmd() {
   local agent="$1"
   case "$agent" in
     claude) echo "claude" ;;
+    cursor) echo "cursor" ;;
     codex) echo "codex" ;;
     gemini) echo "gemini" ;;
     copilot) echo "copilot" ;;
@@ -55,6 +60,7 @@ _get_default_model() {
   local agent="$1"
   case "$agent" in
     claude) echo "opus" ;;
+    cursor) echo "claude-sonnet-4" ;;
     codex) echo "gpt-5" ;;
     gemini) echo "gemini-2.5-pro" ;;
     copilot) echo "claude-sonnet-4.5" ;;
@@ -68,6 +74,7 @@ _get_supported_models() {
   local agent="$1"
   case "$agent" in
     claude) echo "opus sonnet haiku claude-opus-4 claude-sonnet-4 claude-sonnet-4.5" ;;
+    cursor) echo "claude-sonnet-4 claude-sonnet-4.5 gpt-4o gpt-4o-mini" ;;
     codex) echo "gpt-5 o3 o4-mini gpt-5-codex" ;;
     gemini) echo "gemini-2.5-pro gemini-2.5-flash gemini-3-pro" ;;
     copilot) echo "claude-sonnet-4.5 claude-sonnet-4 gpt-5" ;;
@@ -121,7 +128,7 @@ agent_list_models() {
 
 # List all supported agents
 agent_list_all() {
-  echo "claude codex gemini copilot opencode"
+  echo "claude cursor codex gemini copilot opencode"
 }
 
 # =============================================================================
@@ -135,6 +142,7 @@ agent_list_all() {
 #
 # References:
 #   - Claude: --dangerously-skip-permissions --permission-mode bypassPermissions
+#   - Cursor: Uses project rules (.cursor/rules/), no bypass flags
 #   - Codex:  --dangerously-bypass-approvals-and-sandbox (or --yolo)
 #   - Gemini: --yolo (or --approval-mode=yolo)
 #   - Copilot: --allow-all-tools --allow-all-paths
@@ -150,6 +158,10 @@ agent_autonomous_args() {
     claude)
       # Claude Code CLI - full bypass mode
       echo "--dangerously-skip-permissions --permission-mode bypassPermissions"
+      ;;
+    cursor)
+      # Cursor CLI - uses project rules, no autonomous bypass flags
+      echo ""
       ;;
     codex)
       # OpenAI Codex CLI - full autonomous mode
@@ -189,6 +201,9 @@ agent_model_args() {
     claude)
       echo "--model $model"
       ;;
+    cursor)
+      echo "--model $model"
+      ;;
     codex)
       echo "-m $model"
       ;;
@@ -217,6 +232,10 @@ agent_prompt_args() {
   case "$agent" in
     claude)
       # Claude uses -p for prompt
+      echo "-p"
+      ;;
+    cursor)
+      # Cursor agent takes prompt as positional arg or -p
       echo "-p"
       ;;
     codex)
@@ -248,6 +267,10 @@ agent_exec_command() {
   local agent="$1"
 
   case "$agent" in
+    cursor)
+      # Cursor uses "cursor agent" for AI interactions
+      echo "cursor agent"
+      ;;
     codex)
       # Codex uses "codex exec" for non-interactive execution
       echo "codex exec"
@@ -271,6 +294,9 @@ agent_verbose_args() {
   case "$agent" in
     claude)
       echo "--output-format stream-json --verbose"
+      ;;
+    cursor)
+      echo ""
       ;;
     codex)
       echo "--verbose"
@@ -299,6 +325,12 @@ agent_install_instructions() {
       echo "Install Claude Code CLI:"
       echo "  npm install -g @anthropic-ai/claude-code"
       echo "  or visit: https://claude.ai/cli"
+      ;;
+    cursor)
+      echo "Install Cursor CLI:"
+      echo "  macOS/Linux: curl https://cursor.com/install -fsS | bash"
+      echo "  Windows: irm 'https://cursor.com/install?win32=true' | iex"
+      echo "  Docs: https://cursor.com/docs/cli"
       ;;
     codex)
       echo "Install OpenAI Codex CLI:"
@@ -365,7 +397,7 @@ agent_status() {
   echo "Agent Status:"
   echo "============="
 
-  for agent in claude codex gemini copilot opencode; do
+  for agent in claude cursor codex gemini copilot opencode; do
     local cmd
     cmd=$(_get_agent_cmd "$agent")
     local status="not installed"

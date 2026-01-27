@@ -1,0 +1,230 @@
+# Agent Configuration Manifest
+#
+# Centralized configuration for all supported AI coding agents.
+# Each agent has its own CLI, config format, and capabilities.
+#
+# Usage:
+#   - doyaken uses this to generate agent-specific config files
+#   - `doyaken sync` reads this and generates appropriate files for each agent
+#
+
+# Global settings applied to all agents
+global:
+  # Default agent when none specified
+  default: claude
+
+  # Source of truth for all agent instructions
+  source_dir: .doyaken
+
+  # Files all agents should read
+  core_files:
+    - .doyaken/AGENT.md
+    - .doyaken/manifest.yaml
+    - PROJECT.md
+
+# Agent definitions
+agents:
+  # ============================================================================
+  # Claude Code CLI - Anthropic
+  # ============================================================================
+  claude:
+    name: "Claude Code"
+    vendor: "Anthropic"
+    cli_command: "claude"
+    install:
+      npm: "@anthropic-ai/claude-code"
+      docs: "https://claude.ai/code"
+
+    # Config file generation
+    config:
+      file: "CLAUDE.md"
+      format: "markdown"
+      location: "root"
+
+    # CLI flags for autonomous mode
+    flags:
+      autonomous: "--dangerously-skip-permissions --permission-mode bypassPermissions"
+      model: "--model"
+      prompt: "-p"
+      verbose: "--output-format stream-json --verbose"
+
+    # Supported models
+    models:
+      default: "opus"
+      available:
+        - opus
+        - sonnet
+        - haiku
+        - claude-opus-4
+        - claude-sonnet-4
+        - claude-sonnet-4.5
+
+  # ============================================================================
+  # Cursor CLI - Cursor
+  # ============================================================================
+  cursor:
+    name: "Cursor"
+    vendor: "Cursor"
+    cli_command: "cursor"
+    install:
+      script: "curl https://cursor.com/install -fsS | bash"
+      docs: "https://cursor.com/docs/cli"
+
+    # Config file generation - Cursor uses .cursor/rules/ directory
+    config:
+      # Legacy support
+      legacy_file: ".cursorrules"
+      # Modern format
+      rules_dir: ".cursor/rules"
+      format: "mdc"
+      location: "root"
+
+    # CLI flags
+    flags:
+      # Cursor CLI uses 'agent' subcommand
+      exec_command: "cursor agent"
+      autonomous: ""  # No bypass flags - uses project rules
+      model: "--model"
+      prompt: "-p"
+      verbose: ""
+      mode: "--mode"  # agent, plan, ask
+
+    # Supported models
+    models:
+      default: "claude-sonnet-4"
+      available:
+        - claude-sonnet-4
+        - claude-sonnet-4.5
+        - gpt-4o
+        - gpt-4o-mini
+
+  # ============================================================================
+  # OpenAI Codex CLI
+  # ============================================================================
+  codex:
+    name: "OpenAI Codex"
+    vendor: "OpenAI"
+    cli_command: "codex"
+    install:
+      npm: "@openai/codex"
+      brew: "codex"
+      docs: "https://github.com/openai/codex"
+
+    config:
+      file: "CODEX.md"
+      format: "markdown"
+      location: "root"
+
+    flags:
+      exec_command: "codex exec"
+      autonomous: "--dangerously-bypass-approvals-and-sandbox"
+      model: "-m"
+      prompt: ""  # positional argument
+      verbose: "--verbose"
+
+    models:
+      default: "gpt-5"
+      available:
+        - gpt-5
+        - o3
+        - o4-mini
+        - gpt-5-codex
+
+  # ============================================================================
+  # Google Gemini CLI
+  # ============================================================================
+  gemini:
+    name: "Gemini CLI"
+    vendor: "Google"
+    cli_command: "gemini"
+    install:
+      npm: "@google/gemini-cli"
+      docs: "https://github.com/google-gemini/gemini-cli"
+
+    config:
+      file: "GEMINI.md"
+      format: "markdown"
+      location: "root"
+
+    flags:
+      autonomous: "--yolo"
+      model: "-m"
+      prompt: "-p"
+      verbose: "--verbose"
+
+    models:
+      default: "gemini-2.5-pro"
+      available:
+        - gemini-2.5-pro
+        - gemini-2.5-flash
+        - gemini-3-pro
+
+  # ============================================================================
+  # GitHub Copilot CLI
+  # ============================================================================
+  copilot:
+    name: "GitHub Copilot"
+    vendor: "GitHub"
+    cli_command: "copilot"
+    install:
+      npm: "@github/copilot"
+      docs: "https://github.com/github/copilot-cli"
+
+    config:
+      file: "COPILOT.md"
+      format: "markdown"
+      location: "root"
+
+    flags:
+      autonomous: "--allow-all-tools --allow-all-paths"
+      model: "-m"
+      prompt: "-p"
+      verbose: "--verbose"
+
+    models:
+      default: "claude-sonnet-4.5"
+      available:
+        - claude-sonnet-4.5
+        - claude-sonnet-4
+        - gpt-5
+
+  # ============================================================================
+  # OpenCode CLI
+  # ============================================================================
+  opencode:
+    name: "OpenCode"
+    vendor: "OpenCode"
+    cli_command: "opencode"
+    install:
+      npm: "opencode-ai@latest"
+      script: "curl -fsSL https://opencode.ai/install | bash"
+      docs: "https://github.com/opencode-ai/opencode"
+
+    config:
+      file: "opencode.json"
+      format: "json"
+      location: "root"
+
+    flags:
+      exec_command: "opencode run"
+      autonomous: "--auto-approve"
+      model: "--model"
+      prompt: ""  # positional argument
+      verbose: "--print-logs"
+
+    models:
+      default: "claude-sonnet-4"
+      available:
+        - claude-sonnet-4
+        - claude-opus-4
+        - gpt-5
+        - gemini-2.5-pro
+
+# Template mappings - which template files to use for each agent
+templates:
+  claude: "templates/agents/CLAUDE.md"
+  cursor: "templates/agents/cursor/"  # Directory with .mdc files
+  codex: "templates/agents/CODEX.md"
+  gemini: "templates/agents/GEMINI.md"
+  copilot: "templates/agents/COPILOT.md"
+  opencode: "templates/agents/opencode.json"
