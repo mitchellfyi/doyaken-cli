@@ -159,12 +159,34 @@ dk skill github-import --info
 
 ### Built-in Skills
 
+**Quality & Audits:**
+| Skill | Description |
+|-------|-------------|
+| `setup-quality` | Set up quality gates, CI, and git hooks |
+| `check-quality` | Run all quality checks and report issues |
+| `audit-security` | OWASP-based security audit |
+| `audit-deps` | Audit dependencies for vulnerabilities |
+| `audit-debt` | Technical debt assessment |
+| `audit-performance` | Performance analysis |
+| `audit-ux` | User experience audit |
+
+**Development:**
+| Skill | Description |
+|-------|-------------|
+| `review-codebase` | Comprehensive codebase review |
+| `research-features` | Discover next best feature to build |
+| `ci-fix` | Diagnose and fix CI/CD failures |
+| `workflow` | Run the 8-phase task workflow |
+| `sync-agents` | Sync agent config files to project |
+
+**Integrations** (require MCP servers):
 | Skill | Description | Requires |
 |-------|-------------|----------|
 | `github-import` | Import GitHub issues as tasks | GitHub MCP |
 | `github-sync` | Sync task status to GitHub | GitHub MCP |
-| `create-pr` | Create PR from recent commits | GitHub MCP |
+| `github-pr` | Create PR from recent commits | GitHub MCP |
 | `notify-slack` | Send Slack notifications | Slack MCP |
+| `mcp-status` | Check MCP integration status | - |
 
 ### Creating Custom Skills
 
