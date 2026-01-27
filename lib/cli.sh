@@ -1125,7 +1125,7 @@ cmd_doctor() {
 
   # Check agents
   echo "AI Agents:"
-  for agent in claude codex gemini copilot opencode; do
+  for agent in claude cursor codex gemini copilot opencode; do
     local cmd
     cmd=$(_get_agent_cmd "$agent")
     if command -v "$cmd" &>/dev/null; then
