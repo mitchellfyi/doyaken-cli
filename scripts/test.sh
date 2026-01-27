@@ -154,9 +154,19 @@ done
 
 # Test 14: Functional test - init creates correct structure
 TEST_DIR=$(mktemp -d)
-trap "rm -rf $TEST_DIR" EXIT
+TEST_HOME=$(mktemp -d)  # Isolated DOYAKEN_HOME to avoid polluting repo
+trap "rm -rf $TEST_DIR $TEST_HOME" EXIT
 
-if DOYAKEN_HOME="$ROOT_DIR" "$ROOT_DIR/bin/doyaken" init "$TEST_DIR" >/dev/null 2>&1; then
+# Copy lib files to test home so init can find them
+mkdir -p "$TEST_HOME/lib" "$TEST_HOME/templates" "$TEST_HOME/prompts" "$TEST_HOME/scripts" "$TEST_HOME/projects"
+cp "$ROOT_DIR/lib"/*.sh "$TEST_HOME/lib/"
+cp -r "$ROOT_DIR/templates"/* "$TEST_HOME/templates/"
+cp -r "$ROOT_DIR/prompts"/* "$TEST_HOME/prompts/"
+cp "$ROOT_DIR/scripts/sync-agent-files.sh" "$TEST_HOME/scripts/"
+# Initialize empty registry
+echo -e "version: 1\nprojects: []\naliases: {}" > "$TEST_HOME/projects/registry.yaml"
+
+if DOYAKEN_HOME="$TEST_HOME" "$ROOT_DIR/bin/doyaken" init "$TEST_DIR" >/dev/null 2>&1; then
   # Check created structure
   if [ -d "$TEST_DIR/.doyaken/tasks/2.todo" ]; then
     pass "init creates tasks/2.todo"
