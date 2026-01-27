@@ -15,6 +15,22 @@ npm-debug.log*
 .doyaken/state/
 .doyaken/locks/
 
+# Generated project files (from dk init/sync)
+.doyaken/manifest.yaml
+.doyaken/prompts/
+.doyaken/skills/
+.doyaken/hooks/
+AGENT.md
+AGENTS.md
+CLAUDE.md
+CODEX.md
+GEMINI.md
+COPILOT.md
+.cursorrules
+.cursor/
+.claude/
+.opencode.json
+
 # OS
 .DS_Store
 Thumbs.db
