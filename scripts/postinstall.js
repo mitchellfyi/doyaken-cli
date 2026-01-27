@@ -56,7 +56,7 @@ function main() {
   log(`Setting up doyaken at ${DOYAKEN_HOME}`);
 
   // Create directories
-  const dirs = ['prompts', 'templates', 'config', 'projects', 'lib'];
+  const dirs = ['prompts', 'templates', 'config', 'projects', 'lib', 'skills'];
   for (const dir of dirs) {
     fs.mkdirSync(path.join(DOYAKEN_HOME, dir), { recursive: true });
   }
@@ -100,6 +100,13 @@ function main() {
       }
     }
     success('Copied lib');
+  }
+
+  // Copy skills
+  const skillsSrc = path.join(packageRoot, 'skills');
+  if (fs.existsSync(skillsSrc)) {
+    copyDir(skillsSrc, path.join(DOYAKEN_HOME, 'skills'));
+    success('Copied skills');
   }
 
   // Create VERSION file

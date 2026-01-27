@@ -34,6 +34,7 @@
     "templates/",
     "config/",
     "scripts/",
+    "skills/",
     "install.sh"
   ],
   "engines": {
