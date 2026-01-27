@@ -79,7 +79,7 @@ jobs:
             npm install -g @doyaken/doyaken
 
             # curl
-            curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken.ai/main/install.sh | bash
+            curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash
             ```
 
             ## Quick Start
@@ -90,7 +90,7 @@ jobs:
             dk run 1          # Run 1 task
             ```
 
-            See [README](https://github.com/mitchellfyi/doyaken.ai#readme) for full documentation.
+            See [README](https://github.com/mitchellfyi/doyaken-cli#readme) for full documentation.
           generate_release_notes: true
 
   # For main branch push or manual trigger, check version and create tag if needed
@@ -192,7 +192,7 @@ jobs:
             npm install -g @doyaken/doyaken
 
             # curl
-            curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken.ai/main/install.sh | bash
+            curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash
             ```
 
             ## Quick Start
@@ -203,5 +203,5 @@ jobs:
             dk run 1          # Run 1 task
             ```
 
-            See [README](https://github.com/mitchellfyi/doyaken.ai#readme) for full documentation.
+            See [README](https://github.com/mitchellfyi/doyaken-cli#readme) for full documentation.
           generate_release_notes: true

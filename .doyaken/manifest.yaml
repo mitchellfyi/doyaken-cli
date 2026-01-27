@@ -4,12 +4,12 @@
 version: 1
 
 project:
-  name: "doyaken.ai"
+  name: "doyaken-cli"
   description: ""
 
 # Git configuration (auto-detected)
 git:
-  remote: "git@github.com:mitchellfyi/doyaken.ai.git"
+  remote: "git@github.com:mitchellfyi/doyaken-cli.git"
   branch: "main"
 
 # Domains and URLs associated with this project

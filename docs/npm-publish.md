@@ -6,7 +6,7 @@ The package `@doyaken/doyaken` is published to npm automatically when you push a
 
 **Published locations:**
 - npm: https://www.npmjs.com/package/@doyaken/doyaken
-- GitHub Releases: https://github.com/mitchellfyi/doyaken.ai/releases
+- GitHub Releases: https://github.com/mitchellfyi/doyaken-cli/releases
 
 ## How to Publish a New Version
 
@@ -76,7 +76,7 @@ GitHub Packages requires the npm scope (`@doyaken`) to match the GitHub owner/or
   ```json
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/doyaken/doyaken.ai.git"
+    "url": "git+https://github.com/doyaken/doyaken-cli.git"
   }
   ```
 
