@@ -14,7 +14,12 @@ set -euo pipefail
 # ============================================================================
 
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
-DOYAKEN_VERSION="1.0.0"
+
+# Get version from package.json (relative to lib/ directory)
+DOYAKEN_VERSION="0.1.4"
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/../package.json" ]; then
+  DOYAKEN_VERSION=$(grep '"version"' "$(dirname "${BASH_SOURCE[0]}")/../package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+fi
 
 # Source library files
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

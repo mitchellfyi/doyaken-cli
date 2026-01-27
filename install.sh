@@ -204,8 +204,12 @@ cp "$SOURCE_DIR/bin/doyaken" "$DOYAKEN_HOME/bin/"
 chmod +x "$DOYAKEN_HOME/bin/doyaken"
 chmod +x "$DOYAKEN_HOME/lib"/*.sh
 
-# Create VERSION file
-echo "1.0.0" > "$DOYAKEN_HOME/VERSION"
+# Create VERSION file from package.json
+if [ -f "$SOURCE_DIR/package.json" ]; then
+  grep '"version"' "$SOURCE_DIR/package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' > "$DOYAKEN_HOME/VERSION"
+else
+  echo "0.0.0" > "$DOYAKEN_HOME/VERSION"
+fi
 
 # Create dk alias
 ln -sf "$DOYAKEN_HOME/bin/doyaken" "$DOYAKEN_HOME/bin/dk"
