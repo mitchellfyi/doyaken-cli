@@ -127,10 +127,11 @@ log_info "Creating directory structure..."
 mkdir -p "$DOYAKEN_HOME/bin"
 mkdir -p "$DOYAKEN_HOME/lib"
 mkdir -p "$DOYAKEN_HOME/prompts"
-mkdir -p "$DOYAKEN_HOME/templates"
+mkdir -p "$DOYAKEN_HOME/templates/agents/cursor"
 mkdir -p "$DOYAKEN_HOME/config/mcp/servers"
 mkdir -p "$DOYAKEN_HOME/skills"
 mkdir -p "$DOYAKEN_HOME/hooks"
+mkdir -p "$DOYAKEN_HOME/scripts"
 mkdir -p "$DOYAKEN_HOME/projects"
 
 # Copy files
@@ -146,14 +147,30 @@ cp "$SOURCE_DIR/lib/skills.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/mcp.sh" "$DOYAKEN_HOME/lib/"
 cp "$SOURCE_DIR/lib/hooks.sh" "$DOYAKEN_HOME/lib/"
 
-# Prompts
-if [ -d "$SOURCE_DIR/prompts" ]; then
-  cp "$SOURCE_DIR/prompts"/*.md "$DOYAKEN_HOME/prompts/"
+# Prompts (library and phases)
+if [ -d "$SOURCE_DIR/prompts/library" ]; then
+  mkdir -p "$DOYAKEN_HOME/prompts/library"
+  cp "$SOURCE_DIR/prompts/library"/*.md "$DOYAKEN_HOME/prompts/library/" 2>/dev/null || true
+fi
+if [ -d "$SOURCE_DIR/prompts/phases" ]; then
+  mkdir -p "$DOYAKEN_HOME/prompts/phases"
+  cp "$SOURCE_DIR/prompts/phases"/*.md "$DOYAKEN_HOME/prompts/phases/" 2>/dev/null || true
 fi
 
 # Templates
 cp "$SOURCE_DIR/templates"/*.yaml "$DOYAKEN_HOME/templates/" 2>/dev/null || true
 cp "$SOURCE_DIR/templates"/*.md "$DOYAKEN_HOME/templates/" 2>/dev/null || true
+
+# Agent templates
+if [ -d "$SOURCE_DIR/templates/agents" ]; then
+  cp "$SOURCE_DIR/templates/agents"/*.md "$DOYAKEN_HOME/templates/agents/" 2>/dev/null || true
+  cp "$SOURCE_DIR/templates/agents"/*.json "$DOYAKEN_HOME/templates/agents/" 2>/dev/null || true
+  cp "$SOURCE_DIR/templates/agents"/.cursorrules "$DOYAKEN_HOME/templates/agents/" 2>/dev/null || true
+  # Cursor modern rules
+  if [ -d "$SOURCE_DIR/templates/agents/cursor" ]; then
+    cp "$SOURCE_DIR/templates/agents/cursor"/*.mdc "$DOYAKEN_HOME/templates/agents/cursor/" 2>/dev/null || true
+  fi
+fi
 
 # Config
 cp "$SOURCE_DIR/config/global.yaml" "$DOYAKEN_HOME/config/" 2>/dev/null || true
@@ -172,6 +189,12 @@ fi
 if [ -d "$SOURCE_DIR/hooks" ]; then
   cp "$SOURCE_DIR/hooks"/*.sh "$DOYAKEN_HOME/hooks/" 2>/dev/null || true
   chmod +x "$DOYAKEN_HOME/hooks"/*.sh 2>/dev/null || true
+fi
+
+# Scripts
+if [ -d "$SOURCE_DIR/scripts" ]; then
+  cp "$SOURCE_DIR/scripts"/*.sh "$DOYAKEN_HOME/scripts/" 2>/dev/null || true
+  chmod +x "$DOYAKEN_HOME/scripts"/*.sh 2>/dev/null || true
 fi
 
 # Binary
