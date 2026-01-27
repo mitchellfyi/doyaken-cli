@@ -368,10 +368,11 @@ EOF
     if ! grep -q ".doyaken/logs" "$PROJECT_DIR/.gitignore" 2>/dev/null; then
       cat >> "$PROJECT_DIR/.gitignore" << 'EOF'
 
-# Doyaken
+# Doyaken runtime (not committed)
 .doyaken/logs/
 .doyaken/state/
 .doyaken/locks/
+.claude/
 EOF
       log_success "Updated .gitignore"
     fi

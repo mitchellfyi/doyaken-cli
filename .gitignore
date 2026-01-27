@@ -10,25 +10,13 @@ logs/
 *.log
 npm-debug.log*
 
-# Runtime data
+# Doyaken runtime data (not committed)
 .doyaken/logs/
 .doyaken/state/
 .doyaken/locks/
 
-# Generated project files (from dk init/sync)
-.doyaken/manifest.yaml
-.doyaken/prompts/
-.doyaken/skills/
-.doyaken/hooks/
-AGENT.md
-AGENTS.md
-CLAUDE.md
-GEMINI.md
-.cursorrules
-.cursor/
+# Claude Code slash commands (auto-generated from skills by dk sync)
 .claude/
-.github/copilot-instructions.md
-.opencode.json
 
 # OS
 .DS_Store
