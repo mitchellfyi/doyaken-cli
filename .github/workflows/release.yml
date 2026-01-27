@@ -1,17 +1,37 @@
 name: Release
 
 on:
+  # Auto-release when pushing to main (if version changed in package.json)
   push:
+    branches: [main]
+    paths:
+      - 'package.json'
     tags:
       - 'v*'
+
+  # Manual release via GitHub UI
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (leave empty to use package.json version)'
+        required: false
+        type: string
+      skip_version_check:
+        description: 'Skip version check (force release even if tag exists)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  release:
+  # For tag pushes, go directly to release
+  release-from-tag:
+    name: Release (from tag)
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
       - name: Checkout
@@ -47,13 +67,123 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Note: GitHub Packages requires package scope to match repo owner.
-      # To enable GitHub Packages, create a 'doyaken' org and transfer this repo.
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           name: v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Installation
+
+            ```bash
+            # npm (recommended)
+            npm install -g @doyaken/doyaken
+
+            # curl
+            curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken.ai/main/install.sh | bash
+            ```
+
+            ## Quick Start
+
+            ```bash
+            dk init           # Initialize project
+            dk tasks new "Task"  # Create task
+            dk run 1          # Run 1 task
+            ```
+
+            See [README](https://github.com/mitchellfyi/doyaken.ai#readme) for full documentation.
+          generate_release_notes: true
+
+  # For main branch push or manual trigger, check version and create tag if needed
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version needs release
+        id: check
+        run: |
+          # Get version from package.json
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Package version: $PKG_VERSION"
+
+          # Check for manual version input
+          if [ -n "${{ inputs.version }}" ]; then
+            PKG_VERSION="${{ inputs.version }}"
+            echo "Using manual version: $PKG_VERSION"
+          fi
+
+          # Check if tag already exists
+          if git rev-parse "v$PKG_VERSION" >/dev/null 2>&1; then
+            echo "Tag v$PKG_VERSION already exists"
+            if [ "${{ inputs.skip_version_check }}" == "true" ]; then
+              echo "Skipping version check (forced release)"
+              echo "should_release=true" >> $GITHUB_OUTPUT
+            else
+              echo "should_release=false" >> $GITHUB_OUTPUT
+              echo "::notice::Version $PKG_VERSION already released. Bump version in package.json to release."
+            fi
+          else
+            echo "Tag v$PKG_VERSION does not exist - will release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+          echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
+
+  create-tag-and-release:
+    name: Create Tag & Release
+    runs-on: ubuntu-latest
+    needs: check-version
+    if: ${{ needs.check-version.outputs.should_release == 'true' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Create and push tag
+        id: tag
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          TAG="v$VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Created and pushed tag: $TAG"
+
+      - name: Test CLI
+        run: |
+          chmod +x bin/doyaken lib/*.sh
+          ./bin/doyaken --version
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
           body: |
             ## Installation
 
