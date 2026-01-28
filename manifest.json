@@ -1,6 +1,6 @@
 {
   "version": "0.1.9",
-  "generated": "2026-01-28T20:59:32Z",
+  "generated": "2026-01-28T21:08:35Z",
   "files": {
     "lib/agents.sh": {
       "category": "overwrite",
@@ -9,13 +9,13 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "7c25518c08931805b81889b4175504ea39e55c085541b34df848cea9c3ffd423",
-      "size": 52578
+      "sha256": "b418eb4ed2018ab34f0f86c360712c3ffbccddce395d13996476108c803a8b59",
+      "size": 56243
     },
     "lib/config.sh": {
       "category": "overwrite",
-      "sha256": "33131a609fc15289da01ae280bf2b782a8e20bec6f0d56f55148955e9b319707",
-      "size": 11156
+      "sha256": "391d4ab3e4469efee2b5f74217dcada801ca4a15fb0bca9e0caf0ac421cd6b68",
+      "size": 12010
     },
     "lib/core.sh": {
       "category": "overwrite",
@@ -36,6 +36,16 @@
       "category": "overwrite",
       "sha256": "3ac9ba8a581d34e4a2d55ac87ea5f95176028addf051fde924b81a65c986993b",
       "size": 8984
+    },
+    "lib/review-tracker.sh": {
+      "category": "overwrite",
+      "sha256": "e85699300493cf2a41bd59331b79774cad39dd7ecd9d2d4b379bb2378b3f0156",
+      "size": 3074
+    },
+    "lib/run-periodic-review.sh": {
+      "category": "overwrite",
+      "sha256": "8da9c7f36a8ecec4737761829173fe2e4b03442c068db604d04d644be94b784b",
+      "size": 4696
     },
     "lib/skills.sh": {
       "category": "overwrite",
@@ -64,8 +74,8 @@
     },
     "config/global.yaml": {
       "category": "preserve",
-      "sha256": "d2b5fe65cf7b5475014170de6a6ae5286fef7f209b2684a427bb06b18b32d973",
-      "size": 3741
+      "sha256": "fc78d8170caf4199afb75bf1c27ad3e7761ee6fe9641d7e1ab679a82bd77d495",
+      "size": 4380
     },
     "config/mcp/servers/figma.yaml": {
       "category": "preserve",
@@ -172,6 +182,11 @@
       "sha256": "8bab2bac4d8a5980f88524855394c81fe02cb171ed310082ae74a168098b540e",
       "size": 5112
     },
+    "prompts/library/review-all.md": {
+      "category": "overwrite",
+      "sha256": "dd2f397dc0ffb8553a6e62f4904f921edabf4d50ee5dcbadfaa5ecad43afc6c2",
+      "size": 4310
+    },
     "prompts/library/review-architecture.md": {
       "category": "overwrite",
       "sha256": "363bcb76988df5be974a98f56383aed30afc47b6aa1aa2439f42066299d24814",
@@ -181,6 +196,11 @@
       "category": "overwrite",
       "sha256": "8b7fa98439ead705f024c93be13ade8c976417efbfd1ed1cc35f2666463bdf4b",
       "size": 5091
+    },
+    "prompts/library/review-docs.md": {
+      "category": "overwrite",
+      "sha256": "4457cb9d21a26f165e2a519f6374455f8c151ba20376b94553d05fa4d4b841e7",
+      "size": 2522
     },
     "prompts/library/review-performance.md": {
       "category": "overwrite",
@@ -562,6 +582,11 @@
       "sha256": "b565236dba37cb4c5feb56b457daf34975888885d214db95ef565750e9b083ec",
       "size": 1972
     },
+    "skills/periodic-review.md": {
+      "category": "overwrite",
+      "sha256": "4d57fec7aa10c3a0ca0ef33dc7b1938080dc6886c779b81a17412eac2416cd3c",
+      "size": 2874
+    },
     "skills/research-features.md": {
       "category": "overwrite",
       "sha256": "413cd56956efbb022cb029711a32eb2beb03ab3f6e89222b835e910f9497366a",
@@ -939,8 +964,8 @@
     },
     "templates/manifest.yaml": {
       "category": "template",
-      "sha256": "b64e84697ba83562f5662c43e1168ac4cfd39f4e0f8cb25ff618d2af1c899e41",
-      "size": 5094
+      "sha256": "80a3592f30b0d8120d047ecb2e5546a5dc06395ddf3da2a1fa146d56cea4128f",
+      "size": 5420
     },
     "templates/mcp/README.md": {
       "category": "template",

@@ -248,6 +248,20 @@ load_output_config() {
 }
 
 # ============================================================================
+# Periodic Review Configuration
+# ============================================================================
+
+# Load periodic review settings with priority chain
+# Usage: load_periodic_review_config "manifest_file"
+load_periodic_review_config() {
+  local manifest_file="${1:-}"
+
+  _load_config_bool "REVIEW_ENABLED"   "periodic_review.enabled"   "true"  "$manifest_file"
+  _load_config      "REVIEW_THRESHOLD" "periodic_review.threshold" "3"     "$manifest_file"
+  _load_config_bool "REVIEW_AUTO_FIX"  "periodic_review.auto_fix"  "false" "$manifest_file"
+}
+
+# ============================================================================
 # Main Configuration Loader
 # ============================================================================
 
@@ -264,6 +278,7 @@ load_all_config() {
   load_skip_phases_config "$manifest_file"
   load_agent_config "$manifest_file"
   load_output_config "$manifest_file"
+  load_periodic_review_config "$manifest_file"
 }
 
 # ============================================================================
@@ -324,4 +339,10 @@ show_effective_config() {
   echo "  docs: ${SKIP_DOCS:-0}"
   echo "  review: ${SKIP_REVIEW:-0}"
   echo "  verify: ${SKIP_VERIFY:-0}"
+  echo ""
+
+  echo "## Periodic Review"
+  echo "  enabled: ${REVIEW_ENABLED:-1}"
+  echo "  threshold: ${REVIEW_THRESHOLD:-3}"
+  echo "  auto_fix: ${REVIEW_AUTO_FIX:-0}"
 }

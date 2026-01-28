@@ -117,6 +117,24 @@ skip_phases:
   verify: false
 
 # ============================================================================
+# Periodic Review Settings
+# ============================================================================
+# After completing N tasks, automatically trigger a comprehensive review
+# covering code quality, security, performance, debt, UX, and documentation.
+
+periodic_review:
+  # Enable/disable periodic reviews globally
+  enabled: true
+
+  # Number of completed tasks before triggering a review
+  # Default: 3 tasks
+  threshold: 3
+
+  # Auto-fix issues where possible (formatting, simple refactors)
+  # If false, creates tasks for all findings
+  auto_fix: false
+
+# ============================================================================
 # Tool-specific Global Defaults
 # ============================================================================
 

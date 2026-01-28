@@ -132,6 +132,13 @@ agent:
 #   review: false
 #   verify: false
 
+# Periodic review settings (overrides global defaults)
+# After completing N tasks, trigger a comprehensive codebase review
+# periodic_review:
+#   enabled: true          # Enable/disable for this project
+#   threshold: 3           # Tasks before review (default: 3)
+#   auto_fix: false        # Auto-fix issues where possible
+
 # Agent configuration files
 # These files point to .doyaken/ as the source of truth
 # Run 'doyaken sync' to generate/update agent files
