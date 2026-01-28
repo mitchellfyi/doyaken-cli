@@ -28,6 +28,7 @@ source "$SCRIPT_DIR/agents.sh"
 source "$SCRIPT_DIR/skills.sh"
 source "$SCRIPT_DIR/mcp.sh"
 source "$SCRIPT_DIR/hooks.sh"
+source "$SCRIPT_DIR/config.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -112,6 +113,8 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}task${NC} "<prompt>"     Create and immediately run a single task
   ${CYAN}skills${NC}              List available skills
   ${CYAN}skill${NC} <name>        Run a skill
+  ${CYAN}config${NC}              Show effective configuration
+  ${CYAN}config${NC} edit         Edit global or project config
   ${CYAN}mcp${NC} status          Show MCP integration status
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
@@ -784,6 +787,36 @@ agent:
   model: "opus"
   max_retries: 2
   parallel_workers: 2
+
+# Output settings (override global defaults)
+# output:
+#   progress_mode: true    # One-line progress updates
+#   verbose: false         # Show full agent output
+#   quiet: false           # Minimal output
+
+# Phase timeouts in seconds (override global defaults)
+# Increase these if tasks are complex and hitting timeouts
+# See: doyaken config show
+# timeouts:
+#   expand: 900       # 15 min
+#   triage: 540       # 9 min
+#   plan: 900         # 15 min
+#   implement: 5400   # 90 min
+#   test: 1800        # 30 min
+#   docs: 900         # 15 min
+#   review: 1800      # 30 min
+#   verify: 900       # 15 min
+
+# Skip phases (set to true to skip)
+# skip_phases:
+#   expand: false
+#   triage: false
+#   plan: false
+#   implement: false
+#   test: false
+#   docs: false
+#   review: false
+#   verify: false
 EOF
 
   log_success "Created manifest.yaml"
@@ -1375,6 +1408,91 @@ cmd_skill() {
   run_skill "$name" "$@"
 }
 
+cmd_config() {
+  local subcmd="${1:-show}"
+  shift || true
+
+  case "$subcmd" in
+    show|"")
+      # Detect project (optional)
+      local project manifest_file=""
+      project=$(detect_project 2>/dev/null) || project=""
+      if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+        manifest_file="$project/.doyaken/manifest.yaml"
+      fi
+
+      # Load all config
+      load_all_config "$manifest_file"
+
+      # Show effective configuration
+      show_effective_config "$manifest_file"
+      ;;
+    edit)
+      local target="${1:-global}"
+      local config_file=""
+
+      if [ "$target" = "global" ]; then
+        config_file="$DOYAKEN_HOME/config/global.yaml"
+        if [ ! -f "$config_file" ]; then
+          log_warn "Global config not found, creating from template..."
+          mkdir -p "$(dirname "$config_file")"
+          local template="$SCRIPT_DIR/../config/global.yaml"
+          if [ -f "$template" ]; then
+            cp "$template" "$config_file"
+          else
+            log_error "Template not found"
+            exit 1
+          fi
+        fi
+      elif [ "$target" = "project" ]; then
+        local project
+        project=$(require_project)
+        config_file="$project/.doyaken/manifest.yaml"
+      else
+        log_error "Unknown target: $target (use 'global' or 'project')"
+        exit 1
+      fi
+
+      local editor="${EDITOR:-vi}"
+      log_info "Opening $config_file with $editor"
+      "$editor" "$config_file"
+      ;;
+    path)
+      local target="${1:-all}"
+      case "$target" in
+        global)
+          echo "$DOYAKEN_HOME/config/global.yaml"
+          ;;
+        project)
+          local project
+          project=$(require_project)
+          echo "$project/.doyaken/manifest.yaml"
+          ;;
+        all|*)
+          echo "Global: $DOYAKEN_HOME/config/global.yaml"
+          local project
+          project=$(detect_project 2>/dev/null) || project=""
+          if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+            echo "Project: $project/.doyaken/manifest.yaml"
+          else
+            echo "Project: (not in a project)"
+          fi
+          ;;
+      esac
+      ;;
+    *)
+      log_error "Unknown config subcommand: $subcmd"
+      echo "Usage: doyaken config [show|edit|path]"
+      echo ""
+      echo "Commands:"
+      echo "  show              Show effective configuration (default)"
+      echo "  edit [global|project]  Edit config file in \$EDITOR"
+      echo "  path [global|project]  Show config file paths"
+      exit 1
+      ;;
+  esac
+}
+
 cmd_mcp() {
   local subcmd="${1:-status}"
   shift || true
@@ -1616,6 +1734,9 @@ main() {
       ;;
     skill)
       cmd_skill "${args[@]+"${args[@]}"}"
+      ;;
+    config)
+      cmd_config "${args[@]+"${args[@]}"}"
       ;;
     mcp)
       cmd_mcp "${args[@]+"${args[@]}"}"

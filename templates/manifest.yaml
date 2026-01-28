@@ -102,6 +102,36 @@ agent:
   # Auto-commit task state changes
   auto_commit: true
 
+# Output settings (override global defaults)
+# output:
+#   progress_mode: true    # One-line progress updates
+#   verbose: false         # Show full agent output
+#   quiet: false           # Minimal output
+
+# Phase timeouts in seconds (override global defaults)
+# Increase these if your tasks are complex and hitting timeouts
+# timeouts:
+#   expand: 900       # 15 min - expand prompt into task spec
+#   triage: 540       # 9 min - validate and categorize
+#   plan: 900         # 15 min - gap analysis and planning
+#   implement: 5400   # 90 min - write code
+#   test: 1800        # 30 min - run tests
+#   docs: 900         # 15 min - update documentation
+#   review: 1800      # 30 min - code review
+#   verify: 900       # 15 min - verify and commit
+
+# Skip phases (set to true to skip)
+# Useful for quick iterations or specialized workflows
+# skip_phases:
+#   expand: false
+#   triage: false
+#   plan: false
+#   implement: false
+#   test: false
+#   docs: false
+#   review: false
+#   verify: false
+
 # Agent configuration files
 # These files point to .doyaken/ as the source of truth
 # Run 'doyaken sync' to generate/update agent files

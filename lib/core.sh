@@ -44,6 +44,9 @@ source "$SCRIPT_DIR/agents.sh"
 # Source skills for hooks
 source "$SCRIPT_DIR/skills.sh"
 
+# Source configuration library
+source "$SCRIPT_DIR/config.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -239,6 +242,10 @@ run_skill_hooks() {
 # Load manifest early
 load_manifest
 
+# Load all configuration from global and project config files
+# This handles: timeouts, skip_phases, agent settings, output settings
+load_all_config "$MANIFEST_FILE"
+
 # Project-specific directories
 TASKS_DIR="${TASKS_DIR:-$DATA_DIR/tasks}"
 LOGS_DIR="${LOGS_DIR:-$DATA_DIR/logs/claude-loop}"
@@ -280,7 +287,11 @@ AGENT_LOCK_TIMEOUT="${AGENT_LOCK_TIMEOUT:-10800}"
 AGENT_HEARTBEAT="${AGENT_HEARTBEAT:-3600}"
 AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
 
-# Phase skip flags (set to 1 to skip)
+# Phase skip flags and timeouts are loaded from config files via load_all_config()
+# They can still be overridden via environment variables
+# See: config/global.yaml and .doyaken/manifest.yaml for configuration
+
+# Ensure defaults if not loaded from config (fallback for edge cases)
 SKIP_EXPAND="${SKIP_EXPAND:-0}"
 SKIP_TRIAGE="${SKIP_TRIAGE:-0}"
 SKIP_PLAN="${SKIP_PLAN:-0}"
@@ -290,15 +301,14 @@ SKIP_DOCS="${SKIP_DOCS:-0}"
 SKIP_REVIEW="${SKIP_REVIEW:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
 
-# Phase timeouts (in seconds)
-TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-900}"      # 15 min - exploration needs time
-TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-540}"      # 9 min - quick categorization
-TIMEOUT_PLAN="${TIMEOUT_PLAN:-900}"          # 15 min - planning
-TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-5400}" # 90 min - implementation
-TIMEOUT_TEST="${TIMEOUT_TEST:-1800}"         # 30 min - testing
-TIMEOUT_DOCS="${TIMEOUT_DOCS:-900}"          # 15 min - documentation
-TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-1800}"     # 30 min - code review
-TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-900}"      # 15 min - verification
+TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-900}"
+TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-540}"
+TIMEOUT_PLAN="${TIMEOUT_PLAN:-900}"
+TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-5400}"
+TIMEOUT_TEST="${TIMEOUT_TEST:-1800}"
+TIMEOUT_DOCS="${TIMEOUT_DOCS:-900}"
+TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-1800}"
+TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-900}"
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(
