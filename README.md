@@ -345,7 +345,14 @@ dk tasks new "Add user authentication"
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase |
-| `TIMEOUT_IMPLEMENT` | `1800` | Implementation timeout (seconds) |
+| `TIMEOUT_EXPAND` | `300` | Expand phase timeout (seconds) |
+| `TIMEOUT_TRIAGE` | `180` | Triage phase timeout (seconds) |
+| `TIMEOUT_PLAN` | `300` | Plan phase timeout (seconds) |
+| `TIMEOUT_IMPLEMENT` | `1800` | Implement phase timeout (seconds) |
+| `TIMEOUT_TEST` | `600` | Test phase timeout (seconds) |
+| `TIMEOUT_DOCS` | `300` | Docs phase timeout (seconds) |
+| `TIMEOUT_REVIEW` | `600` | Review phase timeout (seconds) |
+| `TIMEOUT_VERIFY` | `300` | Verify phase timeout (seconds) |
 | `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
 
 ## Troubleshooting
