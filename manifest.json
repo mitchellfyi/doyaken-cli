@@ -1,6 +1,6 @@
 {
-  "version": "0.1.9",
-  "generated": "2026-01-28T21:08:35Z",
+  "version": "0.1.10",
+  "generated": "2026-01-28T21:14:52Z",
   "files": {
     "lib/agents.sh": {
       "category": "overwrite",
@@ -9,8 +9,8 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "b418eb4ed2018ab34f0f86c360712c3ffbccddce395d13996476108c803a8b59",
-      "size": 56243
+      "sha256": "a9a58c7b4ada5e50143d6f7e88dfe3c21ae3854b2ebdea859d13e1a1eb8379f3",
+      "size": 56423
     },
     "lib/config.sh": {
       "category": "overwrite",
@@ -44,8 +44,8 @@
     },
     "lib/run-periodic-review.sh": {
       "category": "overwrite",
-      "sha256": "8da9c7f36a8ecec4737761829173fe2e4b03442c068db604d04d644be94b784b",
-      "size": 4696
+      "sha256": "a7696ec324ab3c12eac7beaa5982c0a06e4594805bc9ee0945d702469864cd56",
+      "size": 4695
     },
     "lib/skills.sh": {
       "category": "overwrite",
@@ -74,8 +74,8 @@
     },
     "config/global.yaml": {
       "category": "preserve",
-      "sha256": "fc78d8170caf4199afb75bf1c27ad3e7761ee6fe9641d7e1ab679a82bd77d495",
-      "size": 4380
+      "sha256": "42f8f0b4a921196fbd1248d7a746f7d796cdb053c03675cb5c9c0a2ddb306496",
+      "size": 4401
     },
     "config/mcp/servers/figma.yaml": {
       "category": "preserve",
@@ -584,8 +584,8 @@
     },
     "skills/periodic-review.md": {
       "category": "overwrite",
-      "sha256": "4d57fec7aa10c3a0ca0ef33dc7b1938080dc6886c779b81a17412eac2416cd3c",
-      "size": 2874
+      "sha256": "4a428890ea042b0b25328185f1e4ec300a8d540a84963be4ce654b973dd9e5b5",
+      "size": 2883
     },
     "skills/research-features.md": {
       "category": "overwrite",
