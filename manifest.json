@@ -1,6 +1,6 @@
 {
-  "version": "0.1.8",
-  "generated": "2026-01-28T20:57:45Z",
+  "version": "0.1.9",
+  "generated": "2026-01-28T20:59:32Z",
   "files": {
     "lib/agents.sh": {
       "category": "overwrite",
