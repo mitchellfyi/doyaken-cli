@@ -29,6 +29,7 @@ source "$SCRIPT_DIR/skills.sh"
 source "$SCRIPT_DIR/mcp.sh"
 source "$SCRIPT_DIR/hooks.sh"
 source "$SCRIPT_DIR/config.sh"
+source "$SCRIPT_DIR/upgrade.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -115,6 +116,8 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}skill${NC} <name>        Run a skill
   ${CYAN}config${NC}              Show effective configuration
   ${CYAN}config${NC} edit         Edit global or project config
+  ${CYAN}upgrade${NC}             Upgrade doyaken to latest version
+  ${CYAN}upgrade${NC} --check     Check if upgrade is available
   ${CYAN}mcp${NC} status          Show MCP integration status
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
@@ -1493,6 +1496,117 @@ cmd_config() {
   esac
 }
 
+cmd_upgrade() {
+  local subcmd="${1:-apply}"
+  shift || true
+
+  local force=false
+  local dry_run=false
+
+  # Parse flags
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f)
+        force=true
+        shift
+        ;;
+      --dry-run|-n)
+        dry_run=true
+        shift
+        ;;
+      --check|-c)
+        subcmd="check"
+        shift
+        ;;
+      --rollback|-r)
+        subcmd="rollback"
+        shift
+        ;;
+      --list-backups|-l)
+        subcmd="list-backups"
+        shift
+        ;;
+      *)
+        if [ "$subcmd" = "apply" ]; then
+          subcmd="$1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  # Find source directory (where we're upgrading from)
+  local source_dir="$SCRIPT_DIR/.."
+
+  case "$subcmd" in
+    check)
+      local result=0
+      upgrade_check "$source_dir" "$DOYAKEN_HOME" || result=$?
+      case $result in
+        0) log_info "Upgrade available" ;;
+        1) log_info "Already up to date" ;;
+        2) log_warn "Installed version is newer (downgrade)" ;;
+      esac
+      return $result
+      ;;
+    apply|"")
+      log_info "Upgrading doyaken..."
+
+      if [ "$dry_run" = true ]; then
+        upgrade_preview "$source_dir" "$DOYAKEN_HOME"
+        log_info "Dry run complete (no changes made)"
+        return 0
+      fi
+
+      if upgrade_apply "$source_dir" "$DOYAKEN_HOME" "$force" "$dry_run"; then
+        log_success "Upgrade complete!"
+        return 0
+      else
+        log_error "Upgrade failed"
+        return 1
+      fi
+      ;;
+    rollback)
+      log_info "Rolling back to previous version..."
+      if upgrade_rollback "$DOYAKEN_HOME"; then
+        log_success "Rollback complete"
+        return 0
+      else
+        log_error "Rollback failed"
+        return 1
+      fi
+      ;;
+    list-backups)
+      upgrade_list_backups "$DOYAKEN_HOME"
+      ;;
+    verify)
+      if upgrade_verify "$DOYAKEN_HOME"; then
+        log_success "Installation is valid"
+        return 0
+      else
+        log_error "Installation has errors (run 'doyaken upgrade --force' to repair)"
+        return 1
+      fi
+      ;;
+    *)
+      log_error "Unknown upgrade subcommand: $subcmd"
+      echo ""
+      echo "Usage: doyaken upgrade [options]"
+      echo ""
+      echo "Options:"
+      echo "  --check, -c       Check if upgrade is available"
+      echo "  --dry-run, -n     Preview changes without applying"
+      echo "  --force, -f       Force upgrade (skip version check)"
+      echo "  --rollback, -r    Rollback to previous version"
+      echo "  --list-backups    List available backups"
+      echo ""
+      echo "Commands:"
+      echo "  verify            Verify installation integrity"
+      exit 1
+      ;;
+  esac
+}
+
 cmd_mcp() {
   local subcmd="${1:-status}"
   shift || true
@@ -1737,6 +1851,9 @@ main() {
       ;;
     config)
       cmd_config "${args[@]+"${args[@]}"}"
+      ;;
+    upgrade)
+      cmd_upgrade "${args[@]+"${args[@]}"}"
       ;;
     mcp)
       cmd_mcp "${args[@]+"${args[@]}"}"

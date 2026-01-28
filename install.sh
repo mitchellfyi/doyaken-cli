@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 #
-# install.sh - Install doyaken
+# install.sh - Install/upgrade doyaken
+#
+# This script uses lib/upgrade.sh for idempotent installation/upgrade.
 #
 # Usage:
-#   ./install.sh                      # Install to ~/.doyaken (user)
+#   ./install.sh                      # Install/upgrade to ~/.doyaken (user)
 #   ./install.sh --project            # Install to ./.doyaken (current project)
 #   ./install.sh --project /path      # Install to /path/.doyaken
-#   curl -sSL <url>/install.sh | bash                    # User install
-#   curl -sSL <url>/install.sh | bash -s -- --project    # Project install
+#   ./install.sh --force              # Force reinstall
+#   ./install.sh --dry-run            # Preview changes without applying
+#   curl -sSL <url>/install.sh | bash # User install
 #
 set -euo pipefail
 
@@ -27,6 +30,8 @@ log_error() { echo -e "${RED}[doyaken]${NC} $1" >&2; }
 # Parse arguments
 INSTALL_MODE="user"  # user or project
 PROJECT_PATH=""
+FORCE=false
+DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -38,37 +43,63 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
+    --force|-f)
+      FORCE=true
+      shift
+      ;;
+    --dry-run|-n)
+      DRY_RUN=true
+      shift
+      ;;
     --help|-h)
       cat << 'EOF'
 doyaken installer
 
 Usage:
-  ./install.sh                      Install to ~/.doyaken (user-level)
+  ./install.sh                      Install/upgrade to ~/.doyaken (user-level)
   ./install.sh --project            Install to ./.doyaken (current directory)
   ./install.sh --project /path      Install to /path/.doyaken
+  ./install.sh --force              Force reinstall even if up-to-date
+  ./install.sh --dry-run            Preview changes without applying
 
 Options:
   --project, -p    Install to project directory instead of user home
+  --force, -f      Force reinstall (skip version check)
+  --dry-run, -n    Preview changes without applying
   --help, -h       Show this help
 
 Examples:
   # User-level install (recommended for personal use)
   curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash
 
+  # Upgrade existing installation
+  ./install.sh
+
+  # Force reinstall
+  ./install.sh --force
+
   # Project-level install (for team/repo-specific setup)
-  curl -sSL https://raw.githubusercontent.com/mitchellfyi/doyaken-cli/main/install.sh | bash -s -- --project
+  ./install.sh --project
 EOF
       exit 0
       ;;
     *)
-      # Legacy: treat first arg as path for user install
-      if [[ "$INSTALL_MODE" == "user" && -z "$PROJECT_PATH" ]]; then
-        DOYAKEN_HOME="$1"
-      fi
       shift
       ;;
   esac
 done
+
+# Determine source directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Check if running from git repo or downloaded release
+if [ -d "$SCRIPT_DIR/lib" ] && [ -f "$SCRIPT_DIR/lib/cli.sh" ]; then
+  SOURCE_DIR="$SCRIPT_DIR"
+else
+  log_error "Source files not found"
+  log_info "Please run this script from the doyaken repository root"
+  exit 1
+fi
 
 # Determine installation directory
 if [[ "$INSTALL_MODE" == "project" ]]; then
@@ -93,6 +124,7 @@ echo "=================="
 echo ""
 echo "Install type: $INSTALL_TYPE"
 echo "Install path: $DOYAKEN_HOME"
+echo "Source: $SOURCE_DIR"
 echo ""
 
 # Check dependencies
@@ -105,120 +137,40 @@ else
   log_success "Claude CLI found"
 fi
 
-if ! command -v bash &>/dev/null || [[ "${BASH_VERSION%%.*}" -lt 4 ]]; then
-  log_warn "Bash 4+ recommended (found: ${BASH_VERSION:-unknown})"
-fi
-
-# Determine source directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Check if running from git repo or downloaded release
-if [ -d "$SCRIPT_DIR/lib" ] && [ -f "$SCRIPT_DIR/lib/cli.sh" ]; then
-  SOURCE_DIR="$SCRIPT_DIR"
-  log_info "Installing from local source: $SOURCE_DIR"
-else
-  log_error "Source files not found"
-  log_info "Please run this script from the doyaken repository root"
-  exit 1
-fi
-
-# Create installation directory structure
-log_info "Creating directory structure..."
-mkdir -p "$DOYAKEN_HOME/bin"
-mkdir -p "$DOYAKEN_HOME/lib"
-mkdir -p "$DOYAKEN_HOME/prompts"
-mkdir -p "$DOYAKEN_HOME/templates/agents/cursor"
-mkdir -p "$DOYAKEN_HOME/config/mcp/servers"
-mkdir -p "$DOYAKEN_HOME/skills"
-mkdir -p "$DOYAKEN_HOME/hooks"
-mkdir -p "$DOYAKEN_HOME/scripts"
-mkdir -p "$DOYAKEN_HOME/projects"
-
-# Copy files
-log_info "Copying files..."
-
-# Core library files
-cp "$SOURCE_DIR/lib/cli.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/core.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/registry.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/taskboard.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/agents.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/skills.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/mcp.sh" "$DOYAKEN_HOME/lib/"
-cp "$SOURCE_DIR/lib/hooks.sh" "$DOYAKEN_HOME/lib/"
-
-# Prompts (library and phases)
-if [ -d "$SOURCE_DIR/prompts/library" ]; then
-  mkdir -p "$DOYAKEN_HOME/prompts/library"
-  cp "$SOURCE_DIR/prompts/library"/*.md "$DOYAKEN_HOME/prompts/library/" 2>/dev/null || true
-fi
-if [ -d "$SOURCE_DIR/prompts/phases" ]; then
-  mkdir -p "$DOYAKEN_HOME/prompts/phases"
-  cp "$SOURCE_DIR/prompts/phases"/*.md "$DOYAKEN_HOME/prompts/phases/" 2>/dev/null || true
-fi
-
-# Templates
-cp "$SOURCE_DIR/templates"/*.yaml "$DOYAKEN_HOME/templates/" 2>/dev/null || true
-cp "$SOURCE_DIR/templates"/*.md "$DOYAKEN_HOME/templates/" 2>/dev/null || true
-
-# Agent templates
-if [ -d "$SOURCE_DIR/templates/agents" ]; then
-  cp "$SOURCE_DIR/templates/agents"/*.md "$DOYAKEN_HOME/templates/agents/" 2>/dev/null || true
-  cp "$SOURCE_DIR/templates/agents"/*.json "$DOYAKEN_HOME/templates/agents/" 2>/dev/null || true
-  cp "$SOURCE_DIR/templates/agents"/.cursorrules "$DOYAKEN_HOME/templates/agents/" 2>/dev/null || true
-  # Cursor modern rules
-  if [ -d "$SOURCE_DIR/templates/agents/cursor" ]; then
-    cp "$SOURCE_DIR/templates/agents/cursor"/*.mdc "$DOYAKEN_HOME/templates/agents/cursor/" 2>/dev/null || true
+# Generate manifest if not exists
+if [ ! -f "$SOURCE_DIR/manifest.json" ]; then
+  log_info "Generating manifest..."
+  if [ -x "$SOURCE_DIR/scripts/generate-manifest.sh" ]; then
+    "$SOURCE_DIR/scripts/generate-manifest.sh" > /dev/null 2>&1
   fi
 fi
 
-# Config
-cp "$SOURCE_DIR/config/global.yaml" "$DOYAKEN_HOME/config/" 2>/dev/null || true
+# Source upgrade library
+source "$SOURCE_DIR/lib/upgrade.sh"
 
-# MCP server definitions
-if [ -d "$SOURCE_DIR/config/mcp/servers" ]; then
-  cp "$SOURCE_DIR/config/mcp/servers"/*.yaml "$DOYAKEN_HOME/config/mcp/servers/" 2>/dev/null || true
-fi
-
-# Skills
-if [ -d "$SOURCE_DIR/skills" ]; then
-  cp "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
-fi
-
-# Hooks
-if [ -d "$SOURCE_DIR/hooks" ]; then
-  cp "$SOURCE_DIR/hooks"/*.sh "$DOYAKEN_HOME/hooks/" 2>/dev/null || true
-  chmod +x "$DOYAKEN_HOME/hooks"/*.sh 2>/dev/null || true
-fi
-
-# Scripts
-if [ -d "$SOURCE_DIR/scripts" ]; then
-  cp "$SOURCE_DIR/scripts"/*.sh "$DOYAKEN_HOME/scripts/" 2>/dev/null || true
-  chmod +x "$DOYAKEN_HOME/scripts"/*.sh 2>/dev/null || true
-fi
-
-# Binary
-cp "$SOURCE_DIR/bin/doyaken" "$DOYAKEN_HOME/bin/"
-
-# Make scripts executable
-chmod +x "$DOYAKEN_HOME/bin/doyaken"
-chmod +x "$DOYAKEN_HOME/lib"/*.sh
-
-# Create VERSION file from package.json
-if [ -f "$SOURCE_DIR/package.json" ]; then
-  grep '"version"' "$SOURCE_DIR/package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' > "$DOYAKEN_HOME/VERSION"
-else
-  echo "0.0.0" > "$DOYAKEN_HOME/VERSION"
-fi
-
-# Create dk alias
-ln -sf "$DOYAKEN_HOME/bin/doyaken" "$DOYAKEN_HOME/bin/dk"
-
-log_success "Files copied"
-
-# Handle PATH and symlinks based on install type
+# For user install, use upgrade system
 if [[ "$INSTALL_TYPE" == "user" ]]; then
-  # User install: create symlinks in /usr/local/bin if writable
+  # Check if this is fresh install or upgrade
+  if [ -d "$DOYAKEN_HOME" ] && [ -f "$DOYAKEN_HOME/VERSION" ]; then
+    log_info "Existing installation found"
+    INSTALLED_VERSION=$(cat "$DOYAKEN_HOME/VERSION")
+    log_info "Installed version: $INSTALLED_VERSION"
+  else
+    log_info "Fresh installation"
+  fi
+
+  # Run upgrade (handles both fresh install and upgrade)
+  if upgrade_apply "$SOURCE_DIR" "$DOYAKEN_HOME" "$FORCE" "$DRY_RUN"; then
+    if [ "$DRY_RUN" = true ]; then
+      log_info "Dry run complete (no changes made)"
+      exit 0
+    fi
+  else
+    log_error "Installation failed"
+    exit 1
+  fi
+
+  # Create symlinks for user install
   if [ -w "/usr/local/bin" ]; then
     log_info "Creating symlinks at /usr/local/bin"
     ln -sf "$DOYAKEN_HOME/bin/doyaken" "/usr/local/bin/doyaken"
@@ -228,6 +180,9 @@ if [[ "$INSTALL_TYPE" == "user" ]]; then
     log_warn "Cannot write to /usr/local/bin"
     log_info "Add to your PATH: export PATH=\"$DOYAKEN_HOME/bin:\$PATH\""
   fi
+
+  # Create dk alias
+  ln -sf "$DOYAKEN_HOME/bin/doyaken" "$DOYAKEN_HOME/bin/dk" 2>/dev/null || true
 
   # Update shell config
   update_shell_config() {
@@ -264,6 +219,7 @@ EOF
 
   # Initialize empty registry if not exists
   if [ ! -f "$DOYAKEN_HOME/projects/registry.yaml" ]; then
+    mkdir -p "$DOYAKEN_HOME/projects"
     cat > "$DOYAKEN_HOME/projects/registry.yaml" << 'EOF'
 # Doyaken Project Registry
 version: 1
@@ -271,8 +227,73 @@ projects: []
 aliases: {}
 EOF
   fi
+
 else
-  # Project install: create wrapper scripts in project bin/
+  # Project install: Use the old copy-based approach for project-specific setup
+  log_info "Installing project-level doyaken..."
+
+  # Create directory structure
+  mkdir -p "$DOYAKEN_HOME/bin"
+  mkdir -p "$DOYAKEN_HOME/lib"
+  mkdir -p "$DOYAKEN_HOME/prompts"
+  mkdir -p "$DOYAKEN_HOME/templates/agents/cursor"
+  mkdir -p "$DOYAKEN_HOME/config/mcp/servers"
+  mkdir -p "$DOYAKEN_HOME/skills"
+  mkdir -p "$DOYAKEN_HOME/hooks"
+  mkdir -p "$DOYAKEN_HOME/scripts"
+  mkdir -p "$DOYAKEN_HOME/tasks/1.blocked"
+  mkdir -p "$DOYAKEN_HOME/tasks/2.todo"
+  mkdir -p "$DOYAKEN_HOME/tasks/3.doing"
+  mkdir -p "$DOYAKEN_HOME/tasks/4.done"
+  mkdir -p "$DOYAKEN_HOME/tasks/_templates"
+  mkdir -p "$DOYAKEN_HOME/logs"
+  mkdir -p "$DOYAKEN_HOME/state"
+  mkdir -p "$DOYAKEN_HOME/locks"
+
+  # Copy core files
+  /bin/cp -f "$SOURCE_DIR/lib"/*.sh "$DOYAKEN_HOME/lib/"
+  /bin/cp -f "$SOURCE_DIR/bin/doyaken" "$DOYAKEN_HOME/bin/"
+
+  # Copy prompts
+  if [ -d "$SOURCE_DIR/prompts/library" ]; then
+    mkdir -p "$DOYAKEN_HOME/prompts/library"
+    /bin/cp -f "$SOURCE_DIR/prompts/library"/*.md "$DOYAKEN_HOME/prompts/library/" 2>/dev/null || true
+  fi
+  if [ -d "$SOURCE_DIR/prompts/phases" ]; then
+    mkdir -p "$DOYAKEN_HOME/prompts/phases"
+    /bin/cp -f "$SOURCE_DIR/prompts/phases"/*.md "$DOYAKEN_HOME/prompts/phases/" 2>/dev/null || true
+  fi
+
+  # Copy templates
+  /bin/cp -f "$SOURCE_DIR/templates"/*.yaml "$DOYAKEN_HOME/templates/" 2>/dev/null || true
+  /bin/cp -f "$SOURCE_DIR/templates"/*.md "$DOYAKEN_HOME/templates/" 2>/dev/null || true
+
+  # Copy skills
+  if [ -d "$SOURCE_DIR/skills" ]; then
+    /bin/cp -f "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
+  fi
+
+  # Copy hooks
+  if [ -d "$SOURCE_DIR/hooks" ]; then
+    /bin/cp -f "$SOURCE_DIR/hooks"/*.sh "$DOYAKEN_HOME/hooks/" 2>/dev/null || true
+    chmod +x "$DOYAKEN_HOME/hooks"/*.sh 2>/dev/null || true
+  fi
+
+  # Copy config (preserve if exists)
+  if [ ! -f "$DOYAKEN_HOME/config/global.yaml" ]; then
+    /bin/cp -f "$SOURCE_DIR/config/global.yaml" "$DOYAKEN_HOME/config/" 2>/dev/null || true
+  fi
+
+  # Make scripts executable
+  chmod +x "$DOYAKEN_HOME/bin/doyaken"
+  chmod +x "$DOYAKEN_HOME/lib"/*.sh
+
+  # Create VERSION file
+  if [ -f "$SOURCE_DIR/package.json" ]; then
+    grep '"version"' "$SOURCE_DIR/package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' > "$DOYAKEN_HOME/VERSION"
+  fi
+
+  # Create wrapper scripts
   PROJECT_BIN="$PROJECT_DIR/bin"
   mkdir -p "$PROJECT_BIN"
 
@@ -288,33 +309,9 @@ WRAPPER
   ln -sf "$PROJECT_BIN/doyaken" "$PROJECT_BIN/dk"
   log_success "Created project wrappers at $PROJECT_BIN/{doyaken,dk}"
 
-  # Initialize project structure
-  mkdir -p "$DOYAKEN_HOME/tasks/1.blocked"
-  mkdir -p "$DOYAKEN_HOME/tasks/2.todo"
-  mkdir -p "$DOYAKEN_HOME/tasks/3.doing"
-  mkdir -p "$DOYAKEN_HOME/tasks/4.done"
-  mkdir -p "$DOYAKEN_HOME/tasks/_templates"
-  mkdir -p "$DOYAKEN_HOME/prompts"
-  mkdir -p "$DOYAKEN_HOME/skills"
-  mkdir -p "$DOYAKEN_HOME/logs"
-  mkdir -p "$DOYAKEN_HOME/state"
-  mkdir -p "$DOYAKEN_HOME/locks"
-
-  # Copy prompts to project (project prompts are the source of truth)
-  if [ -d "$SOURCE_DIR/prompts" ]; then
-    cp "$SOURCE_DIR/prompts"/*.md "$DOYAKEN_HOME/prompts/"
-    log_success "Copied prompts to project"
-  fi
-
-  # Copy skills to project
-  if [ -d "$SOURCE_DIR/skills" ]; then
-    cp "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
-    log_success "Copied skills to project"
-  fi
-
   # Copy task template
   if [ -f "$DOYAKEN_HOME/templates/TASK.md" ]; then
-    cp "$DOYAKEN_HOME/templates/TASK.md" "$DOYAKEN_HOME/tasks/_templates/"
+    /bin/cp -f "$DOYAKEN_HOME/templates/TASK.md" "$DOYAKEN_HOME/tasks/_templates/"
   fi
 
   # Create .gitkeep files
@@ -363,7 +360,7 @@ EOF
 
   # Create AGENT.md if not exists
   if [ ! -f "$PROJECT_DIR/AGENT.md" ]; then
-    cp "$DOYAKEN_HOME/templates/AGENT.md" "$PROJECT_DIR/AGENT.md" 2>/dev/null || true
+    /bin/cp -f "$DOYAKEN_HOME/templates/AGENT.md" "$PROJECT_DIR/AGENT.md" 2>/dev/null || true
     log_success "Created AGENT.md"
   fi
 
@@ -388,6 +385,7 @@ echo -e "${GREEN}${BOLD}Installation Complete!${NC}"
 echo ""
 echo "Install type: $INSTALL_TYPE"
 echo "Install path: $DOYAKEN_HOME"
+echo "Version: $(cat "$DOYAKEN_HOME/VERSION" 2>/dev/null || echo "unknown")"
 echo ""
 
 if [[ "$INSTALL_TYPE" == "user" ]]; then
@@ -404,6 +402,10 @@ if [[ "$INSTALL_TYPE" == "user" ]]; then
   echo "  dk init                    # Initialize project"
   echo "  dk tasks new \"My task\"     # Create a task"
   echo "  dk run 1                   # Run 1 task"
+  echo ""
+  echo "Upgrade:"
+  echo "  dk upgrade --check         # Check for updates"
+  echo "  dk upgrade                 # Apply upgrade"
 else
   echo "Quick start (from project root):"
   echo "  ./bin/dk tasks new \"My task\"   # Create a task"
@@ -418,8 +420,8 @@ echo "  dk doctor"
 echo ""
 
 # Verify installation
-if [ -x "$DOYAKEN_HOME/bin/doyaken" ]; then
+if upgrade_verify "$DOYAKEN_HOME" > /dev/null 2>&1; then
   log_success "Installation verified"
 else
-  log_warn "Could not verify installation"
+  log_warn "Some files may be missing (run 'dk upgrade --force' to repair)"
 fi

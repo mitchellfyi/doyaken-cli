@@ -1,0 +1,983 @@
+{
+  "version": "0.1.8",
+  "generated": "2026-01-28T20:57:45Z",
+  "files": {
+    "lib/agents.sh": {
+      "category": "overwrite",
+      "sha256": "547f767d8b23bbe3dc9347a0f93a379a7985c49c187fc9b9226cb1a89dfd4693",
+      "size": 11192
+    },
+    "lib/cli.sh": {
+      "category": "overwrite",
+      "sha256": "7c25518c08931805b81889b4175504ea39e55c085541b34df848cea9c3ffd423",
+      "size": 52578
+    },
+    "lib/config.sh": {
+      "category": "overwrite",
+      "sha256": "33131a609fc15289da01ae280bf2b782a8e20bec6f0d56f55148955e9b319707",
+      "size": 11156
+    },
+    "lib/core.sh": {
+      "category": "overwrite",
+      "sha256": "8989a1b4b30866c4f930f1829ec5f8e140906859d326d98ec559f5bf183727cb",
+      "size": 51980
+    },
+    "lib/hooks.sh": {
+      "category": "overwrite",
+      "sha256": "daeccfe6494928447d49e7bd1a0e07c7c67e3d17e7f4d56e4ca74c8136eccd87",
+      "size": 8725
+    },
+    "lib/mcp.sh": {
+      "category": "overwrite",
+      "sha256": "4fbb74923c6b62d732554a07dfc97a891c438fbc4ff56a89eb8d4ffe07baf892",
+      "size": 10722
+    },
+    "lib/registry.sh": {
+      "category": "overwrite",
+      "sha256": "3ac9ba8a581d34e4a2d55ac87ea5f95176028addf051fde924b81a65c986993b",
+      "size": 8984
+    },
+    "lib/skills.sh": {
+      "category": "overwrite",
+      "sha256": "db224209e6f2b2fa7cb312cb1f658d3885dd62c49c4dc1b01dcf14dcef83067b",
+      "size": 13932
+    },
+    "lib/taskboard.sh": {
+      "category": "overwrite",
+      "sha256": "018fa1ce7651d0702252ce052ebc2189f4fbbcedce92010678f8c2a927cbfe76",
+      "size": 6631
+    },
+    "lib/upgrade.sh": {
+      "category": "overwrite",
+      "sha256": "584ab97e966b515e00b47fa8dccfa75aeaae27eeaadab95b8fc024206ba6f329",
+      "size": 19084
+    },
+    "bin/doyaken": {
+      "category": "overwrite",
+      "sha256": "7a8bb8e79f2da01178f8019157ec28751ef40cbd548d5f885a18046157ee8696",
+      "size": 1705
+    },
+    "config/agents.yaml": {
+      "category": "preserve",
+      "sha256": "9d9b07dd3706235ec49de353c013e984dd7873e303b6371105d272bd172116ec",
+      "size": 6630
+    },
+    "config/global.yaml": {
+      "category": "preserve",
+      "sha256": "d2b5fe65cf7b5475014170de6a6ae5286fef7f209b2684a427bb06b18b32d973",
+      "size": 3741
+    },
+    "config/mcp/servers/figma.yaml": {
+      "category": "preserve",
+      "sha256": "ea99350b16e2f579937301f6fb1c337baa9b6e059ea313186f85aacf69d49835",
+      "size": 569
+    },
+    "config/mcp/servers/filesystem.yaml": {
+      "category": "preserve",
+      "sha256": "420dcc0e0ed43382bcf47125a9d7db8695225018844ddef4c6f5b09343b54dda",
+      "size": 388
+    },
+    "config/mcp/servers/github.yaml": {
+      "category": "preserve",
+      "sha256": "67cf40f852ce96d3a7e39856e6b5b0c887490c90787584fb04f455265e5b888d",
+      "size": 416
+    },
+    "config/mcp/servers/jira.yaml": {
+      "category": "preserve",
+      "sha256": "85cfdabe70977ce8d67a207a9c1f31944291c01ece2d7cfd0e94cc10248090a4",
+      "size": 418
+    },
+    "config/mcp/servers/linear.yaml": {
+      "category": "preserve",
+      "sha256": "77e79ed663e71be8de01c55d98314b25e24b446be9ddc2b26ac7c6f101811ee7",
+      "size": 329
+    },
+    "config/mcp/servers/slack.yaml": {
+      "category": "preserve",
+      "sha256": "0eb40fd6afbb515fa163c49739766282487a94c4ffd2f71071184e7ba94a8d34",
+      "size": 399
+    },
+    "prompts/README.md": {
+      "category": "overwrite",
+      "sha256": "8a6d8eb02510f2d5585085243a49e7d4b29b41f53762c2ce07f1a72c629f1899",
+      "size": 5443
+    },
+    "prompts/library/README.md": {
+      "category": "overwrite",
+      "sha256": "a075110a6efc998c8747f4b7ba65aaac32dbf71a200e152bd7f40e8b7aad956c",
+      "size": 5488
+    },
+    "prompts/library/api-rest.md": {
+      "category": "overwrite",
+      "sha256": "5170813d8111ea33c794459e067a9f86b56a15f48242baea574d6c75b98da810",
+      "size": 5051
+    },
+    "prompts/library/base.md": {
+      "category": "overwrite",
+      "sha256": "289b29b6da875c70fa3d1851e82c13c61150068e8ecbd69515c80dcc6f49e814",
+      "size": 2007
+    },
+    "prompts/library/ci.md": {
+      "category": "overwrite",
+      "sha256": "1b697488b11adf97985b31dccc0139fd651a474a8708f62d5c1fbf722ebad36b",
+      "size": 1493
+    },
+    "prompts/library/debugging.md": {
+      "category": "overwrite",
+      "sha256": "51f871ecae5225efcc562a8e8d144d26e976fc4dbb6154d1828c5cad0e6f1ed1",
+      "size": 4792
+    },
+    "prompts/library/diagnose.md": {
+      "category": "overwrite",
+      "sha256": "bc0a65b808e0edf54215d12401036b7d6b5e6ee812170eaa63b24af7a745cb79",
+      "size": 613
+    },
+    "prompts/library/docs.md": {
+      "category": "overwrite",
+      "sha256": "832371016c6b182c605d003862fade03cdcc82d6eb0fc44e2f0bc039a73850a1",
+      "size": 1320
+    },
+    "prompts/library/errors.md": {
+      "category": "overwrite",
+      "sha256": "8766f5b73877e9c67f0d8365147783585d1e617735c4ec0977f9da7d809427fa",
+      "size": 3508
+    },
+    "prompts/library/git.md": {
+      "category": "overwrite",
+      "sha256": "f4be390f8e62452dcef998b520e05bd1a8751a0f9c87cc881c9292f13fc84e71",
+      "size": 1412
+    },
+    "prompts/library/planning.md": {
+      "category": "overwrite",
+      "sha256": "f9bed324433fa4f28f6b0888bfbcd03edff00a24133ba9a55e7dad3a0c301669",
+      "size": 1801
+    },
+    "prompts/library/quality.md": {
+      "category": "overwrite",
+      "sha256": "e348aa268e0c159a724048c364d2afda791200fc9568004ce3178de9c7606d45",
+      "size": 2528
+    },
+    "prompts/library/refactor.md": {
+      "category": "overwrite",
+      "sha256": "55db70f09707bee41a23f3199063fdf59bdf3d18ea02ffb15853162a317b1cb5",
+      "size": 3843
+    },
+    "prompts/library/research-competitors.md": {
+      "category": "overwrite",
+      "sha256": "ef67e6462061c068378d5c03d95b3c578a3713453370c43e26288d07e5c03899",
+      "size": 4227
+    },
+    "prompts/library/research-features.md": {
+      "category": "overwrite",
+      "sha256": "8bab2bac4d8a5980f88524855394c81fe02cb171ed310082ae74a168098b540e",
+      "size": 5112
+    },
+    "prompts/library/review-architecture.md": {
+      "category": "overwrite",
+      "sha256": "363bcb76988df5be974a98f56383aed30afc47b6aa1aa2439f42066299d24814",
+      "size": 3838
+    },
+    "prompts/library/review-debt.md": {
+      "category": "overwrite",
+      "sha256": "8b7fa98439ead705f024c93be13ade8c976417efbfd1ed1cc35f2666463bdf4b",
+      "size": 5091
+    },
+    "prompts/library/review-performance.md": {
+      "category": "overwrite",
+      "sha256": "26632f9f82a702560bdb5ceff6a62e11020a3a5c8362a122fd4e4baf310387df",
+      "size": 5706
+    },
+    "prompts/library/review-security.md": {
+      "category": "overwrite",
+      "sha256": "3c7c8d53b48dffeccfe25bb45ea19ece0639d93853813409179b2ba290e31378",
+      "size": 1963
+    },
+    "prompts/library/review-ux.md": {
+      "category": "overwrite",
+      "sha256": "8484dcde17d185b347e134d76c6b1b3c2bdb8079a3e469ac6e346116dfb0cc10",
+      "size": 4816
+    },
+    "prompts/library/review.md": {
+      "category": "overwrite",
+      "sha256": "e8cabc54a1d49b12987f147b34446ff5fdf3d46a3f27dcb9fe38be51c403ecd5",
+      "size": 1586
+    },
+    "prompts/library/testing.md": {
+      "category": "overwrite",
+      "sha256": "2f837828412101f42430ff897a23c022660392dd8eef5da5c2e595fc5e0e01b3",
+      "size": 2067
+    },
+    "prompts/phases/0-expand.md": {
+      "category": "overwrite",
+      "sha256": "1b0f399be1fc5aeac5d564ee9e07c97bf54eed25b08ae2943338eb74b536da45",
+      "size": 1499
+    },
+    "prompts/phases/1-triage.md": {
+      "category": "overwrite",
+      "sha256": "cc3a3c7b0d731636ad539d4d29d13cb124a6e672232ff5763490aaed82144dde",
+      "size": 1151
+    },
+    "prompts/phases/2-plan.md": {
+      "category": "overwrite",
+      "sha256": "96cc15fd39e4730fde05ff04535d498fb8b9dc967702585cdc708c60fd180248",
+      "size": 1343
+    },
+    "prompts/phases/3-implement.md": {
+      "category": "overwrite",
+      "sha256": "71fb3c9d3327f78d8a4ecd018b2f21d2d8b18375435ce6cb91211b1843ce2751",
+      "size": 1091
+    },
+    "prompts/phases/4-test.md": {
+      "category": "overwrite",
+      "sha256": "f38a2b5c990f44af33ec13f84004ad8a126b03eb068811bc7df20422d9ce1264",
+      "size": 1143
+    },
+    "prompts/phases/5-docs.md": {
+      "category": "overwrite",
+      "sha256": "a01e191c9414c0524bdd179b13c5f65006150b04b43f45927b374bf7965565f0",
+      "size": 1111
+    },
+    "prompts/phases/6-review.md": {
+      "category": "overwrite",
+      "sha256": "170fc330ad6bcbea0f51d4d61a00683d9c8de2e0ecf43434d5c85ddc858ed0ec",
+      "size": 1510
+    },
+    "prompts/phases/7-verify.md": {
+      "category": "overwrite",
+      "sha256": "b1482dc1cde87c0a35f47e2c7388f4f94a177c5c0473ca800765c4e64167072e",
+      "size": 1534
+    },
+    "prompts/phases/README.md": {
+      "category": "overwrite",
+      "sha256": "2c2acbe567a5c5b5b70a68a7df1ddd8bf48ab7fb7f0cf9f904457219ee6e1da6",
+      "size": 1281
+    },
+    "prompts/vendors/README.md": {
+      "category": "overwrite",
+      "sha256": "1bc131cccb78aeada61fa039b066f8e52dd7f3d8cd9792be4734130728acd2ca",
+      "size": 3306
+    },
+    "prompts/vendors/digitalocean/README.md": {
+      "category": "overwrite",
+      "sha256": "e3b617d00cf07e54d403235dd5c9dedec9d180eecea6b0d6028048c1173d2f01",
+      "size": 1173
+    },
+    "prompts/vendors/digitalocean/app-platform.md": {
+      "category": "overwrite",
+      "sha256": "389e8b965a27ad9fef3eadd5a34d5b48ba0f234d7ce8ad9792e4389ba3c2ffad",
+      "size": 7506
+    },
+    "prompts/vendors/digitalocean/droplets.md": {
+      "category": "overwrite",
+      "sha256": "0d03e3665d3f4a324c692e010ca64b890c595153c543a5c51256457bad6a09f5",
+      "size": 8450
+    },
+    "prompts/vendors/digitalocean/security.md": {
+      "category": "overwrite",
+      "sha256": "1d7e9e98f928b9f4f472c8fe6f8389b002f6170fd6a420c8948f85f92585626e",
+      "size": 8518
+    },
+    "prompts/vendors/dokku/README.md": {
+      "category": "overwrite",
+      "sha256": "3a8ff06f6dfe548d3e9a8e98b6f00c65037c3aee772994811ad440f9619471e0",
+      "size": 814
+    },
+    "prompts/vendors/dokku/deployment.md": {
+      "category": "overwrite",
+      "sha256": "4d310ac97cc198990dbb3272022489feed1bbaabccad152415b2aee2722f8ae5",
+      "size": 7483
+    },
+    "prompts/vendors/dokku/operations.md": {
+      "category": "overwrite",
+      "sha256": "77c728ac2138669eba4f4b34ecace83442575e85f2a8d2af3290b987025e49ec",
+      "size": 7164
+    },
+    "prompts/vendors/dokku/plugins.md": {
+      "category": "overwrite",
+      "sha256": "b452a9e28f5d48b8bd02e3f7d7cc5d2175488b7cb1423a3b98e99ec72549209a",
+      "size": 6543
+    },
+    "prompts/vendors/figma/README.md": {
+      "category": "overwrite",
+      "sha256": "11b62b4e236c8004628189cd818853721dd56e0725ae8bec71e6dac7569ec901",
+      "size": 1095
+    },
+    "prompts/vendors/figma/accessibility.md": {
+      "category": "overwrite",
+      "sha256": "6848d1982e082811a8a664f2e58f31e79eb3ba4dffe0be42d8721ae3d3603988",
+      "size": 5120
+    },
+    "prompts/vendors/figma/design-systems.md": {
+      "category": "overwrite",
+      "sha256": "a1a03ccc7b303b444ade0cc3d81c5420a5174aae81936e752ce629e158a62354",
+      "size": 5254
+    },
+    "prompts/vendors/figma/design-to-code.md": {
+      "category": "overwrite",
+      "sha256": "50501a05ea8c857679111739aa084f48b4dfb37210c34168248701258c0b3094",
+      "size": 3954
+    },
+    "prompts/vendors/github-actions/README.md": {
+      "category": "overwrite",
+      "sha256": "7026837f048a3602a209e67125b8425e9567c8e9a4209b73e1b7cb89f1ebf050",
+      "size": 831
+    },
+    "prompts/vendors/github-actions/optimization.md": {
+      "category": "overwrite",
+      "sha256": "11b0e20261bbd3c679b64ad3cac81d997bf21291c632ea55e5b17abd60799609",
+      "size": 8537
+    },
+    "prompts/vendors/github-actions/security.md": {
+      "category": "overwrite",
+      "sha256": "0bb6c52a081d146531b86e9053329c82380df869dd8e4727bd1a28ff86f2dcf1",
+      "size": 8866
+    },
+    "prompts/vendors/github-actions/workflows.md": {
+      "category": "overwrite",
+      "sha256": "b5ce7c5be6d54f07bf9499a83b8db41e6eb0811bc44c5930497c7174bf81da07",
+      "size": 11037
+    },
+    "prompts/vendors/github/README.md": {
+      "category": "overwrite",
+      "sha256": "01f7c728af2b2837aa87bd98330e81f65347c0f64182f83e7b47e0af04ecab19",
+      "size": 1447
+    },
+    "prompts/vendors/github/code-review.md": {
+      "category": "overwrite",
+      "sha256": "119fff6d686dbe4d21b6cd1864ef1d6650595119865a95ac426232a0fd3fd21e",
+      "size": 7151
+    },
+    "prompts/vendors/github/issues-prs.md": {
+      "category": "overwrite",
+      "sha256": "6074f9827dd177870ee92cd2b677aa4522869fe993e90d2fc9f64d42ce329f30",
+      "size": 7208
+    },
+    "prompts/vendors/github/repository.md": {
+      "category": "overwrite",
+      "sha256": "d1414a82aaebb89f871aa659c57eb737811b747c1979644471a12bb500391dd0",
+      "size": 9661
+    },
+    "prompts/vendors/nextjs/README.md": {
+      "category": "overwrite",
+      "sha256": "e10b0b737191f8afb18b0f32ae9d7403e1856fa4dbe6e9fbde9eadfd549ee50e",
+      "size": 1272
+    },
+    "prompts/vendors/nextjs/app-router.md": {
+      "category": "overwrite",
+      "sha256": "3c983bfaf2e423837b82f14814ba5ce00421837510b76a225f298d2735529dc8",
+      "size": 6853
+    },
+    "prompts/vendors/nextjs/data-fetching.md": {
+      "category": "overwrite",
+      "sha256": "af9246ef28c1c03c9357795ca79e367e71e416ef982adb6e4dc43c1334271f9f",
+      "size": 7280
+    },
+    "prompts/vendors/nextjs/performance.md": {
+      "category": "overwrite",
+      "sha256": "18506880185278f5e6e5304f26a9b770ddd53a04a110d7fb535595d3feb8966f",
+      "size": 7387
+    },
+    "prompts/vendors/postgres/README.md": {
+      "category": "overwrite",
+      "sha256": "571f3d2b08346bd17879b0d1f51bd545d4f38a603fb53ca893e0a8733c6b3809",
+      "size": 803
+    },
+    "prompts/vendors/postgres/operations.md": {
+      "category": "overwrite",
+      "sha256": "1a56af06ba2125c0403d2b023cc96f48680c64124bfa25726ee4bfe92cc19b6d",
+      "size": 9375
+    },
+    "prompts/vendors/postgres/optimization.md": {
+      "category": "overwrite",
+      "sha256": "65e53c18b9baa0b7b8415aafe9653f9599f6a2c82f5fc15039c5599b0e42ec78",
+      "size": 9096
+    },
+    "prompts/vendors/postgres/schema.md": {
+      "category": "overwrite",
+      "sha256": "11d0728ff786d34c1135737038bcea6701f5198a73898a8ae326523f0839a521",
+      "size": 10155
+    },
+    "prompts/vendors/rails/README.md": {
+      "category": "overwrite",
+      "sha256": "3847673b3a9ef51194d372688f34e8fc2ee9bf8e6f22a8d59ed0c6437f5f9ec8",
+      "size": 1280
+    },
+    "prompts/vendors/rails/api.md": {
+      "category": "overwrite",
+      "sha256": "bb5d2d3bf1833d81be651d91085ade5ca90bf91ceec86674045dd3f8c443ae38",
+      "size": 9145
+    },
+    "prompts/vendors/rails/patterns.md": {
+      "category": "overwrite",
+      "sha256": "a7b1aac27990056525f8957df91b2810e2bf969114875ac368bd2b5bf97c2b40",
+      "size": 8892
+    },
+    "prompts/vendors/rails/performance.md": {
+      "category": "overwrite",
+      "sha256": "d3caaa847cc13d0f01b8761c6819dd472b3b801488bac100856236cf6ea06078",
+      "size": 7321
+    },
+    "prompts/vendors/react/README.md": {
+      "category": "overwrite",
+      "sha256": "8b8d892bb6f653c2b14963a0038ffc3b939091201e0d6b97fdc0fa0235f2b608",
+      "size": 1340
+    },
+    "prompts/vendors/react/components.md": {
+      "category": "overwrite",
+      "sha256": "76b58d7e0c1a2a7309e68aae3ce0ac956f31404260da3c25037bdacbbabd94ba",
+      "size": 9290
+    },
+    "prompts/vendors/react/hooks.md": {
+      "category": "overwrite",
+      "sha256": "63adc2968a3742dd4b37259404121ec163edb014fd1fbf364fd2662308de2aa0",
+      "size": 9809
+    },
+    "prompts/vendors/react/state-management.md": {
+      "category": "overwrite",
+      "sha256": "0a0cb73bc78544b3173a5d6149dde60ec03d70620869882133376f3caf992169",
+      "size": 9189
+    },
+    "prompts/vendors/redis/README.md": {
+      "category": "overwrite",
+      "sha256": "fb40c56af48256561b8e610cf49308408733c6bbbc57516be5dde6fa851f7062",
+      "size": 1376
+    },
+    "prompts/vendors/redis/caching.md": {
+      "category": "overwrite",
+      "sha256": "2cdd1cdcacce8a82f286b888801713950b76d9ca0de74df6e10c31cab2534025",
+      "size": 9041
+    },
+    "prompts/vendors/redis/data-structures.md": {
+      "category": "overwrite",
+      "sha256": "d2c3800d06691a63c5d24b255d96e445fe90047349e0df85d1620984feb166ba",
+      "size": 9203
+    },
+    "prompts/vendors/redis/patterns.md": {
+      "category": "overwrite",
+      "sha256": "9322213afbc2c5953668a2d26c97b342fbf8aea0ffad52dd6a88598b2272629b",
+      "size": 12099
+    },
+    "prompts/vendors/supabase/README.md": {
+      "category": "overwrite",
+      "sha256": "d01e5ba0cbd0d0e3f619efaa940b5ed7ec2465ae8dab05cf26b33ac77c844dd9",
+      "size": 1143
+    },
+    "prompts/vendors/supabase/api.md": {
+      "category": "overwrite",
+      "sha256": "43dabfa913889c7e52d6657881031bc1d7cdd3317edf1ffa1455380834379ef4",
+      "size": 9793
+    },
+    "prompts/vendors/supabase/auth.md": {
+      "category": "overwrite",
+      "sha256": "3b21920ceea6a09cb084e0b2415b7ed3f286a2800d3ae53d0e23b5dc93ac29ec",
+      "size": 10437
+    },
+    "prompts/vendors/supabase/database.md": {
+      "category": "overwrite",
+      "sha256": "6dcf1c4459b8476440ec58dc595f6c5e39ed1aa2d8fc4670debbe4e916caf437",
+      "size": 10314
+    },
+    "prompts/vendors/vercel/README.md": {
+      "category": "overwrite",
+      "sha256": "e7f7b3bea946d3bb5dcbd85f116bdad65cc95430bff729ae8c99b503ca84e456",
+      "size": 1973
+    },
+    "prompts/vendors/vercel/deployment.md": {
+      "category": "overwrite",
+      "sha256": "4938526c5e2fe1921d01dfeb58b8843a90368dd830f7c5cfce188563e17197f8",
+      "size": 10028
+    },
+    "prompts/vendors/vercel/react-best-practices.md": {
+      "category": "overwrite",
+      "sha256": "f4b3481f5de6d87c5fa5046d13c23e9b986d909d13bd481f1211a46c1731d13b",
+      "size": 11704
+    },
+    "prompts/vendors/vercel/web-design-guidelines.md": {
+      "category": "overwrite",
+      "sha256": "a27d0d9b9151f8a042637f3525586e1bb4164a062662ed2999938a34415991fe",
+      "size": 13516
+    },
+    "skills/README.md": {
+      "category": "overwrite",
+      "sha256": "6497fadd61e7b4a5ad77300f1c659957148d9f0aab735e87ce9f33d71682cf95",
+      "size": 8104
+    },
+    "skills/audit-debt.md": {
+      "category": "overwrite",
+      "sha256": "ca8b9c775579da6c8cd8727dbcbe0c70097d2d8ed7785964765cbec921793df6",
+      "size": 3774
+    },
+    "skills/audit-deps.md": {
+      "category": "overwrite",
+      "sha256": "30ea88e77b098e991c9da81a65d24ac05f20a14e8fb700176d1b3f93f3f6eb1e",
+      "size": 4298
+    },
+    "skills/audit-performance.md": {
+      "category": "overwrite",
+      "sha256": "a62e261d34493aa6056145718e43e4af45986eae09336bdd9d0d5c1a58cffe6f",
+      "size": 3690
+    },
+    "skills/audit-security.md": {
+      "category": "overwrite",
+      "sha256": "0993236ae1fc49ab643da177161d5496f1dbd82e18bbdbdd3f299b0b095f9756",
+      "size": 3540
+    },
+    "skills/audit-ux.md": {
+      "category": "overwrite",
+      "sha256": "00bced689a4b33faf2c01a7e052afb639c8b594bf5d7dea3c767823008138198",
+      "size": 4887
+    },
+    "skills/check-quality.md": {
+      "category": "overwrite",
+      "sha256": "d2657a761eecb0fbc9a0882685db1c1375f1b482806ea372c10388461b627035",
+      "size": 2767
+    },
+    "skills/ci-fix.md": {
+      "category": "overwrite",
+      "sha256": "e867341e0bc28784bd4b37c54559ee33a1e33ae8998b999c1fe55a0a1b3d5381",
+      "size": 4127
+    },
+    "skills/github-import.md": {
+      "category": "overwrite",
+      "sha256": "95cf2d0e5c359bcf4725b9f0cb7c2a8c6e502b0ce0f730158a3d9aac51feb552",
+      "size": 2352
+    },
+    "skills/github-pr.md": {
+      "category": "overwrite",
+      "sha256": "f694440c636fae69a4cb751a718f4e21ca5d5aaa5f3271a02b65fe26bf75a84f",
+      "size": 2161
+    },
+    "skills/github-sync.md": {
+      "category": "overwrite",
+      "sha256": "4fb4c61a10f09a9b047a8205f7fce23e81c6c17c6e40067bbdc8edf09c45395c",
+      "size": 2017
+    },
+    "skills/mcp-status.md": {
+      "category": "overwrite",
+      "sha256": "41b271a5436fc2c252e004d56f7e6dd3b422c1623e6b01c195b9a19ddbe6941c",
+      "size": 2768
+    },
+    "skills/notify-slack.md": {
+      "category": "overwrite",
+      "sha256": "b565236dba37cb4c5feb56b457daf34975888885d214db95ef565750e9b083ec",
+      "size": 1972
+    },
+    "skills/research-features.md": {
+      "category": "overwrite",
+      "sha256": "413cd56956efbb022cb029711a32eb2beb03ab3f6e89222b835e910f9497366a",
+      "size": 5072
+    },
+    "skills/review-codebase.md": {
+      "category": "overwrite",
+      "sha256": "041655fbb1071995d2c5421a808267a8f6ae77b657f53cc2c85574f4daf1f384",
+      "size": 3248
+    },
+    "skills/setup-quality.md": {
+      "category": "overwrite",
+      "sha256": "08b55221cd7ef14961321e715c1f8d4926eb9196c5e0811df43438bc4c484d50",
+      "size": 5542
+    },
+    "skills/sync-agents.md": {
+      "category": "overwrite",
+      "sha256": "6bf52f78d45295a98ca9f464b91fc250d9a71f0e4cdeb484d50aab8359e40fd3",
+      "size": 2903
+    },
+    "skills/vendors/README.md": {
+      "category": "overwrite",
+      "sha256": "f56da0f5f8f88de60579f42f31c6fa7b228b7d20549a3a3f1d78b143b027925a",
+      "size": 4689
+    },
+    "skills/vendors/digitalocean/README.md": {
+      "category": "overwrite",
+      "sha256": "55b62fbd98a23f8cd99700645b590403c156a722d0e4cb8b6c7b8c9fcf942f88",
+      "size": 1074
+    },
+    "skills/vendors/digitalocean/deploy-app.md": {
+      "category": "overwrite",
+      "sha256": "0edfd6c6026b3a71600109d94e2ace43402b723acdad2c8d7d0de2080656c3e5",
+      "size": 2093
+    },
+    "skills/vendors/digitalocean/manage-droplet.md": {
+      "category": "overwrite",
+      "sha256": "0b0d94f1fd03430b86280724552d23dbcf219fa58ecf763071f2ffc362113efc",
+      "size": 2524
+    },
+    "skills/vendors/digitalocean/setup-database.md": {
+      "category": "overwrite",
+      "sha256": "7deace155b95b9a3f47fa41e252d9320227595b0e7f32afd2277d0d1a40fb866",
+      "size": 2951
+    },
+    "skills/vendors/dokku/README.md": {
+      "category": "overwrite",
+      "sha256": "3d91d72c7b1542e5d40c1983de2a89bf50c46bc9aac12883743638029b69cc09",
+      "size": 732
+    },
+    "skills/vendors/dokku/deploy.md": {
+      "category": "overwrite",
+      "sha256": "11a4f57dbba2f5110220a7b73d932c29532cef23a2ae4b124bda45cbb46e4aa2",
+      "size": 1974
+    },
+    "skills/vendors/dokku/setup-app.md": {
+      "category": "overwrite",
+      "sha256": "38f8e9a8b9284707b1350be03b665eda23eef9dd133d9de83b7b86fda6eb2658",
+      "size": 2526
+    },
+    "skills/vendors/dokku/troubleshoot.md": {
+      "category": "overwrite",
+      "sha256": "f23c51fcf8078011808975f39e0cab16da028ded8287b9a8ab9da1195d2a2ab9",
+      "size": 2766
+    },
+    "skills/vendors/figma/README.md": {
+      "category": "overwrite",
+      "sha256": "95bd134f5729b60d32b8ab16c29dca6f3f879327f4d74847391bcd487d7775b6",
+      "size": 894
+    },
+    "skills/vendors/figma/a11y-audit.md": {
+      "category": "overwrite",
+      "sha256": "1cd55858d1983405d41529e051a99d4ffb78d81a97182fc4310bd0c4d3b12a09",
+      "size": 1798
+    },
+    "skills/vendors/figma/design-to-code.md": {
+      "category": "overwrite",
+      "sha256": "e14ecca17ede80946a52d5c3e6d85f614178a238711f9a568d7704dc8db62f85",
+      "size": 2030
+    },
+    "skills/vendors/figma/extract-tokens.md": {
+      "category": "overwrite",
+      "sha256": "d697900b5b563b91d6cfe60402af692a46840c26c7b6c8c3b99e0c86044c69fd",
+      "size": 1828
+    },
+    "skills/vendors/github-actions/README.md": {
+      "category": "overwrite",
+      "sha256": "02da5129ff845a619f388f3023ab8a57c48152a5d6455863110bb5462ee20567",
+      "size": 682
+    },
+    "skills/vendors/github-actions/create-workflow.md": {
+      "category": "overwrite",
+      "sha256": "d03c0cb3c8c326ecd3e5d94b16043304d9664fc678279dc3ea9286aa41bb9623",
+      "size": 2483
+    },
+    "skills/vendors/github-actions/debug-workflow.md": {
+      "category": "overwrite",
+      "sha256": "00a9dc46fd00fe0552b28bc3f991525b92fe8c3bcc57a8a38b0d8838296d9a3f",
+      "size": 2307
+    },
+    "skills/vendors/github-actions/optimize.md": {
+      "category": "overwrite",
+      "sha256": "cba16b57277fd54b6cb4e1169f6928838c5207b4b5cf2fdb4d9c805998e02286",
+      "size": 2203
+    },
+    "skills/vendors/github/README.md": {
+      "category": "overwrite",
+      "sha256": "8b546f9bcfecaa262aa189791a31b5e4ef547144fcc4327a1fe1e1b0aceae0d7",
+      "size": 890
+    },
+    "skills/vendors/github/issue-triage.md": {
+      "category": "overwrite",
+      "sha256": "a6d6deabfa53c2930fe5cd02cce0bf219e113153072d291e46e5f546e8ce4f5e",
+      "size": 2059
+    },
+    "skills/vendors/github/pr-review.md": {
+      "category": "overwrite",
+      "sha256": "b5d5102a30a2f55923d66d031dddff3ae423028eebd994b04a0bc21329a35a8c",
+      "size": 2050
+    },
+    "skills/vendors/github/release.md": {
+      "category": "overwrite",
+      "sha256": "f6371bfa59865039070be3ac59ad80977f0817cb7e66be90fbff1b25d3c3e687",
+      "size": 2434
+    },
+    "skills/vendors/nextjs/README.md": {
+      "category": "overwrite",
+      "sha256": "620936a0d5e0be898011bd6359129e3f7e493915dd7ef6d6444f10551863db9a",
+      "size": 652
+    },
+    "skills/vendors/nextjs/create-route.md": {
+      "category": "overwrite",
+      "sha256": "7f3bd334d4b1e877b64273bd10e3455f50e0aeff5a9ea2944f88ee22898359d1",
+      "size": 2177
+    },
+    "skills/vendors/nextjs/optimize.md": {
+      "category": "overwrite",
+      "sha256": "d2e2c32fedde62faa650a9a83295f8b58d63e4ea53394b383e1108d3853e8339",
+      "size": 2038
+    },
+    "skills/vendors/postgres/README.md": {
+      "category": "overwrite",
+      "sha256": "cc297d6346d69600429efcc2f94f326ef8fd3ecb966b7df117dfd07c8bab901a",
+      "size": 617
+    },
+    "skills/vendors/postgres/health-check.md": {
+      "category": "overwrite",
+      "sha256": "12a13fe2094e76937f169e17e5fce2259dee1b169e7938a9b08fdcaa54dbf3ce",
+      "size": 3964
+    },
+    "skills/vendors/postgres/optimize-query.md": {
+      "category": "overwrite",
+      "sha256": "c7bf5de35145422aa4452266c88af5732ae848272946159d75437aad72050346",
+      "size": 2844
+    },
+    "skills/vendors/postgres/schema-review.md": {
+      "category": "overwrite",
+      "sha256": "ef3376b92e3f9f602cf1a1e7f189c00bd36b52ad80c9e48c8a7796da5ea76473",
+      "size": 2900
+    },
+    "skills/vendors/rails/README.md": {
+      "category": "overwrite",
+      "sha256": "d8d7d7c2de8c3e26b2b6ff7d9e4169f257a8efc09558730db045c9ff9f274690",
+      "size": 717
+    },
+    "skills/vendors/rails/api-endpoint.md": {
+      "category": "overwrite",
+      "sha256": "117eb4830545934a215e7d3be0c2330e4aab8a5f43f08b50533c49a9a404aa82",
+      "size": 2356
+    },
+    "skills/vendors/rails/service-object.md": {
+      "category": "overwrite",
+      "sha256": "0a413f938b96348c6dc6273a4409a58059d35eb0d52e7730e060b00c9bc0e7ba",
+      "size": 2159
+    },
+    "skills/vendors/react/README.md": {
+      "category": "overwrite",
+      "sha256": "a64209236c4bc8dbadbd832b8c1a303e1da63d5864a069c77891630a1c57abf2",
+      "size": 567
+    },
+    "skills/vendors/react/component-review.md": {
+      "category": "overwrite",
+      "sha256": "5836d51ce90631a454ae3356a4e1310070318f74cdb4fabd3b0d88bdb55720dc",
+      "size": 2021
+    },
+    "skills/vendors/redis/README.md": {
+      "category": "overwrite",
+      "sha256": "a9b3b460e727cf3558eeeb4808a6c2cfa4b1cf4cb10e5562b7cb233aa87fccd3",
+      "size": 909
+    },
+    "skills/vendors/redis/cache-setup.md": {
+      "category": "overwrite",
+      "sha256": "a600128849b20c6619b6e157e2bc3d1a3dc753e348e44dce04f9e55bcb73e0da",
+      "size": 2656
+    },
+    "skills/vendors/redis/rate-limiter.md": {
+      "category": "overwrite",
+      "sha256": "2a2b26fcf495f2729bc60a59c14f57798f5905d0f89a5bf010acf5cc52cc3a26",
+      "size": 2869
+    },
+    "skills/vendors/supabase/README.md": {
+      "category": "overwrite",
+      "sha256": "91e7c2ae894bffc8c2811cbecf8842b3b08314e6155649e5e0a3b1815e5f9f5f",
+      "size": 994
+    },
+    "skills/vendors/supabase/generate-types.md": {
+      "category": "overwrite",
+      "sha256": "3f4dbf491d43a1803964b2cafc3d3569779147292e5c400715c59b5c57ad4f6a",
+      "size": 2985
+    },
+    "skills/vendors/supabase/migrate.md": {
+      "category": "overwrite",
+      "sha256": "11ecf4e0935d34abe1dcb971103455d4185edcbfaf05051bd61be58ac67dec71",
+      "size": 2456
+    },
+    "skills/vendors/supabase/setup-auth.md": {
+      "category": "overwrite",
+      "sha256": "5076ec43f42e167bfbb2a1555f9a9769d218e4ad62a179ff4651b93dec5a51c9",
+      "size": 2949
+    },
+    "skills/vendors/vercel/README.md": {
+      "category": "overwrite",
+      "sha256": "756603343457e28b970589e909188c4d551b7addece3a3234e7bf26aaeb641ca",
+      "size": 2466
+    },
+    "skills/vendors/vercel/deploy.md": {
+      "category": "overwrite",
+      "sha256": "4d43722a7e9b23eb11e7c05f213d8e9066b42698b8a012f39f324682530d0191",
+      "size": 2300
+    },
+    "skills/vendors/vercel/perf-audit.md": {
+      "category": "overwrite",
+      "sha256": "154ebc2bc967488e13d074509b1271ab20770a17db35ec165e0871ea969bfbc6",
+      "size": 4343
+    },
+    "skills/vendors/vercel/react-review.md": {
+      "category": "overwrite",
+      "sha256": "b04e7c1c6a1f1b7c448e02a17d9dc69e40cf8aeb6930413b15ba8e433db13b2e",
+      "size": 2646
+    },
+    "skills/vendors/vercel/ui-audit.md": {
+      "category": "overwrite",
+      "sha256": "6ef415270831b437f8b06cafbd934b7929b1a5f3872d69396bef624d4f4cb58c",
+      "size": 3507
+    },
+    "skills/workflow.md": {
+      "category": "overwrite",
+      "sha256": "c4197ed6affdcc5c50d45e39b9d422d1ab39e488eb60b540b44e37c9823667ef",
+      "size": 2790
+    },
+    "hooks/check-quality-gates.sh": {
+      "category": "overwrite",
+      "sha256": "2cc1709fe59fcf6feb02aa331f62baede8d8d9bbd3973a579f821b2edd7f00f8",
+      "size": 2229
+    },
+    "hooks/check-quality.sh": {
+      "category": "overwrite",
+      "sha256": "549379931ec36737cc8ce75a161044102bd724cc510f1c32313dc42e4e8db3d8",
+      "size": 2800
+    },
+    "hooks/check-security.sh": {
+      "category": "overwrite",
+      "sha256": "db2aaf24679bc0ef5d0d75575e1e333b453b9e733ea6192cb1c914c05d9dbbc9",
+      "size": 2982
+    },
+    "hooks/commit-reminder.sh": {
+      "category": "overwrite",
+      "sha256": "0f7252ea5cd43c07844c43041456b96229055e2ab4ba49500c686e25294da134",
+      "size": 1343
+    },
+    "hooks/format-on-save.sh": {
+      "category": "overwrite",
+      "sha256": "fbf3c12030fe24c0d5dea2a6965a6ccbee35d8af1aa144eb06fd17ba1519602a",
+      "size": 2241
+    },
+    "hooks/inject-base-prompt.sh": {
+      "category": "overwrite",
+      "sha256": "8f99c6af3939d8022927e0448fe7eaf68a0bd7fd58a1f4b9c99e861efce086db",
+      "size": 1589
+    },
+    "hooks/protect-sensitive-files.sh": {
+      "category": "overwrite",
+      "sha256": "4534dc24351f4ed06bf6b7d7cca9b9c99ea24c97a6a854d8ee06bf5db6e9688b",
+      "size": 1805
+    },
+    "hooks/task-context.sh": {
+      "category": "overwrite",
+      "sha256": "dedc6f83b0adb269d12d45abaa3ec03714c5b75db972e4926a304aae08a7230b",
+      "size": 2147
+    },
+    "scripts/sync-agent-files.sh": {
+      "category": "overwrite",
+      "sha256": "a4cbede1357e3a44c05afc20222c9f2a48654eadef7c0d7fb3da601f611f83f8",
+      "size": 5732
+    },
+    "scripts/generate-commands.sh": {
+      "category": "overwrite",
+      "sha256": "10eb23e83f1d6a08241456dcddb594eebad1dc9163660d8c08ea1b2d3d984eb4",
+      "size": 5088
+    },
+    "scripts/setup-hooks.sh": {
+      "category": "overwrite",
+      "sha256": "ebee9f3b4431de7f9466f991f578e49f4ff898ccbdf4fbb695b40b87e6f27ee0",
+      "size": 668
+    },
+    "templates/AGENT.md": {
+      "category": "template",
+      "sha256": "09cc0750ec0a0e001b4309a4d425a07f5a80eb6ad115975587ea5b53f0b4af8d",
+      "size": 5049
+    },
+    "templates/PROJECT.md": {
+      "category": "template",
+      "sha256": "56cbb10e68bf98d53358c188a514c1207579ff23d5c21b048b2cadf8451677e1",
+      "size": 1825
+    },
+    "templates/TASK.md": {
+      "category": "template",
+      "sha256": "35d4f1f6593df22b581e094c2b797e03070ec40a3a9690faaf35f440d8f2dbae",
+      "size": 2296
+    },
+    "templates/agents/.cursorrules": {
+      "category": "template",
+      "sha256": "2c2a9bea550a69af7cb076f0ff5be9cba142c12fc6b75872a4baf407ae571df9",
+      "size": 687
+    },
+    "templates/agents/.github/copilot-instructions.md": {
+      "category": "template",
+      "sha256": "7f1bde5c2abbef05d46902c3d33129a7899c23ff806e1452bd0e9b884bde614e",
+      "size": 435
+    },
+    "templates/agents/AGENTS.md": {
+      "category": "template",
+      "sha256": "54832230002ebfde433fd8a28fe98711aac3f7fd4574daff1be8278f9d1bd49e",
+      "size": 3889
+    },
+    "templates/agents/CLAUDE.md": {
+      "category": "template",
+      "sha256": "b73a30a640225859e470174aab3392dba3decc4cd09467c0cc09cce9ee5aecd0",
+      "size": 411
+    },
+    "templates/agents/GEMINI.md": {
+      "category": "template",
+      "sha256": "ab4a8f42c36a7166dc52ca5111e8d706f27564142acf529960a46f7b6738c006",
+      "size": 406
+    },
+    "templates/agents/cursor/doyaken.mdc": {
+      "category": "template",
+      "sha256": "502e98cd557173f530535c8861a5ad03808ca28c6ba7b9d55d92cb44c232461b",
+      "size": 597
+    },
+    "templates/agents/cursor/quality.mdc": {
+      "category": "template",
+      "sha256": "7985b0e8737e4bde4d971b9d7ca9e3d31da71f4767a5b5bcbef687edf4376fc9",
+      "size": 886
+    },
+    "templates/agents/cursor/security.mdc": {
+      "category": "template",
+      "sha256": "f805c608eb7b01a607a38b94d4da7572a9e0d84871ba0f3ea13fb7bd169909be",
+      "size": 1124
+    },
+    "templates/agents/cursor/testing.mdc": {
+      "category": "template",
+      "sha256": "7cdc6bd94defefaab5f102e002ac36aaa5cfece5478d057702f26f3a179d3f64",
+      "size": 820
+    },
+    "templates/agents/opencode.json": {
+      "category": "template",
+      "sha256": "f6240c8fa9280c1307139d50227d03bb1d87591b7a454973e90e1d880ce39938",
+      "size": 436
+    },
+    "templates/claude-settings.json": {
+      "category": "template",
+      "sha256": "8b7b9af674d8ee1364e9017b15caa18e8c75a03dceff100876bf3a29f4afcb92",
+      "size": 1197
+    },
+    "templates/manifest.yaml": {
+      "category": "template",
+      "sha256": "b64e84697ba83562f5662c43e1168ac4cfd39f4e0f8cb25ff618d2af1c899e41",
+      "size": 5094
+    },
+    "templates/mcp/README.md": {
+      "category": "template",
+      "sha256": "8009ace43f4ba5fe178c5930fa26f62a36dbc3e36c7f13290da22cb1c4a62467",
+      "size": 3521
+    },
+    "templates/mcp/digitalocean.json": {
+      "category": "template",
+      "sha256": "ff40a2a9d17223f3043225ef33ccc82c5bb1da9704e7ef954358df916f4a9888",
+      "size": 2357
+    },
+    "templates/mcp/figma.json": {
+      "category": "template",
+      "sha256": "3ea5ff671bf347804a640003ae41d21ff3eea3e50a4916b38889318008f3290c",
+      "size": 1364
+    },
+    "templates/mcp/github.json": {
+      "category": "template",
+      "sha256": "56714f3848464490c4e5eab8251cdb6932c0d716193fc4ef5f2dd9d377575851",
+      "size": 1996
+    },
+    "templates/mcp/redis.json": {
+      "category": "template",
+      "sha256": "1c2d73eb555eb6dd132ee76dd0845c2eef45b4a2748a160d44a38886d6eecf5a",
+      "size": 1891
+    },
+    "templates/mcp/supabase.json": {
+      "category": "template",
+      "sha256": "59cea91d2a7eb1cc76bbc2b50656fc669be9fc43605d6db6df143f60db52913b",
+      "size": 2416
+    },
+    "templates/mcp/vercel.json": {
+      "category": "template",
+      "sha256": "ed274fa847491d0a520f6aed44cc7319292bac6d4bb759a66846e782e76d6f86",
+      "size": 2718
+    }
+  },
+  "obsolete": [
+  ]
+}
