@@ -854,6 +854,17 @@ EOF
   fi
   log_success "Created task template"
 
+  # Copy doyaken README to project .doyaken folder
+  local readme_src="$DOYAKEN_HOME/README.md"
+  if [ ! -f "$readme_src" ]; then
+    # Fallback to script directory (for development)
+    readme_src="$(dirname "$SCRIPT_DIR")/README.md"
+  fi
+  if [ -f "$readme_src" ]; then
+    cp "$readme_src" "$ai_agent_dir/README.md"
+    log_success "Copied doyaken README to .doyaken/"
+  fi
+
   # Sync all agent files (AGENTS.md, CLAUDE.md, .cursorrules, etc.)
   local sync_script="$DOYAKEN_HOME/scripts/sync-agent-files.sh"
   if [ ! -f "$sync_script" ]; then

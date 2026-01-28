@@ -291,14 +291,14 @@ SKIP_REVIEW="${SKIP_REVIEW:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
 
 # Phase timeouts (in seconds)
-TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-300}"      # 5 min - exploration needs time
-TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-180}"      # 3 min - quick categorization
-TIMEOUT_PLAN="${TIMEOUT_PLAN:-300}"          # 5 min - planning
-TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-1800}" # 30 min - implementation
-TIMEOUT_TEST="${TIMEOUT_TEST:-600}"          # 10 min - testing
-TIMEOUT_DOCS="${TIMEOUT_DOCS:-300}"          # 5 min - documentation
-TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-600}"      # 10 min - code review
-TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-300}"      # 5 min - verification
+TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-900}"      # 15 min - exploration needs time
+TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-540}"      # 9 min - quick categorization
+TIMEOUT_PLAN="${TIMEOUT_PLAN:-900}"          # 15 min - planning
+TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-5400}" # 90 min - implementation
+TIMEOUT_TEST="${TIMEOUT_TEST:-1800}"         # 30 min - testing
+TIMEOUT_DOCS="${TIMEOUT_DOCS:-900}"          # 15 min - documentation
+TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-1800}"     # 30 min - code review
+TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-900}"      # 15 min - verification
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(

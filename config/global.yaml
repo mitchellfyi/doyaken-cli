@@ -49,14 +49,14 @@ output:
 
 # Phase timeouts in seconds
 timeouts:
-  expand: 120
-  triage: 120
-  plan: 300
-  implement: 1800
-  test: 600
-  docs: 300
-  review: 600
-  verify: 180
+  expand: 360
+  triage: 360
+  plan: 900
+  implement: 5400
+  test: 1800
+  docs: 900
+  review: 1800
+  verify: 540
 
 # Tool-specific global defaults
 tools:
