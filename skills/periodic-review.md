@@ -3,8 +3,8 @@ name: periodic-review
 description: Comprehensive periodic review of the codebase (quality, security, performance, debt, UX, docs)
 args:
   - name: fix
-    description: Enable auto-fix mode for issues that can be automatically resolved
-    default: "false"
+    description: Auto-fix issues where possible (disable with fix=false to only create tasks)
+    default: "true"
   - name: create-tasks
     description: Create follow-up tasks for issues that require manual intervention
     default: "true"

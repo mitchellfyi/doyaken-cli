@@ -131,8 +131,8 @@ periodic_review:
   threshold: 3
 
   # Auto-fix issues where possible (formatting, simple refactors)
-  # If false, creates tasks for all findings
-  auto_fix: false
+  # Creates tasks only for issues that require manual intervention
+  auto_fix: true
 
 # ============================================================================
 # Tool-specific Global Defaults

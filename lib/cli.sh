@@ -1615,7 +1615,7 @@ cmd_upgrade() {
 # ============================================================================
 
 cmd_review() {
-  local fix_mode="false"
+  local fix_mode="true"
   local create_tasks="true"
   local scope="all"
 
@@ -1663,26 +1663,31 @@ cmd_review() {
         log_success "Review counter reset to 0"
         return 0
         ;;
+      --no-fix)
+        fix_mode="false"
+        shift
+        ;;
       --help|-h)
         echo ""
         echo "doyaken review - Periodic codebase review"
         echo ""
         echo "Usage:"
-        echo "  doyaken review              Run full periodic review"
-        echo "  doyaken review --fix        Run with auto-fix enabled"
+        echo "  doyaken review              Run full periodic review (auto-fix enabled)"
+        echo "  doyaken review --no-fix     Run without auto-fix (only create tasks)"
         echo "  doyaken review --status     Show review status"
         echo "  doyaken review --reset      Reset completion counter"
         echo ""
         echo "Options:"
-        echo "  --fix, -f         Auto-fix issues where possible"
+        echo "  --fix, -f         Auto-fix issues where possible (default)"
+        echo "  --no-fix          Disable auto-fix, only create tasks"
         echo "  --no-tasks        Don't create follow-up tasks"
         echo "  --scope=SCOPE     Review scope: all, quality, security, performance, debt, ux, docs"
         echo "  --status, -s      Show review status (counter, threshold)"
         echo "  --reset           Reset the task completion counter"
         echo ""
         echo "Examples:"
-        echo "  doyaken review                      # Full review, create tasks"
-        echo "  doyaken review --fix                # Full review with auto-fix"
+        echo "  doyaken review                      # Full review with auto-fix"
+        echo "  doyaken review --no-fix             # Review only, create tasks"
         echo "  doyaken review --scope=security     # Security-focused review"
         echo "  doyaken review --status             # Check review status"
         echo ""

@@ -38,7 +38,7 @@ source "$SCRIPT_DIR/review-tracker.sh" 2>/dev/null || {
 # Argument Parsing
 # ============================================================================
 
-FIX_MODE="false"
+FIX_MODE="true"
 CREATE_TASKS="true"
 SCOPE="all"
 BACKGROUND="false"
