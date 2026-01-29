@@ -1,7 +1,12 @@
 {
-  "version": "0.1.10",
-  "generated": "2026-01-28T21:14:52Z",
+  "version": "0.1.11",
+  "generated": "2026-01-29T16:20:04Z",
   "files": {
+    "README.md": {
+      "category": "overwrite",
+      "sha256": "33e7c236ae4869e5c38809608dcf08018a726dfb0faa255eb96adaa02dfc0754",
+      "size": 11297
+    },
     "lib/agents.sh": {
       "category": "overwrite",
       "sha256": "547f767d8b23bbe3dc9347a0f93a379a7985c49c187fc9b9226cb1a89dfd4693",
@@ -19,8 +24,8 @@
     },
     "lib/core.sh": {
       "category": "overwrite",
-      "sha256": "8989a1b4b30866c4f930f1829ec5f8e140906859d326d98ec559f5bf183727cb",
-      "size": 51980
+      "sha256": "263d350fd2f5e0efb7f87429695c56e39c00872760f089550f93ef77a4e3e4c5",
+      "size": 52433
     },
     "lib/hooks.sh": {
       "category": "overwrite",
