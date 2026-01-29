@@ -1,6 +1,6 @@
 {
   "version": "0.1.11",
-  "generated": "2026-01-29T17:24:21Z",
+  "generated": "2026-01-29T17:31:03Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -14,8 +14,8 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "f4f421dff3c0a08c5c0fe12b8a55cdc314686a8fced2390c012dce4c1ef6c652",
-      "size": 59111
+      "sha256": "7b2fa70111d32fd92a1fb10a714facf89ce7738d03b23dcb2ae9438de5c44965",
+      "size": 47230
     },
     "lib/config.sh": {
       "category": "overwrite",
@@ -27,6 +27,11 @@
       "sha256": "263d350fd2f5e0efb7f87429695c56e39c00872760f089550f93ef77a4e3e4c5",
       "size": 52433
     },
+    "lib/help.sh": {
+      "category": "overwrite",
+      "sha256": "3abd4c08c76d44a34e1e08c5cb19fc234efb9c60b9145d4fc2189c5ea49cdd4f",
+      "size": 7063
+    },
     "lib/hooks.sh": {
       "category": "overwrite",
       "sha256": "daeccfe6494928447d49e7bd1a0e07c7c67e3d17e7f4d56e4ca74c8136eccd87",
@@ -36,6 +41,11 @@
       "category": "overwrite",
       "sha256": "f3d334e5f1962fc27d10c45bf7d8d966c59ed6a27418cad1cde04cb342f980c4",
       "size": 10979
+    },
+    "lib/project.sh": {
+      "category": "overwrite",
+      "sha256": "dec44e1056f848ec2340edcfab527480574da05a325990c689a42505816f691e",
+      "size": 5419
     },
     "lib/registry.sh": {
       "category": "overwrite",
@@ -66,6 +76,11 @@
       "category": "overwrite",
       "sha256": "1c524d5c0f4a6a1c73d4441b1a686471318277f7c3c93568a174ea9965594f28",
       "size": 19446
+    },
+    "lib/utils.sh": {
+      "category": "overwrite",
+      "sha256": "cf8c7ebbbe3ab1fcbfb6292eed24cab05a516fbedc4d33ec5ec0a6697939b429",
+      "size": 3924
     },
     "bin/dk": {
       "category": "overwrite",
