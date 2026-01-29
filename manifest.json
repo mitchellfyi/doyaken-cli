@@ -1,6 +1,6 @@
 {
   "version": "0.1.11",
-  "generated": "2026-01-29T16:20:04Z",
+  "generated": "2026-01-29T16:32:48Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -14,8 +14,8 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "a9a58c7b4ada5e50143d6f7e88dfe3c21ae3854b2ebdea859d13e1a1eb8379f3",
-      "size": 56423
+      "sha256": "26a37b39d11a9972f559f48601524c75b0be1a89b7ae9b9908422c8e28a405dc",
+      "size": 56562
     },
     "lib/config.sh": {
       "category": "overwrite",
@@ -66,6 +66,11 @@
       "category": "overwrite",
       "sha256": "584ab97e966b515e00b47fa8dccfa75aeaae27eeaadab95b8fc024206ba6f329",
       "size": 19084
+    },
+    "bin/dk": {
+      "category": "overwrite",
+      "sha256": "7a8bb8e79f2da01178f8019157ec28751ef40cbd548d5f885a18046157ee8696",
+      "size": 1705
     },
     "bin/doyaken": {
       "category": "overwrite",

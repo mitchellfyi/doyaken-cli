@@ -254,7 +254,7 @@ else
   /bin/cp -f "$SOURCE_DIR/lib"/*.sh "$DOYAKEN_HOME/lib/"
   /bin/cp -f "$SOURCE_DIR/bin/doyaken" "$DOYAKEN_HOME/bin/"
 
-  # Copy prompts
+  # Copy prompts (including vendor prompts)
   if [ -d "$SOURCE_DIR/prompts/library" ]; then
     mkdir -p "$DOYAKEN_HOME/prompts/library"
     /bin/cp -f "$SOURCE_DIR/prompts/library"/*.md "$DOYAKEN_HOME/prompts/library/" 2>/dev/null || true
@@ -263,14 +263,25 @@ else
     mkdir -p "$DOYAKEN_HOME/prompts/phases"
     /bin/cp -f "$SOURCE_DIR/prompts/phases"/*.md "$DOYAKEN_HOME/prompts/phases/" 2>/dev/null || true
   fi
+  if [ -d "$SOURCE_DIR/prompts/vendors" ]; then
+    cp -r "$SOURCE_DIR/prompts/vendors" "$DOYAKEN_HOME/prompts/"
+  fi
+  # Copy prompts README
+  if [ -f "$SOURCE_DIR/prompts/README.md" ]; then
+    /bin/cp -f "$SOURCE_DIR/prompts/README.md" "$DOYAKEN_HOME/prompts/"
+  fi
 
   # Copy templates
-  /bin/cp -f "$SOURCE_DIR/templates"/*.yaml "$DOYAKEN_HOME/templates/" 2>/dev/null || true
-  /bin/cp -f "$SOURCE_DIR/templates"/*.md "$DOYAKEN_HOME/templates/" 2>/dev/null || true
+  # Copy templates (including subdirectories)
+  cp -r "$SOURCE_DIR/templates"/* "$DOYAKEN_HOME/templates/" 2>/dev/null || true
 
-  # Copy skills
+  # Copy skills (including vendor skills)
   if [ -d "$SOURCE_DIR/skills" ]; then
     /bin/cp -f "$SOURCE_DIR/skills"/*.md "$DOYAKEN_HOME/skills/" 2>/dev/null || true
+    # Copy vendor skills
+    if [ -d "$SOURCE_DIR/skills/vendors" ]; then
+      cp -r "$SOURCE_DIR/skills/vendors" "$DOYAKEN_HOME/skills/"
+    fi
   fi
 
   # Copy hooks
@@ -293,11 +304,32 @@ else
     grep '"version"' "$SOURCE_DIR/package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' > "$DOYAKEN_HOME/VERSION"
   fi
 
-  # Create wrapper scripts
-  PROJECT_BIN="$PROJECT_DIR/bin"
-  mkdir -p "$PROJECT_BIN"
+  # Copy root-level documentation
+  for doc in README.md CHANGELOG.md LICENSE; do
+    if [ -f "$SOURCE_DIR/$doc" ]; then
+      /bin/cp -f "$SOURCE_DIR/$doc" "$DOYAKEN_HOME/"
+    fi
+  done
 
-  cat > "$PROJECT_BIN/doyaken" << 'WRAPPER'
+  # Copy scripts
+  mkdir -p "$DOYAKEN_HOME/scripts"
+  for script in sync-agent-files.sh generate-commands.sh setup-hooks.sh; do
+    if [ -f "$SOURCE_DIR/scripts/$script" ]; then
+      /bin/cp -f "$SOURCE_DIR/scripts/$script" "$DOYAKEN_HOME/scripts/"
+      chmod +x "$DOYAKEN_HOME/scripts/$script"
+    fi
+  done
+
+  # Create wrapper scripts (only if not installing into doyaken source repo)
+  PROJECT_BIN="$PROJECT_DIR/bin"
+
+  # Check if we're installing into the source repo itself
+  if [ "$PROJECT_DIR" = "$SOURCE_DIR" ]; then
+    log_info "Installing into source repo - skipping wrapper creation"
+  else
+    mkdir -p "$PROJECT_BIN"
+
+    cat > "$PROJECT_BIN/doyaken" << 'WRAPPER'
 #!/usr/bin/env bash
 # Project-local doyaken wrapper
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -305,9 +337,10 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 export DOYAKEN_HOME="$PROJECT_DIR/.doyaken"
 exec "$DOYAKEN_HOME/bin/doyaken" "$@"
 WRAPPER
-  chmod +x "$PROJECT_BIN/doyaken"
-  ln -sf "$PROJECT_BIN/doyaken" "$PROJECT_BIN/dk"
-  log_success "Created project wrappers at $PROJECT_BIN/{doyaken,dk}"
+    chmod +x "$PROJECT_BIN/doyaken"
+    ln -sf "$PROJECT_BIN/doyaken" "$PROJECT_BIN/dk"
+    log_success "Created project wrappers at $PROJECT_BIN/{doyaken,dk}"
+  fi
 
   # Copy task template
   if [ -f "$DOYAKEN_HOME/templates/TASK.md" ]; then

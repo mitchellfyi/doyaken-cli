@@ -1500,9 +1500,7 @@ cmd_config() {
 }
 
 cmd_upgrade() {
-  local subcmd="${1:-apply}"
-  shift || true
-
+  local subcmd="apply"
   local force=false
   local dry_run=false
 
@@ -1529,11 +1527,15 @@ cmd_upgrade() {
         subcmd="list-backups"
         shift
         ;;
-      *)
-        if [ "$subcmd" = "apply" ]; then
-          subcmd="$1"
-        fi
+      check|apply|rollback|list-backups|verify)
+        subcmd="$1"
         shift
+        ;;
+      *)
+        log_error "Unknown upgrade option: $1"
+        echo ""
+        echo "Usage: doyaken upgrade [--check|--force|--dry-run|--rollback]"
+        return 1
         ;;
     esac
   done
