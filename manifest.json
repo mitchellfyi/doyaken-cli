@@ -1,6 +1,6 @@
 {
   "version": "0.1.11",
-  "generated": "2026-01-29T17:31:03Z",
+  "generated": "2026-01-29T17:36:22Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -14,8 +14,8 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "7b2fa70111d32fd92a1fb10a714facf89ce7738d03b23dcb2ae9438de5c44965",
-      "size": 47230
+      "sha256": "199931c00bbb9b97f9d6bb24bd8afd6d36b44bbc6ff45eae9ed23ea5177d927f",
+      "size": 47461
     },
     "lib/config.sh": {
       "category": "overwrite",

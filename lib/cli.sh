@@ -45,6 +45,14 @@ source "$SCRIPT_DIR/review-tracker.sh"
 
 cmd_run() {
   local num_tasks="${1:-5}"
+
+  # Validate task count early
+  if ! [[ "$num_tasks" =~ ^[0-9]+$ ]] || [ "$num_tasks" -lt 1 ]; then
+    log_error "Invalid task count: $num_tasks"
+    echo "Usage: doyaken run [N]  (where N is a positive number)"
+    exit 1
+  fi
+
   local project
   project=$(require_project)
 
