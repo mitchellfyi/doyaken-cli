@@ -437,6 +437,17 @@ _copy_file() {
   local dst_dir
   dst_dir=$(dirname "$dst")
   mkdir -p "$dst_dir"
+
+  # Resolve to absolute paths to detect same-file scenario
+  local abs_src abs_dst
+  abs_src=$(cd "$(dirname "$src")" && pwd)/$(basename "$src")
+  abs_dst=$(cd "$(dirname "$dst")" 2>/dev/null && pwd)/$(basename "$dst") 2>/dev/null || abs_dst="$dst"
+
+  # Skip if source and destination are the same file
+  if [ "$abs_src" = "$abs_dst" ]; then
+    return 0
+  fi
+
   # Use /bin/cp to avoid aliases (cp -i), force overwrite
   /bin/cp -f "$src" "$dst"
 }

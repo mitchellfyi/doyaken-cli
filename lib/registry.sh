@@ -220,9 +220,20 @@ list_projects() {
       fi
 
       if [ -n "$ai_agent_dir" ]; then
-        local todo doing
-        todo=$(find "$ai_agent_dir/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-        doing=$(find "$ai_agent_dir/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+        local todo doing todo_dir doing_dir
+        # Support both numbered (2.todo) and legacy (todo) folder naming
+        if [ -d "$ai_agent_dir/tasks/2.todo" ]; then
+          todo_dir="$ai_agent_dir/tasks/2.todo"
+        else
+          todo_dir="$ai_agent_dir/tasks/todo"
+        fi
+        if [ -d "$ai_agent_dir/tasks/3.doing" ]; then
+          doing_dir="$ai_agent_dir/tasks/3.doing"
+        else
+          doing_dir="$ai_agent_dir/tasks/doing"
+        fi
+        todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+        doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
         status="${todo} todo, ${doing} doing"
       else
         status="(not found)"
@@ -252,10 +263,22 @@ list_projects() {
       elif [[ "$in_project" == 1 && "$line" =~ ^[[:space:]]*registered_at: ]]; then
         # End of this project entry
         local status=""
+        local todo_dir="" doing_dir=""
         if [ -d "$path/.doyaken/tasks" ]; then
+          # Support both numbered and legacy folder naming
+          if [ -d "$path/.doyaken/tasks/2.todo" ]; then
+            todo_dir="$path/.doyaken/tasks/2.todo"
+          else
+            todo_dir="$path/.doyaken/tasks/todo"
+          fi
+          if [ -d "$path/.doyaken/tasks/3.doing" ]; then
+            doing_dir="$path/.doyaken/tasks/3.doing"
+          else
+            doing_dir="$path/.doyaken/tasks/doing"
+          fi
           local todo doing
-          todo=$(find "$path/.doyaken/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          doing=$(find "$path/.doyaken/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+          todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+          doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
           status="${todo} todo, ${doing} doing"
         elif [ -d "$path/.claude/tasks" ]; then
           local todo doing

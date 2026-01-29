@@ -314,7 +314,12 @@ mcp_status() {
 
     if [ "$is_enabled" = false ]; then
       local desc
-      desc=$(yq -r '.description // "No description"' "$server_file")
+      if command -v yq &>/dev/null; then
+        desc=$(yq -r '.description // "No description"' "$server_file")
+      else
+        # Fallback: extract description using grep
+        desc=$(grep -m1 "^description:" "$server_file" 2>/dev/null | sed 's/^description:[[:space:]]*//' | tr -d '"' || echo "No description")
+      fi
       echo "  [ ] $name - $desc"
     fi
   done

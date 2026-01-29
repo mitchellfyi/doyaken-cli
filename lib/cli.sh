@@ -15,9 +15,13 @@ set -euo pipefail
 
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
-# Get version from package.json (relative to lib/ directory)
-DOYAKEN_VERSION="0.1.6"
-if [ -f "$(dirname "${BASH_SOURCE[0]}")/../package.json" ]; then
+# Get version from VERSION file or package.json
+DOYAKEN_VERSION="0.1.12"
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/../VERSION" ]; then
+  DOYAKEN_VERSION=$(cat "$(dirname "${BASH_SOURCE[0]}")/../VERSION")
+elif [ -f "$DOYAKEN_HOME/VERSION" ]; then
+  DOYAKEN_VERSION=$(cat "$DOYAKEN_HOME/VERSION")
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../package.json" ]; then
   DOYAKEN_VERSION=$(grep '"version"' "$(dirname "${BASH_SOURCE[0]}")/../package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 fi
 
@@ -318,14 +322,23 @@ detect_project() {
     return 1
   }
 
-  # Check for .doyaken/ in current directory
-  if [ -d "$search_dir/.doyaken" ]; then
-    echo "$search_dir"
-    return 0
+  # Get resolved DOYAKEN_HOME for comparison
+  local resolved_home=""
+  if [ -d "$DOYAKEN_HOME" ]; then
+    resolved_home=$(cd "$DOYAKEN_HOME" && pwd)
   fi
 
-  # Check for legacy .claude/ directory
-  if [ -d "$search_dir/.claude" ]; then
+  # Check for .doyaken/ in current directory (but not the global install)
+  if [ -d "$search_dir/.doyaken" ]; then
+    # Skip if this is the parent of DOYAKEN_HOME (i.e., we're in ~ and ~/.doyaken exists)
+    if [ "$search_dir/.doyaken" != "$resolved_home" ]; then
+      echo "$search_dir"
+      return 0
+    fi
+  fi
+
+  # Check for legacy .claude/ directory (must have tasks/todo to be a doyaken project, not Claude Code's global config)
+  if [ -d "$search_dir/.claude/tasks/todo" ] || [ -d "$search_dir/.claude/tasks/2.todo" ]; then
     echo "LEGACY:$search_dir"
     return 0
   fi
@@ -334,10 +347,14 @@ detect_project() {
   local parent="$search_dir"
   while [ "$parent" != "/" ]; do
     if [ -d "$parent/.doyaken" ]; then
-      echo "$parent"
-      return 0
+      # Skip if this is the global install directory
+      if [ "$parent/.doyaken" != "$resolved_home" ]; then
+        echo "$parent"
+        return 0
+      fi
     fi
-    if [ -d "$parent/.claude" ]; then
+    # Check for legacy .claude/ with tasks/todo subfolder (to distinguish from Claude Code's global config)
+    if [ -d "$parent/.claude/tasks/todo" ] || [ -d "$parent/.claude/tasks/2.todo" ]; then
       echo "LEGACY:$parent"
       return 0
     fi
@@ -357,11 +374,22 @@ detect_project() {
 
 require_project() {
   local project
-  project=$(detect_project) || {
-    log_error "Not in an doyaken project"
-    log_info "Run 'doyaken init' to initialize this directory"
-    exit 1
-  }
+
+  # Check for explicit project override first
+  if [ -n "${DOYAKEN_PROJECT:-}" ]; then
+    if [ -d "$DOYAKEN_PROJECT/.doyaken" ]; then
+      project="$DOYAKEN_PROJECT"
+    else
+      log_error "Specified project not found: $DOYAKEN_PROJECT"
+      exit 1
+    fi
+  else
+    project=$(detect_project) || {
+      log_error "Not in a doyaken project"
+      log_info "Run 'doyaken init' to initialize this directory"
+      exit 1
+    }
+  fi
 
   if [[ "$project" == LEGACY:* ]]; then
     local legacy_path="${project#LEGACY:}"
@@ -1279,41 +1307,42 @@ cmd_doctor() {
   # Check project
   echo ""
   echo "Current Project:"
-  if [ -n "$project" ]; then
-    if [[ "$project" == LEGACY:* ]]; then
-      log_warn "Legacy project: ${project#LEGACY:}"
-      echo "  Run 'doyaken init' in a new directory instead"
-    else
-      log_success "Project found: $project"
+  if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+    log_success "Project found: $project"
 
-      # Check project structure (supports both old and new folder naming)
-      local ai_agent_dir="$project/.doyaken"
-      # Check for numbered folders first, fall back to old naming
-      if [ -d "$ai_agent_dir/tasks/1.blocked" ] || [ -d "$ai_agent_dir/tasks/blocked" ]; then
-        log_success "  tasks/blocked exists"
-      else
-        log_warn "  tasks/blocked missing (optional)"
-      fi
-      if [ -d "$ai_agent_dir/tasks/2.todo" ] || [ -d "$ai_agent_dir/tasks/todo" ]; then
-        log_success "  tasks/todo exists"
-      else
-        log_error "  tasks/todo missing"
-      fi
-      if [ -d "$ai_agent_dir/tasks/3.doing" ] || [ -d "$ai_agent_dir/tasks/doing" ]; then
-        log_success "  tasks/doing exists"
-      else
-        log_error "  tasks/doing missing"
-      fi
-      if [ -d "$ai_agent_dir/tasks/4.done" ] || [ -d "$ai_agent_dir/tasks/done" ]; then
-        log_success "  tasks/done exists"
-      else
-        log_error "  tasks/done missing"
-      fi
-      [ -f "$ai_agent_dir/manifest.yaml" ] && log_success "  manifest.yaml exists" || log_warn "  manifest.yaml missing"
-      [ -f "$project/AGENT.md" ] && log_success "  AGENT.md exists" || log_warn "  AGENT.md missing"
+    # Check project structure (supports both old and new folder naming)
+    local ai_agent_dir="$project/.doyaken"
+    # Check for numbered folders first, fall back to old naming
+    if [ -d "$ai_agent_dir/tasks/1.blocked" ] || [ -d "$ai_agent_dir/tasks/blocked" ]; then
+      log_success "  tasks/blocked exists"
+    else
+      log_warn "  tasks/blocked missing (optional)"
     fi
+    if [ -d "$ai_agent_dir/tasks/2.todo" ] || [ -d "$ai_agent_dir/tasks/todo" ]; then
+      log_success "  tasks/todo exists"
+    else
+      log_error "  tasks/todo missing"
+      ((issues++))
+    fi
+    if [ -d "$ai_agent_dir/tasks/3.doing" ] || [ -d "$ai_agent_dir/tasks/doing" ]; then
+      log_success "  tasks/doing exists"
+    else
+      log_error "  tasks/doing missing"
+      ((issues++))
+    fi
+    if [ -d "$ai_agent_dir/tasks/4.done" ] || [ -d "$ai_agent_dir/tasks/done" ]; then
+      log_success "  tasks/done exists"
+    else
+      log_error "  tasks/done missing"
+      ((issues++))
+    fi
+    [ -f "$ai_agent_dir/manifest.yaml" ] && log_success "  manifest.yaml exists" || log_warn "  manifest.yaml missing"
+    [ -f "$project/AGENT.md" ] && log_success "  AGENT.md exists" || log_warn "  AGENT.md missing"
+  elif [[ "$project" == LEGACY:* ]]; then
+    log_warn "Legacy project: ${project#LEGACY:}"
+    echo "  Run 'doyaken init' in a new directory instead"
   else
-    log_info "Not in a project directory"
+    log_info "Not in a project directory (run 'dk init' to create one)"
   fi
 
   # Registry info
