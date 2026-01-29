@@ -162,7 +162,7 @@ else
 fi
 
 # Test 15: Auto-timeout default is 60 seconds
-if grep -q 'DOYAKEN_AUTO_TIMEOUT:-60' "$ROOT_DIR/lib/cli.sh"; then
+if grep -q 'DOYAKEN_AUTO_TIMEOUT:-60' "$ROOT_DIR/lib/utils.sh"; then
   pass "Auto-timeout defaults to 60 seconds"
 else
   fail "Auto-timeout default is not 60 seconds"

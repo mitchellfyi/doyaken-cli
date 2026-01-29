@@ -1042,7 +1042,7 @@ cmd_doctor() {
 }
 
 cmd_version() {
-  echo "doyaken $DOYAKEN_VERSION"
+  echo "doyaken version $DOYAKEN_VERSION"
 }
 
 cmd_skills() {
