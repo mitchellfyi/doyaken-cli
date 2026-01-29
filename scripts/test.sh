@@ -36,10 +36,11 @@ else
 fi
 
 # Test 2: Version command works
-if "$ROOT_DIR/bin/doyaken" --version 2>&1 | grep -q "doyaken version"; then
+VERSION_OUTPUT=$("$ROOT_DIR/bin/doyaken" --version 2>&1 || true)
+if echo "$VERSION_OUTPUT" | grep -q "doyaken version"; then
   pass "Version command works"
 else
-  fail "Version command failed"
+  fail "Version command failed (got: '$VERSION_OUTPUT')"
 fi
 
 # Test 3: Help command works
@@ -162,10 +163,11 @@ else
 fi
 
 # Test 15: Auto-timeout default is 60 seconds
-if grep -q 'DOYAKEN_AUTO_TIMEOUT:-60' "$ROOT_DIR/lib/utils.sh"; then
+TIMEOUT_LINE=$(grep 'DOYAKEN_AUTO_TIMEOUT' "$ROOT_DIR/lib/utils.sh" 2>/dev/null || echo "not found")
+if echo "$TIMEOUT_LINE" | grep -q ':-60'; then
   pass "Auto-timeout defaults to 60 seconds"
 else
-  fail "Auto-timeout default is not 60 seconds"
+  fail "Auto-timeout default is not 60 seconds (found: '$TIMEOUT_LINE')"
 fi
 
 # Test 16: Functional test - init creates correct structure

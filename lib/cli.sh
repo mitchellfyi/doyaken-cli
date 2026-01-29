@@ -16,7 +16,7 @@ set -euo pipefail
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
 # Get version from VERSION file or package.json
-DOYAKEN_VERSION="0.1.12"
+DOYAKEN_VERSION="0.1.13"
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/../VERSION" ]; then
   DOYAKEN_VERSION=$(cat "$(dirname "${BASH_SOURCE[0]}")/../VERSION")
 elif [ -f "$DOYAKEN_HOME/VERSION" ]; then
