@@ -47,6 +47,9 @@ source "$SCRIPT_DIR/skills.sh"
 # Source configuration library
 source "$SCRIPT_DIR/config.sh"
 
+# Source review tracker for periodic reviews
+source "$SCRIPT_DIR/review-tracker.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -1697,6 +1700,8 @@ main() {
   for ((i=start_iteration; i<=NUM_TASKS; i++)); do
     if run_with_retry "$i"; then
       ((completed++))
+      # Track for periodic review
+      review_tracker_increment > /dev/null 2>&1 || true
     else
       local available
       available=$(get_next_available_task) || true
@@ -1735,6 +1740,13 @@ main() {
   fi
 
   log_success "All tasks completed successfully!"
+
+  # Check if periodic review should be triggered
+  if review_tracker_is_enabled && review_tracker_should_trigger; then
+    echo ""
+    log_info "Periodic review threshold reached ($(review_tracker_status))"
+    log_info "Run 'doyaken review' to perform a codebase review"
+  fi
 }
 
 # ============================================================================

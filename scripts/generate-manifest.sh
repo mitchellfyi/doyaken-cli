@@ -92,6 +92,26 @@ process_dir() {
 
 # Process each directory
 {
+  # Root-level documentation files (README.md, etc.)
+  for file in "$ROOT_DIR"/README.md "$ROOT_DIR"/CHANGELOG.md "$ROOT_DIR"/LICENSE; do
+    [ -f "$file" ] || continue
+    rel_path="${file#$ROOT_DIR/}"
+    checksum=$(compute_checksum "$file")
+    size=$(wc -c < "$file" | tr -d ' ')
+
+    if [ "$first" = "true" ]; then
+      first=false
+    else
+      echo ","
+    fi
+
+    printf '    "%s": {\n' "$rel_path"
+    printf '      "category": "overwrite",\n'
+    printf '      "sha256": "%s",\n' "$checksum"
+    printf '      "size": %d\n' "$size"
+    printf '    }'
+  done
+
   # lib (shell scripts)
   for file in "$ROOT_DIR"/lib/*.sh; do
     [ -f "$file" ] || continue
