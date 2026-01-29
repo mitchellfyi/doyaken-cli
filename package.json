@@ -1,6 +1,6 @@
 {
   "name": "@doyaken/doyaken",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Autonomous AI agent CLI for software development - install once, use on any project",
   "keywords": [
     "ai",
@@ -35,7 +35,10 @@
     "config/",
     "scripts/",
     "skills/",
-    "install.sh"
+    "hooks/",
+    "install.sh",
+    "manifest.json",
+    "VERSION"
   ],
   "engines": {
     "node": ">=16.0.0"

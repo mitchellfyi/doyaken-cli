@@ -1,6 +1,6 @@
 {
-  "version": "0.1.12",
-  "generated": "2026-01-29T20:47:58Z",
+  "version": "0.1.14",
+  "generated": "2026-01-29T21:33:23Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -14,7 +14,7 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "a0ce2373123ca692b7b71a6f8c21df2b220e3637c5bd6c8b2b65f3a7eb123626",
+      "sha256": "1cf44cf19d1f21a69625c55eb418951d9ac8f931cfe69a7e5ad55b13c6946569",
       "size": 47469
     },
     "lib/config.sh": {
@@ -24,8 +24,8 @@
     },
     "lib/core.sh": {
       "category": "overwrite",
-      "sha256": "263d350fd2f5e0efb7f87429695c56e39c00872760f089550f93ef77a4e3e4c5",
-      "size": 52433
+      "sha256": "ba18951065942d26831c2b37a32d9b9b42d270cf4b24aeb16e3898bbc769d811",
+      "size": 52617
     },
     "lib/help.sh": {
       "category": "overwrite",
@@ -64,8 +64,8 @@
     },
     "lib/skills.sh": {
       "category": "overwrite",
-      "sha256": "db224209e6f2b2fa7cb312cb1f658d3885dd62c49c4dc1b01dcf14dcef83067b",
-      "size": 13932
+      "sha256": "189073c247bcee720b3e44b32586f819059810c72ad726368c1fdc4e31b77ab1",
+      "size": 14031
     },
     "lib/taskboard.sh": {
       "category": "overwrite",
@@ -74,8 +74,8 @@
     },
     "lib/upgrade.sh": {
       "category": "overwrite",
-      "sha256": "1c524d5c0f4a6a1c73d4441b1a686471318277f7c3c93568a174ea9965594f28",
-      "size": 19446
+      "sha256": "385a186930ef063db275bd7498047443ffc773432de2f78b6610e0219eba0dd0",
+      "size": 20443
     },
     "lib/utils.sh": {
       "category": "overwrite",
@@ -244,8 +244,8 @@
     },
     "prompts/library/test-chaos.md": {
       "category": "overwrite",
-      "sha256": "f0a78a30aaf3fbb53ae00c6322d22a3a1bb0c6811d659e30b20cf41757e84260",
-      "size": 2111
+      "sha256": "d07f8756e8cd4ee89ad331d680af878ac9a1eb9e2400af4be85b1891342fa653",
+      "size": 4899
     },
     "prompts/library/test-user.md": {
       "category": "overwrite",
@@ -879,8 +879,8 @@
     },
     "hooks/check-quality-gates.sh": {
       "category": "overwrite",
-      "sha256": "2cc1709fe59fcf6feb02aa331f62baede8d8d9bbd3973a579f821b2edd7f00f8",
-      "size": 2229
+      "sha256": "3880a195ea046908dc233764d5b6bc4f5d211c3faab02103e86c6d732b3b21b8",
+      "size": 2237
     },
     "hooks/check-quality.sh": {
       "category": "overwrite",

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Hook: quality-gates-check
 # Type: PreToolUse (on first tool use) or Notification

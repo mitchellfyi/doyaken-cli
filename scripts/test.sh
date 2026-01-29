@@ -101,6 +101,46 @@ for script in "$ROOT_DIR/lib/"*.sh; do
   fi
 done
 
+# Test 9a: No bash 4+ only syntax (macOS compatibility)
+# ${var^^} and ${var,,} require bash 4+ and are not easily guarded
+BASH4_ISSUES=0
+for pattern in '\$\{[a-zA-Z_][a-zA-Z0-9_]*\^\^' '\$\{[a-zA-Z_][a-zA-Z0-9_]*,,'; do
+  if grep -rE "$pattern" "$ROOT_DIR/lib/" 2>/dev/null | head -1 | grep -q .; then
+    BASH4_ISSUES=$((BASH4_ISSUES + 1))
+  fi
+done
+
+# declare -A (associative arrays) is OK if file has BASH_VERSINFO version check
+for file in "$ROOT_DIR/lib/"*.sh; do
+  if grep -q 'declare -A' "$file" 2>/dev/null; then
+    if ! grep -q 'BASH_VERSINFO' "$file" 2>/dev/null; then
+      # File uses declare -A without any version check
+      BASH4_ISSUES=$((BASH4_ISSUES + 1))
+    fi
+  fi
+done
+
+if [ "$BASH4_ISSUES" -eq 0 ]; then
+  pass "No unguarded bash 4+ syntax"
+else
+  fail "Found bash 4+ syntax without guards (breaks macOS)"
+fi
+
+# Test 9b: Shebangs use env bash for portability
+SHEBANG_ISSUES=0
+for script in "$ROOT_DIR/lib/"*.sh "$ROOT_DIR/bin/doyaken" "$ROOT_DIR/scripts/"*.sh "$ROOT_DIR/hooks/"*.sh; do
+  [ -f "$script" ] || continue
+  shebang=$(head -1 "$script")
+  if [[ "$shebang" == "#!/bin/bash" ]]; then
+    SHEBANG_ISSUES=$((SHEBANG_ISSUES + 1))
+  fi
+done
+if [ "$SHEBANG_ISSUES" -eq 0 ]; then
+  pass "Shebangs use /usr/bin/env bash"
+else
+  fail "$SHEBANG_ISSUES scripts use #!/bin/bash (should be #!/usr/bin/env bash)"
+fi
+
 # Test 10: Core skills exist
 for skill in setup-quality.md check-quality.md audit-deps.md audit-security.md audit-performance.md audit-debt.md audit-ux.md sync-agents.md review-codebase.md research-features.md workflow.md mcp-status.md; do
   if [ -f "$ROOT_DIR/skills/$skill" ]; then

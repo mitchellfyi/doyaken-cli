@@ -401,7 +401,9 @@ substitute_skill_vars() {
       arg_name="${arg_name//_/-}"
       content="${content//\{\{ARGS.$arg_name\}\}/$var_value}"
       # Also support uppercase
-      content="${content//\{\{ARGS.${arg_name^^}\}\}/$var_value}"
+      local arg_name_upper
+      arg_name_upper=$(echo "$arg_name" | tr '[:lower:]' '[:upper:]')
+      content="${content//\{\{ARGS.$arg_name_upper\}\}/$var_value}"
     fi
   done < <(env | grep '^SKILL_ARG_')
 

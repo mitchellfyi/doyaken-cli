@@ -599,13 +599,41 @@ upgrade_apply() {
   else
     # Fallback: copy all files without manifest
     _log_warn "No manifest found, copying all files"
+    _log_info "Source: $source_dir"
+    _log_info "Target: $target_dir"
 
     # Copy directories
     for dir in lib bin prompts skills hooks scripts; do
       if [ -d "$source_dir/$dir" ]; then
-        /bin/cp -rf "$source_dir/$dir"/* "$target_dir/$dir/" 2>/dev/null || true
+        # Check if source has files
+        local file_count
+        file_count=$(find "$source_dir/$dir" -maxdepth 1 -type f | wc -l | tr -d ' ')
+        if [ "$file_count" -gt 0 ]; then
+          if ! /bin/cp -rf "$source_dir/$dir"/* "$target_dir/$dir/" 2>&1; then
+            _log_error "Failed to copy $dir/ directory"
+            ((errors++))
+          fi
+        fi
       fi
     done
+
+    # Verify critical files were copied
+    if [ ! -f "$target_dir/bin/doyaken" ]; then
+      _log_error "Critical file bin/doyaken not copied"
+      # Try direct copy as fallback
+      if [ -f "$source_dir/bin/doyaken" ]; then
+        _log_info "Attempting direct copy of bin/doyaken..."
+        if /bin/cp -f "$source_dir/bin/doyaken" "$target_dir/bin/doyaken"; then
+          chmod +x "$target_dir/bin/doyaken"
+          _log_success "Direct copy succeeded"
+        else
+          ((errors++))
+        fi
+      else
+        _log_error "Source bin/doyaken not found at $source_dir/bin/doyaken"
+        ((errors++))
+      fi
+    fi
 
     # Copy config (preserve mode)
     if [ -d "$source_dir/config" ]; then

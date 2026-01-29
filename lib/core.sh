@@ -209,7 +209,10 @@ load_manifest() {
   local hook_types="before after"
   for phase in $phases; do
     for hook_type in $hook_types; do
-      local var_name="HOOKS_${hook_type^^}_${phase^^}"
+      local hook_type_upper phase_upper
+      hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
+      phase_upper=$(echo "$phase" | tr '[:lower:]' '[:upper:]')
+      local var_name="HOOKS_${hook_type_upper}_${phase_upper}"
       local hook_value
       hook_value=$(yq -e ".skills.hooks.${hook_type}-${phase} // [] | .[]" "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
       export "$var_name=$hook_value"
