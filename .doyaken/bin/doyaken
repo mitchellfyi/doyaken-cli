@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#
+# doyaken (dk) - Autonomous AI agent for software development
+#
+# This is the main entry point for the doyaken CLI.
+# It sets up the environment and delegates to lib/cli.sh
+#
+set -euo pipefail
+
+# Determine the installation directory
+if [ -n "${DOYAKEN_HOME:-}" ]; then
+  # Explicitly set
+  INSTALL_DIR="$DOYAKEN_HOME"
+elif [ -L "${BASH_SOURCE[0]}" ]; then
+  # Symlinked binary - resolve to actual location
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REAL_PATH="$(readlink "${BASH_SOURCE[0]}")"
+  # Handle relative paths in symlink targets
+  if [[ "$REAL_PATH" != /* ]]; then
+    REAL_PATH="$SCRIPT_DIR/$REAL_PATH"
+  fi
+  INSTALL_DIR="$(cd "$(dirname "$REAL_PATH")/.." && pwd)"
+else
+  # Direct execution
+  INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+# Check if we're running from npm global install
+if [ -d "$INSTALL_DIR/lib" ] && [ -f "$INSTALL_DIR/lib/cli.sh" ]; then
+  # Running from package directory
+  export DOYAKEN_HOME="$INSTALL_DIR"
+elif [ -d "$HOME/.doyaken/lib" ]; then
+  # Use home directory installation
+  export DOYAKEN_HOME="$HOME/.doyaken"
+else
+  # Fallback to package directory
+  export DOYAKEN_HOME="$INSTALL_DIR"
+fi
+
+# Check for lib/cli.sh
+CLI_SCRIPT="$DOYAKEN_HOME/lib/cli.sh"
+if [ ! -f "$CLI_SCRIPT" ]; then
+  echo "Error: cli.sh not found at $CLI_SCRIPT" >&2
+  echo "DOYAKEN_HOME=$DOYAKEN_HOME" >&2
+  echo "" >&2
+  echo "Try reinstalling: npm install -g doyaken" >&2
+  exit 1
+fi
+
+# Make sure scripts are executable
+chmod +x "$CLI_SCRIPT" 2>/dev/null || true
+chmod +x "$DOYAKEN_HOME/lib/core.sh" 2>/dev/null || true
+chmod +x "$DOYAKEN_HOME/lib/taskboard.sh" 2>/dev/null || true
+
+# Execute the CLI
+exec "$CLI_SCRIPT" "$@"

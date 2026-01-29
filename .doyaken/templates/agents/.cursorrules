@@ -1,0 +1,24 @@
+# Cursor Rules
+
+See AGENTS.md for complete project instructions.
+
+## Key Files
+
+- `AGENTS.md` - Full AI agent instructions
+- `PROJECT.md` - Project goals and tech stack
+- `.doyaken/manifest.yaml` - Project configuration
+- `.doyaken/tasks/` - Task management
+
+## Quick Reference
+
+- Prompts: `.doyaken/prompts/library/`
+- Skills: `.doyaken/skills/`
+- Phases: `.doyaken/prompts/phases/`
+
+## Modern Rules
+
+This project also uses Cursor's modern rules in `.cursor/rules/`:
+- `doyaken.mdc` - Core instructions (always applied)
+- `quality.mdc` - Code quality (applied to code files)
+- `testing.mdc` - Testing (applied to test files)
+- `security.mdc` - Security (applied to auth/security files)

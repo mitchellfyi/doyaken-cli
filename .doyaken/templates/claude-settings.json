@@ -1,0 +1,58 @@
+{
+  "$schema": "https://claude.ai/settings-schema.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$DOYAKEN_HOOKS_DIR/protect-sensitive-files.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$DOYAKEN_HOOKS_DIR/format-on-save.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "$DOYAKEN_HOOKS_DIR/security-check.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$DOYAKEN_HOOKS_DIR/task-context.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$DOYAKEN_HOOKS_DIR/commit-reminder.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

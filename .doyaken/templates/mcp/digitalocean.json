@@ -1,0 +1,89 @@
+{
+  "$schema": "https://mcp.digitalocean.com/schema.json",
+  "_comment": "DigitalOcean MCP configuration",
+  "_docs": "https://docs.digitalocean.com/reference/mcp/",
+
+  "name": "digitalocean",
+  "description": "DigitalOcean MCP - manage Droplets, Apps, Databases, and more",
+
+  "server": {
+    "remote": {
+      "endpoints": {
+        "apps": "https://apps.mcp.digitalocean.com/mcp",
+        "droplets": "https://droplets.mcp.digitalocean.com/mcp",
+        "databases": "https://databases.mcp.digitalocean.com/mcp",
+        "kubernetes": "https://kubernetes.mcp.digitalocean.com/mcp",
+        "networking": "https://networking.mcp.digitalocean.com/mcp",
+        "spaces": "https://spaces.mcp.digitalocean.com/mcp"
+      },
+      "transport": "http",
+      "headers": {
+        "Authorization": "Bearer {{DIGITALOCEAN_API_TOKEN}}"
+      }
+    },
+    "local": {
+      "command": "npx",
+      "args": ["@digitalocean/mcp"],
+      "env": {
+        "DIGITALOCEAN_API_TOKEN": "{{DIGITALOCEAN_API_TOKEN}}"
+      }
+    }
+  },
+
+  "tools": {
+    "apps": [
+      "list_apps",
+      "create_app",
+      "get_app",
+      "update_app",
+      "delete_app",
+      "create_deployment",
+      "get_deployment_logs"
+    ],
+    "droplets": [
+      "list_droplets",
+      "create_droplet",
+      "get_droplet",
+      "delete_droplet",
+      "power_on",
+      "power_off",
+      "reboot",
+      "snapshot"
+    ],
+    "databases": [
+      "list_databases",
+      "create_database",
+      "get_database",
+      "delete_database"
+    ]
+  },
+
+  "setup": {
+    "claudeCode": {
+      "apps": "claude mcp add --transport http digitalocean-apps https://apps.mcp.digitalocean.com/mcp --header 'Authorization: Bearer YOUR_TOKEN'",
+      "droplets": "claude mcp add --transport http digitalocean-droplets https://droplets.mcp.digitalocean.com/mcp --header 'Authorization: Bearer YOUR_TOKEN'",
+      "local": "claude mcp add digitalocean --command 'npx @digitalocean/mcp'"
+    },
+    "cursor": {
+      "config": {
+        "mcpServers": {
+          "digitalocean": {
+            "command": "npx",
+            "args": ["@digitalocean/mcp"],
+            "env": {
+              "DIGITALOCEAN_API_TOKEN": "{{DIGITALOCEAN_API_TOKEN}}"
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "manifest": {
+    "integrations": {
+      "digitalocean": {
+        "enabled": true
+      }
+    }
+  }
+}

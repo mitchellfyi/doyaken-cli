@@ -1,0 +1,84 @@
+{
+  "$schema": "https://mcp.github.com/schema.json",
+  "_comment": "GitHub MCP configuration",
+  "_docs": "https://github.com/github/github-mcp-server",
+
+  "name": "github",
+  "description": "GitHub MCP - manage repositories, issues, PRs, and code",
+
+  "server": {
+    "remote": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "transport": "http",
+      "auth": "oauth"
+    },
+    "local": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{{GITHUB_TOKEN}}"
+      }
+    }
+  },
+
+  "toolsets": {
+    "repos": "Repository operations",
+    "issues": "Issue management",
+    "pull_requests": "PR handling",
+    "actions": "Workflow automation",
+    "code_security": "Security scanning"
+  },
+
+  "tools": {
+    "repository": [
+      "get_file_contents",
+      "search_repositories",
+      "list_branches",
+      "create_branch",
+      "get_commit"
+    ],
+    "issues": [
+      "list_issues",
+      "get_issue",
+      "create_issue",
+      "update_issue",
+      "add_issue_comment"
+    ],
+    "pull_requests": [
+      "list_pull_requests",
+      "get_pull_request",
+      "create_pull_request",
+      "merge_pull_request",
+      "add_pr_review"
+    ]
+  },
+
+  "setup": {
+    "claudeCode": {
+      "remote": "claude mcp add github https://api.githubcopilot.com/mcp/",
+      "local": "claude mcp add github --command 'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server'"
+    },
+    "cursor": {
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github"],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "{{GITHUB_TOKEN}}"
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "manifest": {
+    "integrations": {
+      "github": {
+        "enabled": true,
+        "repo": ""
+      }
+    }
+  }
+}

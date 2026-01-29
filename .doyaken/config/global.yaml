@@ -1,0 +1,145 @@
+# Doyaken Global Configuration
+# Location: ~/.doyaken/config/global.yaml
+#
+# This file contains default settings for all doyaken projects.
+# Project-specific settings in .doyaken/manifest.yaml override these.
+#
+# Priority order (highest to lowest):
+#   1. CLI flags (--agent, --model, etc.)
+#   2. Environment variables (DOYAKEN_AGENT, TIMEOUT_EXPAND, etc.)
+#   3. Project manifest (.doyaken/manifest.yaml)
+#   4. Global config (this file)
+#   5. Hardcoded defaults
+
+version: 1
+
+# ============================================================================
+# Default Agent Settings
+# ============================================================================
+
+defaults:
+  # AI agent to use: claude, codex, gemini, copilot, opencode
+  agent: "claude"
+
+  # Model selection (depends on agent):
+  #   claude:   opus, sonnet, haiku
+  #   codex:    gpt-5, o3, o4-mini
+  #   gemini:   gemini-2.5-pro, gemini-2.5-flash
+  #   copilot:  claude-sonnet-4.5, gpt-5
+  #   opencode: claude-sonnet-4, gpt-5
+  model: "opus"
+
+  # Fallback model when rate limited
+  fallback_model: "sonnet"
+
+  # Default number of tasks per run
+  tasks_per_run: 5
+
+  # Maximum retry attempts per phase
+  max_retries: 2
+
+  # Base retry delay in seconds (exponential backoff: 5s, 10s, 20s...)
+  retry_delay: 5
+
+  # Task lock timeout in seconds (3 hours)
+  # Locks older than this are considered stale
+  lock_timeout: 10800
+
+  # Heartbeat interval in seconds (1 hour)
+  # How often to refresh lock timestamps during long tasks
+  heartbeat_interval: 3600
+
+  # Disable model fallback on rate limits (false = fallback enabled)
+  no_fallback: false
+
+  # Disable session resume on crash (false = resume enabled)
+  no_resume: false
+
+# ============================================================================
+# Output Settings
+# ============================================================================
+
+output:
+  # Progress mode: one-line updates instead of full streaming
+  progress_mode: true
+
+  # Verbose logging: show all agent output
+  verbose: false
+
+  # Quiet mode: minimal output (no streaming)
+  quiet: false
+
+# ============================================================================
+# Phase Timeouts (seconds)
+# ============================================================================
+# Each phase has a timeout after which it will be terminated.
+# Adjust these based on your typical task complexity.
+
+timeouts:
+  # EXPAND: Expand brief prompt into full task specification
+  expand: 900      # 15 minutes
+
+  # TRIAGE: Validate task, check dependencies
+  triage: 540      # 9 minutes
+
+  # PLAN: Gap analysis, detailed planning
+  plan: 900        # 15 minutes
+
+  # IMPLEMENT: Execute the plan, write code
+  implement: 5400  # 90 minutes
+
+  # TEST: Run tests, add coverage
+  test: 1800       # 30 minutes
+
+  # DOCS: Sync documentation
+  docs: 900        # 15 minutes
+
+  # REVIEW: Code review, create follow-ups
+  review: 1800     # 30 minutes
+
+  # VERIFY: Verify task management, commit task files
+  verify: 900      # 15 minutes
+
+# ============================================================================
+# Skip Phases
+# ============================================================================
+# Set to true to skip specific phases during task execution.
+# Useful for quick iterations or specialized workflows.
+
+skip_phases:
+  expand: false
+  triage: false
+  plan: false
+  implement: false
+  test: false
+  docs: false
+  review: false
+  verify: false
+
+# ============================================================================
+# Periodic Review Settings
+# ============================================================================
+# After completing N tasks, automatically trigger a comprehensive review
+# covering code quality, security, performance, debt, UX, and documentation.
+
+periodic_review:
+  # Enable/disable periodic reviews globally
+  enabled: true
+
+  # Number of completed tasks before triggering a review
+  # Default: 3 tasks
+  threshold: 3
+
+  # Auto-fix issues where possible (formatting, simple refactors)
+  # Creates tasks only for issues that require manual intervention
+  auto_fix: true
+
+# ============================================================================
+# Tool-specific Global Defaults
+# ============================================================================
+
+tools:
+  github:
+    # Default labels to add to PRs created by doyaken
+    default_labels:
+      - "doyaken"

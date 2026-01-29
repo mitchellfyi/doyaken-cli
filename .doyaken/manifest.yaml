@@ -1,0 +1,21 @@
+# Doyaken Project Manifest
+version: 1
+
+project:
+  name: "doyaken-cli.ai"
+  description: ""
+
+git:
+  remote: "https://github.com/mitchellfyi/doyaken-cli.git"
+  branch: "main"
+
+domains: {}
+tools: {}
+
+quality:
+  test_command: ""
+  lint_command: ""
+
+agent:
+  model: "opus"
+  max_retries: 2

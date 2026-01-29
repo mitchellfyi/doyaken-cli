@@ -1,0 +1,31 @@
+---
+description: "Testing standards and test writing guidelines"
+globs: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**", "**/__tests__/**"]
+---
+
+# Testing Rules
+
+When writing or modifying tests:
+
+## Test Principles
+
+- **Test behavior, not implementation** - Tests should survive refactoring
+- **One assertion per concept** - Each test proves one thing clearly
+- **Fast and deterministic** - No flaky tests
+- **Readable as documentation** - Test names describe behavior
+
+## What to Test
+
+- Happy path (normal inputs)
+- Edge cases (empty, null, boundary)
+- Error cases (invalid input, failures)
+
+## Test Structure (AAA)
+
+1. **Arrange** - Set up test data
+2. **Act** - Call the function
+3. **Assert** - Verify the result
+
+## Reference
+
+For detailed testing methodology, see `.doyaken/prompts/library/testing.md`

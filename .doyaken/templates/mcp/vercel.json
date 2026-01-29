@@ -1,0 +1,109 @@
+{
+  "$schema": "https://mcp.vercel.com/schema.json",
+  "_comment": "Vercel MCP configuration for Claude Code and other clients",
+  "_docs": "https://vercel.com/docs/mcp/vercel-mcp",
+
+  "name": "vercel",
+  "description": "Vercel MCP - manage deployments, search docs, and control projects",
+
+  "server": {
+    "url": "https://mcp.vercel.com",
+    "transport": "http"
+  },
+
+  "projectSpecific": {
+    "_comment": "For project-specific access, use: https://mcp.vercel.com/<teamSlug>/<projectSlug>",
+    "url": "https://mcp.vercel.com/{{VERCEL_TEAM}}/{{VERCEL_PROJECT}}"
+  },
+
+  "tools": {
+    "public": [
+      {
+        "name": "search_docs",
+        "description": "Search and navigate Vercel documentation"
+      }
+    ],
+    "authenticated": [
+      {
+        "name": "list_projects",
+        "description": "List all projects in your Vercel account"
+      },
+      {
+        "name": "get_project",
+        "description": "Get details about a specific project"
+      },
+      {
+        "name": "list_deployments",
+        "description": "List deployments for a project"
+      },
+      {
+        "name": "get_deployment",
+        "description": "Get details about a specific deployment"
+      },
+      {
+        "name": "deploy",
+        "description": "Create a new deployment"
+      },
+      {
+        "name": "get_deployment_logs",
+        "description": "Get logs for a deployment"
+      },
+      {
+        "name": "list_domains",
+        "description": "List domains for a project"
+      },
+      {
+        "name": "list_env_vars",
+        "description": "List environment variables"
+      }
+    ]
+  },
+
+  "setup": {
+    "claudeCode": {
+      "command": "claude mcp add --transport http vercel https://mcp.vercel.com",
+      "projectSpecific": "claude mcp add --transport http vercel-{{PROJECT}} https://mcp.vercel.com/{{TEAM}}/{{PROJECT}}",
+      "authenticate": "/mcp"
+    },
+    "cursor": {
+      "config": {
+        "mcpServers": {
+          "vercel": {
+            "url": "https://mcp.vercel.com"
+          }
+        }
+      },
+      "file": ".cursor/mcp.json"
+    },
+    "vscode": {
+      "steps": [
+        "Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)",
+        "Run 'MCP: Add Server'",
+        "Select 'HTTP'",
+        "Enter URL: https://mcp.vercel.com",
+        "Enter Name: Vercel"
+      ]
+    },
+    "windsurf": {
+      "config": {
+        "mcpServers": {
+          "vercel": {
+            "serverUrl": "https://mcp.vercel.com"
+          }
+        }
+      },
+      "file": "mcp_config.json"
+    }
+  },
+
+  "manifest": {
+    "_comment": "Add to .doyaken/manifest.yaml",
+    "integrations": {
+      "vercel": {
+        "enabled": true,
+        "team": "",
+        "project": ""
+      }
+    }
+  }
+}

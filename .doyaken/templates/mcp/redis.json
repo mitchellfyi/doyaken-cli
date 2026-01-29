@@ -1,0 +1,96 @@
+{
+  "$schema": "https://mcp.redis.io/schema.json",
+  "_comment": "Redis MCP configuration",
+  "_docs": "https://redis.io/docs/latest/integrate/redis-mcp/",
+
+  "name": "redis",
+  "description": "Redis MCP - manage and query Redis databases with natural language",
+
+  "server": {
+    "local": {
+      "command": "npx",
+      "args": ["-y", "@redis/mcp-redis"],
+      "env": {
+        "REDIS_URL": "{{REDIS_URL}}"
+      }
+    },
+    "docker": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "REDIS_URL", "redis/mcp-redis"],
+      "env": {
+        "REDIS_URL": "{{REDIS_URL}}"
+      }
+    }
+  },
+
+  "tools": {
+    "data": [
+      "get",
+      "set",
+      "del",
+      "keys",
+      "exists",
+      "expire"
+    ],
+    "dataStructures": [
+      "hget",
+      "hset",
+      "hgetall",
+      "lpush",
+      "rpush",
+      "lpop",
+      "lrange",
+      "sadd",
+      "smembers",
+      "zadd",
+      "zrange"
+    ],
+    "server": [
+      "info",
+      "dbsize",
+      "flushdb"
+    ],
+    "search": [
+      "search",
+      "ft_search"
+    ]
+  },
+
+  "useCases": [
+    "Session management",
+    "Conversation history",
+    "Real-time caching",
+    "Rate limiting",
+    "Recommendations",
+    "Semantic search (RAG)"
+  ],
+
+  "setup": {
+    "claudeCode": {
+      "local": "claude mcp add redis --command 'npx -y @redis/mcp-redis'",
+      "withUrl": "claude mcp add redis --command 'npx -y @redis/mcp-redis' --env REDIS_URL=redis://localhost:6379"
+    },
+    "cursor": {
+      "config": {
+        "mcpServers": {
+          "redis": {
+            "command": "npx",
+            "args": ["-y", "@redis/mcp-redis"],
+            "env": {
+              "REDIS_URL": "redis://localhost:6379"
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "manifest": {
+    "integrations": {
+      "redis": {
+        "enabled": true,
+        "url": "redis://localhost:6379"
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://mcp.figma.com/schema.json",
+  "_comment": "Figma MCP configuration",
+  "_docs": "https://developers.figma.com/docs/figma-mcp-server/",
+
+  "name": "figma",
+  "description": "Figma MCP - design-to-code workflows and design context",
+
+  "server": {
+    "remote": {
+      "url": "https://api.figma.com/mcp",
+      "transport": "http",
+      "auth": "oauth"
+    },
+    "local": {
+      "note": "Requires Figma Desktop app running with MCP enabled",
+      "setup": "Enable MCP in Figma Desktop > Settings > MCP Server"
+    }
+  },
+
+  "tools": {
+    "design": [
+      "get_file",
+      "get_frame",
+      "get_components",
+      "get_styles",
+      "get_variables"
+    ],
+    "codeConnect": [
+      "get_code_connect",
+      "get_component_code"
+    ]
+  },
+
+  "features": {
+    "codeGeneration": "Convert Figma frames to code",
+    "designContext": "Extract variables, components, layout data",
+    "codeConnect": "Reference existing components during generation"
+  },
+
+  "setup": {
+    "claudeCode": {
+      "remote": "claude mcp add figma --url https://api.figma.com/mcp"
+    },
+    "cursor": {
+      "config": {
+        "mcpServers": {
+          "figma": {
+            "url": "https://api.figma.com/mcp"
+          }
+        }
+      }
+    }
+  },
+
+  "manifest": {
+    "integrations": {
+      "figma": {
+        "enabled": true
+      }
+    }
+  }
+}
