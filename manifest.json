@@ -1,6 +1,6 @@
 {
   "version": "0.1.11",
-  "generated": "2026-01-29T16:32:48Z",
+  "generated": "2026-01-29T17:13:59Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -14,8 +14,8 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "26a37b39d11a9972f559f48601524c75b0be1a89b7ae9b9908422c8e28a405dc",
-      "size": 56562
+      "sha256": "1c59515c219b4c75a639b6e025a98dee1c3a24cbda85a11a54e18a763241ba0a",
+      "size": 57867
     },
     "lib/config.sh": {
       "category": "overwrite",
@@ -34,13 +34,13 @@
     },
     "lib/mcp.sh": {
       "category": "overwrite",
-      "sha256": "4fbb74923c6b62d732554a07dfc97a891c438fbc4ff56a89eb8d4ffe07baf892",
-      "size": 10722
+      "sha256": "f3d334e5f1962fc27d10c45bf7d8d966c59ed6a27418cad1cde04cb342f980c4",
+      "size": 10979
     },
     "lib/registry.sh": {
       "category": "overwrite",
-      "sha256": "3ac9ba8a581d34e4a2d55ac87ea5f95176028addf051fde924b81a65c986993b",
-      "size": 8984
+      "sha256": "b753ae85ae9e78241714245a7e910f16a86212e9ecf9b9f8af88af5c3197e8c6",
+      "size": 9832
     },
     "lib/review-tracker.sh": {
       "category": "overwrite",
@@ -64,8 +64,8 @@
     },
     "lib/upgrade.sh": {
       "category": "overwrite",
-      "sha256": "584ab97e966b515e00b47fa8dccfa75aeaae27eeaadab95b8fc024206ba6f329",
-      "size": 19084
+      "sha256": "1c524d5c0f4a6a1c73d4441b1a686471318277f7c3c93568a174ea9965594f28",
+      "size": 19446
     },
     "bin/dk": {
       "category": "overwrite",
@@ -231,6 +231,11 @@
       "category": "overwrite",
       "sha256": "e8cabc54a1d49b12987f147b34446ff5fdf3d46a3f27dcb9fe38be51c403ecd5",
       "size": 1586
+    },
+    "prompts/library/test-chaos.md": {
+      "category": "overwrite",
+      "sha256": "f0a78a30aaf3fbb53ae00c6322d22a3a1bb0c6811d659e30b20cf41757e84260",
+      "size": 2111
     },
     "prompts/library/testing.md": {
       "category": "overwrite",
@@ -616,6 +621,11 @@
       "category": "overwrite",
       "sha256": "6bf52f78d45295a98ca9f464b91fc250d9a71f0e4cdeb484d50aab8359e40fd3",
       "size": 2903
+    },
+    "skills/test-chaos.md": {
+      "category": "overwrite",
+      "sha256": "2fad1602f6b3306c93a46e7796f8c4777d9e69b0885e92a3fce4f7ffae41eb9c",
+      "size": 1850
     },
     "skills/vendors/README.md": {
       "category": "overwrite",

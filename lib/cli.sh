@@ -1350,8 +1350,8 @@ cmd_doctor() {
   echo "Registry:"
   local reg_file="$DOYAKEN_HOME/projects/registry.yaml"
   if [ -f "$reg_file" ]; then
-    local project_count
-    project_count=$(grep -c "^  - path:" "$reg_file" 2>/dev/null || echo "0")
+    local project_count=0
+    project_count=$(grep -c "^  - path:" "$reg_file" 2>/dev/null) || true
     log_success "Registry exists with $project_count project(s)"
   else
     log_info "No projects registered yet"
