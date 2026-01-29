@@ -1112,6 +1112,36 @@ cmd_task() {
     exit 1
   fi
 
+  # Check for common mistakes - user might mean a different command
+  local first_word="${prompt%% *}"
+  case "$first_word" in
+    list|ls)
+      log_warn "Did you mean 'dk tasks' to see the taskboard?"
+      echo "  dk tasks        - Show taskboard"
+      echo "  dk tasks new    - Create a new task"
+      echo "  dk task \"...\"   - Create AND run a task immediately"
+      exit 1
+      ;;
+    show|view|get)
+      log_warn "To view a task, open the file directly:"
+      echo "  cat .doyaken/tasks/2.todo/<task-id>.md"
+      echo ""
+      echo "Or use 'dk tasks' to see all tasks."
+      exit 1
+      ;;
+    new|add|create)
+      log_warn "Did you mean 'dk tasks new \"${prompt#* }\"'?"
+      echo "  dk tasks new    - Create a task (without running)"
+      echo "  dk task \"...\"   - Create AND run immediately"
+      exit 1
+      ;;
+    delete|remove|rm)
+      log_warn "To delete a task, remove the file:"
+      echo "  rm .doyaken/tasks/2.todo/<task-id>.md"
+      exit 1
+      ;;
+  esac
+
   local project
   project=$(require_project)
   local doyaken_dir="$project/.doyaken"
@@ -1368,14 +1398,7 @@ cmd_doctor() {
 }
 
 cmd_version() {
-  echo "doyaken version $DOYAKEN_VERSION"
-
-  # Show installation info
-  if [ -f "$DOYAKEN_HOME/VERSION" ]; then
-    local installed_version
-    installed_version=$(cat "$DOYAKEN_HOME/VERSION")
-    echo "Installed: $installed_version"
-  fi
+  echo "doyaken $DOYAKEN_VERSION"
 }
 
 cmd_skills() {
@@ -1991,6 +2014,10 @@ main() {
     task)
       cmd_task "${args[@]+"${args[@]}"}"
       ;;
+    add)
+      # Alias: dk add "title" -> dk tasks new "title"
+      cmd_tasks "new" "${args[@]+"${args[@]}"}"
+      ;;
     status)
       cmd_status
       ;;
@@ -2043,7 +2070,14 @@ main() {
         cmd_run "$cmd"
       else
         log_error "Unknown command: $cmd"
-        show_help
+        echo ""
+        echo "Common commands:"
+        echo "  dk init          Initialize project"
+        echo "  dk tasks         Show taskboard"
+        echo "  dk tasks new     Create a task"
+        echo "  dk run [N]       Run N tasks (default: 5)"
+        echo "  dk status        Project status"
+        echo "  dk help          Full help"
         exit 1
       fi
       ;;

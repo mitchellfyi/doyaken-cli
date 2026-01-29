@@ -1,6 +1,6 @@
 {
   "version": "0.1.11",
-  "generated": "2026-01-29T17:13:59Z",
+  "generated": "2026-01-29T17:24:21Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -14,8 +14,8 @@
     },
     "lib/cli.sh": {
       "category": "overwrite",
-      "sha256": "1c59515c219b4c75a639b6e025a98dee1c3a24cbda85a11a54e18a763241ba0a",
-      "size": 57867
+      "sha256": "f4f421dff3c0a08c5c0fe12b8a55cdc314686a8fced2390c012dce4c1ef6c652",
+      "size": 59111
     },
     "lib/config.sh": {
       "category": "overwrite",
@@ -236,6 +236,11 @@
       "category": "overwrite",
       "sha256": "f0a78a30aaf3fbb53ae00c6322d22a3a1bb0c6811d659e30b20cf41757e84260",
       "size": 2111
+    },
+    "prompts/library/test-user.md": {
+      "category": "overwrite",
+      "sha256": "7b4bbef3519c4029b8f6833836f8b03a5cce489f4f767a1dcdc8cb467fd2b1e8",
+      "size": 2513
     },
     "prompts/library/testing.md": {
       "category": "overwrite",
@@ -626,6 +631,11 @@
       "category": "overwrite",
       "sha256": "2fad1602f6b3306c93a46e7796f8c4777d9e69b0885e92a3fce4f7ffae41eb9c",
       "size": 1850
+    },
+    "skills/test-user.md": {
+      "category": "overwrite",
+      "sha256": "082d18dc6330726196db5c08fce9ae9013696a61d5d0c03a68a64fbe0b4fc14a",
+      "size": 2866
     },
     "skills/vendors/README.md": {
       "category": "overwrite",
