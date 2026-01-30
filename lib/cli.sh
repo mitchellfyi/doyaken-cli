@@ -353,34 +353,16 @@ EOF
   log_success "Generated slash commands (.claude/commands/)"
 }
 
-cmd_init() {
-  local target_dir="${1:-$(pwd)}"
+# ============================================================================
+# Init Helper Functions
+# ============================================================================
 
-  # Resolve to absolute path
-  target_dir=$(cd "$target_dir" 2>/dev/null && pwd) || {
-    log_error "Directory not found: $target_dir"
-    exit 1
-  }
-
+# Create .doyaken directory structure
+# Usage: init_directories "target_dir"
+init_directories() {
+  local target_dir="$1"
   local ai_agent_dir="$target_dir/.doyaken"
 
-  # Check if already initialized
-  if [ -d "$ai_agent_dir" ]; then
-    log_warn "Project already initialized at: $target_dir"
-    log_info "Use 'doyaken status' to view project info"
-    return 0
-  fi
-
-  # Check for legacy .claude/
-  if [ -d "$target_dir/.claude" ]; then
-    log_warn "Legacy .claude/ directory found"
-    log_info "Remove .claude/ first or use a different directory"
-    return 1
-  fi
-
-  log_info "Initializing doyaken project at: $target_dir"
-
-  # Create directory structure
   mkdir -p "$ai_agent_dir/tasks/1.blocked"
   mkdir -p "$ai_agent_dir/tasks/2.todo"
   mkdir -p "$ai_agent_dir/tasks/3.doing"
@@ -390,7 +372,6 @@ cmd_init() {
   mkdir -p "$ai_agent_dir/state"
   mkdir -p "$ai_agent_dir/locks"
 
-  # Create .gitkeep files
   touch "$ai_agent_dir/tasks/1.blocked/.gitkeep"
   touch "$ai_agent_dir/tasks/2.todo/.gitkeep"
   touch "$ai_agent_dir/tasks/3.doing/.gitkeep"
@@ -398,20 +379,17 @@ cmd_init() {
   touch "$ai_agent_dir/logs/.gitkeep"
   touch "$ai_agent_dir/state/.gitkeep"
   touch "$ai_agent_dir/locks/.gitkeep"
+}
 
-  # Detect git info
-  local git_remote=""
-  local git_branch="main"
-  if [ -d "$target_dir/.git" ]; then
-    git_remote=$(git -C "$target_dir" remote get-url origin 2>/dev/null || echo "")
-    git_branch=$(git -C "$target_dir" branch --show-current 2>/dev/null || echo "main")
-  fi
+# Create manifest.yaml with project configuration
+# Usage: init_manifest "target_dir" "project_name" "git_remote" "git_branch"
+init_manifest() {
+  local target_dir="$1"
+  local project_name="$2"
+  local git_remote="${3:-}"
+  local git_branch="${4:-main}"
+  local ai_agent_dir="$target_dir/.doyaken"
 
-  # Detect project name
-  local project_name
-  project_name=$(basename "$target_dir")
-
-  # Generate manifest
   cat > "$ai_agent_dir/manifest.yaml" << EOF
 # AI Agent Project Manifest
 # Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -422,89 +400,40 @@ project:
   name: "$project_name"
   description: ""
 
-# Git configuration (auto-detected)
 git:
   remote: "$git_remote"
   branch: "$git_branch"
 
-# Domains and URLs associated with this project
-domains:
-  # production: "https://example.com"
-  # staging: "https://staging.example.com"
+domains: {}
 
-# External tool integrations
-tools:
-  # jira:
-  #   enabled: false
-  #   project_key: ""
-  #   base_url: ""
-  # github:
-  #   enabled: true
-  #   repo: "user/repo"
-  # linear:
-  #   enabled: false
-  #   team_id: ""
+tools: {}
 
-# Quality gate commands (auto-detected or configured)
 quality:
   test_command: ""
   lint_command: ""
   format_command: ""
   build_command: ""
 
-# Agent behavior settings
 agent:
-  # Agent to use: claude, codex, gemini, copilot, opencode
   name: "claude"
-  # Model depends on agent:
-  #   claude: opus, sonnet, haiku
-  #   codex: gpt-5, o3, o4-mini
-  #   gemini: gemini-2.5-pro, gemini-2.5-flash
-  #   copilot: claude-sonnet-4.5, gpt-5
-  #   opencode: claude-sonnet-4, gpt-5
   model: "opus"
   max_retries: 2
   parallel_workers: 2
-
-# Output settings (override global defaults)
-# output:
-#   progress_mode: true    # One-line progress updates
-#   verbose: false         # Show full agent output
-#   quiet: false           # Minimal output
-
-# Phase timeouts in seconds (override global defaults)
-# Increase these if tasks are complex and hitting timeouts
-# See: doyaken config show
-# timeouts:
-#   expand: 900       # 15 min
-#   triage: 540       # 9 min
-#   plan: 900         # 15 min
-#   implement: 5400   # 90 min
-#   test: 1800        # 30 min
-#   docs: 900         # 15 min
-#   review: 1800      # 30 min
-#   verify: 900       # 15 min
-
-# Skip phases (set to true to skip)
-# skip_phases:
-#   expand: false
-#   triage: false
-#   plan: false
-#   implement: false
-#   test: false
-#   docs: false
-#   review: false
-#   verify: false
 EOF
 
   log_success "Created manifest.yaml"
+}
 
-  # Copy task template
+# Copy or create task template
+# Usage: init_task_template "target_dir"
+init_task_template() {
+  local target_dir="$1"
+  local ai_agent_dir="$target_dir/.doyaken"
   local template_src="$DOYAKEN_HOME/templates/TASK.md"
+
   if [ -f "$template_src" ]; then
     cp "$template_src" "$ai_agent_dir/tasks/_templates/TASK.md"
   else
-    # Fallback: create basic template
     cat > "$ai_agent_dir/tasks/_templates/TASK.md" << 'EOF'
 # Task: [TITLE]
 
@@ -564,20 +493,31 @@ Why does this task exist?
 EOF
   fi
   log_success "Created task template"
+}
 
-  # Copy doyaken README to project .doyaken folder
+# Copy doyaken README to project
+# Usage: init_readme "target_dir"
+init_readme() {
+  local target_dir="$1"
+  local ai_agent_dir="$target_dir/.doyaken"
   local readme_src="$DOYAKEN_HOME/README.md"
+
   if [ ! -f "$readme_src" ]; then
-    # Fallback to script directory (for development)
     readme_src="$(dirname "$SCRIPT_DIR")/README.md"
   fi
+
   if [ -f "$readme_src" ]; then
     cp "$readme_src" "$ai_agent_dir/README.md"
     log_success "Copied doyaken README to .doyaken/"
   fi
+}
 
-  # Sync all agent files (AGENTS.md, CLAUDE.md, .cursorrules, etc.)
+# Sync agent configuration files (AGENTS.md, CLAUDE.md, etc.)
+# Usage: init_agent_files "target_dir"
+init_agent_files() {
+  local target_dir="$1"
   local sync_script="$DOYAKEN_HOME/scripts/sync-agent-files.sh"
+
   if [ ! -f "$sync_script" ]; then
     sync_script="$SCRIPT_DIR/../scripts/sync-agent-files.sh"
   fi
@@ -587,16 +527,11 @@ EOF
   else
     log_warn "sync-agent-files.sh not found - manually copy agent templates"
   fi
+}
 
-  # Generate slash commands for Claude Code
-  generate_slash_commands "$target_dir"
-
-  # Register in global registry (non-fatal if yq missing)
-  add_to_registry "$target_dir" "$project_name" "$git_remote" || {
-    log_warn "Could not register project (yq required for registry)"
-    log_info "Project will work, but won't appear in 'dk projects'"
-  }
-
+# Show post-init instructions
+# Usage: show_init_success
+show_init_success() {
   log_success "Project initialized successfully!"
   echo ""
   echo "Next steps:"
@@ -610,6 +545,54 @@ EOF
   echo "  /security    - Security checklist"
   echo "  /testing     - Testing methodology"
   echo "  (and more - see .claude/commands/)"
+}
+
+# ============================================================================
+# Init Command
+# ============================================================================
+
+cmd_init() {
+  local target_dir="${1:-$(pwd)}"
+  target_dir=$(cd "$target_dir" 2>/dev/null && pwd) || {
+    log_error "Directory not found: $target_dir"; exit 1
+  }
+
+  # Check if already initialized
+  if [ -d "$target_dir/.doyaken" ]; then
+    log_warn "Project already initialized at: $target_dir"
+    log_info "Use 'doyaken status' to view project info"; return 0
+  fi
+
+  # Check for legacy .claude/
+  if [ -d "$target_dir/.claude" ]; then
+    log_warn "Legacy .claude/ directory found"
+    log_info "Remove .claude/ first or use a different directory"; return 1
+  fi
+
+  log_info "Initializing doyaken project at: $target_dir"
+
+  # Detect git info
+  local git_remote="" git_branch="main"
+  if [ -d "$target_dir/.git" ]; then
+    git_remote=$(git -C "$target_dir" remote get-url origin 2>/dev/null || echo "")
+    git_branch=$(git -C "$target_dir" branch --show-current 2>/dev/null || echo "main")
+  fi
+  local project_name=$(basename "$target_dir")
+
+  # Run init steps
+  init_directories "$target_dir"
+  init_manifest "$target_dir" "$project_name" "$git_remote" "$git_branch"
+  init_task_template "$target_dir"
+  init_readme "$target_dir"
+  init_agent_files "$target_dir"
+  generate_slash_commands "$target_dir"
+
+  # Register in global registry (non-fatal if yq missing)
+  add_to_registry "$target_dir" "$project_name" "$git_remote" || {
+    log_warn "Could not register project (yq required for registry)"
+    log_info "Project will work, but won't appear in 'dk projects'"
+  }
+  show_init_success
 }
 
 cmd_register() {
