@@ -35,28 +35,22 @@ PROJECT_DIR="${1:-$(pwd)}"
 # Timestamp for generated files
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[OK]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# Source centralized logging
+if [[ -f "$DOYAKEN_HOME/lib/logging.sh" ]]; then
+  source "$DOYAKEN_HOME/lib/logging.sh"
+  set_log_prefix "sync"
+else
+  # Fallback
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[0;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
+  log_info() { echo -e "${BLUE}[sync]${NC} $1"; }
+  log_success() { echo -e "${GREEN}[sync]${NC} $1"; }
+  log_warn() { echo -e "${YELLOW}[sync]${NC} $1"; }
+  log_error() { echo -e "${RED}[sync]${NC} $1" >&2; }
+fi
 
 # Check if project has .doyaken directory
 if [ ! -d "$PROJECT_DIR/.doyaken" ]; then

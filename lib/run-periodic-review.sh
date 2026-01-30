@@ -16,17 +16,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() { echo -e "${BLUE}[review]${NC} $1"; }
-log_success() { echo -e "${GREEN}[review]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[review]${NC} $1"; }
-log_error() { echo -e "${RED}[review]${NC} $1" >&2; }
+# Source centralized logging
+if [[ -f "$SCRIPT_DIR/logging.sh" ]]; then
+  source "$SCRIPT_DIR/logging.sh"
+  set_log_prefix "review"
+else
+  # Fallback
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[0;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
+  log_info() { echo -e "${BLUE}[review]${NC} $1"; }
+  log_success() { echo -e "${GREEN}[review]${NC} $1"; }
+  log_warn() { echo -e "${YELLOW}[review]${NC} $1"; }
+  log_error() { echo -e "${RED}[review]${NC} $1" >&2; }
+fi
 
 # Source libraries
 source "$SCRIPT_DIR/review-tracker.sh" 2>/dev/null || {

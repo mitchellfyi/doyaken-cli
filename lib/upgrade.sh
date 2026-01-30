@@ -18,17 +18,22 @@ set -euo pipefail
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 UPGRADE_BACKUP_COUNT="${UPGRADE_BACKUP_COUNT:-5}"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Source centralized logging
+_UPGRADE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_UPGRADE_SCRIPT_DIR/logging.sh" ]]; then
+  source "$_UPGRADE_SCRIPT_DIR/logging.sh"
+  set_log_prefix "upgrade"
+else
+  # Fallback if logging.sh not available (during install)
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[0;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
+fi
 
 # ============================================================================
-# Logging
+# Logging (aliases for upgrade module)
 # ============================================================================
 
 _log_info() { echo -e "${BLUE}[upgrade]${NC} $1"; }

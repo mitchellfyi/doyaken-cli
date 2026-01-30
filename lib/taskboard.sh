@@ -10,6 +10,20 @@ set -euo pipefail
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 DOYAKEN_PROJECT="${DOYAKEN_PROJECT:-$(pwd)}"
 
+# Source centralized logging
+_TASKBOARD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_TASKBOARD_SCRIPT_DIR/logging.sh" ]]; then
+  source "$_TASKBOARD_SCRIPT_DIR/logging.sh"
+  set_log_prefix "taskboard"
+else
+  # Fallback colors
+  BLUE='\033[0;34m'
+  GREEN='\033[0;32m'
+  NC='\033[0m'
+  log_info() { echo -e "${BLUE}[taskboard]${NC} $1"; }
+  log_success() { echo -e "${GREEN}[taskboard]${NC} $1"; }
+fi
+
 # Detect project structure
 if [ -d "$DOYAKEN_PROJECT/.doyaken/tasks" ]; then
   TASKS_DIR="$DOYAKEN_PROJECT/.doyaken/tasks"
@@ -23,21 +37,6 @@ else
 fi
 
 OUTPUT_FILE="$DOYAKEN_PROJECT/TASKBOARD.md"
-
-# Colors for terminal output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() {
-  echo -e "${BLUE}[taskboard]${NC} $1"
-}
-
-log_success() {
-  echo -e "${GREEN}[taskboard]${NC} $1"
-}
 
 # Get the actual folder path, supporting both old and new naming
 get_task_folder() {

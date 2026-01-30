@@ -2,29 +2,12 @@
 #
 # utils.sh - Common utilities for doyaken CLI
 #
-# Provides: colors, logging, auto-timeout, fuzzy matching
+# Provides: auto-timeout, fuzzy matching
 #
 
-# ============================================================================
-# Colors
-# ============================================================================
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
-
-# ============================================================================
-# Logging
-# ============================================================================
-
-log_info() { echo -e "${BLUE}[doyaken]${NC} $1"; }
-log_success() { echo -e "${GREEN}[doyaken]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[doyaken]${NC} $1"; }
-log_error() { echo -e "${RED}[doyaken]${NC} $1" >&2; }
+# Source centralized logging
+SCRIPT_DIR_UTILS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR_UTILS/logging.sh"
 
 # ============================================================================
 # Auto-timeout for autonomous mode

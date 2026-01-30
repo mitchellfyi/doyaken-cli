@@ -14,18 +14,26 @@
 #
 set -euo pipefail
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Determine script directory first for logging
+_INSTALL_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-log_info() { echo -e "${BLUE}[doyaken]${NC} $1"; }
-log_success() { echo -e "${GREEN}[doyaken]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[doyaken]${NC} $1"; }
-log_error() { echo -e "${RED}[doyaken]${NC} $1" >&2; }
+# Source centralized logging if available
+if [[ -f "$_INSTALL_SCRIPT_DIR/lib/logging.sh" ]]; then
+  source "$_INSTALL_SCRIPT_DIR/lib/logging.sh"
+  set_log_prefix "install"
+else
+  # Fallback for standalone execution
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[0;33m'
+  BLUE='\033[0;34m'
+  BOLD='\033[1m'
+  NC='\033[0m'
+  log_info() { echo -e "${BLUE}[install]${NC} $1"; }
+  log_success() { echo -e "${GREEN}[install]${NC} $1"; }
+  log_warn() { echo -e "${YELLOW}[install]${NC} $1"; }
+  log_error() { echo -e "${RED}[install]${NC} $1" >&2; }
+fi
 
 # Parse arguments
 INSTALL_MODE="user"  # user or project
@@ -89,8 +97,8 @@ EOF
   esac
 done
 
-# Determine source directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Determine source directory (reuse from early logging setup)
+SCRIPT_DIR="$_INSTALL_SCRIPT_DIR"
 
 # Check if running from git repo or downloaded release
 if [ -d "$SCRIPT_DIR/lib" ] && [ -f "$SCRIPT_DIR/lib/cli.sh" ]; then

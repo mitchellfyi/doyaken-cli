@@ -10,13 +10,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() { echo -e "${BLUE}[generate]${NC} $1"; }
-log_success() { echo -e "${GREEN}[generate]${NC} $1"; }
+# Source centralized logging
+if [[ -f "$ROOT_DIR/lib/logging.sh" ]]; then
+  source "$ROOT_DIR/lib/logging.sh"
+  set_log_prefix "generate"
+else
+  # Fallback
+  GREEN='\033[0;32m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
+  log_info() { echo -e "${BLUE}[generate]${NC} $1"; }
+  log_success() { echo -e "${GREEN}[generate]${NC} $1"; }
+fi
 
 # Generate a single slash command from a skill
 generate_command() {
