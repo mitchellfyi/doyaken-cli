@@ -49,12 +49,19 @@
   ],
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
-    "test": "bash scripts/test.sh",
+    "test": "bash scripts/test.sh && bash test/run-bats.sh",
+    "test:basic": "bash scripts/test.sh",
+    "test:bats": "bash test/run-bats.sh",
+    "test:unit": "bash test/run-bats.sh unit",
+    "test:integration": "bash test/run-bats.sh integration",
     "lint": "bash scripts/lint.sh",
     "validate": "bash scripts/validate-yaml.sh",
     "check": "bash scripts/check-all.sh",
     "setup": "bash scripts/setup-hooks.sh",
     "prepublishOnly": "npm run check"
+  },
+  "devDependencies": {
+    "bats": "^1.13.0"
   },
   "publishConfig": {
     "access": "public"
