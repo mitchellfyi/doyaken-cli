@@ -504,12 +504,26 @@ $prompt"
 
   local args=()
   local tmp_args
+
+  # Add autonomous mode args
   read -r -a tmp_args <<< "$(agent_autonomous_args "$agent")"
   args+=("${tmp_args[@]}")
+
+  # Add model args if specified
   if [ -n "$model" ]; then
     read -r -a tmp_args <<< "$(agent_model_args "$agent" "$model")"
     args+=("${tmp_args[@]}")
   fi
+
+  # Add verbose/streaming args so user can see progress
+  local verbose_args
+  verbose_args=$(agent_verbose_args "$agent")
+  if [ -n "$verbose_args" ]; then
+    read -r -a tmp_args <<< "$verbose_args"
+    args+=("${tmp_args[@]}")
+  fi
+
+  # Add prompt
   local prompt_flag
   prompt_flag=$(agent_prompt_args "$agent" "$prompt")
   if [ -n "$prompt_flag" ]; then

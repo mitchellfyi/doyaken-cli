@@ -293,7 +293,9 @@ agent_verbose_args() {
 
   case "$agent" in
     claude)
-      echo "--output-format stream-json --verbose"
+      # --print enables non-interactive output (required for scripts)
+      # --output-format text shows human-readable output
+      echo "--print --output-format text"
       ;;
     cursor)
       echo ""
