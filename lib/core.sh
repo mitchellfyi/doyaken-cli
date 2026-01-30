@@ -230,8 +230,8 @@ run_skill_hooks() {
   local hook_type_upper
   hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
   local hooks_var="HOOKS_${hook_type_upper}_${phase_name}"
-  local hooks=""
-  eval "hooks=\${$hooks_var:-}"
+  # Use indirect expansion instead of eval for safety
+  local hooks="${!hooks_var:-}"
 
   [ -z "$hooks" ] && return 0
 
@@ -675,16 +675,30 @@ commit_task_files() {
   local message="$1"
   local task_id="${2:-}"
 
-  git add "$TASKS_DIR" TASKBOARD.md 2>/dev/null || true
-
-  if git diff --cached --quiet 2>/dev/null; then
-    return 0
+  # Only attempt git operations if we're in a git repo
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    return 0  # Not a git repo, silently skip
   fi
 
+  if ! git add "$TASKS_DIR" TASKBOARD.md 2>/dev/null; then
+    log_warn "Failed to stage task files"
+    return 0  # Non-fatal, continue without commit
+  fi
+
+  if git diff --cached --quiet 2>/dev/null; then
+    return 0  # Nothing to commit
+  fi
+
+  local commit_result=0
   if [ -n "$task_id" ]; then
-    git commit -m "$message [$task_id]" --no-verify 2>/dev/null || true
+    git commit -m "$message [$task_id]" --no-verify 2>/dev/null || commit_result=$?
   else
-    git commit -m "$message" --no-verify 2>/dev/null || true
+    git commit -m "$message" --no-verify 2>/dev/null || commit_result=$?
+  fi
+
+  if [ "$commit_result" -ne 0 ]; then
+    log_warn "Git commit failed (code: $commit_result)"
+    return 0  # Non-fatal
   fi
 
   log_info "Committed task file changes: $message"
@@ -701,7 +715,10 @@ assign_task() {
 
   if [ -f "$task_file" ]; then
     if grep -q "| Assigned To |" "$task_file"; then
-      sed -i.bak "s/| Assigned To | .*/| Assigned To | \`$AGENT_ID\` |/" "$task_file"
+      # Escape sed metacharacters in AGENT_ID to prevent command injection
+      local escaped_agent_id="${AGENT_ID//&/\\&}"
+      escaped_agent_id="${escaped_agent_id////\\/}"
+      sed -i.bak "s/| Assigned To | .*/| Assigned To | \`$escaped_agent_id\` |/" "$task_file"
       sed -i.bak "s/| Assigned At | .*/| Assigned At | \`$timestamp\` |/" "$task_file"
       rm -f "${task_file}.bak"
     fi

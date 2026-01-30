@@ -51,20 +51,20 @@ read_with_timeout() {
     # Read with timeout - use printf for prompt to avoid -p issues
     printf "%s" "$prompt"
     if read -r -t "$timeout" result 2>/dev/null; then
-      # User provided input
-      eval "$var_name=\"\$result\""
+      # User provided input - use printf -v for safe variable assignment
+      printf -v "$var_name" '%s' "$result"
     else
       # Timeout - pick random option
       echo ""
       local random_idx=$((RANDOM % num_options))
       result="${options[$random_idx]}"
       log_info "Auto-selected option: $result"
-      eval "$var_name=\"\$result\""
+      printf -v "$var_name" '%s' "$result"
     fi
   else
     # No timeout - normal read
     read -rp "$prompt" result
-    eval "$var_name=\"\$result\""
+    printf -v "$var_name" '%s' "$result"
   fi
 }
 

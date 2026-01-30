@@ -67,8 +67,8 @@ _load_config() {
   local manifest_file="${4:-}"
 
   # Check if already set via ENV (highest priority after CLI)
-  local current_val=""
-  eval "current_val=\${$env_var:-}"
+  # Use indirect expansion instead of eval for safety
+  local current_val="${!env_var:-}"
   if [ -n "$current_val" ]; then
     return 0  # Already set, don't override
   fi
@@ -103,9 +103,8 @@ _load_config_bool() {
   local default="$3"
   local manifest_file="${4:-}"
 
-  # Check if already set via ENV
-  local current_val=""
-  eval "current_val=\${$env_var:-}"
+  # Check if already set via ENV - use indirect expansion for safety
+  local current_val="${!env_var:-}"
   if [ -n "$current_val" ]; then
     return 0
   fi
