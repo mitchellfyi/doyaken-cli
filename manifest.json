@@ -1,6 +1,6 @@
 {
   "version": "0.1.14",
-  "generated": "2026-01-29T21:33:23Z",
+  "generated": "2026-01-30T03:46:12Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -64,8 +64,8 @@
     },
     "lib/skills.sh": {
       "category": "overwrite",
-      "sha256": "189073c247bcee720b3e44b32586f819059810c72ad726368c1fdc4e31b77ab1",
-      "size": 14031
+      "sha256": "ef1bda399c40ce9d5b910a2899fa5d1552c383fd182acafddadab143a7dda701",
+      "size": 14439
     },
     "lib/taskboard.sh": {
       "category": "overwrite",

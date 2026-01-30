@@ -510,12 +510,27 @@ $prompt"
     read -r -a tmp_args <<< "$(agent_model_args "$agent" "$model")"
     args+=("${tmp_args[@]}")
   fi
-  read -r -a tmp_args <<< "$(agent_prompt_args "$agent" "$prompt")"
-  args+=("${tmp_args[@]}")
+  local prompt_flag
+  prompt_flag=$(agent_prompt_args "$agent" "$prompt")
+  if [ -n "$prompt_flag" ]; then
+    args+=("$prompt_flag" "$prompt")
+  else
+    # Agents that take prompt as positional arg
+    args+=("$prompt")
+  fi
 
   # Execute
   if [ "${AGENT_DRY_RUN:-0}" = "1" ]; then
-    echo "[DRY RUN] Would execute: $cmd ${args[*]}"
+    # Show command without full prompt (which can be very long)
+    local display_args=()
+    for arg in "${args[@]}"; do
+      if [ "${#arg}" -gt 100 ]; then
+        display_args+=("[prompt: ${#arg} chars]")
+      else
+        display_args+=("$arg")
+      fi
+    done
+    echo "[DRY RUN] Would execute: $cmd ${display_args[*]}"
     return 0
   fi
 
