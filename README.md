@@ -412,7 +412,8 @@ To bypass temporarily: `git commit --no-verify`
   - [Google Gemini CLI](https://github.com/google-gemini/gemini-cli)
   - [GitHub Copilot CLI](https://github.com/github/copilot-cli)
   - [OpenCode](https://opencode.ai)
-- Bash 4.0+
+- [yq](https://github.com/mikefarah/yq) - YAML processor (required for project registry)
+- Bash 3.2+ (macOS default works)
 - Git
 - macOS or Linux
 - Node.js 16+ (for npm install)

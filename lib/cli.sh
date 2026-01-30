@@ -591,8 +591,11 @@ EOF
   # Generate slash commands for Claude Code
   generate_slash_commands "$target_dir"
 
-  # Register in global registry
-  add_to_registry "$target_dir" "$project_name" "$git_remote"
+  # Register in global registry (non-fatal if yq missing)
+  add_to_registry "$target_dir" "$project_name" "$git_remote" || {
+    log_warn "Could not register project (yq required for registry)"
+    log_info "Project will work, but won't appear in 'dk projects'"
+  }
 
   log_success "Project initialized successfully!"
   echo ""
@@ -961,12 +964,13 @@ cmd_doctor() {
     echo "  Install: brew install coreutils (macOS)"
   fi
 
-  # Check yq (optional)
+  # Check yq (required for registry operations)
   if command -v yq &>/dev/null; then
     log_success "YAML parser available (yq)"
   else
-    log_warn "yq not found (manifest parsing will be limited)"
-    echo "  Install: brew install yq"
+    log_error "yq not found (required for project registry)"
+    echo "  Install: brew install yq (macOS) or snap install yq (Ubuntu)"
+    ((issues++))
   fi
 
   # Check global installation
