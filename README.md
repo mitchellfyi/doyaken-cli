@@ -4,16 +4,128 @@ A standalone multi-project autonomous agent CLI that works with any AI coding ag
 
 **Aliases:** `doyaken`, `dk`
 
-## Features
+## Why Doyaken?
 
-- **Agent Agnostic**: Works with Claude, Codex, Gemini, Copilot, or OpenCode
-- **Multi-Project Support**: Manage multiple projects from a single global installation
-- **8-Phase Execution**: Expand → Triage → Plan → Implement → Test → Docs → Review → Verify
+- **One install, all projects** - Global installation works across all your repos
+- **Any AI agent** - Claude, Codex, Gemini, Copilot, Cursor, or OpenCode
+- **Batteries included** - 40+ skills, 25+ prompts, 8-phase workflow out of the box
+- **Zero config** - Works immediately after `dk init`
+
+## Key Features
+
+### Multi-Agent Configuration Sync
+
+Automatically generates and syncs configuration files for all major AI coding agents:
+
+```bash
+dk sync  # Generates all agent files from single source of truth
+```
+
+| Generated File | Agent/Tool |
+|---------------|------------|
+| `AGENTS.md` | Codex, OpenCode (industry standard) |
+| `CLAUDE.md` | Claude Code |
+| `.cursorrules` | Cursor (legacy) |
+| `.cursor/rules/*.mdc` | Cursor (modern rules) |
+| `GEMINI.md` | Google Gemini |
+| `.github/copilot-instructions.md` | GitHub Copilot |
+| `.opencode.json` | OpenCode |
+
+All files point to `.doyaken/` as the single source of truth. Edit once, sync everywhere.
+
+### Prompt Library (25+ Methodologies)
+
+Battle-tested prompts for common development tasks:
+
+| Category | Prompts |
+|----------|---------|
+| **Code Quality** | `quality`, `refactor`, `debugging`, `errors` |
+| **Reviews** | `review-architecture`, `review-security`, `review-debt`, `review-performance` |
+| **Planning** | `planning`, `diagnose`, `research-features`, `research-competitors` |
+| **Development** | `api-rest`, `ci`, `git`, `docs` |
+
+```bash
+# Use as slash commands in Claude Code
+/quality      # Apply quality methodology
+/debugging    # Debug current issue
+/planning     # Create implementation plan
+```
+
+### Vendor-Specific Prompts
+
+Pre-configured prompts for popular frameworks and services:
+
+- **Frameworks**: Next.js, Rails, React
+- **Databases**: PostgreSQL, Redis, Supabase
+- **Platforms**: Vercel, DigitalOcean, Dokku
+- **Tools**: GitHub Actions, Figma
+
+### 8-Phase Workflow
+
+Structured task execution with configurable timeouts:
+
+```
+EXPAND → TRIAGE → PLAN → IMPLEMENT → TEST → DOCS → REVIEW → VERIFY
+```
+
+Each phase has dedicated prompts in `.doyaken/prompts/phases/` that guide the agent through systematic task completion.
+
+### Skills System (40+ Built-in)
+
+Reusable, composable skills with MCP integration:
+
+```bash
+dk skills                    # List all skills
+dk skill periodic-review     # Run comprehensive codebase review
+dk skill audit-security      # OWASP-based security audit
+dk skill ci-fix              # Diagnose and fix CI failures
+```
+
+### Claude Code Hooks
+
+Automatic hooks that enhance Claude Code sessions:
+
+| Hook | Purpose |
+|------|---------|
+| `check-quality.sh` | Run linters before commits |
+| `check-security.sh` | Scan for security issues |
+| `task-context.sh` | Inject current task context |
+| `format-on-save.sh` | Auto-format code |
+| `protect-sensitive-files.sh` | Prevent editing secrets |
+| `inject-base-prompt.sh` | Add project context to prompts |
+
+### Slash Command Generation
+
+Auto-generates Claude Code slash commands from skills and prompts:
+
+```bash
+dk commands  # Regenerate .claude/commands/
+```
+
+Creates commands like `/workflow`, `/security`, `/testing` that you can invoke directly in Claude Code.
+
+### Periodic Codebase Reviews
+
+Automated comprehensive reviews covering:
+
+- Code quality and maintainability
+- Security vulnerabilities (OWASP)
+- Technical debt assessment
+- Performance analysis
+- UX audit
+- Documentation gaps
+
+```bash
+dk skill periodic-review  # Full review with auto-fix
+```
+
+### Additional Features
+
 - **Self-Healing**: Automatic retries, model fallback, crash recovery
-- **Parallel Agents**: Multiple agents can work simultaneously with lock coordination
-- **Skills System**: Reusable prompts with MCP tool integration
-- **MCP Integration**: Connect to GitHub, Linear, Slack, Jira via MCP tools
-- **Project Registry**: Track projects by path, git remote, domains, and services
+- **Parallel Agents**: Multiple agents work simultaneously with lock coordination
+- **Project Registry**: Track projects by path, git remote, domains
+- **MCP Integration**: Connect to GitHub, Linear, Slack, Jira
+- **Test Automation**: `test-chaos` and `test-user` skills for robust testing
 
 ## Installation
 
@@ -74,11 +186,16 @@ dk doctor    # Health check
 | `dk tasks view <id>` | View a specific task |
 | `dk skills` | List available skills |
 | `dk skill <name>` | Run a skill |
+| `dk sync` | Sync all agent configuration files |
+| `dk commands` | Regenerate slash commands |
 | `dk mcp status` | Show MCP integration status |
 | `dk mcp configure` | Generate MCP configs |
 | `dk status` | Show project status |
 | `dk list` | List all registered projects |
 | `dk manifest` | Show project manifest |
+| `dk config` | Show/edit configuration |
+| `dk upgrade` | Upgrade doyaken to latest version |
+| `dk upgrade --check` | Check for available updates |
 | `dk doctor` | Health check |
 | `dk help` | Show help |
 
@@ -275,11 +392,33 @@ your-project/
 │   │   ├── 2.todo/          # Ready to start
 │   │   ├── 3.doing/         # In progress
 │   │   └── 4.done/          # Completed
+│   ├── prompts/
+│   │   ├── library/         # 25+ methodology prompts
+│   │   └── phases/          # 8-phase workflow prompts
+│   ├── skills/              # Project-specific skills
+│   ├── hooks/               # Claude Code hooks
 │   ├── logs/                # Execution logs
 │   ├── state/               # Session recovery
 │   └── locks/               # Parallel coordination
-├── AGENT.md                 # Project-specific agent notes
+├── .claude/
+│   └── commands/            # Auto-generated slash commands
+├── .cursor/
+│   └── rules/               # Cursor modern rules (.mdc)
+├── AGENTS.md                # Multi-agent instructions
+├── CLAUDE.md                # Claude Code config
+├── .cursorrules             # Cursor legacy config
+├── GEMINI.md                # Gemini config
 └── TASKBOARD.md             # Generated task overview
+```
+
+### Keeping Agent Files in Sync
+
+When you update prompts or skills, sync all agent configuration files:
+
+```bash
+dk sync      # Regenerate all agent files
+dk commands  # Regenerate slash commands
+dk upgrade   # Update doyaken itself
 ```
 
 ## Project Manifest
