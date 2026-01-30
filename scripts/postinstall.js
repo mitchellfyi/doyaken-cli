@@ -56,7 +56,7 @@ function main() {
   log(`Setting up doyaken at ${DOYAKEN_HOME}`);
 
   // Create directories
-  const dirs = ['prompts', 'templates', 'config', 'projects', 'lib', 'skills'];
+  const dirs = ['prompts', 'templates', 'config', 'projects', 'lib', 'skills', 'bin', 'hooks', 'scripts', 'backups'];
   for (const dir of dirs) {
     fs.mkdirSync(path.join(DOYAKEN_HOME, dir), { recursive: true });
   }
@@ -107,6 +107,53 @@ function main() {
   if (fs.existsSync(skillsSrc)) {
     copyDir(skillsSrc, path.join(DOYAKEN_HOME, 'skills'));
     success('Copied skills');
+  }
+
+  // Copy bin
+  const binSrc = path.join(packageRoot, 'bin');
+  if (fs.existsSync(binSrc)) {
+    copyDir(binSrc, path.join(DOYAKEN_HOME, 'bin'));
+    // Make doyaken executable
+    const doyakenPath = path.join(DOYAKEN_HOME, 'bin', 'doyaken');
+    if (fs.existsSync(doyakenPath)) {
+      fs.chmodSync(doyakenPath, '755');
+    }
+    success('Copied bin');
+  }
+
+  // Copy hooks
+  const hooksSrc = path.join(packageRoot, 'hooks');
+  if (fs.existsSync(hooksSrc)) {
+    copyDir(hooksSrc, path.join(DOYAKEN_HOME, 'hooks'));
+    // Make hooks executable
+    const hookFiles = fs.readdirSync(path.join(DOYAKEN_HOME, 'hooks'));
+    for (const file of hookFiles) {
+      if (file.endsWith('.sh')) {
+        fs.chmodSync(path.join(DOYAKEN_HOME, 'hooks', file), '755');
+      }
+    }
+    success('Copied hooks');
+  }
+
+  // Copy scripts
+  const scriptsSrc = path.join(packageRoot, 'scripts');
+  if (fs.existsSync(scriptsSrc)) {
+    copyDir(scriptsSrc, path.join(DOYAKEN_HOME, 'scripts'));
+    // Make scripts executable
+    const scriptFiles = fs.readdirSync(path.join(DOYAKEN_HOME, 'scripts'));
+    for (const file of scriptFiles) {
+      if (file.endsWith('.sh')) {
+        fs.chmodSync(path.join(DOYAKEN_HOME, 'scripts', file), '755');
+      }
+    }
+    success('Copied scripts');
+  }
+
+  // Copy manifest.json
+  const manifestSrc = path.join(packageRoot, 'manifest.json');
+  if (fs.existsSync(manifestSrc)) {
+    fs.copyFileSync(manifestSrc, path.join(DOYAKEN_HOME, 'manifest.json'));
+    success('Copied manifest.json');
   }
 
   // Create VERSION file

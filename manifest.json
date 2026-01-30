@@ -1,6 +1,6 @@
 {
   "version": "0.1.14",
-  "generated": "2026-01-30T03:46:12Z",
+  "generated": "2026-01-30T03:50:14Z",
   "files": {
     "README.md": {
       "category": "overwrite",
@@ -74,8 +74,8 @@
     },
     "lib/upgrade.sh": {
       "category": "overwrite",
-      "sha256": "385a186930ef063db275bd7498047443ffc773432de2f78b6610e0219eba0dd0",
-      "size": 20443
+      "sha256": "a1844f4e5f6595c054d5baad93c193caa25e8a7d960f682561f6c4e24d9d1da0",
+      "size": 20613
     },
     "lib/utils.sh": {
       "category": "overwrite",

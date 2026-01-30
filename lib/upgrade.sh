@@ -221,10 +221,12 @@ upgrade_verify() {
     fi
   done
 
-  # If manifest exists, verify checksums for overwrite files
+  # If manifest exists, verify critical lib files exist
   if [ -f "$manifest" ] && command -v jq &>/dev/null; then
     local files
-    files=$(jq -r '.files | to_entries[] | select(.value.category == "overwrite") | .key' "$manifest" 2>/dev/null)
+    # Only verify lib/ and bin/ files - these are critical for operation
+    # Skip README.md and other documentation files
+    files=$(jq -r '.files | to_entries[] | select(.value.category == "overwrite") | .key | select(startswith("lib/") or startswith("bin/"))' "$manifest" 2>/dev/null)
 
     while IFS= read -r file; do
       [ -z "$file" ] && continue
