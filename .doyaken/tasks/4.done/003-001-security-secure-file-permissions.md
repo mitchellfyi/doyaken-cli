@@ -240,6 +240,27 @@ chmod 700 "$DOYAKEN_HOME/locks"
 
 ## Work Log
 
+### 2026-02-01 21:59 - Verification Complete
+
+Criteria: all met (9 of 9)
+Quality gates: all pass (lint: 0 errors/5 warnings, tests: 88 pass)
+CI: pass - https://github.com/mitchellfyi/doyaken-cli/actions/runs/21570882580
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Set `umask 0077` at core.sh initialization | ✓ | `lib/core.sh:28` |
+| Add `chmod 700` in `init_state()` and `init_locks()` | ✓ | `lib/core.sh:764,1447-1449` |
+| Add `chmod 700` in `init_directories()` (cli.sh) | ✓ | `lib/cli.sh:371-376` |
+| Add `chmod 700` in `install.sh` | ✓ | `install.sh:257-262` |
+| Add automatic log rotation (>7 days) | ✓ | `lib/core.sh:1453` |
+| Document log location and `dk cleanup` in README | ✓ | `README.md:497-517` |
+| Tests verify 700 permissions | ✓ | `test/unit/security.bats:814-905` (7 tests) |
+| Quality gates pass | ✓ | `npm run check` - all pass |
+| Changes committed with task reference | ✓ | `92c6479`, `65f65ea` |
+
+Task location: 3.doing → 4.done
+Reason: complete - all criteria met, CI green
+
 ### 2026-02-01 21:55 - Review Complete
 
 Findings:
