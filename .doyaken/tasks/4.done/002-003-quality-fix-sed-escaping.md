@@ -5,15 +5,15 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-003-quality-fix-sed-escaping`                     |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-01 17:10`                                     |
 | Started     | `2026-02-01 21:01`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 21:13`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To | `worker-1` |
-| Assigned At | `2026-02-01 21:00` |
+| Assigned To |  |
+| Assigned At |  |
 
 ---
 
@@ -60,7 +60,7 @@ While AGENT_ID is currently set from `AGENT_NAME` which is `worker-${WORKER_NUM}
 - [x] Verify existing task assignment workflow works unchanged
 - [x] Tests written and passing
 - [x] Quality gates pass
-- [ ] Changes committed with task reference
+- [x] Changes committed with task reference
 
 ---
 
@@ -235,6 +235,39 @@ Step 7: Run quality gates
 - Command: `npm run lint && npm run test`
 - Verification: 0 errors (5 warnings - pre-existing, unrelated)
 
+### 2026-02-01 21:10 - Testing Complete
+
+Tests written:
+- `test/unit/core.bats` - 12 new tests (unit)
+
+Quality gates:
+- Lint: pass (0 errors, 5 warnings pre-existing)
+- Types: N/A (bash project)
+- Tests: pass (88 basic + 167 unit + 8 integration)
+- Build: N/A
+
+CI ready: yes
+- Uses POSIX awk features only (index(), printf, -v)
+- Temp file + mv for atomic writes
+- No BSD-specific sed commands
+
+Commit: 39cf8c0 "fix: Replace sed with awk for task metadata updates"
+
+### 2026-02-01 21:12 - Documentation Sync
+
+Docs updated:
+- None required (internal function change, no API change)
+
+Inline comments:
+- `lib/core.sh:947-949` - Function purpose and security rationale
+- `lib/core.sh:957` - Backslash escaping explanation
+- `lib/core.sh:961` - Why index() is used for literal matching
+
+Consistency: verified
+- CONTRIBUTING.md: No references to task assignment internals
+- SECURITY.md: No specific sed escaping documentation needed (general policy)
+- README: No API changes to document
+
 ---
 
 ## Notes
@@ -267,3 +300,54 @@ Step 7: Run quality gates
 ## Links
 
 - Security review finding: sed escaping vulnerability
+
+### 2026-02-01 21:13 - Review Complete
+
+Findings:
+- Blockers: 0 - none
+- High: 0 - none
+- Medium: 0 - none
+- Low: 0 - none
+
+Review passes:
+- Correctness: pass
+- Design: pass
+- Security: pass
+- Performance: pass
+- Tests: pass
+
+All criteria met: yes
+Follow-up tasks: none
+
+Status: COMPLETE
+
+### 2026-02-01 21:16 - Verification Complete
+
+Criteria: all met
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Create helper function `update_task_metadata()` | [x] | lib/core.sh:950-975 |
+| Function uses awk instead of sed | [x] | Uses awk with index() for literal matching |
+| Replace sed in assign/unassign/refresh | [x] | lib/core.sh:977-1008 |
+| Add unit tests for special characters | [x] | test/unit/core.bats:142-312 (12 tests) |
+| Verify existing workflow works unchanged | [x] | All integration tests pass |
+| Tests written and passing | [x] | 167 unit + 8 integration tests pass |
+| Quality gates pass | [x] | 0 errors, 5 pre-existing warnings |
+| Changes committed with task reference | [x] | Commit 39cf8c0 |
+
+Quality gates: all pass
+- Lint: 0 errors (5 pre-existing warnings)
+- Tests: 88 basic + 167 unit + 8 integration = pass
+- Build: N/A (bash project)
+
+CI: pass - https://github.com/mitchellfyi/doyaken-cli.git/actions/runs/21570395974
+- Lint: pass
+- Validate: pass
+- Test (ubuntu-latest): pass
+- Test (macos-latest): pass
+- Package: pass
+- Install Test (ubuntu-latest): pass
+- Install Test (macos-latest): pass
+
+Task location: 3.doing → 4.done
+Reason: complete - all acceptance criteria met, quality gates pass, CI green
