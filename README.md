@@ -500,13 +500,21 @@ dk tasks new "Add user authentication"
 # Health check
 dk doctor
 
-# View logs
+# View logs (project-level)
 ls -la .doyaken/logs/
+
+# View logs (global installation)
+ls -la ~/.doyaken/logs/
+
+# Clean up old logs, state, locks, and done tasks
+dk cleanup
 
 # Reset stuck state
 rm -rf .doyaken/locks/*.lock
 mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
 ```
+
+**Note**: Logs, state, and locks directories are created with 700 permissions (owner-only access) for security. Logs older than 7 days are automatically rotated.
 
 ## Development
 

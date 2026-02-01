@@ -255,8 +255,11 @@ else
   mkdir -p "$DOYAKEN_HOME/tasks/4.done"
   mkdir -p "$DOYAKEN_HOME/tasks/_templates"
   mkdir -p "$DOYAKEN_HOME/logs"
+  chmod 700 "$DOYAKEN_HOME/logs"
   mkdir -p "$DOYAKEN_HOME/state"
+  chmod 700 "$DOYAKEN_HOME/state"
   mkdir -p "$DOYAKEN_HOME/locks"
+  chmod 700 "$DOYAKEN_HOME/locks"
 
   # Copy core files
   /bin/cp -f "$SOURCE_DIR/lib"/*.sh "$DOYAKEN_HOME/lib/"

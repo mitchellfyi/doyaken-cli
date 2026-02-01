@@ -25,6 +25,9 @@
 #
 set -euo pipefail
 
+# Secure file permissions: owner only (prevents world-readable logs/state)
+umask 0077
+
 # ============================================================================
 # Path Configuration (supports global installation)
 # ============================================================================
@@ -584,8 +587,9 @@ fi
 
 # Generate unique agent ID with nicer default (atomic to prevent race conditions)
 if [ -z "${AGENT_NAME:-}" ]; then
-  # Ensure locks directory exists
+  # Ensure locks directory exists with secure permissions
   mkdir -p "$LOCKS_DIR" 2>/dev/null || true
+  chmod 700 "$LOCKS_DIR" 2>/dev/null || true
 
   # Auto-generate worker name using atomic mkdir to prevent race conditions
   WORKER_NUM=1
@@ -761,6 +765,7 @@ progress_filter() {
 
 init_locks() {
   mkdir -p "$LOCKS_DIR"
+  chmod 700 "$LOCKS_DIR"
 }
 
 get_task_id_from_file() {
@@ -1442,7 +1447,11 @@ run_all_phases() {
 
 init_state() {
   mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
   mkdir -p "$RUN_LOG_DIR"
+  chmod 700 "$RUN_LOG_DIR"
+  # Auto-rotate old logs (>7 days)
+  find "$LOGS_DIR" -maxdepth 1 -type d -mtime +7 ! -name 'logs' -exec rm -rf {} + 2>/dev/null || true
   init_locks
 }
 

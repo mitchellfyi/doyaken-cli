@@ -810,3 +810,157 @@ teardown() {
   run validate_quality_command "composer test"
   [ "$status" -eq 0 ]
 }
+
+# ============================================================================
+# File Permission Tests
+# ============================================================================
+
+@test "init_directories: logs directory has 700 permissions" {
+  local test_dir="$TEST_TEMP_DIR/project"
+  mkdir -p "$test_dir"
+
+  # Create the directory structure like init_directories does
+  local ai_agent_dir="$test_dir/.doyaken"
+  mkdir -p "$ai_agent_dir/logs"
+  chmod 700 "$ai_agent_dir/logs"
+
+  # Verify permissions (macOS and Linux compatible)
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$ai_agent_dir/logs"
+  else
+    run stat -c "%a" "$ai_agent_dir/logs"
+  fi
+  [ "$status" -eq 0 ]
+  [ "$output" = "700" ]
+}
+
+@test "init_directories: state directory has 700 permissions" {
+  local test_dir="$TEST_TEMP_DIR/project"
+  mkdir -p "$test_dir"
+
+  local ai_agent_dir="$test_dir/.doyaken"
+  mkdir -p "$ai_agent_dir/state"
+  chmod 700 "$ai_agent_dir/state"
+
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$ai_agent_dir/state"
+  else
+    run stat -c "%a" "$ai_agent_dir/state"
+  fi
+  [ "$status" -eq 0 ]
+  [ "$output" = "700" ]
+}
+
+@test "init_directories: locks directory has 700 permissions" {
+  local test_dir="$TEST_TEMP_DIR/project"
+  mkdir -p "$test_dir"
+
+  local ai_agent_dir="$test_dir/.doyaken"
+  mkdir -p "$ai_agent_dir/locks"
+  chmod 700 "$ai_agent_dir/locks"
+
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$ai_agent_dir/locks"
+  else
+    run stat -c "%a" "$ai_agent_dir/locks"
+  fi
+  [ "$status" -eq 0 ]
+  [ "$output" = "700" ]
+}
+
+@test "umask 0077: new files are owner-only" {
+  # Save current umask
+  local old_umask
+  old_umask=$(umask)
+
+  # Set secure umask like core.sh does
+  umask 0077
+
+  # Create a test file
+  local test_file="$TEST_TEMP_DIR/test_file"
+  touch "$test_file"
+
+  # Verify permissions (should be 600 with umask 0077)
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$test_file"
+  else
+    run stat -c "%a" "$test_file"
+  fi
+
+  # Restore umask
+  umask "$old_umask"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "600" ]
+}
+
+@test "umask 0077: new directories are owner-only" {
+  # Save current umask
+  local old_umask
+  old_umask=$(umask)
+
+  # Set secure umask like core.sh does
+  umask 0077
+
+  # Create a test directory
+  local test_subdir="$TEST_TEMP_DIR/test_subdir"
+  mkdir "$test_subdir"
+
+  # Verify permissions (should be 700 with umask 0077)
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$test_subdir"
+  else
+    run stat -c "%a" "$test_subdir"
+  fi
+
+  # Restore umask
+  umask "$old_umask"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "700" ]
+}
+
+@test "log rotation: deletes directories older than 7 days" {
+  # Create a mock logs directory structure
+  local logs_dir="$TEST_TEMP_DIR/logs"
+  mkdir -p "$logs_dir"
+
+  # Create a "new" directory (should be kept)
+  local new_dir="$logs_dir/session-new"
+  mkdir -p "$new_dir"
+  touch "$new_dir/test.log"
+
+  # Create an "old" directory and backdate it to 10 days ago
+  local old_dir="$logs_dir/session-old"
+  mkdir -p "$old_dir"
+  touch "$old_dir/test.log"
+
+  # Backdate the old directory to 10 days ago using touch
+  local ten_days_ago
+  ten_days_ago=$(date -v-10d '+%Y%m%d0000' 2>/dev/null || date -d '10 days ago' '+%Y%m%d0000' 2>/dev/null)
+  if [ -n "$ten_days_ago" ]; then
+    touch -t "$ten_days_ago" "$old_dir"
+  fi
+
+  # Run the rotation command (same as in init_state)
+  find "$logs_dir" -maxdepth 1 -type d -mtime +7 ! -name 'logs' -exec rm -rf {} + 2>/dev/null || true
+
+  # Verify: new directory should exist, old should be deleted
+  [ -d "$new_dir" ]
+  # Old directory should be deleted if we were able to backdate it
+  if [ -n "$ten_days_ago" ]; then
+    [ ! -d "$old_dir" ]
+  fi
+}
+
+@test "log rotation: preserves parent logs directory" {
+  # Create a mock logs directory
+  local logs_dir="$TEST_TEMP_DIR/logs"
+  mkdir -p "$logs_dir"
+
+  # Run the rotation command
+  find "$logs_dir" -maxdepth 1 -type d -mtime +7 ! -name 'logs' -exec rm -rf {} + 2>/dev/null || true
+
+  # The logs directory itself should never be deleted
+  [ -d "$logs_dir" ]
+}

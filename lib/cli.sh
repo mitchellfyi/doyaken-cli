@@ -369,8 +369,11 @@ init_directories() {
   mkdir -p "$ai_agent_dir/tasks/4.done"
   mkdir -p "$ai_agent_dir/tasks/_templates"
   mkdir -p "$ai_agent_dir/logs"
+  chmod 700 "$ai_agent_dir/logs"
   mkdir -p "$ai_agent_dir/state"
+  chmod 700 "$ai_agent_dir/state"
   mkdir -p "$ai_agent_dir/locks"
+  chmod 700 "$ai_agent_dir/locks"
 
   touch "$ai_agent_dir/tasks/1.blocked/.gitkeep"
   touch "$ai_agent_dir/tasks/2.todo/.gitkeep"
