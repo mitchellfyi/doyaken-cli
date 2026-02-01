@@ -71,6 +71,19 @@ skills:
 # Quality gate commands
 # These are run during the TEST phase to ensure code quality
 # Run 'doyaken skill setup-quality' to auto-configure these
+#
+# SECURITY: Commands are validated against an allowlist of safe executables:
+#   npm, yarn, pnpm, npx, bun, cargo, go, make, pytest, jest, eslint, tsc,
+#   prettier, shellcheck, bats, python, node, deno, etc.
+#
+# WARNING: The following patterns trigger security warnings:
+#   - Pipes (|), command chaining (&&, ||, ;)
+#   - Command substitution ($(), backticks)
+#   - Redirections (>, >>, <)
+#   - Network commands (curl, wget, nc)
+#   - Shell execution (bash -c, sh -c, eval)
+#
+# Set DOYAKEN_STRICT_QUALITY=1 to block (not just warn) suspicious commands
 quality:
   # test_command: "npm test"
   # lint_command: "npm run lint"

