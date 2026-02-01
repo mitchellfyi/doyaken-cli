@@ -13,7 +13,7 @@
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
-| Assigned At | `2026-02-01 17:44` |
+| Assigned At | `2026-02-01 17:50` |
 
 ---
 
@@ -602,6 +602,52 @@ Follow-up tasks: none
 
 Status: **BLOCKED** - waiting on user to complete Phase A (NPM token revocation)
 
+### 2026-02-01 17:44 - Phase 0 Re-entry (Expansion Check)
+
+Task already fully expanded. No additional specification required.
+
+**Current state:**
+- Intent: FIX (Security vulnerability remediation)
+- Agent actions: 5/5 complete ✅
+- User actions: 0/3 complete (blocking)
+- Status: BLOCKED on user completing Phase A
+
+**Summary:** This task is not waiting for specification—it's waiting for user action. The user must:
+1. Revoke NPM token at npmjs.com/settings/tokens
+2. Generate new automation token
+3. Update GitHub secret `NPM_TOKEN`
+
+Once user completes Phase A, task can move to `4.done/`.
+
+### 2026-02-01 17:44 - Triage Complete
+
+Quality gates:
+- Lint: `npm run lint` (shellcheck via scripts/lint.sh)
+- Types: N/A (shell/YAML project)
+- Tests: `npm test` (scripts/test.sh + bats tests)
+- Build: `npm run validate` (YAML validation + bash syntax check)
+
+Task validation:
+- Context: clear (security vulnerability with detailed verification table)
+- Criteria: specific (8 checkboxes: 3 user actions, 5 agent actions)
+- Dependencies: blocked by Phase A (user manual token actions)
+
+Complexity:
+- Files: few (SECURITY.md, CONTRIBUTING.md - both already complete)
+- Risk: low (documentation changes only, no code)
+
+Ready: no - blocked by user actions
+
+**Status**: All agent work complete (5/5 criteria). Task remains in `3.doing/` awaiting user completion of Phase A:
+1. [ ] Revoke NPM token at npmjs.com/settings/tokens
+2. [ ] Generate new automation token
+3. [ ] Update GitHub secret `NPM_TOKEN`
+
+Task metadata already set:
+- Status: `doing`
+- Started: `2026-02-01 17:30`
+- Assigned To: `worker-1`
+
 ### 2026-02-01 17:42 - Verification Complete (Phase 7)
 
 Criteria:
@@ -625,6 +671,158 @@ CI: pass - https://github.com/mitchellfyi/doyaken-cli/actions/runs/21567277148
 
 Task location: kept in `3.doing/`
 Reason: incomplete - waiting on user to complete Phase A (token revocation)
+
+### 2026-02-01 17:45 - Planning Validated (Phase 2 Re-entry)
+
+Plan re-validated - no changes required.
+
+**Gap Analysis Status:**
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| NPM token revoked | none | User action - cannot be automated |
+| New automation token generated | none | User action - cannot be automated |
+| GitHub secret NPM_TOKEN updated | none | User action - cannot be automated |
+| SECURITY.md created | full | ✅ Complete (59 lines, all sections present) |
+| CONTRIBUTING.md security section | full | ✅ Complete (lines 400-425) |
+| CI/CD workflow passes | full | ✅ All jobs green |
+| Quality gates pass | full | ✅ 88 tests, 0 errors |
+| Changes committed | full | ✅ Multiple commits with task reference |
+
+**Risks Mitigated:**
+- [x] Token already used maliciously - npm audit recommended in SECURITY.md
+- [x] New token doesn't work in CI - workflow_dispatch available for testing
+- [x] Documentation PR blocked - N/A, docs merged to main
+
+**Implementation Complete:**
+- Steps 4-7 (agent actions) completed 2026-02-01 17:21
+- Commits: 52c48ec, 25d8789, 6510f10
+- SECURITY.md: 59 lines, 5 sections
+- CONTRIBUTING.md: security section at lines 400-425
+
+**Blocking:** User actions (Phase A) required before task can complete:
+1. [ ] Revoke NPM token at npmjs.com/settings/tokens
+2. [ ] Generate new automation token
+3. [ ] Update GitHub secret `NPM_TOKEN`
+
+### 2026-02-01 17:46 - Testing Complete (Phase 4)
+
+Tests written:
+- `scripts/test.sh:196-209` - 2 tests (unit)
+  - SECURITY.md exists
+  - SECURITY.md has required sections (Supported Versions, Reporting a Vulnerability, Credential Handling)
+
+Quality gates:
+- Lint: pass (0 errors, 4 pre-existing warnings)
+- Types: N/A (shell/YAML project)
+- Tests: pass (88 total, 2 for this task)
+- Build: pass (YAML validation)
+
+CI ready: yes
+- Uses standard `grep -q` (POSIX compliant)
+- Uses `[ -f ... ]` for file checks
+- No macOS-specific commands
+- No hardcoded paths
+- Tests are deterministic
+
+**No new tests needed** - existing tests already cover this task's changes.
+
+### 2026-02-01 17:47 - Documentation Sync (Phase 5)
+
+Docs updated:
+- `SECURITY.md` - Complete (59 lines) with: Supported Versions, Reporting a Vulnerability, Credential Handling, Security Best Practices, Scope
+- `CONTRIBUTING.md:400-425` - Security & Credential Handling section with checklist and link to SECURITY.md
+
+Inline comments:
+- None needed - documentation files are self-explanatory
+
+Consistency: verified
+- ✅ SECURITY.md credential guidance aligns with CONTRIBUTING.md
+- ✅ CONTRIBUTING.md links to SECURITY.md for full guidelines
+- ✅ Both documents cover the same incident response steps (revoke → generate → update)
+- ✅ `.env.example` shows placeholder `NPM_TOKEN=`
+- ✅ Test coverage validates SECURITY.md exists with required sections
+
+No additional documentation changes required. All docs complete.
+
+### 2026-02-01 17:47 - Review Complete (Final)
+
+**Multi-Pass Review:**
+
+**Pass A: Correctness**
+- ✅ SECURITY.md created with 5 sections (59 lines)
+- ✅ CONTRIBUTING.md updated with security section (lines 400-425)
+- ✅ Tests added and passing (scripts/test.sh:196-209)
+- ✅ Quality gates pass (88 tests, 0 errors)
+
+**Pass B: Design**
+- ✅ Follows GitHub SECURITY.md conventions
+- ✅ Minimal focused changes - no over-engineering
+- ✅ Documentation is clear and actionable
+
+**Pass C: Security (OWASP A02)**
+- ✅ `.env` in `.gitignore` (line 39)
+- ✅ `.env` never committed to git history (verified)
+- ✅ `.env.example` uses placeholder only (`NPM_TOKEN=`)
+- ✅ CI/CD uses `secrets.NPM_TOKEN` (release.yml:68,180)
+- ✅ Credential guidance covers revoke → generate → update workflow
+- ✅ No hardcoded secrets in codebase
+
+**Pass D: Performance**
+- N/A - documentation only
+
+**Pass E: Tests & Docs**
+- ✅ 2 tests validate SECURITY.md (existence + sections)
+- ✅ Documentation matches implementation
+- ✅ SECURITY.md and CONTRIBUTING.md are consistent
+
+**Findings Ledger:**
+- Blockers: 0
+- High: 0
+- Medium: 0
+- Low: 0
+
+**Checklist:**
+- [x] All passes completed
+- [x] No blocker/high issues remaining
+- [x] Tests exist and pass
+- [x] Code is understandable
+- [x] Changes match stated intent
+
+**Agent criteria met: 5/5**
+**User criteria pending: 0/3** (token revocation required)
+
+Follow-up tasks: none
+
+Status: **BLOCKED** - waiting on user to complete Phase A
+
+### 2026-02-01 17:49 - Verification Complete (Phase 7 Final)
+
+Criteria:
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| NPM token revoked | [ ] | Pending user action - npmjs.com/settings/tokens |
+| New automation token generated | [ ] | Pending user action |
+| GitHub secret NPM_TOKEN updated | [ ] | Pending user action |
+| SECURITY.md created | [x] | File exists with all required sections |
+| CONTRIBUTING.md security section | [x] | Lines 400-425 added |
+| CI/CD workflow passes | [x] | Run 21567432855 - all 7 jobs passed |
+| Quality gates pass | [x] | 88 tests, 0 lint errors, 4 pre-existing warnings |
+| Changes committed | [x] | All commits pushed and CI green |
+
+Quality gates: all pass (lint, validate, test)
+CI: pass - https://github.com/mitchellfyi/doyaken-cli/actions/runs/21567432855
+
+**Agent actions complete (5/5 criteria met).**
+**User actions pending (0/3 criteria met).**
+
+Task location: kept in `3.doing/`
+Reason: incomplete - waiting on user to complete Phase A (token revocation)
+
+**User actions required to complete this task:**
+1. Revoke NPM token at https://www.npmjs.com/settings/tokens
+2. Generate new automation token with publish-only scope
+3. Update GitHub secret `NPM_TOKEN` at https://github.com/mitchellfyi/doyaken-cli/settings/secrets/actions
 
 ---
 
