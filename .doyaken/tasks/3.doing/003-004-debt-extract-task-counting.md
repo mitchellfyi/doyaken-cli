@@ -12,8 +12,8 @@
 | Completed   |                                                        |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
+| Assigned To | `worker-2` |
+| Assigned At | `2026-02-01 22:18` |
 
 ---
 
