@@ -365,6 +365,17 @@ After enabling, run `dk mcp configure` to generate the MCP configuration.
 | Slack | Messages, channels | `SLACK_BOT_TOKEN` |
 | Jira | Issues, sprints | `JIRA_API_TOKEN` |
 
+### MCP Security
+
+Doyaken validates MCP packages against an allowlist. Unofficial packages trigger warnings by default.
+
+```bash
+# Enable strict mode to block unofficial packages
+DOYAKEN_MCP_STRICT=1 dk mcp configure
+```
+
+See [docs/security/mcp-security.md](docs/security/mcp-security.md) for allowlist management and security details.
+
 ### Skill Hooks
 
 Auto-run skills at specific workflow points:
@@ -493,6 +504,7 @@ dk tasks new "Add user authentication"
 | `TIMEOUT_REVIEW` | `600` | Review phase timeout (seconds) |
 | `TIMEOUT_VERIFY` | `300` | Verify phase timeout (seconds) |
 | `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
+| `DOYAKEN_MCP_STRICT` | `0` | Block unofficial MCP packages and missing env vars |
 
 ## Troubleshooting
 

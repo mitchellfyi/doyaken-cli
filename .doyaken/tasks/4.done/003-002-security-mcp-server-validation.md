@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-002-security-mcp-server-validation`               |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-01 17:00`                                     |
 | Started     | `2026-02-01 21:51`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 22:30`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -69,7 +69,7 @@ All must be checked before moving to done:
 - [x] **Unit tests**: `test/unit/mcp-security.bats` covers all new validation functions
 - [x] Tests written and passing (`bats test/unit/mcp-security.bats`)
 - [x] Quality gates pass (`shellcheck lib/mcp.sh`)
-- [ ] Changes committed with task reference
+- [x] Changes committed with task reference
 
 ---
 
@@ -381,33 +381,33 @@ All must be checked before moving to done:
 
 ### Unit Tests (`test/unit/mcp-security.bats`)
 
-- [ ] `mask_token`: returns `***` for empty string
-- [ ] `mask_token`: returns `***` for string <= 4 chars
-- [ ] `mask_token`: returns first 4 chars + `***` for longer strings
-- [ ] `mcp_validate_package`: returns 0 for `@modelcontextprotocol/server-github`
-- [ ] `mcp_validate_package`: returns 0 for `@anthropic/mcp-server-linear`
-- [ ] `mcp_validate_package`: returns 1 for `slack-mcp-server`
-- [ ] `mcp_validate_package`: returns 1 for `figma-developer-mcp`
-- [ ] `mcp_validate_package`: returns 1 if allowlist file missing (graceful degradation)
-- [ ] `mcp_validate_package`: rejects partial match like `my-modelcontextprotocol-server`
-- [ ] `mcp_validate_env_vars`: returns 0 when all vars set
-- [ ] `mcp_validate_env_vars`: returns 1 when required var missing
-- [ ] `mcp_validate_env_vars`: returns 0 for vars with defaults `${VAR:-default}`
-- [ ] `mcp_validate_integration`: returns 0 in non-strict mode (warns only)
-- [ ] `mcp_validate_integration`: returns 1 in strict mode for unofficial package
-- [ ] `mcp_validate_integration`: returns 1 in strict mode for missing env vars
+- [x] `mask_token`: returns `***` for empty string
+- [x] `mask_token`: returns `***` for string <= 4 chars
+- [x] `mask_token`: returns first 4 chars + `***` for longer strings
+- [x] `mcp_validate_package`: returns 0 for `@modelcontextprotocol/server-github`
+- [x] `mcp_validate_package`: returns 0 for `@anthropic/mcp-server-linear`
+- [x] `mcp_validate_package`: returns 1 for `slack-mcp-server`
+- [x] `mcp_validate_package`: returns 1 for `figma-developer-mcp`
+- [x] `mcp_validate_package`: returns 1 if allowlist file missing (graceful degradation)
+- [x] `mcp_validate_package`: rejects partial match like `my-modelcontextprotocol-server`
+- [x] `mcp_validate_env_vars`: returns 0 when all vars set
+- [x] `mcp_validate_env_vars`: returns 1 when required var missing
+- [x] `mcp_validate_env_vars`: returns 0 for vars with defaults `${VAR:-default}`
+- [x] `mcp_validate_integration`: returns 0 in non-strict mode (warns only)
+- [x] `mcp_validate_integration`: returns 1 in strict mode for unofficial package
+- [x] `mcp_validate_integration`: returns 1 in strict mode for missing env vars
 
 ### Integration Tests (manual verification)
 
-- [ ] `doyaken mcp doctor` shows unofficial package warnings
-- [ ] `doyaken mcp configure` generates valid JSON with warnings
-- [ ] `DOYAKEN_MCP_STRICT=1 doyaken mcp configure` excludes unofficial packages
+- [x] `doyaken mcp doctor` shows unofficial package warnings
+- [x] `doyaken mcp configure` generates valid JSON with warnings
+- [x] `DOYAKEN_MCP_STRICT=1 doyaken mcp configure` excludes unofficial packages
 
 ---
 
 ## Docs to Update
 
-- [ ] `docs/security/mcp-security.md` - Create new file documenting MCP security model
+- [x] `docs/security/mcp-security.md` - Create new file documenting MCP security model
 
 ---
 
@@ -522,6 +522,66 @@ Step 10: Quality gates
 - Verification: shellcheck lib/mcp.sh - only pre-existing warnings (SC2034)
 - Verification: npm run test:unit - all 207 tests pass
 - Verification: npm run lint - 0 errors, 5 pre-existing warnings
+
+### 2026-02-01 22:04 - Testing Complete
+
+Tests written:
+- `test/unit/mcp-security.bats` - 33 tests (unit)
+
+Quality gates:
+- Lint: pass (0 errors, 5 pre-existing warnings in other files)
+- Types: N/A (bash project)
+- Tests: pass (207 total, 33 new in mcp-security.bats)
+- Build: N/A (bash scripts)
+
+Test coverage:
+- `mask_token()`: 6 tests (empty, short, normal, special chars)
+- `mcp_validate_package()`: 11 tests (official patterns, unofficial, missing allowlist, partial matches)
+- `mcp_validate_env_vars()`: 6 tests (all set, missing, defaults, multiple vars, nonexistent)
+- `mcp_validate_integration()`: 10 tests (strict/non-strict modes, official/unofficial packages)
+
+CI ready: yes
+- No macOS-specific commands
+- No hardcoded paths
+- No flaky tests
+- Shellcheck passes on lib/mcp.sh
+
+### 2026-02-01 22:06 - Documentation Sync
+
+Docs updated:
+- `README.md:367-376` - Added MCP Security subsection with strict mode example and link to detailed docs
+- `README.md:496` - Added `DOYAKEN_MCP_STRICT` to environment variables table
+
+Inline comments:
+- `lib/mcp.sh:13-24` - `mask_token()` already has clear usage comment
+- `lib/mcp.sh:246-251` - `mcp_validate_package()` documents return codes and usage
+- `lib/mcp.sh:281-288` - `mcp_validate_env_vars()` documents global var and usage
+- `lib/mcp.sh:318-323` - `mcp_validate_integration()` documents strict mode behavior
+
+Consistency: verified
+- `docs/security/mcp-security.md` matches implementation (allowlist patterns, strict mode, token masking)
+- README now references security docs and documents `DOYAKEN_MCP_STRICT` env var
+- No discrepancies found between code comments and behavior
+
+### 2026-02-01 22:30 - Review Complete
+
+Findings:
+- Blockers: 0
+- High: 0
+- Medium: 0
+- Low: 1 - deferred (pre-existing unused vars in lib/mcp.sh:120, out of scope)
+
+Review passes:
+- Correctness: pass - happy path and edge cases verified, return codes correct
+- Design: pass - follows existing patterns from lib/core.sh, functions focused
+- Security: pass - input validation, token masking, no hardcoded secrets
+- Performance: pass - no N+1, bounded loops, validation once per integration
+- Tests: pass - 33 unit tests, all edge cases covered, all passing (207 total)
+
+All criteria met: yes
+Follow-up tasks: none
+
+Status: COMPLETE
 
 ---
 
