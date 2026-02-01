@@ -193,6 +193,21 @@ for lib_prompt in quality.md testing.md review.md planning.md review-security.md
   fi
 done
 
+# Test 13a: SECURITY.md exists with required sections
+if [ -f "$ROOT_DIR/SECURITY.md" ]; then
+  pass "SECURITY.md exists"
+  # Check for required sections
+  if grep -q "Reporting a Vulnerability" "$ROOT_DIR/SECURITY.md" && \
+     grep -q "Credential Handling" "$ROOT_DIR/SECURITY.md" && \
+     grep -q "Supported Versions" "$ROOT_DIR/SECURITY.md"; then
+    pass "SECURITY.md has required sections"
+  else
+    fail "SECURITY.md missing required sections"
+  fi
+else
+  fail "SECURITY.md missing"
+fi
+
 # Test 14: Auto-timeout function works
 # Test that read_with_timeout auto-selects from valid options
 TIMEOUT_RESULT=$(bash -c 'source "'"$ROOT_DIR"'/lib/cli.sh" 2>/dev/null; DOYAKEN_AUTO_TIMEOUT=1 read_with_timeout test_var "Test: " a b c d; echo "$test_var"' 2>&1 | tail -1)
