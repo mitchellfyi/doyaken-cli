@@ -397,6 +397,33 @@ Create a new `skills/` file when:
 - [ ] Fits in the 8-phase workflow
 - [ ] Added to `scripts/test.sh` checks
 
+## Security & Credential Handling
+
+Security is critical for any tool that runs with elevated permissions or handles credentials.
+
+### Credential Safety
+
+- **Never commit secrets** - API keys, tokens, and passwords must never appear in code or git history
+- **Use `.env` for local secrets** - The `.env` file is gitignored; store local credentials there
+- **Use `.env.example` for templates** - Show required variables with placeholder values only
+- **CI/CD uses GitHub Secrets** - Production credentials live in GitHub Secrets, never in code
+
+### Before Committing
+
+- [ ] No hardcoded credentials in your changes
+- [ ] No secrets in log statements or error messages
+- [ ] `.env` file is not staged (`git status` to verify)
+- [ ] Any new environment variables are documented in `.env.example`
+
+### If You Accidentally Expose a Credential
+
+1. **Revoke it immediately** - assume it's compromised
+2. Generate a new credential
+3. If committed to git, the credential is permanently compromised (git history persists even after deletion)
+4. Report the incident to maintainers
+
+For full security guidelines, see [SECURITY.md](./SECURITY.md).
+
 ## Examples
 
 ### See How It's Done
