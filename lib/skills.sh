@@ -515,12 +515,22 @@ $prompt"
     args+=("${tmp_args[@]}")
   fi
 
-  # Add verbose/streaming args so user can see progress
-  local verbose_args
-  verbose_args=$(agent_verbose_args "$agent")
-  if [ -n "$verbose_args" ]; then
-    read -r -a tmp_args <<< "$verbose_args"
-    args+=("${tmp_args[@]}")
+  # For interactive skill runs (tty), don't use --print so output streams live
+  # For non-interactive runs (piped/scripted), use --print for captured output
+  if [ -t 1 ]; then
+    # Interactive terminal - let agent run with live output (no --print)
+    # Just add output format for text
+    if [ "$agent" = "claude" ]; then
+      args+=("--output-format" "text")
+    fi
+  else
+    # Non-interactive - use verbose args which include --print
+    local verbose_args
+    verbose_args=$(agent_verbose_args "$agent")
+    if [ -n "$verbose_args" ]; then
+      read -r -a tmp_args <<< "$verbose_args"
+      args+=("${tmp_args[@]}")
+    fi
   fi
 
   # Add prompt

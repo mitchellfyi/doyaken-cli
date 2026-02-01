@@ -401,7 +401,9 @@ substitute_skill_vars() {
       arg_name="${arg_name//_/-}"
       content="${content//\{\{ARGS.$arg_name\}\}/$var_value}"
       # Also support uppercase
-      content="${content//\{\{ARGS.${arg_name^^}\}\}/$var_value}"
+      local arg_name_upper
+      arg_name_upper=$(echo "$arg_name" | tr '[:lower:]' '[:upper:]')
+      content="${content//\{\{ARGS.$arg_name_upper\}\}/$var_value}"
     fi
   done < <(env | grep '^SKILL_ARG_')
 
@@ -502,18 +504,57 @@ $prompt"
 
   local args=()
   local tmp_args
+
+  # Add autonomous mode args
   read -r -a tmp_args <<< "$(agent_autonomous_args "$agent")"
   args+=("${tmp_args[@]}")
+
+  # Add model args if specified
   if [ -n "$model" ]; then
     read -r -a tmp_args <<< "$(agent_model_args "$agent" "$model")"
     args+=("${tmp_args[@]}")
   fi
-  read -r -a tmp_args <<< "$(agent_prompt_args "$agent" "$prompt")"
-  args+=("${tmp_args[@]}")
+
+  # For interactive skill runs (tty), don't use --print so output streams live
+  # For non-interactive runs (piped/scripted), use --print for captured output
+  if [ -t 1 ]; then
+    # Interactive terminal - let agent run with live output (no --print)
+    # Just add output format for text
+    if [ "$agent" = "claude" ]; then
+      args+=("--output-format" "text")
+    fi
+  else
+    # Non-interactive - use verbose args which include --print
+    local verbose_args
+    verbose_args=$(agent_verbose_args "$agent")
+    if [ -n "$verbose_args" ]; then
+      read -r -a tmp_args <<< "$verbose_args"
+      args+=("${tmp_args[@]}")
+    fi
+  fi
+
+  # Add prompt
+  local prompt_flag
+  prompt_flag=$(agent_prompt_args "$agent" "$prompt")
+  if [ -n "$prompt_flag" ]; then
+    args+=("$prompt_flag" "$prompt")
+  else
+    # Agents that take prompt as positional arg
+    args+=("$prompt")
+  fi
 
   # Execute
   if [ "${AGENT_DRY_RUN:-0}" = "1" ]; then
-    echo "[DRY RUN] Would execute: $cmd ${args[*]}"
+    # Show command without full prompt (which can be very long)
+    local display_args=()
+    for arg in "${args[@]}"; do
+      if [ "${#arg}" -gt 100 ]; then
+        display_args+=("[prompt: ${#arg} chars]")
+      else
+        display_args+=("$arg")
+      fi
+    done
+    echo "[DRY RUN] Would execute: $cmd ${display_args[*]}"
     return 0
   fi
 

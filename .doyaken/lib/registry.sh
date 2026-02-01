@@ -9,18 +9,18 @@ set -euo pipefail
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 REGISTRY_FILE="$DOYAKEN_HOME/projects/registry.yaml"
 
-# Colors (if not already defined)
-RED="${RED:-\033[0;31m}"
-GREEN="${GREEN:-\033[0;32m}"
-YELLOW="${YELLOW:-\033[0;33m}"
-BLUE="${BLUE:-\033[0;34m}"
-NC="${NC:-\033[0m}"
-
-# ============================================================================
-# Logging (if not already defined)
-# ============================================================================
-
-if ! declare -f log_info &>/dev/null; then
+# Source centralized logging
+_REGISTRY_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_REGISTRY_SCRIPT_DIR/logging.sh" ]]; then
+  source "$_REGISTRY_SCRIPT_DIR/logging.sh"
+  set_log_prefix "registry"
+else
+  # Fallback colors
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[0;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
   log_info() { echo -e "${BLUE}[registry]${NC} $1"; }
   log_success() { echo -e "${GREEN}[registry]${NC} $1"; }
   log_warn() { echo -e "${YELLOW}[registry]${NC} $1"; }
@@ -30,6 +30,21 @@ fi
 # ============================================================================
 # Registry Management
 # ============================================================================
+
+# Check if yq is available (required for registry write operations)
+require_yq() {
+  if ! command -v yq &>/dev/null; then
+    log_error "yq is required for registry operations but not installed"
+    echo ""
+    echo "  Install yq:"
+    echo "    macOS:   brew install yq"
+    echo "    Ubuntu:  sudo snap install yq"
+    echo "    Other:   https://github.com/mikefarah/yq#install"
+    echo ""
+    return 1
+  fi
+  return 0
+}
 
 ensure_registry() {
   mkdir -p "$(dirname "$REGISTRY_FILE")"
@@ -57,6 +72,9 @@ add_to_registry() {
   local timestamp
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+  # Require yq for write operations
+  require_yq || return 1
+
   ensure_registry
 
   # Normalize path
@@ -66,63 +84,24 @@ add_to_registry() {
   }
 
   # Check if already registered
-  if grep -q "path: \"$path\"" "$REGISTRY_FILE" 2>/dev/null; then
+  if yq -e ".projects[] | select(.path == \"$path\")" "$REGISTRY_FILE" &>/dev/null; then
     log_info "Project already registered: $path"
     # Update last_active timestamp
     update_last_active "$path"
     return 0
   fi
 
-  # Add to registry
-  if command -v yq &>/dev/null; then
-    # Use yq for proper YAML manipulation
-    yq -i ".projects += [{\"path\": \"$path\", \"name\": \"$name\", \"git_remote\": \"$git_remote\", \"registered_at\": \"$timestamp\", \"last_active\": \"$timestamp\"}]" "$REGISTRY_FILE"
-  else
-    # Fallback: manual YAML append (less robust but works)
-    # Find the projects: [] line and replace it, or append to projects list
-    if grep -q "^projects: \[\]$" "$REGISTRY_FILE"; then
-      # Empty projects list - use awk for cross-platform compatibility
-      local temp_file
-      temp_file=$(mktemp)
-      awk -v path="$path" -v name="$name" -v remote="$git_remote" -v ts="$timestamp" '
-        /^projects: \[\]$/ {
-          print "projects:"
-          print "  - path: \"" path "\""
-          print "    name: \"" name "\""
-          print "    git_remote: \"" remote "\""
-          print "    registered_at: \"" ts "\""
-          print "    last_active: \"" ts "\""
-          next
-        }
-        { print }
-      ' "$REGISTRY_FILE" > "$temp_file"
-      mv "$temp_file" "$REGISTRY_FILE"
-    else
-      # Append to existing projects list
-      # Find the line after "projects:" and insert there
-      local temp_file
-      temp_file=$(mktemp)
-      awk -v path="$path" -v name="$name" -v remote="$git_remote" -v ts="$timestamp" '
-        /^projects:/ {
-          print
-          print "  - path: \"" path "\""
-          print "    name: \"" name "\""
-          print "    git_remote: \"" remote "\""
-          print "    registered_at: \"" ts "\""
-          print "    last_active: \"" ts "\""
-          next
-        }
-        { print }
-      ' "$REGISTRY_FILE" > "$temp_file"
-      mv "$temp_file" "$REGISTRY_FILE"
-    fi
-  fi
+  # Add to registry using yq
+  yq -i ".projects += [{\"path\": \"$path\", \"name\": \"$name\", \"git_remote\": \"$git_remote\", \"registered_at\": \"$timestamp\", \"last_active\": \"$timestamp\"}]" "$REGISTRY_FILE"
 
   log_success "Registered project: $name at $path"
 }
 
 remove_from_registry() {
   local path="$1"
+
+  # Require yq for write operations
+  require_yq || return 1
 
   ensure_registry
 
@@ -132,32 +111,12 @@ remove_from_registry() {
     return 1
   }
 
-  if ! grep -q "path: \"$path\"" "$REGISTRY_FILE" 2>/dev/null; then
+  if ! yq -e ".projects[] | select(.path == \"$path\")" "$REGISTRY_FILE" &>/dev/null; then
     log_warn "Project not in registry: $path"
     return 0
   fi
 
-  if command -v yq &>/dev/null; then
-    yq -i "del(.projects[] | select(.path == \"$path\"))" "$REGISTRY_FILE"
-  else
-    # Fallback: use sed/awk (less robust)
-    local temp_file
-    temp_file=$(mktemp)
-    awk -v path="$path" '
-      BEGIN { skip = 0 }
-      /^  - path: / {
-        if (index($0, path) > 0) {
-          skip = 1
-          next
-        }
-      }
-      skip && /^  - path: / { skip = 0 }
-      skip && /^    / { next }
-      skip && /^[^ ]/ { skip = 0 }
-      !skip { print }
-    ' "$REGISTRY_FILE" > "$temp_file"
-    mv "$temp_file" "$REGISTRY_FILE"
-  fi
+  yq -i "del(.projects[] | select(.path == \"$path\"))" "$REGISTRY_FILE"
 
   log_success "Removed project from registry: $path"
 }
@@ -194,10 +153,10 @@ update_last_active() {
   local timestamp
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+  # Silently skip if yq not available (non-critical operation)
   if command -v yq &>/dev/null; then
     yq -i "(.projects[] | select(.path == \"$path\")).last_active = \"$timestamp\"" "$REGISTRY_FILE"
   fi
-  # Fallback: skip update if yq not available
 }
 
 list_projects() {
@@ -307,6 +266,30 @@ get_project_count() {
   else
     grep -c "^  - path:" "$REGISTRY_FILE" 2>/dev/null || echo "0"
   fi
+}
+
+# Prune orphaned projects (paths that no longer exist)
+prune_registry() {
+  ensure_registry
+
+  if ! command -v yq &>/dev/null; then
+    log_warn "yq not available, skipping registry prune"
+    return 0
+  fi
+
+  local pruned=0
+  local paths
+  paths=$(yq -r '.projects[].path' "$REGISTRY_FILE" 2>/dev/null)
+
+  while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    if [ ! -d "$path" ] || [ ! -d "$path/.doyaken" ]; then
+      yq -i "del(.projects[] | select(.path == \"$path\"))" "$REGISTRY_FILE"
+      pruned=$((pruned + 1))
+    fi
+  done <<< "$paths"
+
+  echo "$pruned"
 }
 
 # Export functions for use in other scripts

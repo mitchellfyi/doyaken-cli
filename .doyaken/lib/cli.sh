@@ -15,8 +15,8 @@ set -euo pipefail
 
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
-# Get version from VERSION file or package.json
-DOYAKEN_VERSION="0.1.12"
+# Get version from VERSION file or package.json (fallback to unknown if not found)
+DOYAKEN_VERSION="unknown"
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/../VERSION" ]; then
   DOYAKEN_VERSION=$(cat "$(dirname "${BASH_SOURCE[0]}")/../VERSION")
 elif [ -f "$DOYAKEN_HOME/VERSION" ]; then
@@ -353,34 +353,16 @@ EOF
   log_success "Generated slash commands (.claude/commands/)"
 }
 
-cmd_init() {
-  local target_dir="${1:-$(pwd)}"
+# ============================================================================
+# Init Helper Functions
+# ============================================================================
 
-  # Resolve to absolute path
-  target_dir=$(cd "$target_dir" 2>/dev/null && pwd) || {
-    log_error "Directory not found: $target_dir"
-    exit 1
-  }
-
+# Create .doyaken directory structure
+# Usage: init_directories "target_dir"
+init_directories() {
+  local target_dir="$1"
   local ai_agent_dir="$target_dir/.doyaken"
 
-  # Check if already initialized
-  if [ -d "$ai_agent_dir" ]; then
-    log_warn "Project already initialized at: $target_dir"
-    log_info "Use 'doyaken status' to view project info"
-    return 0
-  fi
-
-  # Check for legacy .claude/
-  if [ -d "$target_dir/.claude" ]; then
-    log_warn "Legacy .claude/ directory found"
-    log_info "Remove .claude/ first or use a different directory"
-    return 1
-  fi
-
-  log_info "Initializing doyaken project at: $target_dir"
-
-  # Create directory structure
   mkdir -p "$ai_agent_dir/tasks/1.blocked"
   mkdir -p "$ai_agent_dir/tasks/2.todo"
   mkdir -p "$ai_agent_dir/tasks/3.doing"
@@ -390,7 +372,6 @@ cmd_init() {
   mkdir -p "$ai_agent_dir/state"
   mkdir -p "$ai_agent_dir/locks"
 
-  # Create .gitkeep files
   touch "$ai_agent_dir/tasks/1.blocked/.gitkeep"
   touch "$ai_agent_dir/tasks/2.todo/.gitkeep"
   touch "$ai_agent_dir/tasks/3.doing/.gitkeep"
@@ -398,20 +379,17 @@ cmd_init() {
   touch "$ai_agent_dir/logs/.gitkeep"
   touch "$ai_agent_dir/state/.gitkeep"
   touch "$ai_agent_dir/locks/.gitkeep"
+}
 
-  # Detect git info
-  local git_remote=""
-  local git_branch="main"
-  if [ -d "$target_dir/.git" ]; then
-    git_remote=$(git -C "$target_dir" remote get-url origin 2>/dev/null || echo "")
-    git_branch=$(git -C "$target_dir" branch --show-current 2>/dev/null || echo "main")
-  fi
+# Create manifest.yaml with project configuration
+# Usage: init_manifest "target_dir" "project_name" "git_remote" "git_branch"
+init_manifest() {
+  local target_dir="$1"
+  local project_name="$2"
+  local git_remote="${3:-}"
+  local git_branch="${4:-main}"
+  local ai_agent_dir="$target_dir/.doyaken"
 
-  # Detect project name
-  local project_name
-  project_name=$(basename "$target_dir")
-
-  # Generate manifest
   cat > "$ai_agent_dir/manifest.yaml" << EOF
 # AI Agent Project Manifest
 # Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -422,89 +400,40 @@ project:
   name: "$project_name"
   description: ""
 
-# Git configuration (auto-detected)
 git:
   remote: "$git_remote"
   branch: "$git_branch"
 
-# Domains and URLs associated with this project
-domains:
-  # production: "https://example.com"
-  # staging: "https://staging.example.com"
+domains: {}
 
-# External tool integrations
-tools:
-  # jira:
-  #   enabled: false
-  #   project_key: ""
-  #   base_url: ""
-  # github:
-  #   enabled: true
-  #   repo: "user/repo"
-  # linear:
-  #   enabled: false
-  #   team_id: ""
+tools: {}
 
-# Quality gate commands (auto-detected or configured)
 quality:
   test_command: ""
   lint_command: ""
   format_command: ""
   build_command: ""
 
-# Agent behavior settings
 agent:
-  # Agent to use: claude, codex, gemini, copilot, opencode
   name: "claude"
-  # Model depends on agent:
-  #   claude: opus, sonnet, haiku
-  #   codex: gpt-5, o3, o4-mini
-  #   gemini: gemini-2.5-pro, gemini-2.5-flash
-  #   copilot: claude-sonnet-4.5, gpt-5
-  #   opencode: claude-sonnet-4, gpt-5
   model: "opus"
   max_retries: 2
   parallel_workers: 2
-
-# Output settings (override global defaults)
-# output:
-#   progress_mode: true    # One-line progress updates
-#   verbose: false         # Show full agent output
-#   quiet: false           # Minimal output
-
-# Phase timeouts in seconds (override global defaults)
-# Increase these if tasks are complex and hitting timeouts
-# See: doyaken config show
-# timeouts:
-#   expand: 900       # 15 min
-#   triage: 540       # 9 min
-#   plan: 900         # 15 min
-#   implement: 5400   # 90 min
-#   test: 1800        # 30 min
-#   docs: 900         # 15 min
-#   review: 1800      # 30 min
-#   verify: 900       # 15 min
-
-# Skip phases (set to true to skip)
-# skip_phases:
-#   expand: false
-#   triage: false
-#   plan: false
-#   implement: false
-#   test: false
-#   docs: false
-#   review: false
-#   verify: false
 EOF
 
   log_success "Created manifest.yaml"
+}
 
-  # Copy task template
+# Copy or create task template
+# Usage: init_task_template "target_dir"
+init_task_template() {
+  local target_dir="$1"
+  local ai_agent_dir="$target_dir/.doyaken"
   local template_src="$DOYAKEN_HOME/templates/TASK.md"
+
   if [ -f "$template_src" ]; then
     cp "$template_src" "$ai_agent_dir/tasks/_templates/TASK.md"
   else
-    # Fallback: create basic template
     cat > "$ai_agent_dir/tasks/_templates/TASK.md" << 'EOF'
 # Task: [TITLE]
 
@@ -564,20 +493,31 @@ Why does this task exist?
 EOF
   fi
   log_success "Created task template"
+}
 
-  # Copy doyaken README to project .doyaken folder
+# Copy doyaken README to project
+# Usage: init_readme "target_dir"
+init_readme() {
+  local target_dir="$1"
+  local ai_agent_dir="$target_dir/.doyaken"
   local readme_src="$DOYAKEN_HOME/README.md"
+
   if [ ! -f "$readme_src" ]; then
-    # Fallback to script directory (for development)
     readme_src="$(dirname "$SCRIPT_DIR")/README.md"
   fi
+
   if [ -f "$readme_src" ]; then
     cp "$readme_src" "$ai_agent_dir/README.md"
     log_success "Copied doyaken README to .doyaken/"
   fi
+}
 
-  # Sync all agent files (AGENTS.md, CLAUDE.md, .cursorrules, etc.)
+# Sync agent configuration files (AGENTS.md, CLAUDE.md, etc.)
+# Usage: init_agent_files "target_dir"
+init_agent_files() {
+  local target_dir="$1"
   local sync_script="$DOYAKEN_HOME/scripts/sync-agent-files.sh"
+
   if [ ! -f "$sync_script" ]; then
     sync_script="$SCRIPT_DIR/../scripts/sync-agent-files.sh"
   fi
@@ -587,13 +527,11 @@ EOF
   else
     log_warn "sync-agent-files.sh not found - manually copy agent templates"
   fi
+}
 
-  # Generate slash commands for Claude Code
-  generate_slash_commands "$target_dir"
-
-  # Register in global registry
-  add_to_registry "$target_dir" "$project_name" "$git_remote"
-
+# Show post-init instructions
+# Usage: show_init_success
+show_init_success() {
   log_success "Project initialized successfully!"
   echo ""
   echo "Next steps:"
@@ -607,6 +545,55 @@ EOF
   echo "  /security    - Security checklist"
   echo "  /testing     - Testing methodology"
   echo "  (and more - see .claude/commands/)"
+}
+
+# ============================================================================
+# Init Command
+# ============================================================================
+
+cmd_init() {
+  local target_dir="${1:-$(pwd)}"
+  target_dir=$(cd "$target_dir" 2>/dev/null && pwd) || {
+    log_error "Directory not found: $target_dir"; exit 1
+  }
+
+  # Check if already initialized
+  if [ -d "$target_dir/.doyaken" ]; then
+    log_warn "Project already initialized at: $target_dir"
+    log_info "Use 'doyaken status' to view project info"; return 0
+  fi
+
+  # Check for legacy .claude/
+  if [ -d "$target_dir/.claude" ]; then
+    log_warn "Legacy .claude/ directory found"
+    log_info "Remove .claude/ first or use a different directory"; return 1
+  fi
+
+  log_info "Initializing doyaken project at: $target_dir"
+
+  # Detect git info
+  local git_remote="" git_branch="main"
+  if [ -d "$target_dir/.git" ]; then
+    git_remote=$(git -C "$target_dir" remote get-url origin 2>/dev/null || echo "")
+    git_branch=$(git -C "$target_dir" branch --show-current 2>/dev/null || echo "main")
+  fi
+  local project_name
+  project_name=$(basename "$target_dir")
+
+  # Run init steps
+  init_directories "$target_dir"
+  init_manifest "$target_dir" "$project_name" "$git_remote" "$git_branch"
+  init_task_template "$target_dir"
+  init_readme "$target_dir"
+  init_agent_files "$target_dir"
+  generate_slash_commands "$target_dir"
+
+  # Register in global registry (non-fatal if yq missing)
+  add_to_registry "$target_dir" "$project_name" "$git_remote" || {
+    log_warn "Could not register project (yq required for registry)"
+    log_info "Project will work, but won't appear in 'dk projects'"
+  }
+  show_init_success
 }
 
 cmd_register() {
@@ -629,6 +616,115 @@ cmd_unregister() {
   project=$(require_project)
 
   remove_from_registry "$project"
+}
+
+cmd_cleanup() {
+  local project
+  project=$(require_project)
+
+  local doyaken_dir="$project/.doyaken"
+  local total_cleaned=0
+
+  echo "Cleaning up project: $(basename "$project")"
+  echo ""
+
+  # Clean locks
+  if [ -d "$doyaken_dir/locks" ]; then
+    local lock_count
+    lock_count=$(find "$doyaken_dir/locks" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$lock_count" -gt 0 ]; then
+      find "$doyaken_dir/locks" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $lock_count lock file(s)"
+      total_cleaned=$((total_cleaned + lock_count))
+    fi
+  fi
+
+  # Clean logs
+  if [ -d "$doyaken_dir/logs" ]; then
+    local log_count
+    log_count=$(find "$doyaken_dir/logs" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$log_count" -gt 0 ]; then
+      find "$doyaken_dir/logs" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $log_count log file(s)"
+      total_cleaned=$((total_cleaned + log_count))
+    fi
+  fi
+
+  # Clean state
+  if [ -d "$doyaken_dir/state" ]; then
+    local state_count
+    state_count=$(find "$doyaken_dir/state" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$state_count" -gt 0 ]; then
+      find "$doyaken_dir/state" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $state_count state file(s)"
+      total_cleaned=$((total_cleaned + state_count))
+    fi
+  fi
+
+  # Clean done tasks
+  if [ -d "$doyaken_dir/tasks/4.done" ]; then
+    local done_count
+    done_count=$(find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$done_count" -gt 0 ]; then
+      find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $done_count completed task(s)"
+      total_cleaned=$((total_cleaned + done_count))
+    fi
+  fi
+
+  # Move stale "doing" tasks back to todo (older than 24 hours)
+  if [ -d "$doyaken_dir/tasks/3.doing" ]; then
+    local stale_count=0
+    local now
+    now=$(date +%s)
+    while IFS= read -r task_file; do
+      [ -z "$task_file" ] && continue
+      local mtime
+      # Get modification time in seconds since epoch (works on macOS and Linux)
+      if stat -f %m "$task_file" &>/dev/null; then
+        mtime=$(stat -f %m "$task_file")  # macOS
+      else
+        mtime=$(stat -c %Y "$task_file")  # Linux
+      fi
+      local age=$((now - mtime))
+      # 24 hours = 86400 seconds
+      if [ "$age" -gt 86400 ]; then
+        mv "$task_file" "$doyaken_dir/tasks/2.todo/"
+        stale_count=$((stale_count + 1))
+      fi
+    done < <(find "$doyaken_dir/tasks/3.doing" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
+    if [ "$stale_count" -gt 0 ]; then
+      echo "  ${GREEN}✓${NC} Moved $stale_count stale task(s) back to todo"
+      total_cleaned=$((total_cleaned + stale_count))
+    fi
+  fi
+
+  # Clean temp files in scratchpad if it exists
+  local scratchpad_dir="$doyaken_dir/scratchpad"
+  if [ -d "$scratchpad_dir" ]; then
+    local scratch_count
+    scratch_count=$(find "$scratchpad_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$scratch_count" -gt 0 ]; then
+      rm -rf "${scratchpad_dir:?}"/*
+      echo "  ${GREEN}✓${NC} Removed $scratch_count scratchpad file(s)"
+      total_cleaned=$((total_cleaned + scratch_count))
+    fi
+  fi
+
+  # Prune orphaned projects from registry
+  local pruned
+  pruned=$(prune_registry 2>/dev/null) || pruned=0
+  if [ "$pruned" -gt 0 ]; then
+    echo "  ${GREEN}✓${NC} Pruned $pruned orphaned project(s) from registry"
+    total_cleaned=$((total_cleaned + pruned))
+  fi
+
+  echo ""
+  if [ "$total_cleaned" -gt 0 ]; then
+    echo "Cleaned up $total_cleaned item(s)"
+  else
+    echo "Nothing to clean up"
+  fi
 }
 
 cmd_list() {
@@ -961,12 +1057,13 @@ cmd_doctor() {
     echo "  Install: brew install coreutils (macOS)"
   fi
 
-  # Check yq (optional)
+  # Check yq (required for registry operations)
   if command -v yq &>/dev/null; then
     log_success "YAML parser available (yq)"
   else
-    log_warn "yq not found (manifest parsing will be limited)"
-    echo "  Install: brew install yq"
+    log_error "yq not found (required for project registry)"
+    echo "  Install: brew install yq (macOS) or snap install yq (Ubuntu)"
+    ((issues++))
   fi
 
   # Check global installation
@@ -1042,7 +1139,7 @@ cmd_doctor() {
 }
 
 cmd_version() {
-  echo "doyaken $DOYAKEN_VERSION"
+  echo "doyaken version $DOYAKEN_VERSION"
 }
 
 cmd_skills() {
@@ -1648,6 +1745,9 @@ main() {
       ;;
     unregister)
       cmd_unregister
+      ;;
+    cleanup|clean)
+      cmd_cleanup
       ;;
     list)
       cmd_list

@@ -9,6 +9,9 @@ setup() {
   export TEST_TEMP_DIR
   TEST_TEMP_DIR="$(mktemp -d)"
   export DOYAKEN_HOME="$PROJECT_ROOT"
+  # Clear any inherited project context to ensure proper detection
+  unset DOYAKEN_PROJECT
+  unset DOYAKEN_DIR
 }
 
 teardown() {

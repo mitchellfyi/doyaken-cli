@@ -268,5 +268,29 @@ get_project_count() {
   fi
 }
 
+# Prune orphaned projects (paths that no longer exist)
+prune_registry() {
+  ensure_registry
+
+  if ! command -v yq &>/dev/null; then
+    log_warn "yq not available, skipping registry prune"
+    return 0
+  fi
+
+  local pruned=0
+  local paths
+  paths=$(yq -r '.projects[].path' "$REGISTRY_FILE" 2>/dev/null)
+
+  while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    if [ ! -d "$path" ] || [ ! -d "$path/.doyaken" ]; then
+      yq -i "del(.projects[] | select(.path == \"$path\"))" "$REGISTRY_FILE"
+      pruned=$((pruned + 1))
+    fi
+  done <<< "$paths"
+
+  echo "$pruned"
+}
+
 # Export functions for use in other scripts
 export -f ensure_registry add_to_registry remove_from_registry lookup_registry list_projects 2>/dev/null || true

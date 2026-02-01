@@ -185,10 +185,15 @@ load_manifest() {
   fi
 
   # Load quality gate commands
-  export QUALITY_TEST_CMD=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  export QUALITY_LINT_CMD=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  export QUALITY_FORMAT_CMD=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  export QUALITY_BUILD_CMD=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  local test_cmd lint_cmd format_cmd build_cmd
+  test_cmd=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  lint_cmd=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  format_cmd=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  build_cmd=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  export QUALITY_TEST_CMD="$test_cmd"
+  export QUALITY_LINT_CMD="$lint_cmd"
+  export QUALITY_FORMAT_CMD="$format_cmd"
+  export QUALITY_BUILD_CMD="$build_cmd"
 
   # Load custom environment variables from manifest
   local env_keys

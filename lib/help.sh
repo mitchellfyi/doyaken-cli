@@ -44,6 +44,7 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
+  ${CYAN}cleanup${NC}             Clean locks, logs, state, done tasks, stale doing, registry
   ${CYAN}version${NC}             Show version
   ${CYAN}help${NC} [command]      Show help
 

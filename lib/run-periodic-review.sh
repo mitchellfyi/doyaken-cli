@@ -141,7 +141,9 @@ main() {
   # Prepare log file
   local log_dir="$DOYAKEN_HOME/logs"
   mkdir -p "$log_dir"
-  local log_file="$log_dir/review-$(date '+%Y%m%d-%H%M%S').log"
+  local timestamp
+  timestamp=$(date '+%Y%m%d-%H%M%S')
+  local log_file="$log_dir/review-${timestamp}.log"
 
   log_info "Log file: $log_file"
 

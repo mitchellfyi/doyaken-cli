@@ -15,8 +15,8 @@ set -euo pipefail
 
 DOYAKEN_HOME="${DOYAKEN_HOME:-$HOME/.doyaken}"
 
-# Get version from VERSION file or package.json
-DOYAKEN_VERSION="0.1.13"
+# Get version from VERSION file or package.json (fallback to unknown if not found)
+DOYAKEN_VERSION="unknown"
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/../VERSION" ]; then
   DOYAKEN_VERSION=$(cat "$(dirname "${BASH_SOURCE[0]}")/../VERSION")
 elif [ -f "$DOYAKEN_HOME/VERSION" ]; then
@@ -577,7 +577,8 @@ cmd_init() {
     git_remote=$(git -C "$target_dir" remote get-url origin 2>/dev/null || echo "")
     git_branch=$(git -C "$target_dir" branch --show-current 2>/dev/null || echo "main")
   fi
-  local project_name=$(basename "$target_dir")
+  local project_name
+  project_name=$(basename "$target_dir")
 
   # Run init steps
   init_directories "$target_dir"
@@ -615,6 +616,115 @@ cmd_unregister() {
   project=$(require_project)
 
   remove_from_registry "$project"
+}
+
+cmd_cleanup() {
+  local project
+  project=$(require_project)
+
+  local doyaken_dir="$project/.doyaken"
+  local total_cleaned=0
+
+  echo "Cleaning up project: $(basename "$project")"
+  echo ""
+
+  # Clean locks
+  if [ -d "$doyaken_dir/locks" ]; then
+    local lock_count
+    lock_count=$(find "$doyaken_dir/locks" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$lock_count" -gt 0 ]; then
+      find "$doyaken_dir/locks" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $lock_count lock file(s)"
+      total_cleaned=$((total_cleaned + lock_count))
+    fi
+  fi
+
+  # Clean logs
+  if [ -d "$doyaken_dir/logs" ]; then
+    local log_count
+    log_count=$(find "$doyaken_dir/logs" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$log_count" -gt 0 ]; then
+      find "$doyaken_dir/logs" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $log_count log file(s)"
+      total_cleaned=$((total_cleaned + log_count))
+    fi
+  fi
+
+  # Clean state
+  if [ -d "$doyaken_dir/state" ]; then
+    local state_count
+    state_count=$(find "$doyaken_dir/state" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$state_count" -gt 0 ]; then
+      find "$doyaken_dir/state" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $state_count state file(s)"
+      total_cleaned=$((total_cleaned + state_count))
+    fi
+  fi
+
+  # Clean done tasks
+  if [ -d "$doyaken_dir/tasks/4.done" ]; then
+    local done_count
+    done_count=$(find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$done_count" -gt 0 ]; then
+      find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' -delete
+      echo "  ${GREEN}✓${NC} Removed $done_count completed task(s)"
+      total_cleaned=$((total_cleaned + done_count))
+    fi
+  fi
+
+  # Move stale "doing" tasks back to todo (older than 24 hours)
+  if [ -d "$doyaken_dir/tasks/3.doing" ]; then
+    local stale_count=0
+    local now
+    now=$(date +%s)
+    while IFS= read -r task_file; do
+      [ -z "$task_file" ] && continue
+      local mtime
+      # Get modification time in seconds since epoch (works on macOS and Linux)
+      if stat -f %m "$task_file" &>/dev/null; then
+        mtime=$(stat -f %m "$task_file")  # macOS
+      else
+        mtime=$(stat -c %Y "$task_file")  # Linux
+      fi
+      local age=$((now - mtime))
+      # 24 hours = 86400 seconds
+      if [ "$age" -gt 86400 ]; then
+        mv "$task_file" "$doyaken_dir/tasks/2.todo/"
+        stale_count=$((stale_count + 1))
+      fi
+    done < <(find "$doyaken_dir/tasks/3.doing" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
+    if [ "$stale_count" -gt 0 ]; then
+      echo "  ${GREEN}✓${NC} Moved $stale_count stale task(s) back to todo"
+      total_cleaned=$((total_cleaned + stale_count))
+    fi
+  fi
+
+  # Clean temp files in scratchpad if it exists
+  local scratchpad_dir="$doyaken_dir/scratchpad"
+  if [ -d "$scratchpad_dir" ]; then
+    local scratch_count
+    scratch_count=$(find "$scratchpad_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$scratch_count" -gt 0 ]; then
+      rm -rf "${scratchpad_dir:?}"/*
+      echo "  ${GREEN}✓${NC} Removed $scratch_count scratchpad file(s)"
+      total_cleaned=$((total_cleaned + scratch_count))
+    fi
+  fi
+
+  # Prune orphaned projects from registry
+  local pruned
+  pruned=$(prune_registry 2>/dev/null) || pruned=0
+  if [ "$pruned" -gt 0 ]; then
+    echo "  ${GREEN}✓${NC} Pruned $pruned orphaned project(s) from registry"
+    total_cleaned=$((total_cleaned + pruned))
+  fi
+
+  echo ""
+  if [ "$total_cleaned" -gt 0 ]; then
+    echo "Cleaned up $total_cleaned item(s)"
+  else
+    echo "Nothing to clean up"
+  fi
 }
 
 cmd_list() {
@@ -1635,6 +1745,9 @@ main() {
       ;;
     unregister)
       cmd_unregister
+      ;;
+    cleanup|clean)
+      cmd_cleanup
       ;;
     list)
       cmd_list
