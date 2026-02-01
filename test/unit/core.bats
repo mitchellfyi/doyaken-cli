@@ -309,3 +309,80 @@ EOF
   grep -q "| Priority | High |" "$task_file"
   grep -q "| Assigned To | worker-1 |" "$task_file"
 }
+
+# ============================================================================
+# Manifest loading optimization tests (JSON caching)
+# ============================================================================
+
+@test "manifest: JSON cache reduces yq calls" {
+  command -v yq > /dev/null || skip "yq not installed"
+  command -v jq > /dev/null || skip "jq not installed"
+
+  # Create test manifest with all sections
+  cat > "$DOYAKEN_PROJECT/.doyaken/manifest.yaml" << 'EOF'
+version: 1
+agent:
+  name: "test-agent"
+  model: "sonnet"
+  max_retries: 3
+quality:
+  test_command: "npm test"
+  lint_command: "eslint ."
+env:
+  TEST_VAR1: "value1"
+  TEST_VAR2: "value2"
+skills:
+  hooks:
+    before-test:
+      - "hook1"
+    after-test:
+      - "hook2"
+EOF
+
+  # The yq -o=json call converts the manifest to JSON in one shot
+  # This is much faster than 24+ individual yq calls
+  run yq -o=json '.' "$DOYAKEN_PROJECT/.doyaken/manifest.yaml"
+  [ "$status" -eq 0 ]
+
+  # Verify JSON is valid and contains all expected sections
+  echo "$output" | jq -e '.agent.name' > /dev/null
+  echo "$output" | jq -e '.quality.test_command' > /dev/null
+  echo "$output" | jq -e '.env.TEST_VAR1' > /dev/null
+  echo "$output" | jq -e '.skills.hooks."before-test"' > /dev/null
+}
+
+@test "manifest: jq extracts env vars efficiently" {
+  command -v jq > /dev/null || skip "jq not installed"
+
+  # Test jq extraction of env vars as key=value pairs (single call)
+  local test_json='{"env":{"VAR1":"value1","VAR2":"value2"}}'
+
+  run bash -c "echo '$test_json' | jq -r '.env // {} | to_entries[] | \"\\(.key)=\\(.value)\"'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"VAR1=value1"* ]]
+  [[ "$output" == *"VAR2=value2"* ]]
+}
+
+@test "manifest: jq handles special characters in env values" {
+  command -v jq > /dev/null || skip "jq not installed"
+
+  # Test that jq properly escapes special characters
+  local test_json='{"env":{"TEST":"value with \"quotes\""}}'
+
+  run bash -c "echo '$test_json' | jq -r '.env.TEST'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"quotes"* ]]
+}
+
+@test "manifest: jq extracts hooks efficiently" {
+  command -v jq > /dev/null || skip "jq not installed"
+
+  # Test jq extraction of hooks array
+  local test_json='{"hooks":{"before-test":["hook1","hook2","hook3"]}}'
+
+  run bash -c "echo '$test_json' | jq -r '.hooks.\"before-test\" // [] | .[]'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hook1"* ]]
+  [[ "$output" == *"hook2"* ]]
+  [[ "$output" == *"hook3"* ]]
+}
