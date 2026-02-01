@@ -944,20 +944,44 @@ commit_task_files() {
 # Task Assignment (Update task file metadata)
 # ============================================================================
 
+# Update a metadata field in a task file's markdown table
+# Uses awk -v to pass values as literal strings (not regex patterns)
+# This avoids sed metacharacter injection vulnerabilities
+update_task_metadata() {
+  local task_file="$1"
+  local field_name="$2"
+  local new_value="$3"
+
+  [ -f "$task_file" ] || return 1
+
+  # Escape backslashes for awk -v (which interprets escape sequences)
+  local escaped_value="${new_value//\\/\\\\}"
+
+  local temp_file="${task_file}.tmp.$$"
+  # Use awk's index() to find "| FieldName |" pattern (literal string match)
+  awk -v field="$field_name" -v value="$escaped_value" '
+    BEGIN { found = 0; pattern = "| " field " |" }
+    index($0, pattern) == 1 {
+      printf "| %s | %s |\n", field, value
+      found = 1
+      next
+    }
+    { print }
+    END { exit (found ? 0 : 1) }
+  ' "$task_file" > "$temp_file" && mv "$temp_file" "$task_file"
+  local result=$?
+  rm -f "$temp_file" 2>/dev/null
+  return $result
+}
+
 assign_task() {
   local task_file="$1"
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M')
 
   if [ -f "$task_file" ]; then
-    if grep -q "| Assigned To |" "$task_file"; then
-      # Escape sed metacharacters in AGENT_ID to prevent command injection
-      local escaped_agent_id="${AGENT_ID//&/\\&}"
-      escaped_agent_id="${escaped_agent_id////\\/}"
-      sed -i.bak "s/| Assigned To | .*/| Assigned To | \`$escaped_agent_id\` |/" "$task_file"
-      sed -i.bak "s/| Assigned At | .*/| Assigned At | \`$timestamp\` |/" "$task_file"
-      rm -f "${task_file}.bak"
-    fi
+    update_task_metadata "$task_file" "Assigned To" "\`$AGENT_ID\`"
+    update_task_metadata "$task_file" "Assigned At" "\`$timestamp\`"
     log_info "Assigned task to $AGENT_ID"
   fi
 }
@@ -966,11 +990,8 @@ unassign_task() {
   local task_file="$1"
 
   if [ -f "$task_file" ]; then
-    if grep -q "| Assigned To |" "$task_file"; then
-      sed -i.bak "s/| Assigned To | .*/| Assigned To | |/" "$task_file"
-      sed -i.bak "s/| Assigned At | .*/| Assigned At | |/" "$task_file"
-      rm -f "${task_file}.bak"
-    fi
+    update_task_metadata "$task_file" "Assigned To" ""
+    update_task_metadata "$task_file" "Assigned At" ""
     log_info "Unassigned task"
   fi
 }
@@ -981,10 +1002,7 @@ refresh_assignment() {
   timestamp=$(date '+%Y-%m-%d %H:%M')
 
   if [ -f "$task_file" ]; then
-    if grep -q "| Assigned At |" "$task_file"; then
-      sed -i.bak "s/| Assigned At | .*/| Assigned At | \`$timestamp\` |/" "$task_file"
-      rm -f "${task_file}.bak"
-    fi
+    update_task_metadata "$task_file" "Assigned At" "\`$timestamp\`"
     log_info "Refreshed assignment timestamp"
   fi
 }

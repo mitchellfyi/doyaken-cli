@@ -137,3 +137,175 @@ EOF
 @test "manifest: contains project name" {
   grep -q "name:" "$DOYAKEN_PROJECT/.doyaken/manifest.yaml"
 }
+
+# ============================================================================
+# Task metadata operations (update_task_metadata function)
+# ============================================================================
+
+# Helper: Standalone copy of update_task_metadata for testing
+# This avoids sourcing core.sh which has complex dependencies
+_update_task_metadata() {
+  local task_file="$1"
+  local field_name="$2"
+  local new_value="$3"
+
+  [ -f "$task_file" ] || return 1
+
+  # Escape backslashes for awk -v (which interprets escape sequences)
+  local escaped_value="${new_value//\\/\\\\}"
+
+  local temp_file="${task_file}.tmp.$$"
+  # Use awk's index() to find "| FieldName |" pattern (literal string match)
+  awk -v field="$field_name" -v value="$escaped_value" '
+    BEGIN { found = 0; pattern = "| " field " |" }
+    index($0, pattern) == 1 {
+      printf "| %s | %s |\n", field, value
+      found = 1
+      next
+    }
+    { print }
+    END { exit (found ? 0 : 1) }
+  ' "$task_file" > "$temp_file" && mv "$temp_file" "$task_file"
+  local result=$?
+  rm -f "$temp_file" 2>/dev/null
+  return $result
+}
+
+@test "metadata: updates basic field value" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+# Task
+
+| Field | Value |
+|-------|-------|
+| Status | todo |
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Status" "doing"
+  [ "$status" -eq 0 ]
+  grep -q "| Status | doing |" "$task_file"
+}
+
+@test "metadata: handles ampersand character" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" "agent&1"
+  [ "$status" -eq 0 ]
+  grep -q "| Assigned To | agent&1 |" "$task_file"
+}
+
+@test "metadata: handles forward slash character" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" "agent/1"
+  [ "$status" -eq 0 ]
+  grep -q "| Assigned To | agent/1 |" "$task_file"
+}
+
+@test "metadata: handles backslash character" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" 'agent\1'
+  [ "$status" -eq 0 ]
+  # Use fgrep (grep -F) for literal string matching
+  grep -F '| Assigned To | agent\1 |' "$task_file"
+}
+
+@test "metadata: handles asterisk character" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" "agent*1"
+  [ "$status" -eq 0 ]
+  grep -F "| Assigned To | agent*1 |" "$task_file"
+}
+
+@test "metadata: handles dot character" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" "agent.1"
+  [ "$status" -eq 0 ]
+  grep -F "| Assigned To | agent.1 |" "$task_file"
+}
+
+@test "metadata: handles bracket characters" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" "[agent]"
+  [ "$status" -eq 0 ]
+  grep -F "| Assigned To | [agent] |" "$task_file"
+}
+
+@test "metadata: handles caret and dollar characters" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" '^agent$'
+  [ "$status" -eq 0 ]
+  grep -F '| Assigned To | ^agent$ |' "$task_file"
+}
+
+@test "metadata: handles empty value (unassign)" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Assigned To | worker-1 |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" ""
+  [ "$status" -eq 0 ]
+  grep -F "| Assigned To |  |" "$task_file"
+}
+
+@test "metadata: returns error for non-existent field" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+| Status | todo |
+EOF
+
+  run _update_task_metadata "$task_file" "NonExistent" "value"
+  [ "$status" -ne 0 ]
+}
+
+@test "metadata: returns error for non-existent file" {
+  run _update_task_metadata "$TEST_TEMP_DIR/nonexistent.md" "Field" "value"
+  [ "$status" -ne 0 ]
+}
+
+@test "metadata: preserves other fields unchanged" {
+  local task_file="$TEST_TEMP_DIR/task.md"
+  cat > "$task_file" << 'EOF'
+# Task
+
+| Field | Value |
+|-------|-------|
+| Status | todo |
+| Priority | High |
+| Assigned To | |
+EOF
+
+  run _update_task_metadata "$task_file" "Assigned To" "worker-1"
+  [ "$status" -eq 0 ]
+  grep -q "| Status | todo |" "$task_file"
+  grep -q "| Priority | High |" "$task_file"
+  grep -q "| Assigned To | worker-1 |" "$task_file"
+}
