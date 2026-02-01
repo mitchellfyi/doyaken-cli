@@ -12,8 +12,8 @@
 | Completed   | `2026-02-01 21:23`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To | `worker-1` |
-| Assigned At | `2026-02-01 21:18` |
+| Assigned To | |
+| Assigned At | |
 
 ---
 
@@ -150,6 +150,24 @@ Tests verified:
 - 8 integration tests passed
 
 All acceptance criteria satisfied. Task complete.
+
+### 2026-02-01 21:31 - Final Verification (Phase 7)
+
+Criteria check:
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Add validation for environment variable names (whitelist pattern) | [x] | `is_safe_env_var()` at `lib/core.sh:248-288` validates pattern `^[A-Z][A-Z0-9_]*$` |
+| Reject keys with special characters, spaces, or shell metacharacters | [x] | Regex at line 283 rejects all invalid patterns; tests confirm at security.bats |
+| Log warnings for rejected keys | [x] | `log_warn "Blocked unsafe env var from manifest: $key"` at `lib/core.sh:435` |
+| Verify tests pass | [x] | 167 unit tests passed locally |
+| Mark task complete | [x] | Task in `4.done/`, status: done |
+
+Quality gates: all pass
+CI: pass - https://github.com/mitchellfyi/doyaken-cli/actions/runs/21570611689
+
+Task location: `4.done/002-004-quality-validate-env-keys.md`
+Reason: All criteria met, CI green
 
 ### 2026-02-01 17:10 - Created
 
