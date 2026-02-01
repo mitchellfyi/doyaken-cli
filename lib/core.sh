@@ -148,6 +148,97 @@ process_includes() {
 SCRIPTS_DIR="${SCRIPTS_DIR:-$DOYAKEN_HOME/lib}"
 
 # ============================================================================
+# Environment Variable Security (for manifest loading)
+# ============================================================================
+
+# Blocked environment variable prefixes (security-sensitive)
+BLOCKED_ENV_PREFIXES=(
+  "LD_"           # Library injection (Linux)
+  "DYLD_"         # Library injection (macOS)
+  "SSH_"          # SSH credentials
+  "GPG_"          # GPG credentials
+  "AWS_"          # AWS credentials
+  "GOOGLE_"       # Google Cloud credentials
+  "AZURE_"        # Azure credentials
+  "LC_"           # Locale (can affect parsing)
+)
+
+# Blocked environment variables (exact match, security-sensitive)
+BLOCKED_ENV_VARS=(
+  # System paths
+  "PATH" "MANPATH" "INFOPATH"
+  # Library paths
+  "LIBPATH" "SHLIB_PATH"
+  # Interpreter paths
+  "PYTHONPATH" "PYTHONHOME" "NODE_PATH" "NODE_OPTIONS"
+  "RUBYLIB" "RUBYOPT" "PERL5LIB" "PERL5OPT"
+  "CLASSPATH" "GOPATH" "GOROOT"
+  # Shell injection
+  "IFS" "PS1" "PS2" "PS4" "PROMPT_COMMAND" "BASH_ENV" "ENV" "CDPATH"
+  # System identity
+  "HOME" "USER" "SHELL" "TERM" "LOGNAME" "MAIL" "LANG"
+  # Credential access
+  "GNUPGHOME"
+  # Network proxies
+  "http_proxy" "https_proxy" "HTTP_PROXY" "HTTPS_PROXY"
+  "no_proxy" "NO_PROXY" "ftp_proxy" "FTP_PROXY"
+  # Other dangerous
+  "EDITOR" "VISUAL" "PAGER" "BROWSER"
+)
+
+# Safe environment variable prefixes (allowlist)
+SAFE_ENV_PREFIXES=(
+  "DOYAKEN_"      # Our own variables
+  "QUALITY_"      # Quality gate variables
+  "CI_"           # CI/CD variables
+  "DEBUG_"        # Debug flags
+)
+
+# Validate if an environment variable name is safe to export
+# Returns 0 if safe, 1 if blocked
+is_safe_env_var() {
+  local var_name="$1"
+
+  # Empty name is not safe
+  [ -z "$var_name" ] && return 1
+
+  # Convert to uppercase for comparison
+  local var_upper
+  var_upper=$(echo "$var_name" | tr '[:lower:]' '[:upper:]')
+
+  # Check safe prefixes first (fast path for common cases)
+  for prefix in "${SAFE_ENV_PREFIXES[@]}"; do
+    if [[ "$var_upper" == "${prefix}"* ]]; then
+      return 0
+    fi
+  done
+
+  # Check blocked prefixes
+  for prefix in "${BLOCKED_ENV_PREFIXES[@]}"; do
+    if [[ "$var_upper" == "${prefix}"* ]]; then
+      return 1
+    fi
+  done
+
+  # Check blocked exact matches (case-insensitive for proxies)
+  for blocked in "${BLOCKED_ENV_VARS[@]}"; do
+    local blocked_upper
+    blocked_upper=$(echo "$blocked" | tr '[:lower:]' '[:upper:]')
+    if [ "$var_upper" = "$blocked_upper" ]; then
+      return 1
+    fi
+  done
+
+  # Validate pattern: must be uppercase alphanumeric with underscores
+  # Must start with a letter
+  if ! [[ "$var_name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+# ============================================================================
 # Manifest Loading
 # ============================================================================
 
@@ -195,12 +286,17 @@ load_manifest() {
   export QUALITY_FORMAT_CMD="$format_cmd"
   export QUALITY_BUILD_CMD="$build_cmd"
 
-  # Load custom environment variables from manifest
+  # Load custom environment variables from manifest (with security validation)
   local env_keys
   env_keys=$(yq -e '.env | keys | .[]' "$MANIFEST_FILE" 2>/dev/null || echo "")
   if [ -n "$env_keys" ]; then
     while IFS= read -r key; do
       [ -z "$key" ] && continue
+      # Validate env var name before exporting
+      if ! is_safe_env_var "$key"; then
+        log_warn "Blocked unsafe env var from manifest: $key"
+        continue
+      fi
       local value
       value=$(yq -e ".env.${key}" "$MANIFEST_FILE" 2>/dev/null || echo "")
       if [ -n "$value" ]; then
