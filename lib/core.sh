@@ -351,6 +351,24 @@ validate_quality_command() {
 
 MANIFEST_FILE="$DATA_DIR/manifest.yaml"
 
+# Global cache for manifest JSON (set by _load_manifest_json)
+MANIFEST_JSON=""
+
+# Load manifest as JSON for efficient parsing (single yq call)
+# Sets MANIFEST_JSON global variable
+_load_manifest_json() {
+  if [ -n "$MANIFEST_JSON" ]; then
+    return 0  # Already cached
+  fi
+  MANIFEST_JSON=$(yq -o=json '.' "$MANIFEST_FILE" 2>/dev/null) || MANIFEST_JSON="{}"
+}
+
+# Get value from cached manifest JSON
+# Usage: _jq_get '.agent.name' -> returns value or empty string
+_jq_get() {
+  echo "$MANIFEST_JSON" | jq -r "$1 // \"\"" 2>/dev/null || echo ""
+}
+
 # Load manifest settings (if yq is available)
 load_manifest() {
   if [ ! -f "$MANIFEST_FILE" ]; then
@@ -358,14 +376,25 @@ load_manifest() {
   fi
 
   if ! command -v yq &>/dev/null; then
-    # Fall back to basic grep-based parsing
     return 0
+  fi
+
+  # Check if jq is available for optimized loading
+  local use_json_cache=0
+  if command -v jq &>/dev/null; then
+    use_json_cache=1
+    _load_manifest_json
   fi
 
   # Load agent settings from manifest (only if not set via CLI/env)
   local manifest_agent manifest_model
-  manifest_agent=$(yq -e '.agent.name // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  manifest_model=$(yq -e '.agent.model // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ "$use_json_cache" = "1" ]; then
+    manifest_agent=$(_jq_get '.agent.name')
+    manifest_model=$(_jq_get '.agent.model')
+  else
+    manifest_agent=$(yq -e '.agent.name // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    manifest_model=$(yq -e '.agent.model // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  fi
 
   # Only apply manifest values if not already set by CLI
   if [ -z "${DOYAKEN_AGENT_FROM_CLI:-}" ] && [ -n "$manifest_agent" ]; then
@@ -377,17 +406,28 @@ load_manifest() {
 
   # Load max retries
   local manifest_retries
-  manifest_retries=$(yq -e '.agent.max_retries // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ "$use_json_cache" = "1" ]; then
+    manifest_retries=$(_jq_get '.agent.max_retries')
+  else
+    manifest_retries=$(yq -e '.agent.max_retries // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  fi
   if [ -n "$manifest_retries" ] && [ -z "${AGENT_MAX_RETRIES_FROM_CLI:-}" ]; then
     export AGENT_MAX_RETRIES="$manifest_retries"
   fi
 
   # Load quality gate commands (with security validation)
   local test_cmd lint_cmd format_cmd build_cmd
-  test_cmd=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  lint_cmd=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  format_cmd=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  build_cmd=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ "$use_json_cache" = "1" ]; then
+    test_cmd=$(_jq_get '.quality.test_command')
+    lint_cmd=$(_jq_get '.quality.lint_command')
+    format_cmd=$(_jq_get '.quality.format_command')
+    build_cmd=$(_jq_get '.quality.build_command')
+  else
+    test_cmd=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    lint_cmd=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    format_cmd=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    build_cmd=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  fi
 
   # Validate each quality command
   local validation_result
@@ -428,38 +468,76 @@ load_manifest() {
   export QUALITY_BUILD_CMD="$build_cmd"
 
   # Load custom environment variables from manifest (with security validation)
-  local env_keys
-  env_keys=$(yq -e '.env | keys | .[]' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  if [ -n "$env_keys" ]; then
-    while IFS= read -r key; do
+  if [ "$use_json_cache" = "1" ]; then
+    # Optimized: extract all env vars as key=value pairs in single jq call
+    local env_pairs
+    env_pairs=$(echo "$MANIFEST_JSON" | jq -r '.env // {} | to_entries[] | "\(.key)=\(.value)"' 2>/dev/null) || env_pairs=""
+    while IFS='=' read -r key value; do
       [ -z "$key" ] && continue
       # Validate env var name before exporting
       if ! is_safe_env_var "$key"; then
         log_warn "Blocked unsafe env var from manifest: $key"
         continue
       fi
-      local value
-      value=$(yq -e ".env.${key}" "$MANIFEST_FILE" 2>/dev/null || echo "")
       if [ -n "$value" ]; then
         export "$key=$value"
       fi
-    done <<< "$env_keys"
+    done <<< "$env_pairs"
+  else
+    local env_keys
+    env_keys=$(yq -e '.env | keys | .[]' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    if [ -n "$env_keys" ]; then
+      while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        # Validate env var name before exporting
+        if ! is_safe_env_var "$key"; then
+          log_warn "Blocked unsafe env var from manifest: $key"
+          continue
+        fi
+        local value
+        value=$(yq -e ".env.${key}" "$MANIFEST_FILE" 2>/dev/null || echo "")
+        if [ -n "$value" ]; then
+          export "$key=$value"
+        fi
+      done <<< "$env_keys"
+    fi
   fi
 
   # Load skill hooks for all phases
   local phases="expand triage plan implement test docs review verify"
   local hook_types="before after"
-  for phase in $phases; do
-    for hook_type in $hook_types; do
-      local hook_type_upper phase_upper
-      hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
-      phase_upper=$(echo "$phase" | tr '[:lower:]' '[:upper:]')
-      local var_name="HOOKS_${hook_type_upper}_${phase_upper}"
-      local hook_value
-      hook_value=$(yq -e ".skills.hooks.${hook_type}-${phase} // [] | .[]" "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-      export "$var_name=$hook_value"
+  if [ "$use_json_cache" = "1" ]; then
+    # Optimized: extract all hooks in single jq call, iterate in bash
+    local hooks_json
+    hooks_json=$(echo "$MANIFEST_JSON" | jq -c '.skills.hooks // {}' 2>/dev/null) || hooks_json="{}"
+    for phase in $phases; do
+      for hook_type in $hook_types; do
+        local hook_type_upper phase_upper
+        hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
+        phase_upper=$(echo "$phase" | tr '[:lower:]' '[:upper:]')
+        local var_name="HOOKS_${hook_type_upper}_${phase_upper}"
+        local hook_key="${hook_type}-${phase}"
+        local hook_value
+        hook_value=$(echo "$hooks_json" | jq -r ".\"$hook_key\" // [] | .[]" 2>/dev/null | tr '\n' ' ') || hook_value=""
+        export "$var_name=$hook_value"
+      done
     done
-  done
+  else
+    for phase in $phases; do
+      for hook_type in $hook_types; do
+        local hook_type_upper phase_upper
+        hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
+        phase_upper=$(echo "$phase" | tr '[:lower:]' '[:upper:]')
+        local var_name="HOOKS_${hook_type_upper}_${phase_upper}"
+        local hook_value
+        hook_value=$(yq -e ".skills.hooks.${hook_type}-${phase} // [] | .[]" "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+        export "$var_name=$hook_value"
+      done
+    done
+  fi
+
+  # Clear the cache after loading to avoid stale data on next call
+  MANIFEST_JSON=""
 }
 
 # Run skill hooks for a phase

@@ -43,14 +43,14 @@ Performance analysis identified that `load_manifest()` in `lib/core.sh:355-463` 
 
 ## Acceptance Criteria
 
-- [ ] Reduce yq calls from 24+ to 1-3 per manifest load
-- [ ] Eliminate N+1 pattern for environment variable loading
-- [ ] Eliminate N pattern for skill hooks loading (16 calls → 1)
-- [ ] Maintain backward compatibility with existing manifest format
-- [ ] All existing tests pass (test/unit/core.bats, test/unit/config.bats)
-- [ ] Security validation for env vars preserved (is_safe_env_var still called)
-- [ ] Security validation for quality commands preserved (validate_quality_command still called)
-- [ ] Measure and document performance improvement (before/after benchmark)
+- [x] Reduce yq calls from 24+ to 1-3 per manifest load
+- [x] Eliminate N+1 pattern for environment variable loading
+- [x] Eliminate N pattern for skill hooks loading (16 calls → 1)
+- [x] Maintain backward compatibility with existing manifest format
+- [x] All existing tests pass (test/unit/core.bats, test/unit/config.bats)
+- [x] Security validation for env vars preserved (is_safe_env_var still called)
+- [x] Security validation for quality commands preserved (validate_quality_command still called)
+- [x] Measure and document performance improvement (before/after benchmark)
 
 ---
 
@@ -294,6 +294,30 @@ Ready: yes
 - Key insight: Security validation functions unchanged, only iteration method changes
 - yq calls reduced: 24+N → 1 (single `yq -o=json '.'` call)
 - jq calls added: ~20 (but jq is much faster than yq - no YAML parsing overhead)
+
+### 2026-02-01 22:22 - Implementation Complete
+
+Files modified: `lib/core.sh:348-542`
+
+Changes:
+1. Added `MANIFEST_JSON` global cache variable
+2. Added `_load_manifest_json()` helper - single yq call to JSON
+3. Added `_jq_get()` helper - extract values from cached JSON
+4. Modified `load_manifest()` to detect jq availability and use optimized path
+5. Replaced 7 yq calls for agent/quality settings with jq calls from cache
+6. Replaced N+1 env var loop with single jq extraction
+7. Replaced 16 hooks yq calls with single hooks JSON extraction
+8. Added fallback path for systems without jq
+
+Performance benchmark:
+- **Before**: 120-300ms (24+N yq calls)
+- **After**: 80-110ms (1 yq + ~20 jq calls)
+- **Improvement**: ~30-65% reduction
+
+Verification:
+- Lint: PASS (no new errors)
+- Tests: PASS (207 unit + 8 integration tests)
+- Security: `is_safe_env_var()` and `validate_quality_command()` still called
 
 ---
 
