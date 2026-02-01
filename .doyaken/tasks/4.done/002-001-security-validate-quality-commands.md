@@ -381,6 +381,40 @@ Follow-up tasks: none
 
 Status: COMPLETE
 
+### 2026-02-01 19:51 - Verification Complete
+
+Criteria: all met (12/12)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Implement `validate_quality_command()` | ✓ | `lib/core.sh:298` - function exists |
+| Validate command prefix against allowlist | ✓ | `lib/core.sh:325` - checks `SAFE_QUALITY_COMMANDS` |
+| Detect dangerous shell patterns | ✓ | `lib/core.sh:316` - checks `DANGEROUS_COMMAND_PATTERNS` |
+| Allowlist safe command prefixes | ✓ | `lib/core.sh:203-223` - 30+ safe commands |
+| Log warning when command fails validation | ✓ | `lib/core.sh:398-407` - `log_warn` called |
+| Add `DOYAKEN_STRICT_QUALITY=1` mode | ✓ | `lib/core.sh:408-410` - blocks on strict mode |
+| Write tests covering validation | ✓ | `test/unit/security.bats` - 106 tests total |
+| Tests written and passing | ✓ | `npm run test:unit` - all pass |
+| Quality gates pass | ✓ | lint, tests all pass |
+| Changes committed with task reference | ✓ | commit `29d512b` |
+
+Quality gates: all pass
+- Lint: pass
+- Tests: pass (155 tests)
+- Build: N/A (bash project)
+
+CI: pass - https://github.com/mitchellfyi/doyaken-cli.git/actions/runs/21569178160
+- Validate: ✓
+- Lint: ✓
+- Test (ubuntu-latest): ✓
+- Test (macos-latest): ✓
+- Package: ✓
+- Install Test (ubuntu-latest): ✓
+- Install Test (macos-latest): ✓
+
+Task location: 4.done (already moved)
+Reason: complete - all criteria met, CI passes
+
 ---
 
 ## Links
