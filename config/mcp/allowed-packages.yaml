@@ -1,0 +1,14 @@
+# MCP Package Allowlist
+# Packages matching these patterns are considered "official" and trusted
+# Non-matching packages trigger a warning (or block in strict mode)
+
+patterns:
+  # Official Model Context Protocol packages
+  - "@modelcontextprotocol/*"
+  # Official Anthropic MCP packages
+  - "@anthropic/mcp-server-*"
+
+# Exact match packages (community packages explicitly trusted)
+# Add packages here after security review
+trusted:
+  # - "some-community-package"

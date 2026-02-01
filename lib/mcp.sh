@@ -10,6 +10,19 @@ set -euo pipefail
 # MCP server definitions directory
 MCP_SERVERS_DIR="${DOYAKEN_HOME}/config/mcp/servers"
 
+# Mask sensitive tokens for logging
+# Keeps first 4 chars for identification, replaces rest with ***
+# Usage: mask_token "ghp_abc123..."
+mask_token() {
+  local token="$1"
+  local min_visible=4
+  if [ ${#token} -le $min_visible ]; then
+    echo "***"
+  else
+    echo "${token:0:$min_visible}***"
+  fi
+}
+
 # Load MCP server definition
 # Usage: load_mcp_server <server_name>
 # Returns YAML content
@@ -47,6 +60,13 @@ generate_claude_mcp_config() {
 
     local server_file="$MCP_SERVERS_DIR/${integration}.yaml"
     [ -f "$server_file" ] || continue
+
+    # Validate integration (skip if strict mode blocks it)
+    local strict_mode=""
+    [ "${DOYAKEN_MCP_STRICT:-}" = "1" ] && strict_mode="strict"
+    if ! mcp_validate_integration "$integration" "$strict_mode"; then
+      continue
+    fi
 
     local name command args_json env_json
 
@@ -89,6 +109,13 @@ generate_codex_mcp_config() {
 
     local server_file="$MCP_SERVERS_DIR/${integration}.yaml"
     [ -f "$server_file" ] || continue
+
+    # Validate integration (skip if strict mode blocks it)
+    local strict_mode=""
+    [ "${DOYAKEN_MCP_STRICT:-}" = "1" ] && strict_mode="strict"
+    if ! mcp_validate_integration "$integration" "$strict_mode"; then
+      continue
+    fi
 
     local name command args env_keys
 
@@ -140,6 +167,13 @@ generate_gemini_mcp_config() {
 
     local server_file="$MCP_SERVERS_DIR/${integration}.yaml"
     [ -f "$server_file" ] || continue
+
+    # Validate integration (skip if strict mode blocks it)
+    local strict_mode=""
+    [ "${DOYAKEN_MCP_STRICT:-}" = "1" ] && strict_mode="strict"
+    if ! mcp_validate_integration "$integration" "$strict_mode"; then
+      continue
+    fi
 
     local name command args_json env_json
 
@@ -207,6 +241,119 @@ expand_env_vars() {
   done
 
   echo "$json"
+}
+
+# Validate if an MCP package is in the allowlist
+# Returns:
+#   0 = official (matches pattern or trusted list)
+#   1 = unofficial (not in allowlist) - warn only
+#
+# Usage: mcp_validate_package "@modelcontextprotocol/server-github"
+mcp_validate_package() {
+  local package="$1"
+  local allowlist_file="${DOYAKEN_HOME}/config/mcp/allowed-packages.yaml"
+
+  # If allowlist file missing, treat all as unofficial (warn only)
+  [ -f "$allowlist_file" ] || return 1
+
+  # Check glob patterns (scoped packages)
+  local pattern
+  while IFS= read -r pattern; do
+    [ -z "$pattern" ] && continue
+    # Convert glob to regex: @foo/* -> ^@foo/
+    local regex="${pattern%\*}"
+    regex="^${regex//\//\\/}"
+    if [[ "$package" =~ $regex ]]; then
+      return 0
+    fi
+  done < <(yq -r '.patterns[]?' "$allowlist_file" 2>/dev/null)
+
+  # Check exact match in trusted list
+  local trusted
+  while IFS= read -r trusted; do
+    [ -z "$trusted" ] && continue
+    [ "$package" = "$trusted" ] && return 0
+  done < <(yq -r '.trusted[]?' "$allowlist_file" 2>/dev/null)
+
+  return 1
+}
+
+# Validate required env vars for an MCP integration
+# Returns:
+#   0 = all required env vars are set
+#   1 = one or more env vars missing
+#
+# Sets MCP_MISSING_VARS with list of missing vars (for error reporting)
+#
+# Usage: mcp_validate_env_vars "github"
+mcp_validate_env_vars() {
+  local integration="$1"
+  local server_file="$MCP_SERVERS_DIR/${integration}.yaml"
+
+  MCP_MISSING_VARS=""
+  [ -f "$server_file" ] || return 1
+
+  local missing=()
+  while IFS= read -r env_line; do
+    [ -z "$env_line" ] && continue
+    local value="${env_line#*: }"
+
+    # Check if it's a variable reference without default
+    if [[ "$value" =~ ^\$\{([A-Z_][A-Z0-9_]*)\}$ ]]; then
+      local var_name="${BASH_REMATCH[1]}"
+      if [ -z "${!var_name:-}" ]; then
+        missing+=("$var_name")
+      fi
+    fi
+    # ${VAR:-default} syntax has a default, so skip those
+  done < <(yq -r '.env | to_entries | .[] | "\(.key): \(.value)"' "$server_file" 2>/dev/null || true)
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    MCP_MISSING_VARS="${missing[*]}"
+    return 1
+  fi
+  return 0
+}
+
+# Validate an MCP integration (package + env vars)
+# Returns:
+#   0 = valid (or non-strict mode with warnings)
+#   1 = invalid (strict mode blocks unofficial or missing vars)
+#
+# Usage: mcp_validate_integration "github" [strict]
+mcp_validate_integration() {
+  local integration="$1"
+  local strict="${2:-}"
+  local server_file="$MCP_SERVERS_DIR/${integration}.yaml"
+
+  [ -f "$server_file" ] || return 1
+
+  local package
+  package=$(yq -r '.args[] | select(test("^@|^[a-z]"))' "$server_file" 2>/dev/null | head -1)
+
+  # Validate package
+  if [ -n "$package" ]; then
+    if ! mcp_validate_package "$package"; then
+      if [ "$strict" = "strict" ]; then
+        echo "[BLOCK] $integration: Unofficial package '$package' blocked in strict mode" >&2
+        return 1
+      else
+        echo "[WARN] $integration: Unofficial package '$(mask_token "$package")'" >&2
+      fi
+    fi
+  fi
+
+  # Validate env vars
+  if ! mcp_validate_env_vars "$integration"; then
+    if [ "$strict" = "strict" ]; then
+      echo "[BLOCK] $integration: Missing required env vars: $MCP_MISSING_VARS" >&2
+      return 1
+    else
+      echo "[WARN] $integration: Missing env vars: $MCP_MISSING_VARS" >&2
+    fi
+  fi
+
+  return 0
 }
 
 # Generate MCP config for specified agent
@@ -376,7 +523,7 @@ mcp_doctor() {
 
   echo ""
 
-  # Check enabled integrations have required env vars
+  # Check enabled integrations have required env vars and valid packages
   local enabled
   enabled=$(get_enabled_integrations)
   if [ -n "$enabled" ]; then
@@ -387,22 +534,20 @@ mcp_doctor() {
 
       local has_issues=false
 
-      # Check required env vars
-      while IFS= read -r env_line; do
-        [ -z "$env_line" ] && continue
-        local key="${env_line%%:*}"
-        local value="${env_line#*: }"
+      # Check package allowlist
+      local package
+      package=$(yq -r '.args[] | select(test("^@|^[a-z]"))' "$server_file" 2>/dev/null | head -1)
+      if [ -n "$package" ] && ! mcp_validate_package "$package"; then
+        echo "  [!!] $integration: Unofficial package '$package'"
+        has_issues=true
+      fi
 
-        # Check if it's a variable reference
-        if [[ "$value" =~ ^\$\{([A-Z_][A-Z0-9_]*) ]]; then
-          local var_name="${BASH_REMATCH[1]}"
-          if [ -z "${!var_name:-}" ]; then
-            echo "  [!!] $integration: Missing env var $var_name"
-            has_issues=true
-            all_ok=false
-          fi
-        fi
-      done < <(yq -r '.env | to_entries | .[] | "\(.key): \(.value)"' "$server_file" 2>/dev/null || true)
+      # Check required env vars using the validation function
+      if ! mcp_validate_env_vars "$integration"; then
+        echo "  [!!] $integration: Missing env vars: $MCP_MISSING_VARS"
+        has_issues=true
+        all_ok=false
+      fi
 
       if [ "$has_issues" = false ]; then
         echo "  [ok] $integration"
