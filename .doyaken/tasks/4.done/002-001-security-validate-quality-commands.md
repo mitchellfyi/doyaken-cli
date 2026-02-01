@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-001-security-validate-quality-commands`           |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-01 17:00`                                     |
 | Started     | `2026-02-01 19:30`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 19:48`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -62,25 +62,25 @@ quality:
 
 All must be checked before moving to done:
 
-- [ ] Implement `validate_quality_command()` function in `lib/core.sh`
-- [ ] Validate command prefix against allowlist of safe executables
-- [ ] Detect and warn on dangerous shell patterns:
+- [x] Implement `validate_quality_command()` function in `lib/core.sh`
+- [x] Validate command prefix against allowlist of safe executables
+- [x] Detect and warn on dangerous shell patterns:
   - Pipe chains (`|`)
   - Command substitution (`$()`, backticks)
   - Command chaining (`;`, `||` with risky commands)
   - Redirection to sensitive paths
   - Network commands (curl, wget, nc)
-- [ ] Allowlist safe command prefixes: npm, yarn, pnpm, npx, bun, cargo, go, make, pytest, jest, ruff, mypy, eslint, tsc, prettier, shellcheck, bats
-- [ ] Log warning when command fails validation (do not silently block)
-- [ ] Add `DOYAKEN_STRICT_QUALITY=1` mode to block (not just warn) on suspicious commands
-- [ ] Write tests in `test/unit/security.bats` covering:
+- [x] Allowlist safe command prefixes: npm, yarn, pnpm, npx, bun, cargo, go, make, pytest, jest, ruff, mypy, eslint, tsc, prettier, shellcheck, bats
+- [x] Log warning when command fails validation (do not silently block)
+- [x] Add `DOYAKEN_STRICT_QUALITY=1` mode to block (not just warn) on suspicious commands
+- [x] Write tests in `test/unit/security.bats` covering:
   - Valid package manager commands pass
   - Dangerous patterns are detected
   - Allowlist works correctly
   - Warning messages are generated
-- [ ] Tests written and passing
-- [ ] Quality gates pass
-- [ ] Changes committed with task reference
+- [x] Tests written and passing
+- [x] Quality gates pass
+- [x] Changes committed with task reference
 
 ---
 
@@ -175,7 +175,7 @@ All must be checked before moving to done:
 
 ### Docs to Update
 
-- [ ] `templates/manifest.yaml` - Add security comments above quality section
+- [x] `templates/manifest.yaml` - Add security comments above quality section
 
 ---
 
@@ -317,6 +317,69 @@ Step 4: Wrote unit tests
 Step 5: Added security documentation
 - Files modified: `templates/manifest.yaml`
 - Documented allowlist, dangerous patterns, and strict mode
+
+### 2026-02-01 19:44 - Testing Complete
+
+Tests written:
+- `test/unit/security.bats` - 59 tests (unit)
+
+Quality gates:
+- Lint: pass (0 errors, 5 warnings - unrelated to this task)
+- Types: N/A (bash project)
+- Tests: pass (155 total, 59 new for validate_quality_command)
+- Build: N/A (bash scripts)
+
+CI ready: yes
+- Scripts are executable
+- No macOS-specific commands (POSIX-compatible sed)
+- No hardcoded paths
+- Tests don't require secrets or yq
+- Tests are deterministic (no timing/order dependencies)
+
+Test coverage verified:
+- [x] Valid package manager commands pass (npm, yarn, pnpm, cargo, etc.)
+- [x] Commands with flags pass (`npm test --coverage`)
+- [x] Commands with paths pass (`/usr/bin/npm test`)
+- [x] Dangerous patterns are detected (pipe, command substitution, curl, wget)
+- [x] Empty commands pass (noop case)
+- [x] Unknown commands return status 1 (warn)
+- [x] Dangerous commands return status 2 (block in strict mode)
+- [x] Python ecosystem commands pass (pytest, ruff, mypy, black, flake8)
+- [x] Other language tools pass (gradle, mvn, dotnet, bundle, composer)
+
+### 2026-02-01 19:47 - Documentation Sync
+
+Docs updated:
+- `templates/manifest.yaml:75-86` - Security documentation for quality commands (already present)
+
+Inline comments:
+- `lib/core.sh:197-244` - Section header and pattern documentation for quality command security
+- `lib/core.sh:290-343` - Function docstring with return codes and usage examples
+
+Consistency: verified
+- `templates/manifest.yaml` documents allowlist, dangerous patterns, and `DOYAKEN_STRICT_QUALITY=1`
+- Code implementation matches documentation (same patterns, same allowlist)
+- No additional docs needed - `templates/AGENT.md` references `manifest.yaml` for configuration
+
+### 2026-02-01 19:48 - Review Complete
+
+Findings:
+- Blockers: 0 - N/A
+- High: 0 - N/A
+- Medium: 0 - N/A
+- Low: 1 - noted (unused parameter, by design)
+
+Review passes:
+- Correctness: pass
+- Design: pass
+- Security: pass
+- Performance: pass
+- Tests: pass
+
+All criteria met: yes
+Follow-up tasks: none
+
+Status: COMPLETE
 
 ---
 
