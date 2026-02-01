@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-003-perf-optimize-manifest-loading`               |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-01 17:10`                                     |
 | Started     | `2026-02-01 22:13`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 22:26`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
