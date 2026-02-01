@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `001-002-security-validate-manifest-env`               |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `001` Critical                                         |
 | Created     | `2026-02-01 17:00`                                     |
 | Started     | `2026-02-01 19:13`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 19:24`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -79,7 +79,7 @@ All must be checked before moving to done:
   - Test invalid patterns are rejected (lowercase, special chars)
   - Test warning is logged for blocked vars
 - [x] Quality gates pass
-- [ ] Changes committed with task reference
+- [x] Changes committed with task reference
 
 ---
 
@@ -310,6 +310,47 @@ Quality gates:
 - Build: N/A
 
 CI ready: yes (no macOS-specific commands, scripts executable, no hardcoded paths)
+
+### 2026-02-01 19:23 - Documentation Sync
+
+Docs updated:
+- None required (internal security fix, no user-facing API)
+
+Inline comments:
+- `lib/core.sh:150-152` - Section header for env var security
+- `lib/core.sh:154-164` - Blocked prefix array with category comments
+- `lib/core.sh:166-187` - Blocked vars array with category comments
+- `lib/core.sh:189-195` - Safe prefix array with purpose comments
+- `lib/core.sh:197-239` - `is_safe_env_var()` function with docs
+
+Consistency: verified
+- Code and inline comments aligned
+- No external docs reference manifest env feature (correct, as undocumented)
+- Warning message is self-documenting for users
+
+### 2026-02-01 19:24 - Review Complete
+
+Findings:
+- Blockers: 0
+- High: 0
+- Medium: 0
+- Low: 3 - deferred (see follow-ups below)
+
+Review passes:
+- Correctness: pass
+- Design: pass
+- Security: pass (1 low - additional vars could be blocked)
+- Performance: pass (1 low - subshell optimization)
+- Tests: pass (1 low - no integration test)
+
+All criteria met: yes
+
+Follow-up tasks:
+1. Consider adding TMPDIR, HISTFILE, INPUTRC, FPATH to blocklist (low priority)
+2. Consider using bash ${var^^} instead of tr for case conversion (minor optimization)
+3. Add integration test for load_manifest with blocked vars (optional)
+
+Status: COMPLETE
 
 ---
 
