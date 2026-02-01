@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-001-security-secure-file-permissions`             |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-01 17:00`                                     |
 | Started     | `2026-02-01 21:36`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 21:55`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -69,7 +69,7 @@ All must be checked before moving to done:
 - [x] Document log location and `dk cleanup` command in README troubleshooting section
 - [x] Tests verify permissions are 700 for sensitive directories
 - [x] Quality gates pass (`npm run check`)
-- [ ] Changes committed with task reference
+- [x] Changes committed with task reference
 
 ---
 
@@ -239,6 +239,45 @@ chmod 700 "$DOYAKEN_HOME/locks"
 ---
 
 ## Work Log
+
+### 2026-02-01 21:55 - Review Complete
+
+Findings:
+- Blockers: 0 - none
+- High: 0 - none
+- Medium: 0 - none
+- Low: 1 - redundant `! -name 'logs'` filter (harmless defensive code, not addressed)
+
+Review passes:
+- Correctness: pass
+- Design: pass
+- Security: pass
+- Performance: pass
+- Tests: pass (7 new tests, 174 total)
+
+All criteria met: yes
+Follow-up tasks: none
+
+Status: COMPLETE
+
+### 2026-02-01 21:46 - Documentation Sync
+
+Docs updated:
+- `README.md:497-517` - Already updated with troubleshooting section covering global/project log locations, `dk cleanup` command, and security note about 700 permissions + 7-day rotation
+
+Inline comments:
+- `lib/core.sh:28-29` - umask with security explanation
+- `lib/core.sh:590-591` - Secure permissions comment for early LOCKS_DIR creation
+- `lib/core.sh:1453` - Log rotation explanation comment
+- `test/unit/security.bats:814-816` - Section header for permission tests
+
+Consistency: verified
+- README "700 permissions" matches `chmod 700` in code
+- README "7 days" matches `-mtime +7` in find command
+- README documents both project (`.doyaken/`) and global (`~/.doyaken/`) paths which are both secured
+- Test file documents expected behavior with clear comments
+
+No additional documentation needed - implementation already included appropriate comments at each security-relevant change.
 
 ### 2026-02-01 21:42 - Testing Complete
 
