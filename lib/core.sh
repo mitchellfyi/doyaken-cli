@@ -673,6 +673,7 @@ AGENT_NO_RESUME="${AGENT_NO_RESUME:-0}"
 AGENT_LOCK_TIMEOUT="${AGENT_LOCK_TIMEOUT:-10800}"
 AGENT_HEARTBEAT="${AGENT_HEARTBEAT:-3600}"
 AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
+AGENT_NO_PROMPT="${AGENT_NO_PROMPT:-0}"
 
 # Phase skip flags and timeouts are loaded from config files via load_all_config()
 # They can still be overridden via environment variables
@@ -1801,7 +1802,144 @@ get_doing_task_for_agent() {
   return 1
 }
 
+# Find orphaned tasks in 3.doing/ that don't have a valid lock from this agent
+# Returns: task file path and orphan reason via echo, or returns 1 if none found
+# Usage: local result; result=$(find_orphaned_doing_task) && read task_file orphan_reason <<< "$result"
+find_orphaned_doing_task() {
+  local doing_dir
+  doing_dir=$(get_task_folder "doing")
+
+  for file in "$doing_dir"/*.md; do
+    [ -f "$file" ] || continue
+    local task_id
+    task_id=$(get_task_id_from_file "$file")
+
+    local lock_file
+    lock_file=$(get_lock_file "$task_id")
+
+    # Skip tasks with valid lock from THIS agent (handled by get_doing_task_for_agent)
+    if [ -f "$lock_file" ]; then
+      local lock_agent
+      lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
+      if [ "$lock_agent" = "$AGENT_ID" ]; then
+        continue
+      fi
+
+      # Check if lock is stale
+      if is_lock_stale "$lock_file"; then
+        log_heal "Found orphaned task $task_id (stale lock from $lock_agent)"
+        echo "$file stale:$lock_agent"
+        return 0
+      else
+        # Lock from different agent that isn't stale - this is an orphan we can offer to take over
+        log_heal "Found orphaned task $task_id (locked by $lock_agent)"
+        echo "$file locked:$lock_agent"
+        return 0
+      fi
+    else
+      # No lock file at all - orphaned
+      log_heal "Found orphaned task $task_id (no lock)"
+      echo "$file nolock"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+# Prompt user to resume an orphaned task with 60-second timeout defaulting to "yes"
+# Args: task_id, orphan_reason
+# Returns: 0 if user wants to resume, 1 if declined
+prompt_orphan_resume() {
+  local task_id="$1"
+  local orphan_reason="$2"
+
+  # In non-interactive mode, auto-resume
+  if [ "$AGENT_NO_PROMPT" = "1" ]; then
+    log_info "Auto-resuming orphaned task (AGENT_NO_PROMPT=1): $task_id"
+    return 0
+  fi
+
+  # Check if we have a tty for interactive prompting
+  if ! [ -t 0 ]; then
+    log_info "Auto-resuming orphaned task (non-interactive): $task_id"
+    return 0
+  fi
+
+  echo ""
+  log_warn "Found orphaned task in doing/"
+  echo "  Task: $task_id"
+  case "$orphan_reason" in
+    nolock)
+      echo "  Reason: No lock file (previous run may have crashed)"
+      ;;
+    stale:*)
+      local prev_agent="${orphan_reason#stale:}"
+      echo "  Reason: Stale lock from $prev_agent (process no longer running)"
+      ;;
+    locked:*)
+      local prev_agent="${orphan_reason#locked:}"
+      echo "  Reason: Locked by $prev_agent (may be abandoned)"
+      ;;
+  esac
+  echo ""
+  echo "  Resume this task? [Y/n] (auto-yes in 60s)"
+
+  local response=""
+  local timeout=60
+
+  # Read with timeout
+  if read -r -t "$timeout" response 2>/dev/null; then
+    # User provided input
+    case "$response" in
+      [nN]|[nN][oO])
+        log_info "User declined to resume orphaned task: $task_id"
+        return 1
+        ;;
+      *)
+        log_info "User chose to resume orphaned task: $task_id"
+        return 0
+        ;;
+    esac
+  else
+    # Timeout - default to yes
+    echo ""
+    log_info "Timeout - auto-resuming orphaned task: $task_id"
+    return 0
+  fi
+}
+
+# Move a task from doing/ back to todo/, clearing locks and assignment
+move_task_to_todo() {
+  local task_file="$1"
+  local task_id
+  task_id=$(get_task_id_from_file "$task_file")
+
+  # Remove any existing lock
+  local lock_file
+  lock_file=$(get_lock_file "$task_id")
+  if [ -f "$lock_file" ]; then
+    rm -f "$lock_file"
+    log_heal "Removed stale lock for $task_id"
+  fi
+
+  # Clear assignment metadata
+  unassign_task "$task_file"
+
+  # Move to todo/
+  local todo_dir new_path
+  todo_dir=$(get_task_folder "todo")
+  new_path="$todo_dir/$(basename "$task_file")"
+  mv "$task_file" "$new_path"
+
+  log_info "Moved declined task back to todo: $task_id"
+
+  # Commit the move
+  commit_task_files "chore: Move orphaned task back to todo $task_id" "$task_id"
+}
+
 get_next_available_task() {
+  # 1. First check for OUR doing task (we have valid lock)
   local our_doing
   our_doing=$(get_doing_task_for_agent) || true
   if [ -n "$our_doing" ]; then
@@ -1809,6 +1947,7 @@ get_next_available_task() {
     return 0
   fi
 
+  # 2. Check todo/ for available tasks
   local todo_dir
   todo_dir=$(get_task_folder "todo")
   for file in $(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
@@ -1823,6 +1962,43 @@ get_next_available_task() {
       log_info "Skipping $task_id (locked by another agent)"
     fi
   done
+
+  # 3. Check for orphaned tasks in doing/ (no lock, stale lock, or different agent's lock)
+  local orphan_result orphan_file orphan_reason
+  orphan_result=$(find_orphaned_doing_task) || true
+  if [ -n "$orphan_result" ]; then
+    # Parse result: "filepath reason"
+    orphan_file="${orphan_result%% *}"
+    orphan_reason="${orphan_result#* }"
+
+    local orphan_task_id
+    orphan_task_id=$(get_task_id_from_file "$orphan_file")
+
+    # Prompt user (or auto-resume in non-interactive mode)
+    if prompt_orphan_resume "$orphan_task_id" "$orphan_reason"; then
+      # User wants to resume - clear stale lock if any and acquire our lock
+      local lock_file
+      lock_file=$(get_lock_file "$orphan_task_id")
+      if [ -f "$lock_file" ]; then
+        rm -f "$lock_file"
+        log_heal "Cleared stale/orphan lock for $orphan_task_id"
+      fi
+
+      if acquire_lock "$orphan_task_id"; then
+        log_info "Resuming orphaned task: $orphan_task_id"
+        echo "$orphan_file"
+        return 0
+      else
+        log_warn "Failed to acquire lock for orphaned task - another agent may have claimed it"
+      fi
+    else
+      # User declined - move task back to todo
+      move_task_to_todo "$orphan_file"
+      # Continue looking (recursively check for more orphans or other tasks)
+      get_next_available_task
+      return $?
+    fi
+  fi
 
   return 1
 }
@@ -1917,6 +2093,8 @@ run_agent_iteration() {
 
     if [[ "$task_file" == *"/doing/"* ]]; then
       log_info "Resuming task: $task_id"
+      # Refresh assignment to this agent (handles orphan takeover)
+      assign_task "$task_file"
     else
       log_info "Picking up task: $task_id"
 

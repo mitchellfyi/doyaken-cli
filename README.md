@@ -508,6 +508,7 @@ dk tasks new "Add user authentication"
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase |
+| `AGENT_NO_PROMPT` | `0` | Auto-resume orphaned tasks without prompting |
 | `TIMEOUT_EXPAND` | `300` | Expand phase timeout (seconds) |
 | `TIMEOUT_TRIAGE` | `180` | Triage phase timeout (seconds) |
 | `TIMEOUT_PLAN` | `300` | Plan phase timeout (seconds) |

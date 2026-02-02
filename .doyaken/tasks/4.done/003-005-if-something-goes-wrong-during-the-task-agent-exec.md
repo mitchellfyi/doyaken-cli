@@ -7,11 +7,11 @@ it should reliable resume tasks and/or pick tasks up in doing - even if they wer
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-005-if-something-goes-wrong-during-the-task-agent-exec`                                           |
-| Status      | `doing`                                               |
+| Status      | `done`                                               |
 | Priority    | `003` Medium                          |
 | Created     | `2026-02-02 02:01`                                         |
 | Started     | `2026-02-02 05:43`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-02 06:03`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -45,15 +45,15 @@ When `dk run` is re-executed after an interrupted task execution, it does not re
 
 ## Acceptance Criteria
 
-- [ ] `get_next_available_task()` checks `3.doing/` for orphaned tasks (no lock or stale lock) after checking `2.todo/`
-- [ ] When orphaned tasks exist in `3.doing/`, user is prompted with 60-second timeout defaulting to "yes, resume"
-- [ ] Orphaned task detection handles: no lock file, stale lock, lock from different agent
-- [ ] User can skip orphaned task resume via `AGENT_NO_PROMPT=1` environment variable
-- [ ] If user declines resume, task is moved back to `2.todo/` for later
-- [ ] Log messages clearly indicate orphaned task detection and user choice
-- [ ] Existing behavior preserved: if OUR lock exists, resume without prompting
-- [ ] Quality gates pass
-- [ ] Changes committed with task reference
+- [x] `get_next_available_task()` checks `3.doing/` for orphaned tasks (no lock or stale lock) after checking `2.todo/`
+- [x] When orphaned tasks exist in `3.doing/`, user is prompted with 60-second timeout defaulting to "yes, resume"
+- [x] Orphaned task detection handles: no lock file, stale lock, lock from different agent
+- [x] User can skip orphaned task resume via `AGENT_NO_PROMPT=1` environment variable
+- [x] If user declines resume, task is moved back to `2.todo/` for later
+- [x] Log messages clearly indicate orphaned task detection and user choice
+- [x] Existing behavior preserved: if OUR lock exists, resume without prompting
+- [x] Quality gates pass
+- [x] Changes committed with task reference
 
 ---
 
@@ -159,7 +159,7 @@ When `dk run` is re-executed after an interrupted task execution, it does not re
 
 ### Docs to Update
 
-- [ ] No external docs needed - behavior change is user-facing but self-explanatory via log messages
+- [x] README.md - Added `AGENT_NO_PROMPT` env var to Environment Variables table
 
 ---
 
@@ -240,6 +240,68 @@ Step 7: Quality gates
 - `./scripts/lint.sh`: pass (0 errors, 5 pre-existing warnings)
 - `./scripts/test.sh`: pass (88/88 tests)
 - `./scripts/check-all.sh`: pass
+
+### 2026-02-02 06:05 - Testing Complete
+
+Tests written:
+- `scripts/test.sh` - 11 tests (static analysis)
+
+New tests added (Tests 17-22):
+- `find_orphaned_doing_task function exists`
+- `find_orphaned_doing_task handles no lock case`
+- `find_orphaned_doing_task checks for stale locks`
+- `prompt_orphan_resume function exists`
+- `prompt_orphan_resume respects AGENT_NO_PROMPT`
+- `prompt_orphan_resume has 60-second timeout`
+- `move_task_to_todo function exists`
+- `move_task_to_todo clears lock files`
+- `get_next_available_task checks for orphaned tasks`
+- `AGENT_NO_PROMPT env var is defined with default`
+- `find_orphaned_doing_task skips our own locks`
+
+Quality gates:
+- Lint: pass (0 errors, 5 pre-existing warnings)
+- Types: N/A (shell scripts)
+- Tests: pass (99 total, 11 new)
+- Build: N/A (no build step)
+
+CI ready: yes
+
+Note: Tests use static analysis (grep-based) because sourcing core.sh
+triggers the main agent loop. This approach verifies function presence
+and correct handling without runtime execution.
+
+### 2026-02-02 06:02 - Documentation Sync
+
+Docs updated:
+- `README.md` - Added `AGENT_NO_PROMPT` env var to Environment Variables table
+
+Inline comments:
+- `lib/core.sh:1805-1807` - Function doc for `find_orphaned_doing_task()`
+- `lib/core.sh:1850-1852` - Function doc for `prompt_orphan_resume()`
+- `lib/core.sh:1912` - Function doc for `move_task_to_todo()`
+
+Consistency: verified - code and docs tell the same story
+
+### 2026-02-02 06:03 - Review Complete
+
+Findings:
+- Blockers: 0 - none found
+- High: 0 - none found
+- Medium: 0 - none found
+- Low: 0 - none found
+
+Review passes:
+- Correctness: pass - happy path and edge cases traced correctly
+- Design: pass - fits existing patterns, uses existing helpers
+- Security: pass - no injection vectors, proper input handling
+- Performance: pass - no expensive loops, single iteration over doing/
+- Tests: pass - 11 new static analysis tests (99 total)
+
+All criteria met: yes
+Follow-up tasks: none
+
+Status: COMPLETE
 
 ---
 

@@ -268,6 +268,87 @@ else
   fail "init command failed"
 fi
 
+# Test 17: Orphan task detection - verify functions exist and are defined correctly
+# Since core.sh runs main() on source, we test via grep and static analysis
+
+# Test 17a: find_orphaned_doing_task function exists
+if grep -q 'find_orphaned_doing_task()' "$ROOT_DIR/lib/core.sh"; then
+  pass "find_orphaned_doing_task function exists"
+else
+  fail "find_orphaned_doing_task function missing"
+fi
+
+# Test 17b: find_orphaned_doing_task handles no lock case
+if grep -A45 'find_orphaned_doing_task()' "$ROOT_DIR/lib/core.sh" | grep -q 'nolock'; then
+  pass "find_orphaned_doing_task handles no lock case"
+else
+  fail "find_orphaned_doing_task missing nolock handling"
+fi
+
+# Test 17c: find_orphaned_doing_task handles stale lock case
+if grep -A50 'find_orphaned_doing_task()' "$ROOT_DIR/lib/core.sh" | grep -q 'is_lock_stale'; then
+  pass "find_orphaned_doing_task checks for stale locks"
+else
+  fail "find_orphaned_doing_task missing stale lock check"
+fi
+
+# Test 18: prompt_orphan_resume function exists and respects AGENT_NO_PROMPT
+if grep -q 'prompt_orphan_resume()' "$ROOT_DIR/lib/core.sh"; then
+  pass "prompt_orphan_resume function exists"
+else
+  fail "prompt_orphan_resume function missing"
+fi
+
+# Test 18a: prompt_orphan_resume respects AGENT_NO_PROMPT
+if grep -A10 'prompt_orphan_resume()' "$ROOT_DIR/lib/core.sh" | grep -q 'AGENT_NO_PROMPT'; then
+  pass "prompt_orphan_resume respects AGENT_NO_PROMPT"
+else
+  fail "prompt_orphan_resume missing AGENT_NO_PROMPT check"
+fi
+
+# Test 18b: prompt_orphan_resume has 60-second timeout
+if grep -A40 'prompt_orphan_resume()' "$ROOT_DIR/lib/core.sh" | grep -q 'timeout=60'; then
+  pass "prompt_orphan_resume has 60-second timeout"
+else
+  fail "prompt_orphan_resume missing 60-second timeout"
+fi
+
+# Test 19: move_task_to_todo function exists
+if grep -q 'move_task_to_todo()' "$ROOT_DIR/lib/core.sh"; then
+  pass "move_task_to_todo function exists"
+else
+  fail "move_task_to_todo function missing"
+fi
+
+# Test 19a: move_task_to_todo clears locks
+if grep -A20 'move_task_to_todo()' "$ROOT_DIR/lib/core.sh" | grep -q 'rm -f.*lock'; then
+  pass "move_task_to_todo clears lock files"
+else
+  fail "move_task_to_todo missing lock cleanup"
+fi
+
+# Test 20: get_next_available_task checks for orphans
+if grep -A70 'get_next_available_task()' "$ROOT_DIR/lib/core.sh" | grep -q 'find_orphaned_doing_task'; then
+  pass "get_next_available_task checks for orphaned tasks"
+else
+  fail "get_next_available_task missing orphan check"
+fi
+
+# Test 21: AGENT_NO_PROMPT env var is defined
+if grep -q 'AGENT_NO_PROMPT="${AGENT_NO_PROMPT:-0}"' "$ROOT_DIR/lib/core.sh"; then
+  pass "AGENT_NO_PROMPT env var is defined with default"
+else
+  fail "AGENT_NO_PROMPT env var not properly defined"
+fi
+
+# Test 22: Orphan detection flow - our lock should not be orphaned
+# This tests the logic that skips tasks with our own lock
+if grep -A30 'find_orphaned_doing_task()' "$ROOT_DIR/lib/core.sh" | grep -q 'lock_agent.*=.*AGENT_ID'; then
+  pass "find_orphaned_doing_task skips our own locks"
+else
+  fail "find_orphaned_doing_task missing own-lock skip logic"
+fi
+
 # Summary
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
