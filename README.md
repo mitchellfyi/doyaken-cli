@@ -540,7 +540,7 @@ rm -rf .doyaken/locks/*.lock
 mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
 ```
 
-**Note**: Logs, state, and locks directories are created with 700 permissions (owner-only access) for security. Logs older than 7 days are automatically rotated.
+**Note**: Logs, state, locks, and backup directories are created with 700 permissions (owner-only access) for security. Logs older than 7 days are automatically rotated.
 
 ## Development
 
@@ -575,6 +575,28 @@ The repository includes git hooks for quality assurance:
 - **pre-push**: Runs the full test suite
 
 To bypass temporarily: `git commit --no-verify`
+
+### Testing
+
+Tests use the [Bats](https://github.com/bats-core/bats-core) framework with mock agent CLIs for isolated testing.
+
+```bash
+# Run all tests
+npm run test
+
+# Run specific test file
+bats test/unit/core.bats
+
+# Run tests matching a pattern
+bats test/unit/core.bats --filter "lock"
+```
+
+**Test Coverage:**
+- Unit tests for lock management, task selection, model fallback, session state
+- Integration tests for workflow state transitions, concurrent agents, failure recovery
+- Mock agent scripts (`test/mocks/`) simulate CLI behavior without API calls
+
+See [test/README.md](test/README.md) for test patterns and mock configuration.
 
 ## Requirements
 
