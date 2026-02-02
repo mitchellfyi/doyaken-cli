@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+#
+# Mock claude CLI for testing
+#
+# Environment variables for controlling behavior:
+#   MOCK_EXIT_CODE    - Exit code to return (default: 0)
+#   MOCK_RATE_LIMIT   - Set to 1 to simulate rate limit in output
+#   MOCK_TIMEOUT      - Set to 1 to exit with code 124 (timeout)
+#   MOCK_DELAY        - Seconds to sleep before responding
+#   MOCK_OUTPUT       - Custom output to return
+#
+
+# Parse arguments to behave like real claude
+MODEL=""
+PROMPT=""
+OUTPUT_FORMAT=""
+VERBOSE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --model|-m)
+      MODEL="$2"
+      shift 2
+      ;;
+    -p)
+      PROMPT="$2"
+      shift 2
+      ;;
+    --output-format)
+      OUTPUT_FORMAT="$2"
+      shift 2
+      ;;
+    --verbose)
+      VERBOSE="1"
+      shift
+      ;;
+    --dangerously-skip-permissions|--permission-mode)
+      # Accept but ignore these flags
+      shift
+      [[ "$1" != -* ]] && shift  # Consume value if present
+      ;;
+    *)
+      # Unknown args - could be prompt or passthrough
+      if [[ -z "$PROMPT" ]]; then
+        PROMPT="$1"
+      fi
+      shift
+      ;;
+  esac
+done
+
+# Delay if requested
+if [[ -n "${MOCK_DELAY:-}" ]]; then
+  sleep "$MOCK_DELAY"
+fi
+
+# Timeout simulation
+if [[ "${MOCK_TIMEOUT:-}" == "1" ]]; then
+  exit 124
+fi
+
+# Rate limit simulation
+if [[ "${MOCK_RATE_LIMIT:-}" == "1" ]]; then
+  echo '{"error": "rate_limit_exceeded", "message": "Rate limit reached (429)"}'
+  exit 1
+fi
+
+# Custom output
+if [[ -n "${MOCK_OUTPUT:-}" ]]; then
+  echo "$MOCK_OUTPUT"
+  exit "${MOCK_EXIT_CODE:-0}"
+fi
+
+# Default JSON stream output
+if [[ "$OUTPUT_FORMAT" == "stream-json" ]]; then
+  cat << 'EOF'
+{"type":"content_block_start","content_block":{"type":"text","text":""}}
+{"type":"content_block_delta","delta":{"type":"text_delta","text":"Mock response from claude"}}
+{"type":"content_block_stop"}
+{"type":"result","subtype":"success","cost_usd":"0.001"}
+EOF
+else
+  echo "Mock claude response"
+  echo "Model: ${MODEL:-default}"
+  echo "Prompt received: ${PROMPT:-<no prompt>}"
+fi
+
+exit "${MOCK_EXIT_CODE:-0}"

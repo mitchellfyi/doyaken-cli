@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+#
+# Mock gemini CLI for testing
+#
+# Environment variables for controlling behavior:
+#   MOCK_EXIT_CODE    - Exit code to return (default: 0)
+#   MOCK_RATE_LIMIT   - Set to 1 to simulate rate limit in output
+#   MOCK_TIMEOUT      - Set to 1 to exit with code 124 (timeout)
+#   MOCK_DELAY        - Seconds to sleep before responding
+#   MOCK_OUTPUT       - Custom output to return
+#
+
+# Parse arguments to behave like real gemini
+MODEL=""
+PROMPT=""
+VERBOSE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -m)
+      MODEL="$2"
+      shift 2
+      ;;
+    -p)
+      PROMPT="$2"
+      shift 2
+      ;;
+    --verbose)
+      VERBOSE="1"
+      shift
+      ;;
+    --yolo)
+      # Accept but ignore this flag
+      shift
+      ;;
+    *)
+      # Unknown args
+      shift
+      ;;
+  esac
+done
+
+# Delay if requested
+if [[ -n "${MOCK_DELAY:-}" ]]; then
+  sleep "$MOCK_DELAY"
+fi
+
+# Timeout simulation
+if [[ "${MOCK_TIMEOUT:-}" == "1" ]]; then
+  exit 124
+fi
+
+# Rate limit simulation
+if [[ "${MOCK_RATE_LIMIT:-}" == "1" ]]; then
+  echo "Error: Service overloaded (503)"
+  exit 1
+fi
+
+# Custom output
+if [[ -n "${MOCK_OUTPUT:-}" ]]; then
+  echo "$MOCK_OUTPUT"
+  exit "${MOCK_EXIT_CODE:-0}"
+fi
+
+# Default output
+echo "Mock gemini response"
+echo "Model: ${MODEL:-default}"
+echo "Prompt received: ${PROMPT:-<no prompt>}"
+
+exit "${MOCK_EXIT_CODE:-0}"
