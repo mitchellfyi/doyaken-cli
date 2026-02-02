@@ -32,6 +32,11 @@ else
   NC='\033[0m'
 fi
 
+# Source project utilities
+if [[ -f "$_UPGRADE_SCRIPT_DIR/project.sh" ]]; then
+  source "$_UPGRADE_SCRIPT_DIR/project.sh"
+fi
+
 # ============================================================================
 # Logging (aliases for upgrade module)
 # ============================================================================
@@ -614,7 +619,7 @@ upgrade_apply() {
       if [ -d "$source_dir/$dir" ]; then
         # Check if source has files
         local file_count
-        file_count=$(find "$source_dir/$dir" -maxdepth 1 -type f | wc -l | tr -d ' ')
+        file_count=$(count_files "$source_dir/$dir")
         if [ "$file_count" -gt 0 ]; then
           if ! /bin/cp -rf "$source_dir/$dir"/* "$target_dir/$dir/" 2>&1; then
             _log_error "Failed to copy $dir/ directory"

@@ -24,6 +24,11 @@ else
   log_success() { echo -e "${GREEN}[taskboard]${NC} $1"; }
 fi
 
+# Source project utilities
+if [[ -f "$_TASKBOARD_SCRIPT_DIR/project.sh" ]]; then
+  source "$_TASKBOARD_SCRIPT_DIR/project.sh"
+fi
+
 # Detect project structure
 if [ -d "$DOYAKEN_PROJECT/.doyaken/tasks" ]; then
   TASKS_DIR="$DOYAKEN_PROJECT/.doyaken/tasks"
@@ -57,10 +62,10 @@ DOING_DIR=$(get_task_folder "doing")
 DONE_DIR=$(get_task_folder "done")
 
 # Count tasks in each state
-count_blocked=$(find "$BLOCKED_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-count_todo=$(find "$TODO_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-count_doing=$(find "$DOING_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-count_done=$(find "$DONE_DIR" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+count_blocked=$(count_task_files "$BLOCKED_DIR")
+count_todo=$(count_task_files "$TODO_DIR")
+count_doing=$(count_task_files "$DOING_DIR")
+count_done=$(count_task_files "$DONE_DIR")
 
 log_info "Generating TASKBOARD.md..."
 log_info "Found: $count_blocked blocked, $count_todo todo, $count_doing doing, $count_done done"

@@ -27,6 +27,11 @@ else
   log_error() { echo -e "${RED}[registry]${NC} $1" >&2; }
 fi
 
+# Source project utilities
+if [[ -f "$_REGISTRY_SCRIPT_DIR/project.sh" ]]; then
+  source "$_REGISTRY_SCRIPT_DIR/project.sh"
+fi
+
 # ============================================================================
 # Registry Management
 # ============================================================================
@@ -191,8 +196,8 @@ list_projects() {
         else
           doing_dir="$ai_agent_dir/tasks/doing"
         fi
-        todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-        doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+        todo=$(count_task_files "$todo_dir")
+        doing=$(count_task_files "$doing_dir")
         status="${todo} todo, ${doing} doing"
       else
         status="(not found)"
@@ -236,13 +241,13 @@ list_projects() {
             doing_dir="$path/.doyaken/tasks/doing"
           fi
           local todo doing
-          todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+          todo=$(count_task_files "$todo_dir")
+          doing=$(count_task_files "$doing_dir")
           status="${todo} todo, ${doing} doing"
         elif [ -d "$path/.claude/tasks" ]; then
           local todo doing
-          todo=$(find "$path/.claude/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          doing=$(find "$path/.claude/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+          todo=$(count_task_files "$path/.claude/tasks/todo")
+          doing=$(count_task_files "$path/.claude/tasks/doing")
           status="${todo} todo, ${doing} doing (legacy)"
         else
           status="(not found)"

@@ -98,6 +98,35 @@ EOF
 }
 
 # ============================================================================
+# File Counting Utilities
+# ============================================================================
+
+# Count files in a directory with optional pattern
+# Args: dir, [pattern]
+# Returns: count (0 if dir missing or empty)
+count_files() {
+  local dir="$1"
+  local pattern="${2:-*}"
+  find "$dir" -maxdepth 1 -name "$pattern" -type f 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Count task files (*.md) in a directory
+# Args: dir
+# Returns: count (0 if dir missing or empty)
+count_task_files() {
+  local dir="$1"
+  count_files "$dir" "*.md"
+}
+
+# Count files excluding .gitkeep (for cleanup operations)
+# Args: dir
+# Returns: count (0 if dir missing or empty)
+count_files_excluding_gitkeep() {
+  local dir="$1"
+  find "$dir" -maxdepth 1 -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' '
+}
+
+# ============================================================================
 # Project Detection
 # ============================================================================
 
