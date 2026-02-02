@@ -13,8 +13,8 @@ think of every possible failure scenario and cover it with tests and functionali
 | Completed   |                                                        |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
+| Assigned To | `worker-1` |
+| Assigned At | `2026-02-02 06:20` |
 
 ---
 
