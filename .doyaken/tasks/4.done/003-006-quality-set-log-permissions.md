@@ -9,11 +9,11 @@
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-01 17:10`                                     |
 | Started     | `2026-02-02 06:08`                                     |
-| Completed   | `2026-02-02 06:15`                                     |
+| Completed   | `2026-02-02 06:20`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To | `worker-1` |
-| Assigned At | `2026-02-02 06:08` |
+| Assigned To |  |
+| Assigned At |  |
 
 ---
 
@@ -119,6 +119,24 @@ This task is a **follow-up** to task `003-001-security-secure-file-permissions` 
 ---
 
 ## Work Log
+
+### 2026-02-02 06:20 - Verification Complete
+
+Criteria:
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| chmod 700 on backup directories | ✅ | `lib/upgrade.sh:274` |
+| chmod 700 on backup/config subdirectory | ✅ | `lib/upgrade.sh:283` |
+| chmod 700 on periodic review log directory | ✅ | `lib/run-periodic-review.sh:144` |
+| Tests for backup directory permissions | ✅ | `test/unit/upgrade.bats:102-155` (2 tests) |
+| Quality gates pass | ✅ | `npm run check` - 0 errors, 5 warnings (pre-existing) |
+| Changes committed with task reference | ✅ | Commits 1fc4e70, 2981313 |
+
+Quality gates: all pass (lint, tests, bats 245 tests)
+CI: pass - run 21579554946 (https://github.com/mitchellfyi/doyaken-cli/actions/runs/21579554946)
+
+Task location: 3.doing → 4.done
+Reason: complete - all acceptance criteria met, CI green
 
 ### 2026-02-02 06:15 - Review Complete
 
