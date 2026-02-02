@@ -12,8 +12,8 @@
 | Completed   | `2026-02-02 05:26`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To |  |
-| Assigned At |  |
+| Assigned To | |
+| Assigned At | |
 
 ---
 
