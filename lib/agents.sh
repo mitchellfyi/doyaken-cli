@@ -154,6 +154,12 @@ agent_list_all() {
 agent_autonomous_args() {
   local agent="$1"
 
+  # Safe mode: return empty args to use agent's interactive mode
+  if [ "${DOYAKEN_SAFE_MODE:-0}" = "1" ]; then
+    echo ""
+    return
+  fi
+
   case "$agent" in
     claude)
       # Claude Code CLI - full bypass mode

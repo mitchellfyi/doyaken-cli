@@ -346,6 +346,67 @@ validate_quality_command() {
 }
 
 # ============================================================================
+# First-Run Warning
+# ============================================================================
+
+# Check and display first-run warning about autonomous mode
+# Skip if: CI=true, non-interactive terminal, or already acknowledged
+check_first_run_warning() {
+  local ack_file="$DOYAKEN_HOME/.acknowledged"
+
+  # Skip in CI environments
+  if [ "${CI:-false}" = "true" ]; then
+    return 0
+  fi
+
+  # Skip in non-interactive terminals
+  if ! [ -t 0 ]; then
+    return 0
+  fi
+
+  # Skip if already acknowledged
+  if [ -f "$ack_file" ]; then
+    return 0
+  fi
+
+  # Display warning
+  echo ""
+  echo "╔════════════════════════════════════════════════════════════════════╗"
+  echo "║                     ⚠  SECURITY NOTICE  ⚠                         ║"
+  echo "╠════════════════════════════════════════════════════════════════════╣"
+  echo "║  Doyaken runs AI agents in FULLY AUTONOMOUS MODE by default.      ║"
+  echo "║                                                                    ║"
+  echo "║  Agents can:                                                       ║"
+  echo "║    • Execute arbitrary code without approval                       ║"
+  echo "║    • Modify any files in your project                              ║"
+  echo "║    • Access environment variables                                  ║"
+  echo "║    • Make network requests                                         ║"
+  echo "║                                                                    ║"
+  echo "║  Use --safe-mode to disable bypass flags and require confirmation. ║"
+  echo "║  See SECURITY.md for the full trust model.                         ║"
+  echo "╚════════════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # Prompt for acknowledgment
+  read -r -p "Type 'yes' to acknowledge and continue: " response
+
+  if [ "$response" = "yes" ]; then
+    # Create acknowledgment file
+    mkdir -p "$(dirname "$ack_file")"
+    echo "acknowledged=$(date -Iseconds 2>/dev/null || date)" > "$ack_file"
+    echo ""
+    echo "Acknowledgment recorded. This warning will not appear again."
+    echo ""
+    return 0
+  else
+    echo ""
+    echo "Autonomous mode not acknowledged. Exiting."
+    echo "Run with --safe-mode for interactive confirmation, or type 'yes' to continue."
+    exit 1
+  fi
+}
+
+# ============================================================================
 # Manifest Loading
 # ============================================================================
 
@@ -2033,6 +2094,11 @@ main() {
   echo ""
   echo "  Log dir: $RUN_LOG_DIR"
   echo ""
+
+  # Check first-run warning (skip if safe mode or already acknowledged)
+  if [ "${DOYAKEN_SAFE_MODE:-0}" != "1" ]; then
+    check_first_run_warning
+  fi
 
   init_state
 

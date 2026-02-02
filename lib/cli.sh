@@ -73,8 +73,8 @@ cmd_run() {
   todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
   doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
   local todo_count doing_count
-  todo_count=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  doing_count=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  todo_count=$(count_task_files "$todo_dir")
+  doing_count=$(count_task_files "$doing_dir")
 
   if [ "$todo_count" -eq 0 ] && [ "$doing_count" -eq 0 ]; then
     # No tasks available - show interactive menu
@@ -634,7 +634,7 @@ cmd_cleanup() {
   # Clean locks
   if [ -d "$doyaken_dir/locks" ]; then
     local lock_count
-    lock_count=$(find "$doyaken_dir/locks" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    lock_count=$(count_files_excluding_gitkeep "$doyaken_dir/locks")
     if [ "$lock_count" -gt 0 ]; then
       find "$doyaken_dir/locks" -type f ! -name '.gitkeep' -delete
       echo "  ${GREEN}✓${NC} Removed $lock_count lock file(s)"
@@ -645,7 +645,7 @@ cmd_cleanup() {
   # Clean logs
   if [ -d "$doyaken_dir/logs" ]; then
     local log_count
-    log_count=$(find "$doyaken_dir/logs" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    log_count=$(count_files_excluding_gitkeep "$doyaken_dir/logs")
     if [ "$log_count" -gt 0 ]; then
       find "$doyaken_dir/logs" -type f ! -name '.gitkeep' -delete
       echo "  ${GREEN}✓${NC} Removed $log_count log file(s)"
@@ -656,7 +656,7 @@ cmd_cleanup() {
   # Clean state
   if [ -d "$doyaken_dir/state" ]; then
     local state_count
-    state_count=$(find "$doyaken_dir/state" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    state_count=$(count_files_excluding_gitkeep "$doyaken_dir/state")
     if [ "$state_count" -gt 0 ]; then
       find "$doyaken_dir/state" -type f ! -name '.gitkeep' -delete
       echo "  ${GREEN}✓${NC} Removed $state_count state file(s)"
@@ -667,7 +667,7 @@ cmd_cleanup() {
   # Clean done tasks
   if [ -d "$doyaken_dir/tasks/4.done" ]; then
     local done_count
-    done_count=$(find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    done_count=$(count_files_excluding_gitkeep "$doyaken_dir/tasks/4.done")
     if [ "$done_count" -gt 0 ]; then
       find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' -delete
       echo "  ${GREEN}✓${NC} Removed $done_count completed task(s)"
@@ -789,7 +789,7 @@ cmd_tasks() {
       local todo_dir
       todo_dir=$(get_task_folder "$doyaken_dir" "todo")
       local todo_count
-      todo_count=$(find "$todo_dir" -name "*.md" -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+      todo_count=$(count_task_files "$todo_dir")
       local sequence
       sequence=$(printf "%03d" $((todo_count + 1)))
       local slug
@@ -975,10 +975,10 @@ cmd_status() {
   doing_dir=$(get_task_folder "$doyaken_dir" "doing")
   done_dir=$(get_task_folder "$doyaken_dir" "done")
   local blocked todo doing done_count
-  blocked=$(find "$blocked_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  done_count=$(find "$done_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  blocked=$(count_task_files "$blocked_dir")
+  todo=$(count_task_files "$todo_dir")
+  doing=$(count_task_files "$doing_dir")
+  done_count=$(count_task_files "$done_dir")
   echo "  Blocked: $blocked"
   echo "  Todo:    $todo"
   echo "  Doing:   $doing"
@@ -1611,7 +1611,7 @@ cmd_commands() {
   local commands_dir="$project/.claude/commands"
   if [ -d "$commands_dir" ]; then
     local count
-    count=$(find "$commands_dir" -name "*.md" | wc -l | tr -d ' ')
+    count=$(count_task_files "$commands_dir")
     log_success "Generated $count slash commands"
     echo ""
     echo "Available commands:"
@@ -1690,6 +1690,10 @@ main() {
       --quiet)
         export AGENT_QUIET=1
         export AGENT_PROGRESS=0
+        shift
+        ;;
+      --safe-mode|--interactive)
+        export DOYAKEN_SAFE_MODE=1
         shift
         ;;
       --help|-h)

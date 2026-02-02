@@ -55,6 +55,7 @@ ${BOLD}OPTIONS:${NC}
   --dry-run           Preview without executing
   --verbose           Show detailed output
   --quiet             Minimal output
+  --safe-mode         Disable autonomous mode (agents will prompt for confirmation)
   -- <args>           Pass additional arguments to the underlying agent CLI
 
 ${BOLD}AGENTS & MODELS:${NC}

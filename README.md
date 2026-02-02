@@ -181,15 +181,22 @@ dk doctor    # Health check
 | `dk run [N]` | Run N tasks |
 | `dk task "<prompt>"` | Create and immediately run a single task |
 | `dk init [path]` | Initialize a new project |
+| `dk register` | Register current project in global registry |
+| `dk unregister` | Remove current project from registry |
 | `dk tasks` | Show taskboard |
 | `dk tasks new <title>` | Create a new task |
 | `dk tasks view <id>` | View a specific task |
+| `dk add "<title>"` | Alias for `tasks new` |
 | `dk skills` | List available skills |
 | `dk skill <name>` | Run a skill |
 | `dk sync` | Sync all agent configuration files |
 | `dk commands` | Regenerate slash commands |
+| `dk review` | Run periodic codebase review |
+| `dk review --status` | Show review status and counter |
 | `dk mcp status` | Show MCP integration status |
 | `dk mcp configure` | Generate MCP configs |
+| `dk hooks` | List available CLI agent hooks |
+| `dk hooks install` | Install hooks to .claude/settings.json |
 | `dk status` | Show project status |
 | `dk list` | List all registered projects |
 | `dk manifest` | Show project manifest |
@@ -197,9 +204,13 @@ dk doctor    # Health check
 | `dk upgrade` | Upgrade doyaken to latest version |
 | `dk upgrade --check` | Check for available updates |
 | `dk doctor` | Health check |
+| `dk cleanup` | Clean locks, logs, state, done tasks, stale doing, registry |
+| `dk version` | Show version |
 | `dk help` | Show help |
 
 > **Note:** `doyaken` and `dk` are interchangeable.
+
+> **Tip:** When no tasks exist in the backlog, running `dk` displays an interactive menu with options for Code Review, Feature Discovery, or creating tasks.
 
 ## Multi-Agent Support
 
@@ -273,6 +284,8 @@ dk skill github-import --filter=open
 # Show skill info
 dk skill github-import --info
 ```
+
+Skills can also use vendor namespacing (`vendor:skill`) for platform-specific functionality, e.g., `vercel:deploy`, `github:pr-review`. See [skills/vendors/](skills/vendors/) for available vendor skills.
 
 ### Built-in Skills
 
@@ -576,6 +589,15 @@ To bypass temporarily: `git commit --no-verify`
 - Git
 - macOS or Linux
 - Node.js 16+ (for npm install)
+
+## Security Notice
+
+Doyaken runs AI agents in **fully autonomous mode** by default with permission bypass flags enabled.
+Agents can execute arbitrary code, modify files, and access environment variables without approval.
+
+- Use `--safe-mode` to disable bypass flags and require agent confirmation
+- Review task files before running on untrusted projects
+- See [SECURITY.md](SECURITY.md) for full trust model and attack scenarios
 
 ## License
 
