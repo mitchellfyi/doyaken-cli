@@ -14,8 +14,8 @@ it should reliable resume tasks and/or pick tasks up in doing - even if they wer
 | Completed   | `2026-02-02 06:03`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To | `worker-1` |
-| Assigned At | `2026-02-02 05:41` |
+| Assigned To | |
+| Assigned At | |
 
 ---
 
