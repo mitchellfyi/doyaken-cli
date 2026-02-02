@@ -1,514 +1,1409 @@
 # Doyaken Project Registry
 version: 1
 projects:
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yZuGVB3Tv6
-    name: tmp.yZuGVB3Tv6
-    git_remote: ""
-    registered_at: "2026-02-01T17:22:31Z"
-    last_active: "2026-02-01T17:22:31Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ELP7f4jus0
-    name: tmp.ELP7f4jus0
-    git_remote: ""
-    registered_at: "2026-02-01T17:22:31Z"
-    last_active: "2026-02-01T17:22:31Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.jezcnYcE1w
-    name: tmp.jezcnYcE1w
-    git_remote: ""
-    registered_at: "2026-02-01T17:22:31Z"
-    last_active: "2026-02-01T17:22:31Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mdV4Ms4NFD
-    name: tmp.mdV4Ms4NFD
-    git_remote: ""
-    registered_at: "2026-02-01T17:22:32Z"
-    last_active: "2026-02-01T17:22:32Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.V9Apqt4i4T
-    name: tmp.V9Apqt4i4T
-    git_remote: ""
-    registered_at: "2026-02-01T17:22:32Z"
-    last_active: "2026-02-01T17:22:32Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.1oXY67xNFd
-    name: tmp.1oXY67xNFd
-    git_remote: ""
-    registered_at: "2026-02-01T17:22:33Z"
-    last_active: "2026-02-01T17:22:33Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.cK7vqgpoJf
-    name: tmp.cK7vqgpoJf
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:13Z"
-    last_active: "2026-02-01T17:23:13Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.GkccB9fu8k
-    name: tmp.GkccB9fu8k
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:13Z"
-    last_active: "2026-02-01T17:23:13Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.jqSzWtlIbG
-    name: tmp.jqSzWtlIbG
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:14Z"
-    last_active: "2026-02-01T17:23:14Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yhKe23G1Cc
-    name: tmp.yhKe23G1Cc
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:14Z"
-    last_active: "2026-02-01T17:23:14Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.cvh99j15q2
-    name: tmp.cvh99j15q2
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:15Z"
-    last_active: "2026-02-01T17:23:15Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EGXI5ZBT3G
-    name: tmp.EGXI5ZBT3G
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:15Z"
-    last_active: "2026-02-01T17:23:15Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5izYIG2Ys0
-    name: tmp.5izYIG2Ys0
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:24Z"
-    last_active: "2026-02-01T17:23:24Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.BwS6OVGgt6
-    name: tmp.BwS6OVGgt6
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:25Z"
-    last_active: "2026-02-01T17:23:25Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.DqEdWAgcZo
-    name: tmp.DqEdWAgcZo
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:25Z"
-    last_active: "2026-02-01T17:23:25Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xRZ6uVJkow
-    name: tmp.xRZ6uVJkow
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:26Z"
-    last_active: "2026-02-01T17:23:26Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ggMx00N7ES
-    name: tmp.ggMx00N7ES
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:26Z"
-    last_active: "2026-02-01T17:23:26Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.iv9RQdRZrJ
-    name: tmp.iv9RQdRZrJ
-    git_remote: ""
-    registered_at: "2026-02-01T17:23:27Z"
-    last_active: "2026-02-01T17:23:27Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.2W6xFxgydh
-    name: tmp.2W6xFxgydh
-    git_remote: ""
-    registered_at: "2026-02-01T17:32:54Z"
-    last_active: "2026-02-01T17:32:54Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Vt55Ot2fCs
-    name: tmp.Vt55Ot2fCs
-    git_remote: ""
-    registered_at: "2026-02-01T17:32:54Z"
-    last_active: "2026-02-01T17:32:54Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Kittvt5Mmb
-    name: tmp.Kittvt5Mmb
-    git_remote: ""
-    registered_at: "2026-02-01T17:32:55Z"
-    last_active: "2026-02-01T17:32:55Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Y9WW1uzLlx
-    name: tmp.Y9WW1uzLlx
-    git_remote: ""
-    registered_at: "2026-02-01T17:32:56Z"
-    last_active: "2026-02-01T17:32:56Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.l4q4OrJSeV
-    name: tmp.l4q4OrJSeV
-    git_remote: ""
-    registered_at: "2026-02-01T17:32:56Z"
-    last_active: "2026-02-01T17:32:56Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9vcwXdTnPD
-    name: tmp.9vcwXdTnPD
-    git_remote: ""
-    registered_at: "2026-02-01T17:32:57Z"
-    last_active: "2026-02-01T17:32:57Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JyFe1wJFZc
-    name: tmp.JyFe1wJFZc
-    git_remote: ""
-    registered_at: "2026-02-01T19:19:20Z"
-    last_active: "2026-02-01T19:19:20Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.o5qDKjAXUZ
-    name: tmp.o5qDKjAXUZ
-    git_remote: ""
-    registered_at: "2026-02-01T19:19:21Z"
-    last_active: "2026-02-01T19:19:21Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.SwW0q2MoDz
-    name: tmp.SwW0q2MoDz
-    git_remote: ""
-    registered_at: "2026-02-01T19:19:21Z"
-    last_active: "2026-02-01T19:19:21Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.OKjXQK0Stn
-    name: tmp.OKjXQK0Stn
-    git_remote: ""
-    registered_at: "2026-02-01T19:19:21Z"
-    last_active: "2026-02-01T19:19:21Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.O2FhUQlTpv
-    name: tmp.O2FhUQlTpv
-    git_remote: ""
-    registered_at: "2026-02-01T19:19:22Z"
-    last_active: "2026-02-01T19:19:22Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.sqAwaqEQko
-    name: tmp.sqAwaqEQko
-    git_remote: ""
-    registered_at: "2026-02-01T19:19:22Z"
-    last_active: "2026-02-01T19:19:22Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.qLjShYZ5j9
-    name: tmp.qLjShYZ5j9
-    git_remote: ""
-    registered_at: "2026-02-01T19:21:47Z"
-    last_active: "2026-02-01T19:21:47Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.gYHbRF4MO7
-    name: tmp.gYHbRF4MO7
-    git_remote: ""
-    registered_at: "2026-02-01T19:21:48Z"
-    last_active: "2026-02-01T19:21:48Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.AkKnMeARMI
-    name: tmp.AkKnMeARMI
-    git_remote: ""
-    registered_at: "2026-02-01T19:21:48Z"
-    last_active: "2026-02-01T19:21:48Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.6eNCSsAPFq
-    name: tmp.6eNCSsAPFq
-    git_remote: ""
-    registered_at: "2026-02-01T19:21:49Z"
-    last_active: "2026-02-01T19:21:49Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9jSVUHDjhk
-    name: tmp.9jSVUHDjhk
-    git_remote: ""
-    registered_at: "2026-02-01T19:21:49Z"
-    last_active: "2026-02-01T19:21:49Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mafBWlaYt8
-    name: tmp.mafBWlaYt8
-    git_remote: ""
-    registered_at: "2026-02-01T19:21:50Z"
-    last_active: "2026-02-01T19:21:50Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.FXyoevLmS3
-    name: tmp.FXyoevLmS3
-    git_remote: ""
-    registered_at: "2026-02-01T19:22:20Z"
-    last_active: "2026-02-01T19:22:20Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ngqRA8gRqv
-    name: tmp.ngqRA8gRqv
-    git_remote: ""
-    registered_at: "2026-02-01T19:22:20Z"
-    last_active: "2026-02-01T19:22:20Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.3RdMW9iAmj
-    name: tmp.3RdMW9iAmj
-    git_remote: ""
-    registered_at: "2026-02-01T19:22:21Z"
-    last_active: "2026-02-01T19:22:21Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.vghifyozoP
-    name: tmp.vghifyozoP
-    git_remote: ""
-    registered_at: "2026-02-01T19:22:21Z"
-    last_active: "2026-02-01T19:22:21Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.C8tw7VZg2i
-    name: tmp.C8tw7VZg2i
-    git_remote: ""
-    registered_at: "2026-02-01T19:22:22Z"
-    last_active: "2026-02-01T19:22:22Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yR1LAfDmFC
-    name: tmp.yR1LAfDmFC
-    git_remote: ""
-    registered_at: "2026-02-01T19:22:22Z"
-    last_active: "2026-02-01T19:22:22Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.gWJruQ9hyi
-    name: tmp.gWJruQ9hyi
-    git_remote: ""
-    registered_at: "2026-02-01T19:25:19Z"
-    last_active: "2026-02-01T19:25:19Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.qDgyajdNu7
-    name: tmp.qDgyajdNu7
-    git_remote: ""
-    registered_at: "2026-02-01T19:25:19Z"
-    last_active: "2026-02-01T19:25:19Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.fJurDfLWQ4
-    name: tmp.fJurDfLWQ4
-    git_remote: ""
-    registered_at: "2026-02-01T19:25:20Z"
-    last_active: "2026-02-01T19:25:20Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.0OeNPoAGzi
-    name: tmp.0OeNPoAGzi
-    git_remote: ""
-    registered_at: "2026-02-01T19:25:20Z"
-    last_active: "2026-02-01T19:25:20Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.iMbRx1F1uw
-    name: tmp.iMbRx1F1uw
-    git_remote: ""
-    registered_at: "2026-02-01T19:25:21Z"
-    last_active: "2026-02-01T19:25:21Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.t9HPZ3b52v
-    name: tmp.t9HPZ3b52v
-    git_remote: ""
-    registered_at: "2026-02-01T19:25:22Z"
-    last_active: "2026-02-01T19:25:22Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.hflGYnQtgT
-    name: tmp.hflGYnQtgT
-    git_remote: ""
-    registered_at: "2026-02-01T19:28:37Z"
-    last_active: "2026-02-01T19:28:37Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WsuFlx2LSy
-    name: tmp.WsuFlx2LSy
-    git_remote: ""
-    registered_at: "2026-02-01T19:28:38Z"
-    last_active: "2026-02-01T19:28:38Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.PhEVAZSOHO
-    name: tmp.PhEVAZSOHO
-    git_remote: ""
-    registered_at: "2026-02-01T19:28:38Z"
-    last_active: "2026-02-01T19:28:38Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.8dCEaY1vdR
-    name: tmp.8dCEaY1vdR
-    git_remote: ""
-    registered_at: "2026-02-01T19:28:39Z"
-    last_active: "2026-02-01T19:28:39Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ksnFMA388Q
-    name: tmp.ksnFMA388Q
-    git_remote: ""
-    registered_at: "2026-02-01T19:28:39Z"
-    last_active: "2026-02-01T19:28:39Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MobJC5BGR0
-    name: tmp.MobJC5BGR0
-    git_remote: ""
-    registered_at: "2026-02-01T19:28:40Z"
-    last_active: "2026-02-01T19:28:40Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.lYewnEAkDP
-    name: tmp.lYewnEAkDP
-    git_remote: ""
-    registered_at: "2026-02-01T21:06:39Z"
-    last_active: "2026-02-01T21:06:39Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.bWUzRKYN5M
-    name: tmp.bWUzRKYN5M
-    git_remote: ""
-    registered_at: "2026-02-01T21:06:41Z"
-    last_active: "2026-02-01T21:06:41Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.FziKadFD8L
-    name: tmp.FziKadFD8L
-    git_remote: ""
-    registered_at: "2026-02-01T21:06:42Z"
-    last_active: "2026-02-01T21:06:42Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.znA9It7lkA
-    name: tmp.znA9It7lkA
-    git_remote: ""
-    registered_at: "2026-02-01T21:06:42Z"
-    last_active: "2026-02-01T21:06:42Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.wSpCcH7HJG
-    name: tmp.wSpCcH7HJG
-    git_remote: ""
-    registered_at: "2026-02-01T21:06:43Z"
-    last_active: "2026-02-01T21:06:43Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.oSqZwu4MH3
-    name: tmp.oSqZwu4MH3
-    git_remote: ""
-    registered_at: "2026-02-01T21:06:43Z"
-    last_active: "2026-02-01T21:06:43Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rwI9zZGLp3
-    name: tmp.rwI9zZGLp3
-    git_remote: ""
-    registered_at: "2026-02-01T21:09:01Z"
-    last_active: "2026-02-01T21:09:01Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UEhnLBrkEF
-    name: tmp.UEhnLBrkEF
-    git_remote: ""
-    registered_at: "2026-02-01T21:09:02Z"
-    last_active: "2026-02-01T21:09:02Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.bqu0c5yC5z
-    name: tmp.bqu0c5yC5z
-    git_remote: ""
-    registered_at: "2026-02-01T21:09:02Z"
-    last_active: "2026-02-01T21:09:02Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.imrWyOooBF
-    name: tmp.imrWyOooBF
-    git_remote: ""
-    registered_at: "2026-02-01T21:09:02Z"
-    last_active: "2026-02-01T21:09:02Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.w5sNt4smoy
-    name: tmp.w5sNt4smoy
-    git_remote: ""
-    registered_at: "2026-02-01T21:09:03Z"
-    last_active: "2026-02-01T21:09:03Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.qum2wyir3M
-    name: tmp.qum2wyir3M
-    git_remote: ""
-    registered_at: "2026-02-01T21:09:03Z"
-    last_active: "2026-02-01T21:09:03Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Eg4JqJDJ32
-    name: tmp.Eg4JqJDJ32
-    git_remote: ""
-    registered_at: "2026-02-01T21:11:12Z"
-    last_active: "2026-02-01T21:11:12Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.DZZuNhKgCY
-    name: tmp.DZZuNhKgCY
-    git_remote: ""
-    registered_at: "2026-02-01T21:11:12Z"
-    last_active: "2026-02-01T21:11:12Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.NjOFBpIooF
-    name: tmp.NjOFBpIooF
-    git_remote: ""
-    registered_at: "2026-02-01T21:11:13Z"
-    last_active: "2026-02-01T21:11:13Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.DXzks8Hax5
-    name: tmp.DXzks8Hax5
-    git_remote: ""
-    registered_at: "2026-02-01T21:11:13Z"
-    last_active: "2026-02-01T21:11:13Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.CsJbPkYCnN
-    name: tmp.CsJbPkYCnN
-    git_remote: ""
-    registered_at: "2026-02-01T21:11:14Z"
-    last_active: "2026-02-01T21:11:14Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5gYQqdk2A9
-    name: tmp.5gYQqdk2A9
-    git_remote: ""
-    registered_at: "2026-02-01T21:11:14Z"
-    last_active: "2026-02-01T21:11:14Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.d6Uaw2Netu
-    name: tmp.d6Uaw2Netu
-    git_remote: ""
-    registered_at: "2026-02-01T21:13:50Z"
-    last_active: "2026-02-01T21:13:50Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.67ynRnGuLM
-    name: tmp.67ynRnGuLM
-    git_remote: ""
-    registered_at: "2026-02-01T21:13:51Z"
-    last_active: "2026-02-01T21:13:51Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.VfzjxAy9Zn
-    name: tmp.VfzjxAy9Zn
-    git_remote: ""
-    registered_at: "2026-02-01T21:13:51Z"
-    last_active: "2026-02-01T21:13:51Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.DCohGMOT2O
-    name: tmp.DCohGMOT2O
-    git_remote: ""
-    registered_at: "2026-02-01T21:13:52Z"
-    last_active: "2026-02-01T21:13:52Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MYKj1fNMEa
-    name: tmp.MYKj1fNMEa
-    git_remote: ""
-    registered_at: "2026-02-01T21:13:52Z"
-    last_active: "2026-02-01T21:13:52Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.pA1j7XYyz3
-    name: tmp.pA1j7XYyz3
-    git_remote: ""
-    registered_at: "2026-02-01T21:13:53Z"
-    last_active: "2026-02-01T21:13:53Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.zAK2Ik7DUk
-    name: tmp.zAK2Ik7DUk
-    git_remote: ""
-    registered_at: "2026-02-01T21:16:16Z"
-    last_active: "2026-02-01T21:16:16Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.t1IQxTABRR
-    name: tmp.t1IQxTABRR
-    git_remote: ""
-    registered_at: "2026-02-01T21:16:17Z"
-    last_active: "2026-02-01T21:16:17Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.CiW9KXaKe5
-    name: tmp.CiW9KXaKe5
-    git_remote: ""
-    registered_at: "2026-02-01T21:16:17Z"
-    last_active: "2026-02-01T21:16:17Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Q6x5a9Mq5F
-    name: tmp.Q6x5a9Mq5F
-    git_remote: ""
-    registered_at: "2026-02-01T21:16:18Z"
-    last_active: "2026-02-01T21:16:18Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.U2UPMMXd1F
-    name: tmp.U2UPMMXd1F
-    git_remote: ""
-    registered_at: "2026-02-01T21:16:18Z"
-    last_active: "2026-02-01T21:16:18Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.578ZMs42n2
-    name: tmp.578ZMs42n2
-    git_remote: ""
-    registered_at: "2026-02-01T21:16:19Z"
-    last_active: "2026-02-01T21:16:19Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.sfljql016U
-    name: tmp.sfljql016U
-    git_remote: ""
-    registered_at: "2026-02-01T21:22:29Z"
-    last_active: "2026-02-01T21:22:29Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.aSFHWZAuhM
-    name: tmp.aSFHWZAuhM
-    git_remote: ""
-    registered_at: "2026-02-01T21:22:30Z"
-    last_active: "2026-02-01T21:22:30Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.tEqHSE7kpk
-    name: tmp.tEqHSE7kpk
-    git_remote: ""
-    registered_at: "2026-02-01T21:22:30Z"
-    last_active: "2026-02-01T21:22:30Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rrrMBLbgWE
-    name: tmp.rrrMBLbgWE
-    git_remote: ""
-    registered_at: "2026-02-01T21:22:31Z"
-    last_active: "2026-02-01T21:22:31Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Ox4NywzIl0
-    name: tmp.Ox4NywzIl0
-    git_remote: ""
-    registered_at: "2026-02-01T21:22:32Z"
-    last_active: "2026-02-01T21:22:32Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.KZqPzaBNDv
-    name: tmp.KZqPzaBNDv
-    git_remote: ""
-    registered_at: "2026-02-01T21:22:32Z"
-    last_active: "2026-02-01T21:22:32Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.h1r26yKfly
-    name: tmp.h1r26yKfly
-    git_remote: ""
-    registered_at: "2026-02-01T21:24:12Z"
-    last_active: "2026-02-01T21:24:12Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.YzGhMA8rCc
-    name: tmp.YzGhMA8rCc
-    git_remote: ""
-    registered_at: "2026-02-01T21:24:13Z"
-    last_active: "2026-02-01T21:24:13Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.fDCW6qCJEC
-    name: tmp.fDCW6qCJEC
-    git_remote: ""
-    registered_at: "2026-02-01T21:24:15Z"
-    last_active: "2026-02-01T21:24:15Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Pyn8aDSzJp
-    name: tmp.Pyn8aDSzJp
-    git_remote: ""
-    registered_at: "2026-02-01T21:24:16Z"
-    last_active: "2026-02-01T21:24:16Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.NEHyxcYJEg
-    name: tmp.NEHyxcYJEg
-    git_remote: ""
-    registered_at: "2026-02-01T21:24:18Z"
-    last_active: "2026-02-01T21:24:18Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mTq3je7imy
-    name: tmp.mTq3je7imy
-    git_remote: ""
-    registered_at: "2026-02-01T21:24:20Z"
-    last_active: "2026-02-01T21:24:20Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.8sVXUsifZ9
-    name: tmp.8sVXUsifZ9
-    git_remote: ""
-    registered_at: "2026-02-01T21:30:07Z"
-    last_active: "2026-02-01T21:30:07Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ycEgmfKKzR
-    name: tmp.ycEgmfKKzR
-    git_remote: ""
-    registered_at: "2026-02-01T21:30:08Z"
-    last_active: "2026-02-01T21:30:08Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.P1fqsonW8z
-    name: tmp.P1fqsonW8z
-    git_remote: ""
-    registered_at: "2026-02-01T21:30:08Z"
-    last_active: "2026-02-01T21:30:08Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.nuBTX1HYEG
-    name: tmp.nuBTX1HYEG
-    git_remote: ""
-    registered_at: "2026-02-01T21:30:08Z"
-    last_active: "2026-02-01T21:30:08Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.skX55amrDK
-    name: tmp.skX55amrDK
-    git_remote: ""
-    registered_at: "2026-02-01T21:30:09Z"
-    last_active: "2026-02-01T21:30:09Z"
-  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UZgn9Hregt
-    name: tmp.UZgn9Hregt
-    git_remote: ""
-    registered_at: "2026-02-01T21:30:10Z"
-    last_active: "2026-02-01T21:30:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xyTtt24ITA
+    name: tmp.xyTtt24ITA
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:52Z"
+    last_active: "2026-02-01T22:41:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mQdAqhc9TS
+    name: tmp.mQdAqhc9TS
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:52Z"
+    last_active: "2026-02-01T22:41:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ypvrTe6Jqa
+    name: tmp.ypvrTe6Jqa
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:52Z"
+    last_active: "2026-02-01T22:41:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.OUdoyTw6tz
+    name: tmp.OUdoyTw6tz
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:52Z"
+    last_active: "2026-02-01T22:41:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.n2Ky4WUQzr
+    name: tmp.n2Ky4WUQzr
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:52Z"
+    last_active: "2026-02-01T22:41:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.cJB35Yy2Pg
+    name: tmp.cJB35Yy2Pg
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yiMX6y7Jbt
+    name: tmp.yiMX6y7Jbt
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JctNpb6Sc1
+    name: tmp.JctNpb6Sc1
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.eCEbzON4CF
+    name: tmp.eCEbzON4CF
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.jqyNeNY1s9
+    name: tmp.jqyNeNY1s9
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.p6B10u0VFf
+    name: tmp.p6B10u0VFf
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9ALwIInVFt
+    name: tmp.9ALwIInVFt
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.XRymnqKcKh
+    name: tmp.XRymnqKcKh
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:53Z"
+    last_active: "2026-02-01T22:41:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xmyQ5UOPR6
+    name: tmp.xmyQ5UOPR6
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:54Z"
+    last_active: "2026-02-01T22:41:54Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.BDv8oueQVS
+    name: tmp.BDv8oueQVS
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:54Z"
+    last_active: "2026-02-01T22:41:54Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.nE9GU6VkbG
+    name: tmp.nE9GU6VkbG
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:54Z"
+    last_active: "2026-02-01T22:41:54Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.FvKFqCesCA
+    name: tmp.FvKFqCesCA
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:54Z"
+    last_active: "2026-02-01T22:41:54Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.AIOCvEvFlO
+    name: tmp.AIOCvEvFlO
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:54Z"
+    last_active: "2026-02-01T22:41:54Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xfLW08Yl3Z
+    name: tmp.xfLW08Yl3Z
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:55Z"
+    last_active: "2026-02-01T22:41:55Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.s5DyxgUkjK
+    name: tmp.s5DyxgUkjK
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:55Z"
+    last_active: "2026-02-01T22:41:55Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.G7S7PVKALF
+    name: tmp.G7S7PVKALF
+    git_remote: ""
+    registered_at: "2026-02-01T22:41:55Z"
+    last_active: "2026-02-01T22:41:55Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.t3gOATIygK
+    name: tmp.t3gOATIygK
+    git_remote: ""
+    registered_at: "2026-02-01T22:42:12Z"
+    last_active: "2026-02-01T22:42:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.PCCbx5SM4X
+    name: tmp.PCCbx5SM4X
+    git_remote: ""
+    registered_at: "2026-02-01T22:42:12Z"
+    last_active: "2026-02-01T22:42:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.LZzsIlTk4n
+    name: tmp.LZzsIlTk4n
+    git_remote: ""
+    registered_at: "2026-02-01T22:42:12Z"
+    last_active: "2026-02-01T22:42:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MtzOD6CPMR
+    name: tmp.MtzOD6CPMR
+    git_remote: ""
+    registered_at: "2026-02-01T22:42:13Z"
+    last_active: "2026-02-01T22:42:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Lx6LvcpVtR
+    name: tmp.Lx6LvcpVtR
+    git_remote: ""
+    registered_at: "2026-02-01T22:42:13Z"
+    last_active: "2026-02-01T22:42:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.wXKDTedONo
+    name: tmp.wXKDTedONo
+    git_remote: ""
+    registered_at: "2026-02-01T22:42:14Z"
+    last_active: "2026-02-01T22:42:14Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.QEchopUJgr
+    name: tmp.QEchopUJgr
+    git_remote: ""
+    registered_at: "2026-02-01T22:43:09Z"
+    last_active: "2026-02-01T22:43:09Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.kqu7TaXjw5
+    name: tmp.kqu7TaXjw5
+    git_remote: ""
+    registered_at: "2026-02-01T22:43:10Z"
+    last_active: "2026-02-01T22:43:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.RY3evcbRvR
+    name: tmp.RY3evcbRvR
+    git_remote: ""
+    registered_at: "2026-02-01T22:43:10Z"
+    last_active: "2026-02-01T22:43:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.1foZ4T9Mav
+    name: tmp.1foZ4T9Mav
+    git_remote: ""
+    registered_at: "2026-02-01T22:43:11Z"
+    last_active: "2026-02-01T22:43:11Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.QnC2pJG19i
+    name: tmp.QnC2pJG19i
+    git_remote: ""
+    registered_at: "2026-02-01T22:43:11Z"
+    last_active: "2026-02-01T22:43:11Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.vDzszmSzim
+    name: tmp.vDzszmSzim
+    git_remote: ""
+    registered_at: "2026-02-01T22:43:11Z"
+    last_active: "2026-02-01T22:43:11Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.KGKOJkgz39
+    name: tmp.KGKOJkgz39
+    git_remote: ""
+    registered_at: "2026-02-02T05:07:09Z"
+    last_active: "2026-02-02T05:07:09Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Bm5kvN6Idc
+    name: tmp.Bm5kvN6Idc
+    git_remote: ""
+    registered_at: "2026-02-02T05:07:10Z"
+    last_active: "2026-02-02T05:07:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yvoXgK03Fp
+    name: tmp.yvoXgK03Fp
+    git_remote: ""
+    registered_at: "2026-02-02T05:07:11Z"
+    last_active: "2026-02-02T05:07:11Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.BdynMjKBeg
+    name: tmp.BdynMjKBeg
+    git_remote: ""
+    registered_at: "2026-02-02T05:07:11Z"
+    last_active: "2026-02-02T05:07:11Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.dAhGgx546C
+    name: tmp.dAhGgx546C
+    git_remote: ""
+    registered_at: "2026-02-02T05:07:12Z"
+    last_active: "2026-02-02T05:07:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.3g9kQ0tjJB
+    name: tmp.3g9kQ0tjJB
+    git_remote: ""
+    registered_at: "2026-02-02T05:07:12Z"
+    last_active: "2026-02-02T05:07:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.7AcY2P9io2
+    name: tmp.7AcY2P9io2
+    git_remote: ""
+    registered_at: "2026-02-02T05:08:26Z"
+    last_active: "2026-02-02T05:08:26Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.a4AlQ3wiMZ
+    name: tmp.a4AlQ3wiMZ
+    git_remote: ""
+    registered_at: "2026-02-02T05:08:26Z"
+    last_active: "2026-02-02T05:08:26Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.N7POuSVc7m
+    name: tmp.N7POuSVc7m
+    git_remote: ""
+    registered_at: "2026-02-02T05:08:27Z"
+    last_active: "2026-02-02T05:08:27Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UKpId6JwND
+    name: tmp.UKpId6JwND
+    git_remote: ""
+    registered_at: "2026-02-02T05:08:27Z"
+    last_active: "2026-02-02T05:08:27Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.YUSsheimzx
+    name: tmp.YUSsheimzx
+    git_remote: ""
+    registered_at: "2026-02-02T05:08:28Z"
+    last_active: "2026-02-02T05:08:28Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JPuPxKJzxW
+    name: tmp.JPuPxKJzxW
+    git_remote: ""
+    registered_at: "2026-02-02T05:08:28Z"
+    last_active: "2026-02-02T05:08:28Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.gqva6WdUST
+    name: tmp.gqva6WdUST
+    git_remote: ""
+    registered_at: "2026-02-02T05:09:32Z"
+    last_active: "2026-02-02T05:09:32Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.YFU8M2QNlO
+    name: tmp.YFU8M2QNlO
+    git_remote: ""
+    registered_at: "2026-02-02T05:09:32Z"
+    last_active: "2026-02-02T05:09:32Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.be2mqgxDgh
+    name: tmp.be2mqgxDgh
+    git_remote: ""
+    registered_at: "2026-02-02T05:09:33Z"
+    last_active: "2026-02-02T05:09:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.cqKUghkbdi
+    name: tmp.cqKUghkbdi
+    git_remote: ""
+    registered_at: "2026-02-02T05:09:33Z"
+    last_active: "2026-02-02T05:09:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yc27qEJtRC
+    name: tmp.yc27qEJtRC
+    git_remote: ""
+    registered_at: "2026-02-02T05:09:34Z"
+    last_active: "2026-02-02T05:09:34Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.s6uq7Re7CF
+    name: tmp.s6uq7Re7CF
+    git_remote: ""
+    registered_at: "2026-02-02T05:09:34Z"
+    last_active: "2026-02-02T05:09:34Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.BmU1lEeick
+    name: tmp.BmU1lEeick
+    git_remote: ""
+    registered_at: "2026-02-02T05:18:33Z"
+    last_active: "2026-02-02T05:18:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UdyMWmseo0
+    name: tmp.UdyMWmseo0
+    git_remote: ""
+    registered_at: "2026-02-02T05:18:33Z"
+    last_active: "2026-02-02T05:18:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.axea56qVFl
+    name: tmp.axea56qVFl
+    git_remote: ""
+    registered_at: "2026-02-02T05:18:33Z"
+    last_active: "2026-02-02T05:18:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.L6rAUdmG96
+    name: tmp.L6rAUdmG96
+    git_remote: ""
+    registered_at: "2026-02-02T05:18:34Z"
+    last_active: "2026-02-02T05:18:34Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.PgcdMziC5k
+    name: tmp.PgcdMziC5k
+    git_remote: ""
+    registered_at: "2026-02-02T05:18:35Z"
+    last_active: "2026-02-02T05:18:35Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.sLoDRJ7N9N
+    name: tmp.sLoDRJ7N9N
+    git_remote: ""
+    registered_at: "2026-02-02T05:18:35Z"
+    last_active: "2026-02-02T05:18:35Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.BAf0RIhuDZ
+    name: tmp.BAf0RIhuDZ
+    git_remote: ""
+    registered_at: "2026-02-02T05:19:49Z"
+    last_active: "2026-02-02T05:19:49Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ZB4O0Mm4FB
+    name: tmp.ZB4O0Mm4FB
+    git_remote: ""
+    registered_at: "2026-02-02T05:19:49Z"
+    last_active: "2026-02-02T05:19:49Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.H04c82Xw7W
+    name: tmp.H04c82Xw7W
+    git_remote: ""
+    registered_at: "2026-02-02T05:19:49Z"
+    last_active: "2026-02-02T05:19:49Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.av8NI3AGEZ
+    name: tmp.av8NI3AGEZ
+    git_remote: ""
+    registered_at: "2026-02-02T05:19:50Z"
+    last_active: "2026-02-02T05:19:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UdMycw2Kde
+    name: tmp.UdMycw2Kde
+    git_remote: ""
+    registered_at: "2026-02-02T05:19:50Z"
+    last_active: "2026-02-02T05:19:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.g559VhFEim
+    name: tmp.g559VhFEim
+    git_remote: ""
+    registered_at: "2026-02-02T05:19:51Z"
+    last_active: "2026-02-02T05:19:51Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.IZQ7hoDtH6
+    name: tmp.IZQ7hoDtH6
+    git_remote: ""
+    registered_at: "2026-02-02T05:22:33Z"
+    last_active: "2026-02-02T05:22:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ppsJbE7X5Y
+    name: tmp.ppsJbE7X5Y
+    git_remote: ""
+    registered_at: "2026-02-02T05:22:33Z"
+    last_active: "2026-02-02T05:22:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EaOYCddXeT
+    name: tmp.EaOYCddXeT
+    git_remote: ""
+    registered_at: "2026-02-02T05:22:33Z"
+    last_active: "2026-02-02T05:22:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.eAm8zTUDBa
+    name: tmp.eAm8zTUDBa
+    git_remote: ""
+    registered_at: "2026-02-02T05:22:34Z"
+    last_active: "2026-02-02T05:22:34Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.NxEMjduHK2
+    name: tmp.NxEMjduHK2
+    git_remote: ""
+    registered_at: "2026-02-02T05:22:34Z"
+    last_active: "2026-02-02T05:22:34Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.gq9ugEJ2HI
+    name: tmp.gq9ugEJ2HI
+    git_remote: ""
+    registered_at: "2026-02-02T05:22:35Z"
+    last_active: "2026-02-02T05:22:35Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mDuutPUh60
+    name: tmp.mDuutPUh60
+    git_remote: ""
+    registered_at: "2026-02-02T05:24:03Z"
+    last_active: "2026-02-02T05:24:03Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.yBAtph59zc
+    name: tmp.yBAtph59zc
+    git_remote: ""
+    registered_at: "2026-02-02T05:24:04Z"
+    last_active: "2026-02-02T05:24:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.gcNQLJ2Vl1
+    name: tmp.gcNQLJ2Vl1
+    git_remote: ""
+    registered_at: "2026-02-02T05:24:04Z"
+    last_active: "2026-02-02T05:24:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rVvGEqztAb
+    name: tmp.rVvGEqztAb
+    git_remote: ""
+    registered_at: "2026-02-02T05:24:05Z"
+    last_active: "2026-02-02T05:24:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.W7CUhPiTLw
+    name: tmp.W7CUhPiTLw
+    git_remote: ""
+    registered_at: "2026-02-02T05:24:05Z"
+    last_active: "2026-02-02T05:24:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.zRWP39JL27
+    name: tmp.zRWP39JL27
+    git_remote: ""
+    registered_at: "2026-02-02T05:24:06Z"
+    last_active: "2026-02-02T05:24:06Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.qFxmXi4xvf
+    name: tmp.qFxmXi4xvf
+    git_remote: ""
+    registered_at: "2026-02-02T05:27:31Z"
+    last_active: "2026-02-02T05:27:31Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.eNfMP4VXeQ
+    name: tmp.eNfMP4VXeQ
+    git_remote: ""
+    registered_at: "2026-02-02T05:27:33Z"
+    last_active: "2026-02-02T05:27:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.O0Y6VWU7NR
+    name: tmp.O0Y6VWU7NR
+    git_remote: ""
+    registered_at: "2026-02-02T05:27:33Z"
+    last_active: "2026-02-02T05:27:33Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.FjlInzFVeH
+    name: tmp.FjlInzFVeH
+    git_remote: ""
+    registered_at: "2026-02-02T05:27:34Z"
+    last_active: "2026-02-02T05:27:34Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5oZSO8bDbO
+    name: tmp.5oZSO8bDbO
+    git_remote: ""
+    registered_at: "2026-02-02T05:27:35Z"
+    last_active: "2026-02-02T05:27:35Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.pZ9g6bAxdd
+    name: tmp.pZ9g6bAxdd
+    git_remote: ""
+    registered_at: "2026-02-02T05:27:36Z"
+    last_active: "2026-02-02T05:27:36Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.vuPdCfOdYB
+    name: tmp.vuPdCfOdYB
+    git_remote: ""
+    registered_at: "2026-02-02T05:29:03Z"
+    last_active: "2026-02-02T05:29:03Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.B5TkOoQ9Uc
+    name: tmp.B5TkOoQ9Uc
+    git_remote: ""
+    registered_at: "2026-02-02T05:29:04Z"
+    last_active: "2026-02-02T05:29:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.0t7QKxqxPO
+    name: tmp.0t7QKxqxPO
+    git_remote: ""
+    registered_at: "2026-02-02T05:29:04Z"
+    last_active: "2026-02-02T05:29:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.j6fC00B2RR
+    name: tmp.j6fC00B2RR
+    git_remote: ""
+    registered_at: "2026-02-02T05:29:05Z"
+    last_active: "2026-02-02T05:29:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.XNUcbixfUf
+    name: tmp.XNUcbixfUf
+    git_remote: ""
+    registered_at: "2026-02-02T05:29:05Z"
+    last_active: "2026-02-02T05:29:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.vtM2oGhy59
+    name: tmp.vtM2oGhy59
+    git_remote: ""
+    registered_at: "2026-02-02T05:29:06Z"
+    last_active: "2026-02-02T05:29:06Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.2JQsyEwLvk
+    name: tmp.2JQsyEwLvk
+    git_remote: ""
+    registered_at: "2026-02-02T05:30:50Z"
+    last_active: "2026-02-02T05:30:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.SDwbRvLXYm
+    name: tmp.SDwbRvLXYm
+    git_remote: ""
+    registered_at: "2026-02-02T05:30:50Z"
+    last_active: "2026-02-02T05:30:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ugs9lX8ur1
+    name: tmp.ugs9lX8ur1
+    git_remote: ""
+    registered_at: "2026-02-02T05:30:50Z"
+    last_active: "2026-02-02T05:30:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.zjMLJwxnjk
+    name: tmp.zjMLJwxnjk
+    git_remote: ""
+    registered_at: "2026-02-02T05:30:51Z"
+    last_active: "2026-02-02T05:30:51Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.q4ZEXT4GPG
+    name: tmp.q4ZEXT4GPG
+    git_remote: ""
+    registered_at: "2026-02-02T05:30:52Z"
+    last_active: "2026-02-02T05:30:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.fv5HufhFWD
+    name: tmp.fv5HufhFWD
+    git_remote: ""
+    registered_at: "2026-02-02T05:30:52Z"
+    last_active: "2026-02-02T05:30:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UUfF6FImYX
+    name: tmp.UUfF6FImYX
+    git_remote: ""
+    registered_at: "2026-02-02T06:11:50Z"
+    last_active: "2026-02-02T06:11:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.8FQ83RYOx7
+    name: tmp.8FQ83RYOx7
+    git_remote: ""
+    registered_at: "2026-02-02T06:11:51Z"
+    last_active: "2026-02-02T06:11:51Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EaxaSqNRhI
+    name: tmp.EaxaSqNRhI
+    git_remote: ""
+    registered_at: "2026-02-02T06:11:51Z"
+    last_active: "2026-02-02T06:11:51Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.s2brGfUb25
+    name: tmp.s2brGfUb25
+    git_remote: ""
+    registered_at: "2026-02-02T06:11:52Z"
+    last_active: "2026-02-02T06:11:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.p9UQoLZynC
+    name: tmp.p9UQoLZynC
+    git_remote: ""
+    registered_at: "2026-02-02T06:11:52Z"
+    last_active: "2026-02-02T06:11:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.dIVQCuzP2U
+    name: tmp.dIVQCuzP2U
+    git_remote: ""
+    registered_at: "2026-02-02T06:11:53Z"
+    last_active: "2026-02-02T06:11:53Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.kltw28t9TK
+    name: tmp.kltw28t9TK
+    git_remote: ""
+    registered_at: "2026-02-02T06:12:45Z"
+    last_active: "2026-02-02T06:12:45Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.LpqKEWIY5b
+    name: tmp.LpqKEWIY5b
+    git_remote: ""
+    registered_at: "2026-02-02T06:12:46Z"
+    last_active: "2026-02-02T06:12:46Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.knbagxo9OF
+    name: tmp.knbagxo9OF
+    git_remote: ""
+    registered_at: "2026-02-02T06:12:46Z"
+    last_active: "2026-02-02T06:12:46Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.B8TblCfHts
+    name: tmp.B8TblCfHts
+    git_remote: ""
+    registered_at: "2026-02-02T06:12:47Z"
+    last_active: "2026-02-02T06:12:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rVzX2AYplw
+    name: tmp.rVzX2AYplw
+    git_remote: ""
+    registered_at: "2026-02-02T06:12:47Z"
+    last_active: "2026-02-02T06:12:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MprAcGXWku
+    name: tmp.MprAcGXWku
+    git_remote: ""
+    registered_at: "2026-02-02T06:12:48Z"
+    last_active: "2026-02-02T06:12:48Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.NDjgC1J2IM
+    name: tmp.NDjgC1J2IM
+    git_remote: ""
+    registered_at: "2026-02-02T06:13:37Z"
+    last_active: "2026-02-02T06:13:37Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xLxEVjrOdo
+    name: tmp.xLxEVjrOdo
+    git_remote: ""
+    registered_at: "2026-02-02T06:13:37Z"
+    last_active: "2026-02-02T06:13:37Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.TGw1PsPKp8
+    name: tmp.TGw1PsPKp8
+    git_remote: ""
+    registered_at: "2026-02-02T06:13:38Z"
+    last_active: "2026-02-02T06:13:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9C7KaU0jju
+    name: tmp.9C7KaU0jju
+    git_remote: ""
+    registered_at: "2026-02-02T06:13:38Z"
+    last_active: "2026-02-02T06:13:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.uViMfZMqvp
+    name: tmp.uViMfZMqvp
+    git_remote: ""
+    registered_at: "2026-02-02T06:13:39Z"
+    last_active: "2026-02-02T06:13:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.dSQc7HCacT
+    name: tmp.dSQc7HCacT
+    git_remote: ""
+    registered_at: "2026-02-02T06:13:39Z"
+    last_active: "2026-02-02T06:13:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Xp8WkqpPxK
+    name: tmp.Xp8WkqpPxK
+    git_remote: ""
+    registered_at: "2026-02-02T06:14:13Z"
+    last_active: "2026-02-02T06:14:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5pNGpcBvTv
+    name: tmp.5pNGpcBvTv
+    git_remote: ""
+    registered_at: "2026-02-02T06:14:14Z"
+    last_active: "2026-02-02T06:14:14Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.iTbZYqJhX6
+    name: tmp.iTbZYqJhX6
+    git_remote: ""
+    registered_at: "2026-02-02T06:14:14Z"
+    last_active: "2026-02-02T06:14:14Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mXyabUMMlf
+    name: tmp.mXyabUMMlf
+    git_remote: ""
+    registered_at: "2026-02-02T06:14:15Z"
+    last_active: "2026-02-02T06:14:15Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9GOXEHSrF5
+    name: tmp.9GOXEHSrF5
+    git_remote: ""
+    registered_at: "2026-02-02T06:14:15Z"
+    last_active: "2026-02-02T06:14:15Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rWRlwOjTEo
+    name: tmp.rWRlwOjTEo
+    git_remote: ""
+    registered_at: "2026-02-02T06:14:16Z"
+    last_active: "2026-02-02T06:14:16Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.X6NShumKcu
+    name: tmp.X6NShumKcu
+    git_remote: ""
+    registered_at: "2026-02-02T06:16:26Z"
+    last_active: "2026-02-02T06:16:26Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.eP66LXRQfn
+    name: tmp.eP66LXRQfn
+    git_remote: ""
+    registered_at: "2026-02-02T06:16:27Z"
+    last_active: "2026-02-02T06:16:27Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Eyu2vw5lFQ
+    name: tmp.Eyu2vw5lFQ
+    git_remote: ""
+    registered_at: "2026-02-02T06:16:27Z"
+    last_active: "2026-02-02T06:16:27Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.8b0TzQ6W6t
+    name: tmp.8b0TzQ6W6t
+    git_remote: ""
+    registered_at: "2026-02-02T06:16:28Z"
+    last_active: "2026-02-02T06:16:28Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5eadVtqPM0
+    name: tmp.5eadVtqPM0
+    git_remote: ""
+    registered_at: "2026-02-02T06:16:28Z"
+    last_active: "2026-02-02T06:16:28Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ubMHVKQPb8
+    name: tmp.ubMHVKQPb8
+    git_remote: ""
+    registered_at: "2026-02-02T06:16:29Z"
+    last_active: "2026-02-02T06:16:29Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.hS2uMNIied
+    name: tmp.hS2uMNIied
+    git_remote: ""
+    registered_at: "2026-02-02T06:18:29Z"
+    last_active: "2026-02-02T06:18:29Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.wcduPBwPwE
+    name: tmp.wcduPBwPwE
+    git_remote: ""
+    registered_at: "2026-02-02T06:18:29Z"
+    last_active: "2026-02-02T06:18:29Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EGmJ3A8k2D
+    name: tmp.EGmJ3A8k2D
+    git_remote: ""
+    registered_at: "2026-02-02T06:18:29Z"
+    last_active: "2026-02-02T06:18:29Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ttCAMDOgiD
+    name: tmp.ttCAMDOgiD
+    git_remote: ""
+    registered_at: "2026-02-02T06:18:30Z"
+    last_active: "2026-02-02T06:18:30Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MrPyRXQ9Up
+    name: tmp.MrPyRXQ9Up
+    git_remote: ""
+    registered_at: "2026-02-02T06:18:30Z"
+    last_active: "2026-02-02T06:18:30Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Na8ismyMA4
+    name: tmp.Na8ismyMA4
+    git_remote: ""
+    registered_at: "2026-02-02T06:18:31Z"
+    last_active: "2026-02-02T06:18:31Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.HpLEG6OWtT
+    name: tmp.HpLEG6OWtT
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:39Z"
+    last_active: "2026-02-02T06:46:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ipJWqBsVQw
+    name: tmp.ipJWqBsVQw
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:40Z"
+    last_active: "2026-02-02T06:46:40Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.1TsD4yICtX
+    name: tmp.1TsD4yICtX
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:41Z"
+    last_active: "2026-02-02T06:46:41Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.uuNxhCm2rD
+    name: tmp.uuNxhCm2rD
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:41Z"
+    last_active: "2026-02-02T06:46:41Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.uKdyzXroMR
+    name: tmp.uKdyzXroMR
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:42Z"
+    last_active: "2026-02-02T06:46:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.CVZWdzaVaE
+    name: tmp.CVZWdzaVaE
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:43Z"
+    last_active: "2026-02-02T06:46:43Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.m74en4diDC
+    name: tmp.m74en4diDC
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:43Z"
+    last_active: "2026-02-02T06:46:43Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.0kxYtaWu7R
+    name: tmp.0kxYtaWu7R
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:44Z"
+    last_active: "2026-02-02T06:46:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.iXqeAI9shU
+    name: tmp.iXqeAI9shU
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:44Z"
+    last_active: "2026-02-02T06:46:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.tINDfRZFgS
+    name: tmp.tINDfRZFgS
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:45Z"
+    last_active: "2026-02-02T06:46:45Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Jg50xFONSZ
+    name: tmp.Jg50xFONSZ
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:45Z"
+    last_active: "2026-02-02T06:46:45Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EhcINcXKos
+    name: tmp.EhcINcXKos
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:46Z"
+    last_active: "2026-02-02T06:46:46Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Jzt33y3ZOk
+    name: tmp.Jzt33y3ZOk
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:47Z"
+    last_active: "2026-02-02T06:46:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Pqf5BgOwh2
+    name: tmp.Pqf5BgOwh2
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:47Z"
+    last_active: "2026-02-02T06:46:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.lGtT77ALhu
+    name: tmp.lGtT77ALhu
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:48Z"
+    last_active: "2026-02-02T06:46:48Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MVwQbBL5dm
+    name: tmp.MVwQbBL5dm
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:48Z"
+    last_active: "2026-02-02T06:46:48Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rlEH5K9K6P
+    name: tmp.rlEH5K9K6P
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:49Z"
+    last_active: "2026-02-02T06:46:49Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.lnSx5ddrqI
+    name: tmp.lnSx5ddrqI
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:49Z"
+    last_active: "2026-02-02T06:46:49Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.YO8SLH8zE4
+    name: tmp.YO8SLH8zE4
+    git_remote: ""
+    registered_at: "2026-02-02T06:46:50Z"
+    last_active: "2026-02-02T06:46:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5WTjUhwzQg
+    name: tmp.5WTjUhwzQg
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:39Z"
+    last_active: "2026-02-02T06:47:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9TRE56Gj2C
+    name: tmp.9TRE56Gj2C
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:39Z"
+    last_active: "2026-02-02T06:47:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.DlT9ykDE6I
+    name: tmp.DlT9ykDE6I
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:39Z"
+    last_active: "2026-02-02T06:47:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5ugZDSwwll
+    name: tmp.5ugZDSwwll
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:40Z"
+    last_active: "2026-02-02T06:47:40Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.TaoDMAhHUd
+    name: tmp.TaoDMAhHUd
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:40Z"
+    last_active: "2026-02-02T06:47:40Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.lS2GJRG0hM
+    name: tmp.lS2GJRG0hM
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:41Z"
+    last_active: "2026-02-02T06:47:41Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.GT7uIvCoKN
+    name: tmp.GT7uIvCoKN
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:42Z"
+    last_active: "2026-02-02T06:47:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.QTFBTN41Km
+    name: tmp.QTFBTN41Km
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:42Z"
+    last_active: "2026-02-02T06:47:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.DveY24na4O
+    name: tmp.DveY24na4O
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:43Z"
+    last_active: "2026-02-02T06:47:43Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.NuRHXOOjMZ
+    name: tmp.NuRHXOOjMZ
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:43Z"
+    last_active: "2026-02-02T06:47:43Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.CiLJl5HNEz
+    name: tmp.CiLJl5HNEz
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:44Z"
+    last_active: "2026-02-02T06:47:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ytv2Aw7NSq
+    name: tmp.ytv2Aw7NSq
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:44Z"
+    last_active: "2026-02-02T06:47:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.wcScb63MyP
+    name: tmp.wcScb63MyP
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:45Z"
+    last_active: "2026-02-02T06:47:45Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UVHmEBiFtR
+    name: tmp.UVHmEBiFtR
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:45Z"
+    last_active: "2026-02-02T06:47:45Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.gXtlmBSVd2
+    name: tmp.gXtlmBSVd2
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:46Z"
+    last_active: "2026-02-02T06:47:46Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WJ9uMv3A1l
+    name: tmp.WJ9uMv3A1l
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:46Z"
+    last_active: "2026-02-02T06:47:46Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.K7TFbIfzVs
+    name: tmp.K7TFbIfzVs
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:46Z"
+    last_active: "2026-02-02T06:47:46Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Hnuw60ionw
+    name: tmp.Hnuw60ionw
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:47Z"
+    last_active: "2026-02-02T06:47:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.sJD1GlxhZ2
+    name: tmp.sJD1GlxhZ2
+    git_remote: ""
+    registered_at: "2026-02-02T06:47:47Z"
+    last_active: "2026-02-02T06:47:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WOyz5rXZDJ
+    name: tmp.WOyz5rXZDJ
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:12Z"
+    last_active: "2026-02-02T06:49:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.6J12XZbFXY
+    name: tmp.6J12XZbFXY
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:13Z"
+    last_active: "2026-02-02T06:49:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.OHjrmCJW8G
+    name: tmp.OHjrmCJW8G
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:13Z"
+    last_active: "2026-02-02T06:49:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JsSTc3pSwa
+    name: tmp.JsSTc3pSwa
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:13Z"
+    last_active: "2026-02-02T06:49:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.GYm0HqwNyT
+    name: tmp.GYm0HqwNyT
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:14Z"
+    last_active: "2026-02-02T06:49:14Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ZBBoZICirF
+    name: tmp.ZBBoZICirF
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:15Z"
+    last_active: "2026-02-02T06:49:15Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WJFJkR5sXA
+    name: tmp.WJFJkR5sXA
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:15Z"
+    last_active: "2026-02-02T06:49:15Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.85yOoJh3OQ
+    name: tmp.85yOoJh3OQ
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:16Z"
+    last_active: "2026-02-02T06:49:16Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.QKeTEbRWyY
+    name: tmp.QKeTEbRWyY
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:16Z"
+    last_active: "2026-02-02T06:49:16Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.CiriRCSay3
+    name: tmp.CiriRCSay3
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:17Z"
+    last_active: "2026-02-02T06:49:17Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UWRXYW7nJq
+    name: tmp.UWRXYW7nJq
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:17Z"
+    last_active: "2026-02-02T06:49:17Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.21fhAaNXzu
+    name: tmp.21fhAaNXzu
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:18Z"
+    last_active: "2026-02-02T06:49:18Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MgcfKXPexy
+    name: tmp.MgcfKXPexy
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:18Z"
+    last_active: "2026-02-02T06:49:18Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xCQUv1xKqD
+    name: tmp.xCQUv1xKqD
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:19Z"
+    last_active: "2026-02-02T06:49:19Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.csevGxEVG4
+    name: tmp.csevGxEVG4
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:19Z"
+    last_active: "2026-02-02T06:49:19Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.V9EYqwF8Zz
+    name: tmp.V9EYqwF8Zz
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:20Z"
+    last_active: "2026-02-02T06:49:20Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EmKCkIhW1a
+    name: tmp.EmKCkIhW1a
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:20Z"
+    last_active: "2026-02-02T06:49:20Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rFnY5oghZY
+    name: tmp.rFnY5oghZY
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:20Z"
+    last_active: "2026-02-02T06:49:20Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.r0Y1FoDJUY
+    name: tmp.r0Y1FoDJUY
+    git_remote: ""
+    registered_at: "2026-02-02T06:49:21Z"
+    last_active: "2026-02-02T06:49:21Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.SHshTAM9sb
+    name: tmp.SHshTAM9sb
+    git_remote: ""
+    registered_at: "2026-02-02T06:50:55Z"
+    last_active: "2026-02-02T06:50:55Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.iLzCGq41pH
+    name: tmp.iLzCGq41pH
+    git_remote: ""
+    registered_at: "2026-02-02T06:50:56Z"
+    last_active: "2026-02-02T06:50:56Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.3T3gqqLPor
+    name: tmp.3T3gqqLPor
+    git_remote: ""
+    registered_at: "2026-02-02T06:50:56Z"
+    last_active: "2026-02-02T06:50:56Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JgXVnqXeAS
+    name: tmp.JgXVnqXeAS
+    git_remote: ""
+    registered_at: "2026-02-02T06:50:57Z"
+    last_active: "2026-02-02T06:50:57Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.UerhN9Wn7A
+    name: tmp.UerhN9Wn7A
+    git_remote: ""
+    registered_at: "2026-02-02T06:50:59Z"
+    last_active: "2026-02-02T06:50:59Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WhwtLnEtWR
+    name: tmp.WhwtLnEtWR
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:00Z"
+    last_active: "2026-02-02T06:51:00Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.QMWfBp1Qol
+    name: tmp.QMWfBp1Qol
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:01Z"
+    last_active: "2026-02-02T06:51:01Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.w4yG6m55jA
+    name: tmp.w4yG6m55jA
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:02Z"
+    last_active: "2026-02-02T06:51:02Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.6eDqvQTUwM
+    name: tmp.6eDqvQTUwM
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:03Z"
+    last_active: "2026-02-02T06:51:03Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.j6KyqhEj3l
+    name: tmp.j6KyqhEj3l
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:04Z"
+    last_active: "2026-02-02T06:51:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.qx8e3rRHSN
+    name: tmp.qx8e3rRHSN
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:04Z"
+    last_active: "2026-02-02T06:51:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.1q23QIdBfb
+    name: tmp.1q23QIdBfb
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:05Z"
+    last_active: "2026-02-02T06:51:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ZS60Qf5LuJ
+    name: tmp.ZS60Qf5LuJ
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:06Z"
+    last_active: "2026-02-02T06:51:06Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.GqgT8OXr6v
+    name: tmp.GqgT8OXr6v
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:06Z"
+    last_active: "2026-02-02T06:51:06Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.OUs5Phv1al
+    name: tmp.OUs5Phv1al
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:07Z"
+    last_active: "2026-02-02T06:51:07Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.5mXXXfTS1p
+    name: tmp.5mXXXfTS1p
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:08Z"
+    last_active: "2026-02-02T06:51:08Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.FCrTJCXLRY
+    name: tmp.FCrTJCXLRY
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:08Z"
+    last_active: "2026-02-02T06:51:08Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.SRKk1wJEIw
+    name: tmp.SRKk1wJEIw
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:09Z"
+    last_active: "2026-02-02T06:51:09Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.LxDf9Xkf9Q
+    name: tmp.LxDf9Xkf9Q
+    git_remote: ""
+    registered_at: "2026-02-02T06:51:10Z"
+    last_active: "2026-02-02T06:51:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.S8hyaTxSSp
+    name: tmp.S8hyaTxSSp
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:35Z"
+    last_active: "2026-02-02T06:54:35Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.PjZtQR9RT2
+    name: tmp.PjZtQR9RT2
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:36Z"
+    last_active: "2026-02-02T06:54:36Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rPpclpzW10
+    name: tmp.rPpclpzW10
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:36Z"
+    last_active: "2026-02-02T06:54:36Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ERgsc0cTkg
+    name: tmp.ERgsc0cTkg
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:37Z"
+    last_active: "2026-02-02T06:54:37Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.I1R80Igqsd
+    name: tmp.I1R80Igqsd
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:37Z"
+    last_active: "2026-02-02T06:54:37Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.XNZU19DJWM
+    name: tmp.XNZU19DJWM
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:38Z"
+    last_active: "2026-02-02T06:54:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.kqGKaNonB9
+    name: tmp.kqGKaNonB9
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:38Z"
+    last_active: "2026-02-02T06:54:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.KLVwTXu9ZF
+    name: tmp.KLVwTXu9ZF
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:39Z"
+    last_active: "2026-02-02T06:54:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.pOT9ie2fgB
+    name: tmp.pOT9ie2fgB
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:39Z"
+    last_active: "2026-02-02T06:54:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.I0j4rQoh0i
+    name: tmp.I0j4rQoh0i
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:40Z"
+    last_active: "2026-02-02T06:54:40Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xKMOCX97DK
+    name: tmp.xKMOCX97DK
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:40Z"
+    last_active: "2026-02-02T06:54:40Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rm96VEAnax
+    name: tmp.rm96VEAnax
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:41Z"
+    last_active: "2026-02-02T06:54:41Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.4TIkls7uoh
+    name: tmp.4TIkls7uoh
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:42Z"
+    last_active: "2026-02-02T06:54:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xPz8M5lrEG
+    name: tmp.xPz8M5lrEG
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:42Z"
+    last_active: "2026-02-02T06:54:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JDIsDyi4tW
+    name: tmp.JDIsDyi4tW
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:42Z"
+    last_active: "2026-02-02T06:54:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.OQdiBRu03a
+    name: tmp.OQdiBRu03a
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:43Z"
+    last_active: "2026-02-02T06:54:43Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.55crjNNvwR
+    name: tmp.55crjNNvwR
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:43Z"
+    last_active: "2026-02-02T06:54:43Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.chOnUUobFc
+    name: tmp.chOnUUobFc
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:44Z"
+    last_active: "2026-02-02T06:54:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.K1pQIZVjLQ
+    name: tmp.K1pQIZVjLQ
+    git_remote: ""
+    registered_at: "2026-02-02T06:54:44Z"
+    last_active: "2026-02-02T06:54:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.MyGHz0Zsuh
+    name: tmp.MyGHz0Zsuh
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:12Z"
+    last_active: "2026-02-02T06:58:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.C92Esjc860
+    name: tmp.C92Esjc860
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:12Z"
+    last_active: "2026-02-02T06:58:12Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.zmspVkofc5
+    name: tmp.zmspVkofc5
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:13Z"
+    last_active: "2026-02-02T06:58:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.zsXGd26ESO
+    name: tmp.zsXGd26ESO
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:13Z"
+    last_active: "2026-02-02T06:58:13Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WvYRP9DxhL
+    name: tmp.WvYRP9DxhL
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:14Z"
+    last_active: "2026-02-02T06:58:14Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Qlt17YHyF3
+    name: tmp.Qlt17YHyF3
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:14Z"
+    last_active: "2026-02-02T06:58:14Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.7FV1e1OaFh
+    name: tmp.7FV1e1OaFh
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:15Z"
+    last_active: "2026-02-02T06:58:15Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xtappcPAtX
+    name: tmp.xtappcPAtX
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:16Z"
+    last_active: "2026-02-02T06:58:16Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.AeVMiOsahY
+    name: tmp.AeVMiOsahY
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:16Z"
+    last_active: "2026-02-02T06:58:16Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.AMF0TPriZk
+    name: tmp.AMF0TPriZk
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:16Z"
+    last_active: "2026-02-02T06:58:16Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WcOpvDFw1D
+    name: tmp.WcOpvDFw1D
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:17Z"
+    last_active: "2026-02-02T06:58:17Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.NiHulJZUuE
+    name: tmp.NiHulJZUuE
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:18Z"
+    last_active: "2026-02-02T06:58:18Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.61k8HMvq0C
+    name: tmp.61k8HMvq0C
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:18Z"
+    last_active: "2026-02-02T06:58:18Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.I645xcQzo8
+    name: tmp.I645xcQzo8
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:19Z"
+    last_active: "2026-02-02T06:58:19Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Ofq3wB8V99
+    name: tmp.Ofq3wB8V99
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:19Z"
+    last_active: "2026-02-02T06:58:19Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.2nKLUDqqSB
+    name: tmp.2nKLUDqqSB
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:19Z"
+    last_active: "2026-02-02T06:58:19Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.b1F0odMJqe
+    name: tmp.b1F0odMJqe
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:20Z"
+    last_active: "2026-02-02T06:58:20Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.l328mDN0Q2
+    name: tmp.l328mDN0Q2
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:20Z"
+    last_active: "2026-02-02T06:58:20Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.mnSl2MqcTJ
+    name: tmp.mnSl2MqcTJ
+    git_remote: ""
+    registered_at: "2026-02-02T06:58:21Z"
+    last_active: "2026-02-02T06:58:21Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.ZOjl9WaloD
+    name: tmp.ZOjl9WaloD
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:01Z"
+    last_active: "2026-02-02T09:49:01Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.bHo5iGBhTK
+    name: tmp.bHo5iGBhTK
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:01Z"
+    last_active: "2026-02-02T09:49:01Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.WsKAUsErZE
+    name: tmp.WsKAUsErZE
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:02Z"
+    last_active: "2026-02-02T09:49:02Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.fhvSYIXr1D
+    name: tmp.fhvSYIXr1D
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:02Z"
+    last_active: "2026-02-02T09:49:02Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.SHfS40jzsv
+    name: tmp.SHfS40jzsv
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:03Z"
+    last_active: "2026-02-02T09:49:03Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.VhtLojT2pZ
+    name: tmp.VhtLojT2pZ
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:03Z"
+    last_active: "2026-02-02T09:49:03Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.JecovWDjlU
+    name: tmp.JecovWDjlU
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:04Z"
+    last_active: "2026-02-02T09:49:04Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.HdynUEGwAm
+    name: tmp.HdynUEGwAm
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:05Z"
+    last_active: "2026-02-02T09:49:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.wvbK3TpDRs
+    name: tmp.wvbK3TpDRs
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:05Z"
+    last_active: "2026-02-02T09:49:05Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.xCSzuCzuBR
+    name: tmp.xCSzuCzuBR
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:06Z"
+    last_active: "2026-02-02T09:49:06Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.40bJ0J80BT
+    name: tmp.40bJ0J80BT
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:06Z"
+    last_active: "2026-02-02T09:49:06Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.YTlMOcbrB5
+    name: tmp.YTlMOcbrB5
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:07Z"
+    last_active: "2026-02-02T09:49:07Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.u3d4WFsQD4
+    name: tmp.u3d4WFsQD4
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:08Z"
+    last_active: "2026-02-02T09:49:08Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.rwaaGTwUnQ
+    name: tmp.rwaaGTwUnQ
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:08Z"
+    last_active: "2026-02-02T09:49:08Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.eP4WVYTPeO
+    name: tmp.eP4WVYTPeO
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:08Z"
+    last_active: "2026-02-02T09:49:08Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.vI4E7jm3Cg
+    name: tmp.vI4E7jm3Cg
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:09Z"
+    last_active: "2026-02-02T09:49:09Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.RXOfNkkUcR
+    name: tmp.RXOfNkkUcR
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:10Z"
+    last_active: "2026-02-02T09:49:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.j4Us1lL3vm
+    name: tmp.j4Us1lL3vm
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:10Z"
+    last_active: "2026-02-02T09:49:10Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.QG3NMHYruM
+    name: tmp.QG3NMHYruM
+    git_remote: ""
+    registered_at: "2026-02-02T09:49:11Z"
+    last_active: "2026-02-02T09:49:11Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.XkWprBwTN4
+    name: tmp.XkWprBwTN4
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:37Z"
+    last_active: "2026-02-02T09:57:37Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.3dDMBGB3B6
+    name: tmp.3dDMBGB3B6
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:38Z"
+    last_active: "2026-02-02T09:57:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.Ni2dAaHboJ
+    name: tmp.Ni2dAaHboJ
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:38Z"
+    last_active: "2026-02-02T09:57:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.okwXxwacPJ
+    name: tmp.okwXxwacPJ
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:38Z"
+    last_active: "2026-02-02T09:57:38Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.CYVEEksirH
+    name: tmp.CYVEEksirH
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:39Z"
+    last_active: "2026-02-02T09:57:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.bW4aDnROpq
+    name: tmp.bW4aDnROpq
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:39Z"
+    last_active: "2026-02-02T09:57:39Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.o5OPyoKub5
+    name: tmp.o5OPyoKub5
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:40Z"
+    last_active: "2026-02-02T09:57:40Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.AnkXaXMasI
+    name: tmp.AnkXaXMasI
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:41Z"
+    last_active: "2026-02-02T09:57:41Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.TY3ppe2yLH
+    name: tmp.TY3ppe2yLH
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:41Z"
+    last_active: "2026-02-02T09:57:41Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.EQkXpTctjE
+    name: tmp.EQkXpTctjE
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:42Z"
+    last_active: "2026-02-02T09:57:42Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.9BFnFwhCk0
+    name: tmp.9BFnFwhCk0
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:44Z"
+    last_active: "2026-02-02T09:57:44Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.kpdxc4poQm
+    name: tmp.kpdxc4poQm
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:45Z"
+    last_active: "2026-02-02T09:57:45Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.qhueihRKAh
+    name: tmp.qhueihRKAh
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:47Z"
+    last_active: "2026-02-02T09:57:47Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.XolQiSNeN1
+    name: tmp.XolQiSNeN1
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:48Z"
+    last_active: "2026-02-02T09:57:48Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.fOEL7A1oM1
+    name: tmp.fOEL7A1oM1
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:50Z"
+    last_active: "2026-02-02T09:57:50Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.uLcwrsnPZU
+    name: tmp.uLcwrsnPZU
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:51Z"
+    last_active: "2026-02-02T09:57:51Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.db3cbmQtbc
+    name: tmp.db3cbmQtbc
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:52Z"
+    last_active: "2026-02-02T09:57:52Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.C7kKeQAkT9
+    name: tmp.C7kKeQAkT9
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:54Z"
+    last_active: "2026-02-02T09:57:54Z"
+  - path: /var/folders/s9/05hj66s96lgc6z47nv7zwc700000gn/T/tmp.zOs4Nasz8a
+    name: tmp.zOs4Nasz8a
+    git_remote: ""
+    registered_at: "2026-02-02T09:57:55Z"
+    last_active: "2026-02-02T09:57:55Z"
 aliases: {}
