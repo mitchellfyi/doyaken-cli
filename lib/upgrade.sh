@@ -271,6 +271,7 @@ upgrade_create_backup() {
   _log_info "Creating backup: $backup_dir"
 
   mkdir -p "$backup_dir"
+  chmod 700 "$backup_dir"
 
   # Backup VERSION and manifest
   [ -f "$target_dir/VERSION" ] && /bin/cp -f "$target_dir/VERSION" "$backup_dir/"
@@ -279,6 +280,7 @@ upgrade_create_backup() {
   # Backup config files (user data)
   if [ -d "$target_dir/config" ]; then
     mkdir -p "$backup_dir/config"
+    chmod 700 "$backup_dir/config"
     /bin/cp -rf "$target_dir/config"/* "$backup_dir/config/" 2>/dev/null || true
   fi
 
