@@ -12,8 +12,8 @@
 | Completed   | `2026-02-02 05:26`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To | `worker-1` |
-| Assigned At | `2026-02-02 05:18` |
+| Assigned To |  |
+| Assigned At |  |
 
 ---
 
@@ -400,6 +400,31 @@ All criteria met: yes
 Follow-up tasks: none
 
 Status: COMPLETE
+
+### 2026-02-02 05:30 - Verification Complete
+
+Criteria: all met (10/10)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| `count_files()` utility in lib/project.sh | ✅ | Lines 107-111 |
+| `count_task_files()` wrapper | ✅ | Lines 116-119 |
+| Replace patterns in lib/cli.sh (~12) | ✅ | 12 usages verified |
+| Replace patterns in lib/registry.sh (~6) | ✅ | 6 usages at lines 199, 200, 244, 245, 249, 250 |
+| Replace patterns in lib/taskboard.sh (~4) | ✅ | 4 usages at lines 65-68 |
+| Update lib/core.sh | ✅ | Intentionally kept (no project.sh sourcing) |
+| Replace patterns in lib/upgrade.sh (~2) | ✅ | 1 usage (line 622), line 287 kept (counts dirs) |
+| Unit tests for counting functions | ✅ | test/unit/project.bats - 17 tests |
+| All existing tests pass | ✅ | 243 tests pass |
+| Quality gates pass | ✅ | Lint: 0 errors, Tests: pass |
+
+Quality gates:
+- Lint: pass (0 errors, 5 warnings pre-existing)
+- Tests: pass (243 tests - 88 script + 155 bats)
+- CI: pass - https://github.com/mitchellfyi/doyaken-cli.git/actions/runs/21578573756
+
+Task location: 4.done
+Reason: Complete - all criteria met, CI passes
 
 ---
 
