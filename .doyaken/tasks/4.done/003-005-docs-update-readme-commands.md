@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-005-docs-update-readme-commands`                  |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-01 17:10`                                     |
 | Started     | `2026-02-01 22:36`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-01 22:39`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-3` |
@@ -228,6 +228,35 @@ Verification:
 - Interactive menu note (README.md:213): Matches lib/cli.sh:103-168
 
 CI ready: yes (BATS issue is local environment only)
+
+### 2026-02-02 05:34 - Task Verified Complete
+
+- All changes verified present in README.md
+- Commands table: 30 entries (lines 178-209) ✓
+- Interactive menu tip: line 213 ✓
+- Vendor namespace note: line 288 ✓
+- Changes committed in earlier session (cdfbfa0)
+- Status: COMPLETE
+
+### 2026-02-02 05:36 - Review Complete
+
+Findings:
+- Blockers: 0
+- High: 0
+- Medium: 0
+- Low: 0
+
+Review passes:
+- Correctness: pass - Commands table matches lib/help.sh, all 30 commands verified
+- Design: pass - Documentation follows existing style, clear and consistent
+- Security: pass - No sensitive information, documentation-only changes
+- Performance: N/A - Documentation changes
+- Tests: pass - 88 tests passed, 0 errors
+
+All criteria met: yes
+Follow-up tasks: none
+
+Status: COMPLETE
 
 ---
 
