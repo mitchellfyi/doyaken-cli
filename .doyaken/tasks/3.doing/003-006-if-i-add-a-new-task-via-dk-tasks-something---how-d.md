@@ -14,8 +14,8 @@ and if there are existing tasks that are higher priority, it should put it back 
 | Completed   |                                                        |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
+| Assigned To | `worker-2` |
+| Assigned At | `2026-02-02 05:52` |
 
 ---
 
