@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-002-security-document-autonomous-mode`            |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-01 17:00`                                     |
 | Started     | `2026-02-01 19:55`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-02 05:12`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -60,7 +60,7 @@ Doyaken runs AI agents with explicit permission bypass flags that disable securi
 - [x] Document trust requirements (manifests, tasks, MCP configs, quality commands)
 - [x] Tests written and passing
 - [x] Quality gates pass
-- [ ] Changes committed with task reference
+- [x] Changes committed with task reference
 
 ---
 
@@ -447,11 +447,32 @@ All criteria met: yes
 - [x] Trust requirements documented (SECURITY.md:58-102)
 - [x] Tests passing (226 unit tests)
 - [x] Quality gates pass (lint 0 errors, all checks pass)
-- [ ] Changes committed (pending)
+- [x] Changes committed (a7c60cc)
 
 Follow-up tasks: none needed
 
-Status: COMPLETE (pending commit)
+Status: COMPLETE
+
+### 2026-02-02 05:13 - Verification Complete
+
+Criteria: all met (9/9)
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Expand SECURITY.md with autonomous mode trust model | ✅ | SECURITY.md:23 "Autonomous Mode" section |
+| Document agent bypass flags | ✅ | SECURITY.md:42 bypass flags table |
+| Add Security Notice to README.md | ✅ | README.md:593 "Security Notice" section |
+| Implement `--safe-mode` flag | ✅ | lib/cli.sh:1695, lib/agents.sh:157-161 |
+| Implement first-run warning | ✅ | lib/core.sh:354, lib/core.sh:2100 |
+| Document trust requirements | ✅ | SECURITY.md:58-102 trust model section |
+| Tests written and passing | ✅ | 128 security tests, 15 new safe mode tests |
+| Quality gates pass | ✅ | lint 0 errors, 88 shell tests pass |
+| Changes committed | ✅ | a7c60cc |
+
+Quality gates: all pass (lint 0 errors, tests 88+128 pass)
+CI: pending push
+
+Task location: 3.doing → 4.done
+Reason: All acceptance criteria verified with evidence
 
 ---
 
