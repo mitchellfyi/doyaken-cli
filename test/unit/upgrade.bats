@@ -95,3 +95,62 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+# ============================================================================
+# upgrade_create_backup permission tests
+# ============================================================================
+
+@test "upgrade_create_backup: backup directory has 700 permissions" {
+  # Create a minimal installation to backup
+  local target_dir="$TEST_TEMP_DIR/test_install"
+  mkdir -p "$target_dir/lib"
+  echo "0.1.0" > "$target_dir/VERSION"
+  echo '{"version": "0.1.0", "files": {}}' > "$target_dir/manifest.json"
+
+  # Run the backup function
+  run upgrade_create_backup "$target_dir"
+  [ "$status" -eq 0 ]
+
+  # Extract backup directory from output (last line is the path)
+  local backup_dir
+  backup_dir=$(echo "$output" | tail -n1)
+  [ -d "$backup_dir" ]
+
+  # Verify permissions (macOS and Linux compatible)
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$backup_dir"
+  else
+    run stat -c "%a" "$backup_dir"
+  fi
+  [ "$status" -eq 0 ]
+  [ "$output" = "700" ]
+}
+
+@test "upgrade_create_backup: config subdirectory has 700 permissions" {
+  # Create a minimal installation with config
+  local target_dir="$TEST_TEMP_DIR/test_install"
+  mkdir -p "$target_dir/lib"
+  mkdir -p "$target_dir/config"
+  echo "0.1.0" > "$target_dir/VERSION"
+  echo '{"version": "0.1.0", "files": {}}' > "$target_dir/manifest.json"
+  echo "test_config=true" > "$target_dir/config/settings.conf"
+
+  # Run the backup function
+  run upgrade_create_backup "$target_dir"
+  [ "$status" -eq 0 ]
+
+  # Extract backup directory from output (last line is the path)
+  local backup_dir
+  backup_dir=$(echo "$output" | tail -n1)
+  [ -d "$backup_dir" ]
+  [ -d "$backup_dir/config" ]
+
+  # Verify config subdirectory permissions (macOS and Linux compatible)
+  if [[ "$(uname)" == "Darwin" ]]; then
+    run stat -f "%Lp" "$backup_dir/config"
+  else
+    run stat -c "%a" "$backup_dir/config"
+  fi
+  [ "$status" -eq 0 ]
+  [ "$output" = "700" ]
+}
+

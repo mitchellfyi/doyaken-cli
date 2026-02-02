@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-006-quality-set-log-permissions`                  |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-01 17:10`                                     |
 | Started     | `2026-02-02 06:08`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-02 06:15`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -42,12 +42,12 @@ This task is a **follow-up** to task `003-001-security-secure-file-permissions` 
 
 ## Acceptance Criteria
 
-- [ ] Set chmod 700 on backup directories when created (`lib/upgrade.sh:268`)
-- [ ] Set chmod 700 on backup/config subdirectory (`lib/upgrade.sh:276`)
-- [ ] Set chmod 700 on periodic review log directory (`lib/run-periodic-review.sh:143`)
-- [ ] Add tests for backup directory permissions
-- [ ] Quality gates pass (`npm run check`)
-- [ ] Changes committed with task reference
+- [x] Set chmod 700 on backup directories when created (`lib/upgrade.sh:268`)
+- [x] Set chmod 700 on backup/config subdirectory (`lib/upgrade.sh:276`)
+- [x] Set chmod 700 on periodic review log directory (`lib/run-periodic-review.sh:143`)
+- [x] Add tests for backup directory permissions
+- [x] Quality gates pass (`npm run check`)
+- [x] Changes committed with task reference
 
 ---
 
@@ -109,8 +109,8 @@ This task is a **follow-up** to task `003-001-security-secure-file-permissions` 
 
 ### Test Plan
 
-- [ ] Unit: `upgrade_create_backup: backup directory has 700 permissions` - Creates backup, verifies stat shows 700
-- [ ] Unit: `upgrade_create_backup: config subdirectory has 700 permissions` - Creates backup with config, verifies stat shows 700
+- [x] Unit: `upgrade_create_backup: backup directory has 700 permissions` - Creates backup, verifies stat shows 700
+- [x] Unit: `upgrade_create_backup: config subdirectory has 700 permissions` - Creates backup with config, verifies stat shows 700
 
 ### Docs to Update
 
@@ -119,6 +119,55 @@ This task is a **follow-up** to task `003-001-security-secure-file-permissions` 
 ---
 
 ## Work Log
+
+### 2026-02-02 06:15 - Review Complete
+
+Findings:
+- Blockers: 0 - none found
+- High: 0 - none found
+- Medium: 0 - none found
+- Low: 0 - none found
+
+Review passes:
+- Correctness: pass - chmod 700 correctly applied after each mkdir
+- Design: pass - follows existing codebase pattern (10+ instances in lib/, install.sh)
+- Security: pass - 700 permissions properly restrict access to owner only
+- Performance: pass - no issues, chmod is O(1)
+- Tests: pass - 2 new tests verify permissions (tests #244, #245 in bats suite)
+
+All criteria met: yes
+Follow-up tasks: none
+
+Commit verified: 1fc4e70 includes `[003-006-quality-set-log-permissions]` tag
+
+Status: COMPLETE
+
+### 2026-02-02 06:14 - Documentation Sync
+
+Docs updated:
+- `README.md:543` - Added "backup" to security note about 700 permissions
+
+Inline comments:
+- None required (chmod pattern is self-documenting in bash)
+
+Consistency: verified
+- README now accurately reflects all directories with 700 permissions
+- No other documentation gaps identified
+
+### 2026-02-02 06:11 - Testing Complete
+
+Tests written:
+- `test/unit/upgrade.bats` - 2 tests (unit)
+  - `upgrade_create_backup: backup directory has 700 permissions`
+  - `upgrade_create_backup: config subdirectory has 700 permissions`
+
+Quality gates:
+- Lint: pass (0 errors, 5 warnings - pre-existing)
+- Types: N/A (bash project)
+- Tests: pass (99 basic + 245 bats = 344 total, 2 new)
+- Build: N/A (bash project)
+
+CI ready: yes
 
 ### 2026-02-02 06:09 - Implementation Complete
 
