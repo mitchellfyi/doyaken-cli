@@ -46,7 +46,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo
 
 echo "Dependencies:"
-check "Node.js (v18+)" "node --version | grep -qE 'v(1[89]|[2-9][0-9])'"
+check "Node.js (v18+)" "node --version | grep -qE 'v(1[89]|[2-9][0-9]|[1-9][0-9]{2,})'"
 check "npm" "command -v npm"
 check "git" "command -v git"
 echo
@@ -56,7 +56,7 @@ check "doyaken installed" "command -v doyaken || command -v dk"
 check "dk alias available" "command -v dk"
 
 if command -v doyaken &>/dev/null || command -v dk &>/dev/null; then
-  DK_CMD="${DOYAKEN_CMD:-$(command -v dk 2>/dev/null || command -v doyaken)}"
+  DK_CMD="${DK_CMD:-$(command -v dk 2>/dev/null || command -v doyaken)}"
   check "doyaken --version works" "$DK_CMD --version"
   check "doyaken help works" "$DK_CMD --help"
 fi
