@@ -469,7 +469,7 @@ Criteria: all met (9/9)
 | Changes committed | ✅ | a7c60cc |
 
 Quality gates: all pass (lint 0 errors, tests 88+128 pass)
-CI: pending push
+CI: pass (https://github.com/mitchellfyi/doyaken-cli/actions/runs/21578273969)
 
 Task location: 3.doing → 4.done
 Reason: All acceptance criteria verified with evidence
