@@ -2,20 +2,32 @@
 
 ## Mindset
 
+- **Clarify before solving** - Understand the problem before proposing fixes
 - **Reproduce first** - Can't fix what you can't see
 - **One change at a time** - Otherwise you won't know what worked
 - **Trust nothing** - Verify assumptions with evidence
-- **Simplify** - Reduce to minimal reproducing case
+- **Prove the fix** - Run the code, don't assume it works
 
-## The Scientific Method
+## The Debug Cycle
 
-1. **Observe** - What exactly is happening?
-2. **Hypothesize** - What could cause this?
-3. **Predict** - If hypothesis is true, what else should we see?
-4. **Test** - Check the prediction
-5. **Conclude** - Was hypothesis correct? Repeat if not.
+**CLARIFY → INVESTIGATE → FIX → VERIFY**
 
-## Step 1: Reproduce the Bug
+Don't skip steps. The #1 debugging mistake is jumping to fixes before understanding the problem.
+
+## Step 1: Clarify the Problem
+
+Before investigating, make sure you understand:
+
+1. **What should happen?** (Expected behavior)
+2. **What actually happens?** (Observed behavior)
+3. **What was already tried?** (Eliminate paths)
+
+**State the problem in one sentence:**
+> "When I [action], I expect [expected], but instead [actual]."
+
+Write this down. If you can't state it clearly, you don't understand it yet.
+
+## Step 2: Reproduce the Bug
 
 Before anything else, confirm you can trigger the bug:
 
@@ -30,29 +42,27 @@ Before anything else, confirm you can trigger the bug:
 - Try different data combinations
 - Check for environment-specific factors
 
-## Step 2: Gather Evidence
+## Step 3: Investigate (Don't Guess)
 
-Collect all available information:
+### Verify Assumptions
 
-### Error Messages
-- Full stack trace
-- Error codes
-- Any logged context
+List what you're assuming about the code:
 
-### Environment
-- What version of the code?
-- What OS/browser/runtime?
-- What data was involved?
-- What happened just before?
+| Assumption | How to Verify | Status |
+|------------|---------------|--------|
+| [e.g., "Function X does Y"] | Read the function | ✓/✗ |
+| [e.g., "Config is set to Z"] | Check config | ✓/✗ |
 
-### Timeline
-- When did it start happening?
-- What changed around that time?
-- Does it happen at specific times?
+**STOP if assumptions are wrong.** Reassess before continuing.
 
-## Step 3: Form Hypotheses
+### Gather Evidence
 
-Common bug categories to consider:
+- Full stack trace, not just the message
+- What version of code? What environment?
+- What changed recently? (`git log --oneline -10`)
+- What happened just before the error?
+
+### Common Bug Categories
 
 | Category | Look For |
 |----------|----------|
@@ -63,112 +73,114 @@ Common bug categories to consider:
 | **Logic** | Off-by-one, wrong operator, missing case |
 | **Resources** | Memory leaks, connection exhaustion, disk full |
 
-### Prioritize Hypotheses
-- Most likely based on evidence
-- Easiest to test/eliminate
-- Most recently changed code
+### State the Root Cause
 
-## Step 4: Isolate the Problem
+Before fixing, write:
+> "The bug happens because [specific cause]."
+> "I know this because [evidence]."
+
+If you can't write these sentences, you haven't found the root cause yet.
+
+## Step 4: Fix (Minimal and Focused)
+
+- Fix the root cause, not the symptom
+- Smallest change that solves the problem
+- Don't refactor while fixing bugs (separate concerns)
+- Consider if similar bugs exist elsewhere
+
+**Before writing code, state:**
+1. What you're changing
+2. Why this fixes the root cause
+3. Risk of this change breaking something else
+
+## Step 5: Verify (Prove It Works)
+
+Don't say "fixed" until you've verified:
+
+- [ ] Original bug no longer reproduces
+- [ ] Tested the exact scenario from Step 1
+- [ ] No new bugs introduced (run all tests)
+- [ ] Edge cases handled
+
+**Show evidence:**
+```
+Verified:
+- Ran [command] → [result]
+- Tested [scenario] → [expected behavior]
+- Tests pass: [output]
+```
+
+"Looks fixed" ≠ "Is fixed"
+
+## Step 6: Prevent Recurrence
+
+- Add a test that would have caught this
+- Document if it was a subtle issue
+- Consider if tooling could prevent similar bugs
+
+## Debugging Techniques
 
 ### Binary Search
-If unsure where the bug is:
-1. Find a known good state (older commit, simpler input)
-2. Find the bad state
-3. Bisect to find exact point of failure
-
 ```bash
 git bisect start
 git bisect bad HEAD
 git bisect good v1.0.0
-# Git will guide you through testing commits
+# Git guides you to the breaking commit
 ```
 
-### Simplify the Case
-- Remove components until bug disappears
-- Add back until it reappears
-- Minimal reproduction is valuable
-
-### Add Logging
-Strategic logging points:
+### Strategic Logging
 - Function entry/exit
 - Before/after state changes
 - Decision points (if/else branches)
 - External calls (API, DB)
 
-## Step 5: Fix and Verify
-
-### The Fix
-- Fix the root cause, not the symptom
-- Understand WHY the bug happened
-- Consider if similar bugs exist elsewhere
-
-### Verification
-- [ ] Bug no longer reproduces
-- [ ] No new bugs introduced (run all tests)
-- [ ] Edge cases handled
-- [ ] Fix makes sense (review your own code)
-
-### Prevention
-- Add a test that would have caught this
-- Consider if tooling could prevent similar bugs
-- Document if it was a subtle issue
-
-## Common Debugging Techniques
-
-### Print Debugging
-Simple but effective:
-- Add logging at suspicious locations
-- Include relevant variable values
-- Use markers to identify output (e.g., ">>> checkpoint 1")
-
-Clean up after! Never commit debug logs.
-
-### Debugger
-Step through code execution:
-- Set breakpoints at suspicious locations
-- Inspect variable values
-- Step into/over/out of functions
-- Watch expressions
+Clean up after - never commit debug logs.
 
 ### Rubber Duck Debugging
-Explain the problem out loud:
-- Forces you to articulate assumptions
-- Often reveals the issue mid-explanation
-- Works with any patient listener (or duck)
-
-### Diff Against Working State
-```bash
-git diff HEAD~5  # What changed recently?
-git log --oneline -10  # What commits might be relevant?
-```
+Explain the problem out loud. Forces you to articulate assumptions.
 
 ## Anti-Patterns
 
 | Anti-Pattern | Problem | Better |
 |--------------|---------|--------|
-| **Random changes** | Wastes time, obscures root cause | Systematic hypothesis testing |
-| **Blame others first** | Delays finding real cause | Assume your code until proven otherwise |
-| **Fix symptoms** | Bug will return | Find and fix root cause |
-| **Debug in production** | Risky, stressful | Reproduce locally first |
-| **No test after fix** | Bug may recur | Add regression test |
+| **Jumping to fixes** | Solving wrong problem | Clarify first |
+| **Random changes** | Wastes time, obscures cause | Systematic testing |
+| **Assuming it works** | Bug returns | Verify with evidence |
+| **Fix symptoms** | Root cause remains | Find actual cause |
+| **Debug in production** | Risky, stressful | Reproduce locally |
 
-## When You're Stuck
+## When Stuck
 
-- Take a break (seriously, it helps)
-- Explain it to someone else
-- Sleep on it
-- Question your assumptions
-- Read the documentation again
-- Search for similar issues (GitHub, Stack Overflow)
-- Ask for help with clear problem statement
+1. Take a break (genuinely helps)
+2. Explain it to someone (or a duck)
+3. Question your assumptions - are they verified?
+4. Check what changed recently
+5. Search for similar issues
+6. Ask for help with clear problem statement
 
-## Debugging Checklist
+After 3 failed attempts at the same approach: **try something different**.
 
-- [ ] Can reproduce the bug consistently
-- [ ] Collected all relevant evidence
-- [ ] Formed specific hypotheses
-- [ ] Tested hypotheses systematically
-- [ ] Found root cause (not just symptom)
-- [ ] Fix verified to resolve issue
-- [ ] No regressions introduced
-- [ ] Test added to prevent recurrence
+## Debugging Output Template
+
+```markdown
+## Debug: [Brief description]
+
+### Problem
+When I [action], I expect [expected], but instead [actual].
+
+### Investigation
+Assumptions verified:
+- [assumption] → [verified/wrong]
+
+Root cause: [specific cause]
+Evidence: [how you know]
+
+### Fix
+Changed: [what]
+Why: [addresses root cause]
+
+### Verification
+- [x] Original bug fixed: [evidence]
+- [x] Tests pass: [output]
+- [x] No regressions: [how checked]
+```
