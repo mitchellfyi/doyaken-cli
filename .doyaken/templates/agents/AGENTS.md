@@ -116,3 +116,33 @@ See `.doyaken/manifest.yaml` for:
 - Quality gate commands
 - Agent settings
 - Integration configuration
+
+---
+
+## Project Knowledge
+
+*This section is updated by agents as they learn about the codebase. It captures patterns, gotchas, and hard-won knowledge that future agents should know.*
+
+### Architecture Patterns
+
+<!-- Add patterns discovered while working on this codebase -->
+<!-- Example: "Auth is handled in route handlers, not middleware" -->
+
+### Gotchas
+
+<!-- Add surprising behaviors or non-obvious things -->
+<!-- Example: "Config changes require server restart" -->
+
+### Conventions
+
+<!-- Add project-specific conventions discovered -->
+<!-- Example: "Use kebab-case for all file names" -->
+
+### Don't Do
+
+<!-- Add approaches that were tried and failed -->
+<!-- Example: "Don't use library X, conflicts with Y" -->
+
+---
+
+*Knowledge above is captured during task completion (Phase 7). Update when you discover something future agents should know.*
