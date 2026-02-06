@@ -838,6 +838,7 @@ log_header() {
 # ============================================================================
 
 progress_filter() {
+  trap "exit 130" INT TERM
   local phase_name="$1"
   local last_tool=""
   local line_count=0
@@ -1176,8 +1177,10 @@ start_heartbeat() {
   stop_heartbeat
 
   (
+    trap "exit 0" INT TERM
     while true; do
-      sleep "$AGENT_HEARTBEAT"
+      sleep "$AGENT_HEARTBEAT" &
+      wait $! 2>/dev/null || exit 0
       if [ -f "$CURRENT_TASK_FILE" ]; then
         refresh_assignment "$CURRENT_TASK_FILE"
         local task_id
@@ -1225,6 +1228,7 @@ start_phase_monitor() {
   stop_phase_monitor
 
   (
+    trap "exit 0" INT TERM
     local last_size=0
     local last_activity_time
     last_activity_time=$(date +%s)
@@ -1233,7 +1237,8 @@ start_phase_monitor() {
     local stall_warned=0
 
     while true; do
-      sleep "$PHASE_MONITOR_INTERVAL"
+      sleep "$PHASE_MONITOR_INTERVAL" &
+      wait $! 2>/dev/null || exit 0
 
       local now
       now=$(date +%s)
@@ -1590,6 +1595,12 @@ run_phase_once() {
   # Stop phase monitor
   stop_phase_monitor
 
+  # If pipeline was killed by SIGINT (Ctrl+C), propagate the signal
+  if [ "$exit_code" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
+    log_warn "$phase_name interrupted by user"
+    return 130
+  fi
+
   echo ""
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
@@ -1646,6 +1657,10 @@ run_phase() {
         run_skill_hooks "AFTER" "$phase_name"
         return 0
         ;;
+      130)
+        # User interrupt (Ctrl+C) - propagate immediately, don't retry
+        return 130
+        ;;
       124)
         log_error "$phase_name timed out - consider increasing TIMEOUT_${phase_name}"
         return 1
@@ -1680,9 +1695,20 @@ run_all_phases() {
   log_info "Running ${#PHASES[@]} phases for task: $task_id"
 
   for phase_def in "${PHASES[@]}"; do
+    # Check for interrupt before starting next phase
+    if [ "$INTERRUPTED" = "1" ]; then
+      log_warn "Interrupted - stopping phase execution"
+      return 130
+    fi
+
     IFS='|' read -r name prompt_file timeout skip <<< "$phase_def"
 
-    if ! run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file"; then
+    local phase_result=0
+    run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file" || phase_result=$?
+
+    if [ "$phase_result" -eq 130 ]; then
+      return 130
+    elif [ "$phase_result" -ne 0 ]; then
       log_error "Phase $name failed - stopping task execution"
       return 1
     fi
@@ -2148,6 +2174,11 @@ run_with_retry() {
   local attempt=1
 
   while [ "$attempt" -le "$max_retries" ]; do
+    # Check for interrupt before each attempt
+    if [ "$INTERRUPTED" = "1" ]; then
+      return 130
+    fi
+
     if [ "$attempt" -gt 1 ]; then
       local backoff
       backoff=$(calculate_backoff "$attempt")
@@ -2260,11 +2291,15 @@ run_agent_iteration() {
   echo ""
 
   local exit_code=0
-  if ! run_all_phases "$task_id" "$task_file"; then
-    exit_code=1
-  fi
+  run_all_phases "$task_id" "$task_file" || exit_code=$?
 
   stop_heartbeat
+
+  # Propagate interrupt immediately
+  if [ "$exit_code" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
+    save_session "$session_id" "$iteration" "interrupted"
+    return 130
+  fi
 
   if [ "$exit_code" -eq 0 ]; then
     log_success "Task iteration completed successfully"
@@ -2344,7 +2379,13 @@ cleanup() {
 
 handle_interrupt() {
   echo ""
+  log_warn "Ctrl+C received - shutting down..."
   INTERRUPTED=1
+
+  # Kill background monitors immediately (they now have signal handlers)
+  stop_phase_monitor
+  stop_heartbeat
+
   exit 130
 }
 
@@ -2419,10 +2460,22 @@ main() {
   CONSECUTIVE_FAILURES=$(get_consecutive_failures)
 
   for ((i=start_iteration; i<=NUM_TASKS; i++)); do
-    if run_with_retry "$i"; then
+    # Check for interrupt before starting next task
+    if [ "$INTERRUPTED" = "1" ]; then
+      log_warn "Interrupted - stopping task loop"
+      break
+    fi
+
+    local retry_result=0
+    run_with_retry "$i" || retry_result=$?
+
+    if [ "$retry_result" -eq 0 ]; then
       ((completed++))
       # Track for periodic review
       review_tracker_increment > /dev/null 2>&1 || true
+    elif [ "$retry_result" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
+      log_warn "Interrupted - stopping task loop"
+      break
     else
       local available
       available=$(get_next_available_task) || true
