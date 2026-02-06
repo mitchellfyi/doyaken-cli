@@ -1433,6 +1433,10 @@ cmd_review() {
         shift
         ;;
       --scope)
+        if [ $# -lt 2 ] || [[ "$2" == --* ]]; then
+          log_error "--scope requires a value"
+          exit 1
+        fi
         scope="$2"
         shift 2
         ;;
@@ -1664,15 +1668,27 @@ main() {
 
     case "$1" in
       --project)
+        if [ $# -lt 2 ] || [[ "$2" == --* ]]; then
+          log_error "--project requires a value"
+          exit 1
+        fi
         project_override="$2"
         shift 2
         ;;
       --agent)
+        if [ $# -lt 2 ] || [[ "$2" == --* ]]; then
+          log_error "--agent requires a value"
+          exit 1
+        fi
         export DOYAKEN_AGENT="$2"
         export DOYAKEN_AGENT_FROM_CLI=1
         shift 2
         ;;
       --model)
+        if [ $# -lt 2 ] || [[ "$2" == --* ]]; then
+          log_error "--model requires a value"
+          exit 1
+        fi
         export DOYAKEN_MODEL="$2"
         export DOYAKEN_MODEL_FROM_CLI=1
         shift 2

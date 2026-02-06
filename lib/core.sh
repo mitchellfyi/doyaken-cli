@@ -437,6 +437,8 @@ load_manifest() {
   fi
 
   if ! command -v yq &>/dev/null; then
+    echo -e "${YELLOW}[WARN]${NC} yq not installed - manifest.yaml settings will be ignored"
+    echo -e "${YELLOW}[WARN]${NC} Install: brew install yq (macOS) or apt install yq (Linux)"
     return 0
   fi
 
@@ -1012,12 +1014,15 @@ acquire_lock() {
     fi
   fi
 
-  cat > "$lock_file" << EOF
+  # Atomic write: temp file + mv prevents corruption from concurrent writers
+  local lock_tmp="${lock_file}.tmp.$$"
+  cat > "$lock_tmp" << EOF
 AGENT_ID="$AGENT_ID"
 LOCKED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
 PID="$$"
 TASK_ID="$task_id"
 EOF
+  mv "$lock_tmp" "$lock_file"
 
   rmdir "$lock_dir" 2>/dev/null || true
 
@@ -1072,9 +1077,15 @@ commit_task_files() {
     return 0  # Not a git repo, silently skip
   fi
 
+  # Check for merge conflicts or rebase in progress
+  if [ -d "$(git rev-parse --git-dir)/rebase-merge" ] || [ -d "$(git rev-parse --git-dir)/rebase-apply" ]; then
+    log_warn "Git rebase in progress - skipping commit"
+    return 1
+  fi
+
   if ! git add "$TASKS_DIR" TASKBOARD.md 2>/dev/null; then
     log_warn "Failed to stage task files"
-    return 0  # Non-fatal, continue without commit
+    return 1
   fi
 
   if git diff --cached --quiet 2>/dev/null; then
@@ -1089,8 +1100,8 @@ commit_task_files() {
   fi
 
   if [ "$commit_result" -ne 0 ]; then
-    log_warn "Git commit failed (code: $commit_result)"
-    return 0  # Non-fatal
+    log_warn "Git commit failed (code: $commit_result) - task state may not be persisted"
+    return 1
   fi
 
   log_info "Committed task file changes: $message"
@@ -1188,12 +1199,14 @@ start_heartbeat() {
         local lock_file
         lock_file=$(get_lock_file "$task_id")
         if [ -f "$lock_file" ]; then
-          cat > "$lock_file" << EOF
+          local lock_tmp="${lock_file}.tmp.$$"
+          cat > "$lock_tmp" << EOF
 AGENT_ID="$AGENT_ID"
 LOCKED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
 PID="$$"
 TASK_ID="$task_id"
 EOF
+          mv "$lock_tmp" "$lock_file"
         fi
       fi
     done
@@ -1757,8 +1770,12 @@ load_session() {
   local session_file="$STATE_DIR/session-$AGENT_ID"
 
   if [ -f "$session_file" ] && [ "$AGENT_NO_RESUME" != "1" ]; then
-    # shellcheck source=/dev/null
-    source "$session_file"
+    # Parse session file safely instead of sourcing (prevents code injection)
+    SESSION_ID=$(grep '^SESSION_ID=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    STATUS=$(grep '^STATUS=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    ITERATION=$(grep '^ITERATION=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    LOG_DIR=$(grep '^LOG_DIR=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+
     if [ -n "${SESSION_ID:-}" ] && [ "${STATUS:-}" = "running" ]; then
       log_heal "Found interrupted session: $SESSION_ID"
       log_heal "Last iteration: ${ITERATION:-1}, Status: $STATUS"
@@ -2068,8 +2085,12 @@ move_task_to_todo() {
   # Move to todo/
   local todo_dir new_path
   todo_dir=$(get_task_folder "todo")
+  mkdir -p "$todo_dir"
   new_path="$todo_dir/$(basename "$task_file")"
-  mv "$task_file" "$new_path"
+  if ! mv "$task_file" "$new_path"; then
+    log_error "Failed to move task file to $new_path"
+    return 1
+  fi
 
   log_info "Moved declined task back to todo: $task_id"
 
@@ -2249,8 +2270,13 @@ run_agent_iteration() {
 
       local new_path doing_dir
       doing_dir=$(get_task_folder "doing")
+      mkdir -p "$doing_dir"
       new_path="$doing_dir/$(basename "$task_file")"
-      mv "$task_file" "$new_path"
+      if ! mv "$task_file" "$new_path"; then
+        log_error "Failed to move task to doing: $new_path"
+        release_lock "$task_id"
+        return 1
+      fi
       task_file="$new_path"
 
       assign_task "$task_file"
@@ -2385,6 +2411,10 @@ handle_interrupt() {
   # Kill background monitors immediately (they now have signal handlers)
   stop_phase_monitor
   stop_heartbeat
+
+  # Kill all remaining child processes (agent pipeline, tee, etc.)
+  # Use pkill to find children of this shell process
+  pkill -P $$ 2>/dev/null || true
 
   exit 130
 }
