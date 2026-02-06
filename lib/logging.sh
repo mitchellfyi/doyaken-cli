@@ -29,6 +29,7 @@ if [[ -t 1 ]] && [[ "${TERM:-}" != "dumb" ]]; then
   BLUE='\033[0;34m'
   CYAN='\033[0;36m'
   BOLD='\033[1m'
+  DIM='\033[2m'
   NC='\033[0m'  # No Color
 else
   RED=''
@@ -37,11 +38,12 @@ else
   BLUE=''
   CYAN=''
   BOLD=''
+  DIM=''
   NC=''
 fi
 
 # Export colors for subshells
-export RED GREEN YELLOW BLUE CYAN BOLD NC
+export RED GREEN YELLOW BLUE CYAN BOLD DIM NC
 
 # ============================================================================
 # Logging Functions

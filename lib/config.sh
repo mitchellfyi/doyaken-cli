@@ -227,6 +227,10 @@ load_agent_config() {
   _load_config "AGENT_LOCK_TIMEOUT" "defaults.lock_timeout"      "10800" "$manifest_file"
   _load_config "AGENT_HEARTBEAT"    "defaults.heartbeat_interval" "3600"  "$manifest_file"
 
+  # Phase monitor settings
+  _load_config "PHASE_MONITOR_INTERVAL"  "defaults.monitor_interval"  "30"  "$manifest_file"
+  _load_config "PHASE_STALL_THRESHOLD"   "defaults.stall_threshold"   "180" "$manifest_file"
+
   # Boolean settings
   _load_config_bool "AGENT_NO_FALLBACK" "defaults.no_fallback" "false" "$manifest_file"
   _load_config_bool "AGENT_NO_RESUME"   "defaults.no_resume"   "false" "$manifest_file"
@@ -308,6 +312,8 @@ show_effective_config() {
   echo "  retry_delay: ${AGENT_RETRY_DELAY:-5}s"
   echo "  lock_timeout: ${AGENT_LOCK_TIMEOUT:-10800}s"
   echo "  heartbeat_interval: ${AGENT_HEARTBEAT:-3600}s"
+  echo "  monitor_interval: ${PHASE_MONITOR_INTERVAL:-30}s"
+  echo "  stall_threshold: ${PHASE_STALL_THRESHOLD:-180}s"
   echo "  no_fallback: ${AGENT_NO_FALLBACK:-0}"
   echo "  no_resume: ${AGENT_NO_RESUME:-0}"
   echo ""

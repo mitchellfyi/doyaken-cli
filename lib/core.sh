@@ -672,6 +672,8 @@ AGENT_RETRY_DELAY="${AGENT_RETRY_DELAY:-5}"
 AGENT_NO_RESUME="${AGENT_NO_RESUME:-0}"
 AGENT_LOCK_TIMEOUT="${AGENT_LOCK_TIMEOUT:-10800}"
 AGENT_HEARTBEAT="${AGENT_HEARTBEAT:-3600}"
+PHASE_MONITOR_INTERVAL="${PHASE_MONITOR_INTERVAL:-30}"
+PHASE_STALL_THRESHOLD="${PHASE_STALL_THRESHOLD:-180}"
 AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
 AGENT_NO_PROMPT="${AGENT_NO_PROMPT:-0}"
 
@@ -805,6 +807,14 @@ log_heal() {
 
 log_lock() {
   echo -e "${YELLOW}[$AGENT_ID LOCK]${NC} $1"
+}
+
+log_monitor() {
+  echo -e "${DIM}[$AGENT_ID MONITOR]${NC} $1"
+}
+
+log_monitor_warn() {
+  echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} $1"
 }
 
 log_model() {
@@ -1199,6 +1209,103 @@ stop_heartbeat() {
 }
 
 # ============================================================================
+# Phase Monitor (Active Health Checking)
+# ============================================================================
+# Monitors agent output during phase execution to detect stuck/hung agents.
+# Checks log file growth at regular intervals and warns when no output is
+# produced for too long.
+
+PHASE_MONITOR_PID=""
+
+start_phase_monitor() {
+  local phase_name="$1"
+  local phase_log="$2"
+  local timeout="$3"
+
+  stop_phase_monitor
+
+  (
+    local last_size=0
+    local last_activity_time
+    last_activity_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
+    local stall_warned=0
+
+    while true; do
+      sleep "$PHASE_MONITOR_INTERVAL"
+
+      local now
+      now=$(date +%s)
+      local elapsed=$(( now - start_time ))
+      local mins=$(( elapsed / 60 ))
+      local secs=$(( elapsed % 60 ))
+
+      # Check log file size
+      local current_size=0
+      if [ -f "$phase_log" ]; then
+        current_size=$(wc -c < "$phase_log" 2>/dev/null || echo 0)
+        current_size="${current_size##* }"  # trim whitespace (macOS wc)
+      fi
+
+      # Check for new output
+      if [ "$current_size" -gt "$last_size" ]; then
+        local new_bytes=$(( current_size - last_size ))
+        last_activity_time=$now
+        stall_warned=0
+
+        # Human-readable size
+        local size_display
+        if [ "$current_size" -gt 1048576 ]; then
+          size_display="$(( current_size / 1048576 ))MB"
+        elif [ "$current_size" -gt 1024 ]; then
+          size_display="$(( current_size / 1024 ))KB"
+        else
+          size_display="${current_size}B"
+        fi
+
+        echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ✓ active (+${new_bytes}B, ${size_display} total)"
+        last_size=$current_size
+      else
+        local stall_time=$(( now - last_activity_time ))
+
+        if [ "$stall_time" -ge "$PHASE_STALL_THRESHOLD" ]; then
+          local stall_mins=$(( stall_time / 60 ))
+          local stall_secs=$(( stall_time % 60 ))
+
+          if [ "$stall_warned" -eq 0 ]; then
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ NO OUTPUT for ${stall_mins}m${stall_secs}s (log: ${current_size} bytes)"
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC}   Agent may be stuck, thinking, or waiting for API response"
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC}   Log: $phase_log"
+            stall_warned=1
+          else
+            # Repeat warning every stall_threshold interval
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ STILL NO OUTPUT (${stall_mins}m${stall_secs}s silent)"
+          fi
+        else
+          echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⋯ waiting (${stall_time}s since last output)"
+        fi
+      fi
+
+      # Warn when approaching timeout
+      local remaining=$(( timeout - elapsed ))
+      if [ "$remaining" -le 120 ] && [ "$remaining" -gt 0 ]; then
+        echo -e "${RED}[$AGENT_ID MONITOR]${NC} ${phase_name} │ ⚠ TIMEOUT in ${remaining}s!"
+      fi
+    done
+  ) &
+  PHASE_MONITOR_PID=$!
+}
+
+stop_phase_monitor() {
+  if [ -n "$PHASE_MONITOR_PID" ] && kill -0 "$PHASE_MONITOR_PID" 2>/dev/null; then
+    kill "$PHASE_MONITOR_PID" 2>/dev/null || true
+    wait "$PHASE_MONITOR_PID" 2>/dev/null || true
+  fi
+  PHASE_MONITOR_PID=""
+}
+
+# ============================================================================
 # Model Fallback (opus -> sonnet on rate limits)
 # ============================================================================
 
@@ -1346,6 +1453,9 @@ run_phase_once() {
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
+  # Start phase monitor (checks for stuck agents)
+  start_phase_monitor "$phase_name" "$phase_log" "$timeout"
+
   # Build timeout prefix
   local timeout_cmd=""
   if command -v gtimeout &> /dev/null; then
@@ -1476,6 +1586,9 @@ run_phase_once() {
       return 1
       ;;
   esac
+
+  # Stop phase monitor
+  stop_phase_monitor
 
   echo ""
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
@@ -2184,6 +2297,7 @@ cleanup() {
   if [ "$INTERRUPTED" = "1" ]; then
     log_info "Interrupted - preserving task state for resume..."
 
+    stop_phase_monitor
     stop_heartbeat
 
     rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
@@ -2201,6 +2315,7 @@ cleanup() {
   else
     log_info "Cleaning up..."
 
+    stop_phase_monitor
     stop_heartbeat
 
     release_all_locks
@@ -2252,6 +2367,7 @@ main() {
   echo "  Max retries: $AGENT_MAX_RETRIES per phase"
   echo "  Lock timeout: ${AGENT_LOCK_TIMEOUT}s ($(( AGENT_LOCK_TIMEOUT / 3600 ))h)"
   echo "  Heartbeat: ${AGENT_HEARTBEAT}s ($(( AGENT_HEARTBEAT / 60 ))min)"
+  echo "  Phase monitor: every ${PHASE_MONITOR_INTERVAL}s, stall warning at ${PHASE_STALL_THRESHOLD}s"
   if [ "$AGENT_QUIET" = "1" ]; then
     echo "  Output: quiet (no streaming)"
   elif [ "$AGENT_PROGRESS" != "1" ]; then

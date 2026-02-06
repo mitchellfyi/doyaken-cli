@@ -49,6 +49,14 @@ defaults:
   # How often to refresh lock timestamps during long tasks
   heartbeat_interval: 3600
 
+  # Phase monitor interval in seconds (30s)
+  # How often to check if the agent is producing output
+  monitor_interval: 30
+
+  # Stall threshold in seconds (3 minutes)
+  # Warn if no agent output for this long
+  stall_threshold: 180
+
   # Disable model fallback on rate limits (false = fallback enabled)
   no_fallback: false
 
