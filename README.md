@@ -1,5 +1,9 @@
 # Doyaken
 
+[![CI](https://github.com/mitchellfyi/doyaken-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/mitchellfyi/doyaken-cli/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@doyaken/doyaken.svg)](https://www.npmjs.com/package/@doyaken/doyaken)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A standalone multi-project autonomous agent CLI that works with any AI coding agent. Install once, use on any project.
 
 **Aliases:** `doyaken`, `dk`

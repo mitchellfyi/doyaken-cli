@@ -10,11 +10,41 @@ You are performing final review for task **{{TASK_ID}}**.
 
 ## Phase Instructions
 
-1. **Build findings ledger** - Track all issues by severity
-2. **Multi-pass review** - Correctness → Design → Security → Performance → Tests
-3. **Fix blockers/high** - Address immediately
-4. **Create follow-ups** - For medium/low improvements
-5. **Complete task** - Only if ALL acceptance criteria are met
+1. **Sweep for loose ends** - Check for cruft before declaring complete
+2. **Build findings ledger** - Track all issues by severity
+3. **Multi-pass review** - Correctness → Design → Security → Performance → Tests
+4. **Fix blockers/high** - Address immediately
+5. **Create follow-ups** - For medium/low improvements
+6. **Complete task** - Only if ALL acceptance criteria are met
+
+## Loose Ends Sweep
+
+Before declaring complete, check for cruft in changed files:
+
+```bash
+# Find common cruft in changed files
+git diff --name-only HEAD~3 | xargs grep -n "TODO\|FIXME\|console.log\|debugger" 2>/dev/null
+```
+
+### Code Hygiene
+- [ ] No unused imports added
+- [ ] No console.log/print/debugger statements left
+- [ ] No commented-out code (unless intentional with explanation)
+
+### TODOs
+- [ ] Any TODOs created during this task are addressed or have issue references
+- [ ] No "TODO: fix later" without a plan
+
+### References
+- [ ] No broken imports from refactoring
+- [ ] No stale comments referring to old code
+- [ ] Variable/function renames updated everywhere
+
+### Error Handling
+- [ ] New error paths handled appropriately
+- [ ] No silent failures (catch blocks that swallow errors)
+
+**Fix loose ends before proceeding to findings review.**
 
 ## Task Completion
 
@@ -34,6 +64,12 @@ Add to Work Log:
 
 ```markdown
 ### {{TIMESTAMP}} - Review Complete
+
+Loose ends:
+- [ ] Code hygiene: [clean / fixed X issues]
+- [ ] TODOs: [none / X addressed]
+- [ ] References: [clean / fixed X]
+- [ ] Error handling: [appropriate / fixed X]
 
 Findings:
 - Blockers: [count] - fixed
@@ -56,6 +92,7 @@ Status: [COMPLETE/INCOMPLETE - reason]
 
 ## Rules
 
+- **SWEEP for loose ends first** - don't let cruft slip through
 - Fix blockers and high severity immediately
 - Create tasks for medium/low (don't scope creep)
 - Be honest about what's done vs remaining
