@@ -8,7 +8,18 @@ load "../test_helper"
 setup() {
   export TEST_TEMP_DIR
   TEST_TEMP_DIR="$(mktemp -d)"
-  export DOYAKEN_HOME="$PROJECT_ROOT"
+  # Use temp DOYAKEN_HOME to avoid polluting real registry with temp dir entries.
+  # Symlink lib/ so the binary can find its scripts, but projects/ is isolated.
+  export DOYAKEN_HOME="$TEST_TEMP_DIR/doyaken_home"
+  mkdir -p "$DOYAKEN_HOME/projects"
+  # Symlink install dirs so the binary can find scripts
+  ln -s "$PROJECT_ROOT/lib" "$DOYAKEN_HOME/lib"
+  ln -s "$PROJECT_ROOT/bin" "$DOYAKEN_HOME/bin"
+  ln -s "$PROJECT_ROOT/config" "$DOYAKEN_HOME/config" 2>/dev/null || true
+  ln -s "$PROJECT_ROOT/scripts" "$DOYAKEN_HOME/scripts" 2>/dev/null || true
+  ln -s "$PROJECT_ROOT/templates" "$DOYAKEN_HOME/templates" 2>/dev/null || true
+  # Copy VERSION file if it exists
+  cp "$PROJECT_ROOT/VERSION" "$DOYAKEN_HOME/VERSION" 2>/dev/null || true
   # Clear any inherited project context to ensure proper detection
   unset DOYAKEN_PROJECT
   unset DOYAKEN_DIR
