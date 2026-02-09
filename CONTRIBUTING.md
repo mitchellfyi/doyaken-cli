@@ -458,3 +458,56 @@ Now audit the codebase...
 ## Detailed Guidance
 [Explanations for each item]
 ```
+
+## CI/CD
+
+### Workflows
+
+| Workflow | File | Trigger | Purpose |
+|----------|------|---------|---------|
+| **CI** | `ci.yml` | Push/PR to `main` | Lint, validate, test, package, install-test |
+| **Release** | `release.yml` | Tag push, `package.json` change on `main`, or manual | Publish to npm and create GitHub release |
+| **Rollback** | `rollback.yml` | Manual dispatch | Re-publish a previous version tag to npm |
+
+### Running Checks Locally
+
+```bash
+# Run all checks (lint + validate + test)
+./scripts/check-all.sh
+
+# Individual checks
+./scripts/lint.sh            # ShellCheck linting
+./scripts/validate-yaml.sh   # YAML validation
+./scripts/test.sh            # Basic tests
+./test/run-bats.sh           # Bats unit + integration tests
+
+# Or via npm
+npm test                     # All tests (basic + bats)
+npm run lint                 # Linting
+npm run validate             # YAML validation
+npm run check                # All checks
+```
+
+### How Deploys Work
+
+1. **Automatic**: When `package.json` version changes on `main`, the Release workflow creates a git tag and publishes to npm.
+2. **Tag-based**: Pushing a `v*` tag (e.g., `v0.2.0`) triggers a release directly.
+3. **Manual**: Use the "Run workflow" button on the Release workflow in GitHub Actions.
+
+Deploys use a concurrency group (`deploy-production`) so only one deploy runs at a time. New pushes cancel in-progress deploys.
+
+### Rollback
+
+If a bad version is deployed:
+
+1. Go to **Actions → Rollback → Run workflow**
+2. Enter the version tag to rollback to (e.g., `v0.1.15`)
+3. The workflow checks out that tag and re-publishes to npm
+
+### Branch Protection (Recommended)
+
+Configure these settings on `main`:
+- Require status checks to pass (CI workflow)
+- Require at least one approval on PRs
+- Disable force pushes
+- Require linear history (squash or rebase merges)
