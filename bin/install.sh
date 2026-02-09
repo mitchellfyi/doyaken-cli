@@ -2,7 +2,12 @@
 # doyaken install — one-time global setup
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+if [[ -z "${DOYAKEN_DIR:-}" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  DOYAKEN_DIR="$(dirname "$SCRIPT_DIR")"
+  export DOYAKEN_DIR
+fi
+source "$DOYAKEN_DIR/lib/common.sh"
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 ZSHRC="$HOME/.zshrc"
@@ -20,8 +25,8 @@ if [[ -L "$CLAUDE_DIR/skills" ]]; then
   if [[ "$current" == "$DOYAKEN_DIR/skills" ]]; then
     dk_ok "~/.claude/skills → $DOYAKEN_DIR/skills"
   else
-    dk_warn "~/.claude/skills points to $current (expected $DOYAKEN_DIR/skills)"
-    echo "       rm ~/.claude/skills && dk install"
+    ln -sf "$DOYAKEN_DIR/skills" "$CLAUDE_DIR/skills"
+    dk_done "Updated ~/.claude/skills → $DOYAKEN_DIR/skills (was: $current)"
   fi
 elif [[ -d "$CLAUDE_DIR/skills" ]]; then
   dk_warn "~/.claude/skills exists as a directory — back up and re-run:"
@@ -40,8 +45,8 @@ if [[ -L "$CLAUDE_DIR/agents" ]]; then
   if [[ "$current" == "$DOYAKEN_DIR/agents" ]]; then
     dk_ok "~/.claude/agents → $DOYAKEN_DIR/agents"
   else
-    dk_warn "~/.claude/agents points to $current (expected $DOYAKEN_DIR/agents)"
-    echo "       rm ~/.claude/agents && dk install"
+    ln -sf "$DOYAKEN_DIR/agents" "$CLAUDE_DIR/agents"
+    dk_done "Updated ~/.claude/agents → $DOYAKEN_DIR/agents (was: $current)"
   fi
 elif [[ -d "$CLAUDE_DIR/agents" ]]; then
   dk_warn "~/.claude/agents exists as a directory — back up and re-run:"
@@ -56,12 +61,12 @@ fi
 
 # 3. Merge hooks and settings into ~/.claude/settings.json
 if [[ -f "$SETTINGS_FILE" ]]; then
-  if grep -q 'doyaken/hooks' "$SETTINGS_FILE" 2>/dev/null && grep -q 'symlinkDirectories' "$SETTINGS_FILE" 2>/dev/null; then
+  if grep -q 'export DOYAKEN_DIR' "$SETTINGS_FILE" 2>/dev/null && grep -q 'symlinkDirectories' "$SETTINGS_FILE" 2>/dev/null; then
     dk_ok "Hooks and worktree settings already in ~/.claude/settings.json"
   else
     # Use jq if available, otherwise manual merge
     if command -v jq &>/dev/null; then
-      local_settings=$(cat "$DOYAKEN_DIR/settings.json")
+      local_settings=$(sed "s|\\\$HOME/work/doyaken|${DOYAKEN_DIR}|g" "$DOYAKEN_DIR/settings.json")
       # Merge Doyaken settings into existing settings.json.
       #
       # The jq expression processes two inputs: .[0] = existing settings, .[1] = Doyaken settings.
@@ -96,12 +101,12 @@ if [[ -f "$SETTINGS_FILE" ]]; then
     else
       dk_info "Add these settings to ~/.claude/settings.json manually:"
       echo ""
-      cat "$DOYAKEN_DIR/settings.json"
+      sed "s|\\\$HOME/work/doyaken|${DOYAKEN_DIR}|g" "$DOYAKEN_DIR/settings.json"
       echo ""
     fi
   fi
 else
-  if cp "$DOYAKEN_DIR/settings.json" "$SETTINGS_FILE"; then
+  if sed "s|\\\$HOME/work/doyaken|${DOYAKEN_DIR}|g" "$DOYAKEN_DIR/settings.json" > "$SETTINGS_FILE"; then
     dk_done "Created ~/.claude/settings.json with hooks and worktree settings"
   else
     dk_error "Failed to copy settings.json"
@@ -109,7 +114,7 @@ else
 fi
 
 # 4. Source dk.sh in ~/.zshrc
-if grep -q 'doyaken/dk.sh' "$ZSHRC" 2>/dev/null; then
+if grep -qE 'doyaken/dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$ZSHRC" 2>/dev/null; then
   # Ensure DOYAKEN_DIR export exists (upgrade path: older installs lack it)
   if ! grep -qE '^export DOYAKEN_DIR=' "$ZSHRC" 2>/dev/null; then
     # Insert the export line before the existing source line.
@@ -124,9 +129,9 @@ if grep -q 'doyaken/dk.sh' "$ZSHRC" 2>/dev/null; then
   fi
 else
   # Check for old Doyaken source lines (different path)
-  if grep -q 'doyaken.*dk\.sh' "$ZSHRC" 2>/dev/null; then
+  if grep -qE 'doyaken.*dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$ZSHRC" 2>/dev/null; then
     dk_info "Found old Doyaken dk.sh source line — replacing..."
-    grep -v 'doyaken.*dk\.sh' "$ZSHRC" > "${ZSHRC}.tmp" && mv "${ZSHRC}.tmp" "$ZSHRC"
+    grep -vE 'doyaken.*dk\.sh|DOYAKEN_DIR.*/dk\.sh|export DOYAKEN_DIR=' "$ZSHRC" > "${ZSHRC}.tmp" && mv "${ZSHRC}.tmp" "$ZSHRC"
   fi
   {
     echo ""

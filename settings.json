@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/load-ticket-context.sh"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/load-ticket-context.sh\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DOYAKEN_GUARD_EVENT=bash python3 ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/guard-handler.py"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; DOYAKEN_GUARD_EVENT=bash python3 \"$DOYAKEN_DIR/hooks/guard-handler.py\""
           }
         ]
       },
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DOYAKEN_GUARD_EVENT=file python3 ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/guard-handler.py"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; DOYAKEN_GUARD_EVENT=file python3 \"$DOYAKEN_DIR/hooks/guard-handler.py\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/post-commit-guard.sh"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/post-commit-guard.sh\""
           }
         ]
       }
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/phase-loop.sh"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/phase-loop.sh\""
           }
         ]
       }
@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/pre-compact.sh"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/pre-compact.sh\""
           }
         ]
       }
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${DOYAKEN_DIR:-$HOME/work/doyaken}/hooks/session-end.sh"
+            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/session-end.sh\""
           }
         ]
       }

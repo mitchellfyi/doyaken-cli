@@ -20,7 +20,10 @@
 #   dkclean                Clean stale worktrees + gone branches
 #   dkloop <prompt>         Run a prompt until fully implemented
 
-DOYAKEN_DIR="${DOYAKEN_DIR:-$HOME/work/doyaken}"
+if [[ -z "${DOYAKEN_DIR:-}" ]]; then
+  echo "ERROR: DOYAKEN_DIR not set. Run 'dk install' first." >&2
+  return 1
+fi
 source "$DOYAKEN_DIR/lib/common.sh"
 
 # ─── doyaken CLI ─────────────────────────────────────────────────────────
@@ -92,9 +95,10 @@ doyaken() {
 #   --effort max       Maximum reasoning effort for complex tasks
 DK_CLAUDE_FLAGS=(--chrome --model opus --permission-mode bypassPermissions --effort max)
 
-# Phase 1 uses plan mode — enforced read-only until user approves via ExitPlanMode.
-# All other phases use bypassPermissions (from DK_CLAUDE_FLAGS).
-DK_PLAN_FLAGS=(--chrome --model opus --permission-mode plan --effort max)
+# Phase 1 uses bypassPermissions to avoid interactive prompts. Claude calls
+# EnterPlanMode as its first action to enforce read-only until user approves
+# via ExitPlanMode.
+DK_PLAN_FLAGS=(--chrome --model opus --permission-mode bypassPermissions --effort max)
 
 # Phase definitions (1-indexed, index 0 is unused placeholder)
 DK_PHASE_NAMES=("" "Plan" "Implement" "Verify & Commit" "PR" "Complete")
@@ -108,7 +112,7 @@ DK_PHASE_PROMISES=("" \
 )
 
 DK_PHASE_MESSAGES=("" \
-  "You are in plan mode. Run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval." \
+  "Call EnterPlanMode now, then run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval." \
   "The plan is approved. Run /dkimplement — work through all tasks with TDD. Run /dkreview when done. When all tasks pass review, output PHASE_2_COMPLETE and stop." \
   "Run /dkverify — format, lint, typecheck, test. Fix any failures. When all green, run /dkcommit. When pushed, output PHASE_3_COMPLETE and stop." \
   "Run /dkpr. Generate the PR description, present it for my review. When I approve, mark ready and output PHASE_4_COMPLETE and stop." \
@@ -253,9 +257,10 @@ __dk_run_phases() {
 
     local claude_args=()
     if [[ $step -eq 1 ]]; then
-      # Phase 1: plan mode — enforced read-only until user approves via ExitPlanMode.
+      # Phase 1: bypassPermissions + EnterPlanMode — read-only without interactive prompts.
       # No stop hook: plan mode's built-in approval is the quality gate.
       claude_args=("${DK_PLAN_FLAGS[@]}" -n "$wt_name")
+      claude_args+=(--append-system-prompt "You MUST be in plan mode — if not, call EnterPlanMode immediately.")
       # Resume only if re-entering Phase 1 (prior session exists)
       if [[ -f "$times_file" ]]; then
         claude_args+=(--resume)
@@ -289,7 +294,7 @@ __dk_run_phases() {
     echo "${step}:$(date +%s)" >> "$times_file"
 
     if [[ $step -eq 1 ]]; then
-      # Phase 1: plan mode — no audit loop. ExitPlanMode handles approval.
+      # Phase 1: EnterPlanMode called by Claude — no audit loop. ExitPlanMode handles approval.
       (cd "$wt_dir" && \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
         claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}")
@@ -612,16 +617,16 @@ dkloop() {
   echo ""
 
   # ── Session 1: Plan ──
-  # Plan mode enforces read-only until the user approves via ExitPlanMode.
+  # bypassPermissions + EnterPlanMode — read-only without interactive prompts.
   # No stop hook — plan mode's built-in approval is the quality gate.
   local plan_args=("${DK_PLAN_FLAGS[@]}")
   [[ -n "$session_name" ]] && plan_args+=(-n "$session_name")
-  plan_args+=(--append-system-prompt "You are in a dkloop planning session. Your original task prompt is saved at ${prompt_file}. Re-read it with the Read tool if you lose track of the task.")
+  plan_args+=(--append-system-prompt "You are in a dkloop planning session. You MUST be in plan mode — if not, call EnterPlanMode immediately. Your original task prompt is saved at ${prompt_file}. Re-read it with the Read tool if you lose track of the task.")
 
   dk_info "Phase: Plan (read-only until approved)"
   DOYAKEN_SESSION_ID="$session_id" \
   DOYAKEN_DIR="$DOYAKEN_DIR" \
-  claude "${plan_args[@]}" "You are in plan mode. Run /dkplan for the following task:
+  claude "${plan_args[@]}" "Call EnterPlanMode now, then run /dkplan for the following task:
 
 ${prompt}
 

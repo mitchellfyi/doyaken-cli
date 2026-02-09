@@ -1,8 +1,8 @@
-> **Note:** When Phase 1 runs in plan mode (`--permission-mode plan`), this audit
-> is not active — the quality checks are built into the /dkplan skill (Step 4:
-> Plan Quality Checklist) and enforced before ExitPlanMode is called. This file
-> is retained as reference documentation and as a fallback for manual
-> stop-hook-based planning.
+> **Note:** Phase 1 uses `--permission-mode bypassPermissions` with Claude calling
+> `EnterPlanMode` as its first action. This audit is not active during plan mode —
+> the quality checks are built into the /dkplan skill (Step 4: Plan Quality
+> Checklist) and enforced before ExitPlanMode is called. This file is retained as
+> reference documentation and as a fallback for manual stop-hook-based planning.
 
 Before stopping, critically audit your plan:
 

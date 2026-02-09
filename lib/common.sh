@@ -2,12 +2,19 @@
 # Doyaken shared library — common constants and bootstrap
 #
 # Source this from any script:
-#   source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+#   source "$DOYAKEN_DIR/lib/common.sh"
 #
 # Provides: DOYAKEN_DIR, DK_STATE_DIR, DK_LOOP_DIR, dk_repo_root()
 # Also sources: lib/git.sh, lib/session.sh, lib/output.sh, lib/worktree.sh
 
-DOYAKEN_DIR="${DOYAKEN_DIR:-$HOME/work/doyaken}"
+if [[ -z "${DOYAKEN_DIR:-}" ]]; then
+  # Auto-detect from this file's location (lib/common.sh → repo root).
+  # BASH_SOURCE works in bash; $0 works in zsh when sourced.
+  _dk_self="${BASH_SOURCE[0]:-$0}"
+  DOYAKEN_DIR="$(cd "$(dirname "$_dk_self")/.." && pwd)"
+  export DOYAKEN_DIR
+  unset _dk_self
+fi
 DK_STATE_DIR="$HOME/.claude/.doyaken-phases"
 DK_LOOP_DIR="$HOME/.claude/.doyaken-loops"
 

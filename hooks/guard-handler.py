@@ -100,7 +100,7 @@ def parse_guard(filepath):
 def load_guards(event_type):
     """Load all enabled guards for a given event type."""
     guards = []
-    doyaken_dir = os.path.expanduser(os.environ.get('DOYAKEN_DIR', '~/work/doyaken'))
+    doyaken_dir = os.environ.get('DOYAKEN_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     # Built-in guards
     builtin_dir = os.path.join(doyaken_dir, 'hooks', 'guards')
