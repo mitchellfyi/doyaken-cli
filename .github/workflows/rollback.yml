@@ -55,8 +55,13 @@ jobs:
           chmod +x bin/doyaken lib/*.sh
           ./bin/doyaken --version
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
+      - name: Roll back npm dist-tag to specified version
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          TAG_VERSION="${{ inputs.version }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          echo "Updating npm dist-tag 'latest' to point to ${PKG_NAME}@${TAG_VERSION}"
+          npm dist-tag add "${PKG_NAME}@${TAG_VERSION}" latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

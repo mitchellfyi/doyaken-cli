@@ -124,7 +124,15 @@ jobs:
         run: npm pack --dry-run
 
       - name: Security audit
-        run: npm audit --omit=dev || true
+        run: |
+          # Ensure a lockfile exists; if not, generate one for the audit only
+          if [ ! -f package-lock.json ] && [ ! -f npm-shrinkwrap.json ]; then
+            echo "No lockfile found, generating a temporary package-lock.json for audit..."
+            npm install --package-lock-only --ignore-scripts
+          fi
+
+          # Fail the build on high and critical vulnerabilities in production deps
+          npm audit --omit=dev --audit-level=high
 
   install-test:
     name: Install Test
