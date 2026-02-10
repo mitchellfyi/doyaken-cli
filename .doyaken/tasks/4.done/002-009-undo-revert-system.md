@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-009-undo-revert-system`                           |
-| Status      | `todo`                                                 |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-06 15:30`                                     |
-| Started     |                                                        |
-| Completed   |                                                        |
+| Started     | `2026-02-10`                                           |
+| Completed   | `2026-02-10`                                           |
 | Blocked By  | 001-007, 002-007                                       |
 | Blocks      |                                                        |
 | Assigned To |                                                        |
@@ -72,10 +72,10 @@ Implement undo/revert commands that allow users to roll back agent changes at va
 
 ## Success Criteria
 
-- [ ] `/undo` reverts last agent file changes
-- [ ] `/redo` re-applies undone changes
-- [ ] Checkpoints created automatically before each phase
-- [ ] `/checkpoint` shows history with timestamps and descriptions
-- [ ] `/diff` shows changes since last checkpoint
-- [ ] Conversation context updated to reflect undo
-- [ ] No data loss — user warned before destructive operations
+- [x] `/undo` reverts last agent file changes
+- [x] `/redo` re-applies undone changes
+- [x] Checkpoints created automatically before each phase
+- [x] `/checkpoint` shows history with timestamps and descriptions
+- [x] `/diff` shows changes since last checkpoint
+- [x] Conversation context updated to reflect undo
+- [x] No data loss — user warned before destructive operations

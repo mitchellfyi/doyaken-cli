@@ -208,6 +208,11 @@ ${BOLD}SLASH COMMANDS:${NC}
   /session fork     Fork a session into a new branch
   /session export   Export session as markdown
   /session delete   Delete a session
+  /undo             Revert last agent change
+  /redo             Re-apply last undone change
+  /checkpoint       Show checkpoint history
+  /checkpoint save  Create a manual checkpoint
+  /restore <n>      Restore to checkpoint number
   /clear            Clear the screen
   /quit             Exit interactive mode (also: /exit, Ctrl+D)
 

@@ -26,6 +26,7 @@ setup() {
   source "$PROJECT_ROOT/lib/project.sh"
   source "$PROJECT_ROOT/lib/agents.sh"
   source "$PROJECT_ROOT/lib/sessions.sh"
+  source "$PROJECT_ROOT/lib/undo.sh"
   source "$PROJECT_ROOT/lib/commands.sh"
   source "$PROJECT_ROOT/lib/interactive.sh"
 
@@ -1089,4 +1090,228 @@ EOF
   run show_command_help "chat"
   assert_output_contains "--resume"
   assert_output_contains "/session"
+}
+
+# ============================================================================
+# undo.sh tests
+# ============================================================================
+
+# Helper to initialize a real git repo for undo tests
+_setup_git_repo() {
+  rm -rf "$DOYAKEN_PROJECT/.git"
+  git -C "$DOYAKEN_PROJECT" init -q
+  git -C "$DOYAKEN_PROJECT" config user.email "test@test.com"
+  git -C "$DOYAKEN_PROJECT" config user.name "Test"
+  echo "initial" > "$DOYAKEN_PROJECT/file.txt"
+  git -C "$DOYAKEN_PROJECT" add -A
+  git -C "$DOYAKEN_PROJECT" commit -q -m "initial"
+}
+
+@test "checkpoint_create succeeds in git repo" {
+  _setup_git_repo
+  echo "change" >> "$DOYAKEN_PROJECT/file.txt"
+  checkpoint_create "test checkpoint"
+  [ ${#UNDO_CHECKPOINT_REFS[@]} -ge 1 ]
+}
+
+@test "checkpoint_create stores description" {
+  _setup_git_repo
+  echo "change" >> "$DOYAKEN_PROJECT/file.txt"
+  checkpoint_create "my description"
+  local last=$((${#UNDO_CHECKPOINT_DESCS[@]} - 1))
+  [ "${UNDO_CHECKPOINT_DESCS[$last]}" = "my description" ]
+}
+
+@test "checkpoint_create stores timestamp" {
+  _setup_git_repo
+  checkpoint_create "timed"
+  local last=$((${#UNDO_CHECKPOINT_TIMES[@]} - 1))
+  [[ "${UNDO_CHECKPOINT_TIMES[$last]}" == *"T"*"Z" ]]
+}
+
+@test "checkpoint_create fails outside git repo" {
+  rm -rf "$DOYAKEN_PROJECT/.git"
+  run checkpoint_create "no git"
+  assert_failure
+}
+
+@test "checkpoint_list shows checkpoints" {
+  _setup_git_repo
+  checkpoint_create "first"
+  echo "change" >> "$DOYAKEN_PROJECT/file.txt"
+  checkpoint_create "second"
+  run checkpoint_list
+  assert_success
+  assert_output_contains "first"
+  assert_output_contains "second"
+}
+
+@test "checkpoint_list shows 'No checkpoints' when empty" {
+  UNDO_CHECKPOINT_REFS=()
+  UNDO_CHECKPOINT_DESCS=()
+  UNDO_CHECKPOINT_TIMES=()
+  UNDO_CHECKPOINT_FILES=()
+  run checkpoint_list
+  assert_success
+  assert_output_contains "No checkpoints"
+}
+
+@test "undo_last_change reverts file changes" {
+  _setup_git_repo
+  # Checkpoint the clean state
+  checkpoint_create "clean state"
+  # Make a change
+  echo "unwanted change" >> "$DOYAKEN_PROJECT/file.txt"
+  # Undo should revert to checkpoint
+  undo_last_change
+  local content
+  content=$(cat "$DOYAKEN_PROJECT/file.txt")
+  [ "$content" = "initial" ]
+}
+
+@test "undo_last_change fails with no checkpoints" {
+  _setup_git_repo
+  UNDO_CHECKPOINT_REFS=()
+  UNDO_CHECKPOINT_DESCS=()
+  UNDO_CHECKPOINT_TIMES=()
+  UNDO_CHECKPOINT_FILES=()
+  run undo_last_change
+  assert_failure
+  assert_output_contains "No checkpoints"
+}
+
+@test "undo_last_change fails outside git repo" {
+  rm -rf "$DOYAKEN_PROJECT/.git"
+  run undo_last_change
+  assert_failure
+  assert_output_contains "Not in a git repository"
+}
+
+@test "redo_last_change re-applies after undo" {
+  _setup_git_repo
+  checkpoint_create "clean"
+  echo "wanted change" >> "$DOYAKEN_PROJECT/file.txt"
+  local changed_content
+  changed_content=$(cat "$DOYAKEN_PROJECT/file.txt")
+  undo_last_change
+  # Now redo
+  redo_last_change
+  local restored
+  restored=$(cat "$DOYAKEN_PROJECT/file.txt")
+  [ "$restored" = "$changed_content" ]
+}
+
+@test "redo_last_change fails when nothing to redo" {
+  _setup_git_repo
+  UNDO_LAST_ACTION=""
+  UNDO_STACK_REFS=()
+  run redo_last_change
+  assert_failure
+  assert_output_contains "Nothing to redo"
+}
+
+@test "undo_clear_redo clears redo state" {
+  UNDO_STACK_REFS=("abc123")
+  UNDO_LAST_ACTION="undo"
+  undo_clear_redo
+  [ ${#UNDO_STACK_REFS[@]} -eq 0 ]
+  [ -z "$UNDO_LAST_ACTION" ]
+}
+
+@test "diff_since_checkpoint shows changes" {
+  _setup_git_repo
+  checkpoint_create "baseline"
+  echo "new content" >> "$DOYAKEN_PROJECT/file.txt"
+  run diff_since_checkpoint
+  assert_success
+  assert_output_contains "file.txt"
+}
+
+@test "restore_to_checkpoint requires index" {
+  run restore_to_checkpoint ""
+  assert_failure
+  assert_output_contains "Usage:"
+}
+
+@test "restore_to_checkpoint fails with no checkpoints" {
+  _setup_git_repo
+  UNDO_CHECKPOINT_REFS=()
+  UNDO_CHECKPOINT_DESCS=()
+  UNDO_CHECKPOINT_TIMES=()
+  UNDO_CHECKPOINT_FILES=()
+  run restore_to_checkpoint 1
+  assert_failure
+  assert_output_contains "No checkpoints"
+}
+
+# ============================================================================
+# Undo slash command tests
+# ============================================================================
+
+@test "dispatch_command handles /undo" {
+  _setup_git_repo
+  checkpoint_create "pre-change"
+  echo "bad" >> "$DOYAKEN_PROJECT/file.txt"
+  run dispatch_command "/undo"
+  assert_success
+  assert_output_contains "reverted"
+}
+
+@test "dispatch_command handles /redo" {
+  _setup_git_repo
+  UNDO_LAST_ACTION=""
+  UNDO_STACK_REFS=()
+  run dispatch_command "/redo"
+  assert_failure
+}
+
+@test "dispatch_command handles /checkpoint" {
+  UNDO_CHECKPOINT_REFS=()
+  UNDO_CHECKPOINT_DESCS=()
+  UNDO_CHECKPOINT_TIMES=()
+  UNDO_CHECKPOINT_FILES=()
+  run dispatch_command "/checkpoint"
+  assert_success
+  assert_output_contains "Checkpoints"
+}
+
+@test "dispatch_command handles /checkpoint save" {
+  _setup_git_repo
+  run dispatch_command "/checkpoint save my-tag"
+  assert_success
+  assert_output_contains "Checkpoint created"
+}
+
+@test "dispatch_command handles /restore without args" {
+  run dispatch_command "/restore"
+  assert_failure
+  assert_output_contains "Usage:"
+}
+
+@test "help includes undo commands" {
+  run chat_cmd_help
+  assert_success
+  assert_output_contains "/undo"
+  assert_output_contains "/redo"
+  assert_output_contains "/checkpoint"
+  assert_output_contains "/restore"
+}
+
+@test "completions file includes undo commands" {
+  local comp_file="$TEST_TEMP_DIR/completions"
+  generate_completions_file "$comp_file"
+  local content
+  content=$(cat "$comp_file")
+  [[ "$content" == *"/undo"* ]]
+  [[ "$content" == *"/redo"* ]]
+  [[ "$content" == *"/checkpoint"* ]]
+  [[ "$content" == *"/restore"* ]]
+}
+
+@test "chat help mentions undo commands" {
+  source "$PROJECT_ROOT/lib/help.sh"
+  run show_command_help "chat"
+  assert_output_contains "/undo"
+  assert_output_contains "/redo"
+  assert_output_contains "/checkpoint"
 }

@@ -19,6 +19,7 @@ SCRIPT_DIR_INTERACTIVE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR_INTERACTIVE/logging.sh"
 source "$SCRIPT_DIR_INTERACTIVE/commands.sh"
 source "$SCRIPT_DIR_INTERACTIVE/sessions.sh"
+source "$SCRIPT_DIR_INTERACTIVE/undo.sh"
 
 # ============================================================================
 # Session Management
@@ -295,7 +296,15 @@ run_repl() {
     if is_command "$input"; then
       dispatch_command "$input"
     else
+      # Create checkpoint before agent action
+      if declare -f checkpoint_create &>/dev/null; then
+        checkpoint_create "before: ${input:0:60}" 2>/dev/null || true
+      fi
       send_to_agent "$input"
+      # Clear redo stack after new agent action
+      if declare -f undo_clear_redo &>/dev/null; then
+        undo_clear_redo
+      fi
       # Auto-save session metadata after each agent exchange
       if declare -f session_save_meta &>/dev/null && [ -n "${CHAT_SESSION_ID:-}" ]; then
         session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "active" 2>/dev/null || true

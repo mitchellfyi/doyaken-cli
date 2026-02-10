@@ -69,6 +69,10 @@ dispatch_command() {
     diff)         chat_cmd_diff ;;
     sessions)     chat_cmd_sessions ;;
     session)      chat_cmd_session "$args" ;;
+    undo)         chat_cmd_undo ;;
+    redo)         chat_cmd_redo ;;
+    checkpoint)   chat_cmd_checkpoint "$args" ;;
+    restore)      chat_cmd_restore "$args" ;;
     *)
       # Try skill command
       if _try_skill_command "$cmd" "$args"; then
@@ -105,7 +109,7 @@ fuzzy_match_slash_command() {
   (( input_len < 2 )) && return 0
 
   # Collect all known command names
-  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff sessions session"
+  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff sessions session undo redo checkpoint restore"
 
   # Add registered skill commands
   local i
@@ -244,7 +248,7 @@ _try_skill_command() {
 # Usage: generate_completions_file "/path/to/file"
 generate_completions_file() {
   local file="$1"
-  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session"
+  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore"
 
   # Add skill commands
   local i
@@ -260,7 +264,7 @@ generate_completions_file() {
 # Set up tab completion for the REPL (bash 4+ only)
 setup_tab_completion() {
   # Build list of completions
-  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session"
+  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore"
 
   local i
   for (( i=0; i < ${#REGISTERED_CMD_NAMES[@]}; i++ )); do
@@ -323,8 +327,12 @@ register_builtin_commands() {
   register_command "config" "Show or set config: /config [key] [value]"
   register_command "log"      "Show recent log entries"
   register_command "diff"     "Show git diff of changes"
-  register_command "sessions" "List recent sessions"
-  register_command "session"  "Manage sessions: /session save|resume|fork|export|delete"
+  register_command "sessions"   "List recent sessions"
+  register_command "session"    "Manage sessions: /session save|resume|fork|export|delete"
+  register_command "undo"       "Revert last agent change"
+  register_command "redo"       "Re-apply last undone change"
+  register_command "checkpoint" "Show or create checkpoints"
+  register_command "restore"    "Restore to a checkpoint: /restore <num>"
 }
 
 # ============================================================================
@@ -863,4 +871,84 @@ chat_cmd_session() {
       return 1
       ;;
   esac
+}
+
+# ============================================================================
+# Undo/Redo/Checkpoint Command Handlers
+# ============================================================================
+
+chat_cmd_undo() {
+  if declare -f undo_last_change &>/dev/null; then
+    if undo_last_change; then
+      echo -e "${GREEN}Changes reverted${NC}"
+    fi
+  else
+    echo "Undo system not available"
+    return 1
+  fi
+}
+
+chat_cmd_redo() {
+  if declare -f redo_last_change &>/dev/null; then
+    if redo_last_change; then
+      echo -e "${GREEN}Changes re-applied${NC}"
+    else
+      return 1
+    fi
+  else
+    echo "Undo system not available"
+    return 1
+  fi
+}
+
+chat_cmd_checkpoint() {
+  local args="$1"
+  local subcmd="${args%% *}"
+  local subargs="${args#* }"
+  [ "$subargs" = "$args" ] && subargs=""
+
+  case "$subcmd" in
+    save)
+      if declare -f checkpoint_create &>/dev/null; then
+        if checkpoint_create "${subargs:-manual checkpoint}"; then
+          echo -e "${GREEN}Checkpoint created${NC}${subargs:+: $subargs}"
+        else
+          echo -e "${YELLOW}No changes to checkpoint${NC}"
+        fi
+      else
+        echo "Checkpoint system not available"
+        return 1
+      fi
+      ;;
+    ""|list)
+      if declare -f checkpoint_list &>/dev/null; then
+        echo ""
+        echo -e "${BOLD}Checkpoints${NC}"
+        echo ""
+        checkpoint_list
+        echo ""
+      else
+        echo "Checkpoint system not available"
+        return 1
+      fi
+      ;;
+    *)
+      echo "Usage: /checkpoint [save [tag]]"
+      return 1
+      ;;
+  esac
+}
+
+chat_cmd_restore() {
+  local idx="$1"
+  if declare -f restore_to_checkpoint &>/dev/null; then
+    if restore_to_checkpoint "$idx"; then
+      echo -e "${GREEN}Restored to checkpoint${NC}"
+    else
+      return 1
+    fi
+  else
+    echo "Checkpoint system not available"
+    return 1
+  fi
 }
