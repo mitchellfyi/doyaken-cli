@@ -105,7 +105,7 @@ progress_phase_start() {
   PROGRESS_CURRENT_PHASE="$phase_name"
   PROGRESS_PHASE_START=$(date +%s)
 
-  local i=0
+  local i=0 name
   for name in "${PROGRESS_PHASE_NAMES[@]}"; do
     if [ "$name" = "$phase_name" ]; then
       PROGRESS_PHASE_STATUSES[$i]="running"
@@ -124,7 +124,7 @@ progress_phase_start() {
 progress_phase_done() {
   local phase_name="$1"
 
-  local i=0
+  local i=0 name
   for name in "${PROGRESS_PHASE_NAMES[@]}"; do
     if [ "$name" = "$phase_name" ]; then
       PROGRESS_PHASE_STATUSES[$i]="done"
@@ -142,7 +142,7 @@ progress_phase_done() {
 progress_phase_skip() {
   local phase_name="$1"
 
-  local i=0
+  local i=0 name
   for name in "${PROGRESS_PHASE_NAMES[@]}"; do
     if [ "$name" = "$phase_name" ]; then
       PROGRESS_PHASE_STATUSES[$i]="skipped"
@@ -158,6 +158,7 @@ _render_phase_pipeline() {
   local output=""
   local i=0
   local total=${#PROGRESS_PHASE_NAMES[@]}
+  local name
 
   for name in "${PROGRESS_PHASE_NAMES[@]}"; do
     local status="${PROGRESS_PHASE_STATUSES[$i]}"
@@ -197,6 +198,7 @@ _phase_progress_short() {
 
   local done_count=0
   local total=${#PROGRESS_PHASE_NAMES[@]}
+  local status
 
   for status in "${PROGRESS_PHASE_STATUSES[@]}"; do
     if [ "$status" = "done" ]; then

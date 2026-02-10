@@ -1825,6 +1825,10 @@ run_all_phases() {
     progress_init_phases "$task_id" "$CURRENT_MODEL"
   fi
 
+  # Check for phase-level resume (skip already-completed phases)
+  local resume_from_phase=0
+  resume_from_phase=$(load_phase_progress "$task_id") || true
+
   local phase_idx=0
   local total_phases=${#PHASES[@]}
   for phase_def in "${PHASES[@]}"; do
@@ -1837,6 +1841,15 @@ run_all_phases() {
     fi
 
     IFS='|' read -r name prompt_file timeout skip <<< "$phase_def"
+
+    # Skip phases that already completed in a previous run
+    if [ "$phase_idx" -le "$resume_from_phase" ]; then
+      log_phase "Skipping $name (completed in previous run)"
+      if declare -f progress_phase_done &>/dev/null; then
+        progress_phase_done "$name"
+      fi
+      continue
+    fi
 
     # Check if this phase should be skipped due to approval gate
     if [ "${APPROVAL_SKIP_NEXT:-0}" = "1" ]; then
@@ -1865,10 +1878,11 @@ run_all_phases() {
       return 1
     fi
 
-    # Track phase completion
+    # Track phase completion and save progress for resume
     if declare -f progress_phase_done &>/dev/null; then
       progress_phase_done "$name"
     fi
+    save_phase_progress "$task_id" "$phase_idx" "$name"
 
     # Approval gate between phases
     if declare -f approval_gate &>/dev/null; then
@@ -1882,6 +1896,9 @@ run_all_phases() {
 
     sleep 1
   done
+
+  # All phases done - clear phase progress state
+  clear_phase_progress
 
   status_line_clear 2>/dev/null || true
   log_success "All phases completed for task: $task_id"
@@ -1919,6 +1936,48 @@ MODEL="${DOYAKEN_MODEL:-opus}"
 LOG_DIR="$RUN_LOG_DIR"
 EOF
   log_info "Session state saved: $session_id (iteration $iteration)"
+}
+
+# Save phase progress for a task (enables phase-level resume)
+save_phase_progress() {
+  local task_id="$1"
+  local phase_idx="$2"
+  local phase_name="$3"
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+
+  cat > "$progress_file" << EOF
+TASK_ID="$task_id"
+LAST_COMPLETED_PHASE="$phase_idx"
+LAST_COMPLETED_NAME="$phase_name"
+TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
+EOF
+}
+
+# Load phase progress for a task (returns last completed phase index, or 0)
+load_phase_progress() {
+  local task_id="$1"
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+
+  if [ -f "$progress_file" ] && [ "$AGENT_NO_RESUME" != "1" ]; then
+    local saved_task_id saved_phase_idx saved_phase_name
+    saved_task_id=$(grep '^TASK_ID=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    saved_phase_idx=$(grep '^LAST_COMPLETED_PHASE=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    saved_phase_name=$(grep '^LAST_COMPLETED_NAME=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+
+    if [ "$saved_task_id" = "$task_id" ] && [ -n "$saved_phase_idx" ]; then
+      log_heal "Found phase progress for $task_id: completed through $saved_phase_name ($saved_phase_idx/${#PHASES[@]})"
+      echo "$saved_phase_idx"
+      return 0
+    fi
+  fi
+  echo "0"
+  return 1
+}
+
+# Clear phase progress (called when all phases complete or task finishes)
+clear_phase_progress() {
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+  rm -f "$progress_file"
 }
 
 load_session() {
