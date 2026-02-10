@@ -74,7 +74,7 @@ _rl_prune_and_count() {
   while IFS= read -r ts; do
     if [ -n "$ts" ] && [ "$ts" -gt "$cutoff" ] 2>/dev/null; then
       echo "$ts" >> "$tmp_file"
-      ((count++))
+      ((++count))
     fi
   done < "$log_file"
 

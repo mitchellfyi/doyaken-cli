@@ -1109,7 +1109,7 @@ cmd_doctor() {
       if [ "$agent" = "$current_agent" ]; then
         log_error "$agent ($cmd) - NOT INSTALLED (selected agent!)"
         agent_install_instructions "$agent"
-        ((issues++))
+        ((++issues))
       else
         echo -e "  ${YELLOW}○${NC} $agent ($cmd) - not installed"
       fi
@@ -1132,7 +1132,7 @@ cmd_doctor() {
   else
     log_error "yq not found (required for project registry)"
     echo "  Install: brew install yq (macOS) or snap install yq (Ubuntu)"
-    ((issues++))
+    ((++issues))
   fi
 
   # Check global installation
@@ -1162,19 +1162,19 @@ cmd_doctor() {
       log_success "  tasks/todo exists"
     else
       log_error "  tasks/todo missing"
-      ((issues++))
+      ((++issues))
     fi
     if [ -d "$ai_agent_dir/tasks/3.doing" ] || [ -d "$ai_agent_dir/tasks/doing" ]; then
       log_success "  tasks/doing exists"
     else
       log_error "  tasks/doing missing"
-      ((issues++))
+      ((++issues))
     fi
     if [ -d "$ai_agent_dir/tasks/4.done" ] || [ -d "$ai_agent_dir/tasks/done" ]; then
       log_success "  tasks/done exists"
     else
       log_error "  tasks/done missing"
-      ((issues++))
+      ((++issues))
     fi
     [ -f "$ai_agent_dir/manifest.yaml" ] && log_success "  manifest.yaml exists" || log_warn "  manifest.yaml missing"
     [ -f "$project/AGENT.md" ] && log_success "  AGENT.md exists" || log_warn "  AGENT.md missing"

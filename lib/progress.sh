@@ -94,7 +94,7 @@ progress_init_phases() {
       else
         PROGRESS_PHASE_STATUSES+=("pending")
       fi
-      ((i++))
+      ((++i))
     done
   fi
 }
@@ -112,7 +112,7 @@ progress_phase_start() {
       PROGRESS_CURRENT_PHASE_IDX=$i
       break
     fi
-    ((i++))
+    ((++i))
   done
 
   if [ "$DISPLAY_PHASE_PROGRESS" = "1" ] && _is_tty; then
@@ -130,7 +130,7 @@ progress_phase_done() {
       PROGRESS_PHASE_STATUSES[$i]="done"
       break
     fi
-    ((i++))
+    ((++i))
   done
 
   if [ "$DISPLAY_PHASE_PROGRESS" = "1" ] && _is_tty; then
@@ -148,12 +148,12 @@ progress_phase_skip() {
       PROGRESS_PHASE_STATUSES[$i]="skipped"
       break
     fi
-    ((i++))
+    ((++i))
   done
 }
 
 # Render the phase pipeline indicator
-# Output: EXPAND ✓ → TRIAGE ✓ → PLAN ● → IMPLEMENT ○ → TEST ○ ...
+# Output: ✓ EXPAND → ✓ TRIAGE → ● PLAN → ○ IMPLEMENT → ○ TEST ...
 _render_phase_pipeline() {
   local output=""
   local i=0
@@ -170,19 +170,19 @@ _render_phase_pipeline() {
       *)       indicator="${DIM}○${NC}" ;;
     esac
 
-    # Color the phase name based on status
+    # Color the phase name based on status (indicator before name)
     case "$status" in
-      done)    output+="${GREEN}${name}${NC} ${indicator}" ;;
-      running) output+="${BOLD}${CYAN}${name}${NC} ${indicator}" ;;
-      skipped) output+="${DIM}${name}${NC} ${indicator}" ;;
-      *)       output+="${DIM}${name}${NC} ${indicator}" ;;
+      done)    output+="${indicator} ${GREEN}${name}${NC}" ;;
+      running) output+="${indicator} ${BOLD}${CYAN}${name}${NC}" ;;
+      skipped) output+="${indicator} ${DIM}${name}${NC}" ;;
+      *)       output+="${indicator} ${DIM}${name}${NC}" ;;
     esac
 
     if [ $((i + 1)) -lt "$total" ]; then
       output+=" → "
     fi
 
-    ((i++))
+    ((++i))
   done
 
   echo -e "  $output"
@@ -200,7 +200,7 @@ _phase_progress_short() {
 
   for status in "${PROGRESS_PHASE_STATUSES[@]}"; do
     if [ "$status" = "done" ]; then
-      ((done_count++))
+      ((++done_count))
     fi
   done
 
@@ -338,7 +338,7 @@ progress_filter_enhanced() {
   }
 
   while IFS= read -r line; do
-    ((line_count++))
+    ((++line_count))
 
     if command -v jq &>/dev/null; then
       local msg_type tool_name content

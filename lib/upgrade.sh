@@ -219,7 +219,7 @@ upgrade_verify() {
   for dir in lib bin; do
     if [ ! -d "$target_dir/$dir" ]; then
       _log_error "Missing directory: $dir/"
-      ((errors++))
+      ((++errors))
     fi
   done
 
@@ -227,7 +227,7 @@ upgrade_verify() {
   for file in lib/cli.sh lib/core.sh bin/doyaken; do
     if [ ! -f "$target_dir/$file" ]; then
       _log_error "Missing file: $file"
-      ((errors++))
+      ((++errors))
     fi
   done
 
@@ -242,7 +242,7 @@ upgrade_verify() {
       [ -z "$file" ] && continue
       if [ ! -f "$target_dir/$file" ]; then
         _log_warn "Missing: $file"
-        ((errors++))
+        ((++errors))
       fi
     done <<< "$files"
   fi
@@ -395,7 +395,7 @@ upgrade_preview() {
 
       if [ ! -f "$target_dir/$file" ]; then
         echo -e "  ${GREEN}+ $file${NC}"
-        ((added++))
+        ((++added))
       elif [ "$category" = "overwrite" ]; then
         # Check if file changed
         local source_sum target_sum
@@ -404,10 +404,10 @@ upgrade_preview() {
 
         if [ "$source_sum" != "$target_sum" ]; then
           echo -e "  ${CYAN}~ $file${NC}"
-          ((updated++))
+          ((++updated))
         fi
       elif [ "$category" = "preserve" ]; then
-        ((preserved++))
+        ((++preserved))
       fi
     done <<< "$source_files"
 
@@ -423,7 +423,7 @@ upgrade_preview() {
       esac
       if [ -f "$target_dir/$file" ]; then
         echo -e "  ${RED}- $file${NC} (obsolete)"
-        ((removed++))
+        ((++removed))
       fi
     done <<< "$obsolete_files"
   else
@@ -554,14 +554,14 @@ upgrade_apply() {
         overwrite)
           if ! _copy_file "$src" "$dst"; then
             _log_error "Failed to copy: $file"
-            ((errors++))
+            ((++errors))
           fi
           ;;
         preserve)
           if [ ! -f "$dst" ]; then
             if ! _copy_file "$src" "$dst"; then
               _log_error "Failed to copy: $file"
-              ((errors++))
+              ((++errors))
             fi
           fi
           ;;
@@ -569,7 +569,7 @@ upgrade_apply() {
           if [ ! -f "$dst" ]; then
             if ! _copy_file "$src" "$dst"; then
               _log_error "Failed to copy: $file"
-              ((errors++))
+              ((++errors))
             fi
           else
             # Check if template has newer version
@@ -625,7 +625,7 @@ upgrade_apply() {
         if [ "$file_count" -gt 0 ]; then
           if ! /bin/cp -rf "$source_dir/$dir"/* "$target_dir/$dir/" 2>&1; then
             _log_error "Failed to copy $dir/ directory"
-            ((errors++))
+            ((++errors))
           fi
         fi
       fi
@@ -641,11 +641,11 @@ upgrade_apply() {
           chmod +x "$target_dir/bin/doyaken"
           _log_success "Direct copy succeeded"
         else
-          ((errors++))
+          ((++errors))
         fi
       else
         _log_error "Source bin/doyaken not found at $source_dir/bin/doyaken"
-        ((errors++))
+        ((++errors))
       fi
     fi
 

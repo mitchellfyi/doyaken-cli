@@ -885,7 +885,7 @@ progress_filter() {
   }
 
   while IFS= read -r line; do
-    ((line_count++))
+    ((++line_count))
 
     # Show "connected" on very first line received from agent
     if [ "$line_count" -eq 1 ]; then
@@ -893,47 +893,78 @@ progress_filter() {
     fi
 
     if command -v jq &>/dev/null; then
-      local msg_type tool_name content
+      local msg_type
       msg_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
 
       case "$msg_type" in
         "assistant")
-          content=$(echo "$line" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 160)
-          if [ -n "$content" ]; then
-            show_status "💭 ${content}..."
-          fi
-          ;;
-        "content_block_start")
-          local block_type
-          block_type=$(echo "$line" | jq -r '.content_block.type // empty' 2>/dev/null)
-          if [ "$block_type" = "tool_use" ]; then
-            tool_name=$(echo "$line" | jq -r '.content_block.name // empty' 2>/dev/null)
-            if [ -n "$tool_name" ] && [ "$tool_name" != "$last_tool" ]; then
-              last_tool="$tool_name"
-              show_status "🔧 $tool_name"
+          # Extract tool calls with context (file name, pattern, command desc)
+          local tool_detail
+          tool_detail=$(echo "$line" | jq -r '
+            [.message.content[] | select(.type == "tool_use") |
+              .name + (
+                if .name == "Read" or .name == "Edit" or .name == "Write" then
+                  " " + (.input.file_path // "" | split("/") | last)
+                elif .name == "Glob" then " " + (.input.pattern // "")
+                elif .name == "Grep" then " \"" + ((.input.pattern // "")[:40]) + "\""
+                elif .name == "Bash" then " " + ((.input.description // .input.command // "")[:50])
+                elif .name == "Task" then " " + ((.input.description // "")[:40])
+                else ""
+                end
+              )
+            ] | join("  →  ")' 2>/dev/null)
+          if [ -n "$tool_detail" ]; then
+            show_status "🔧 $tool_detail"
+            last_tool="$tool_detail"
+          else
+            # No tools - show text content (thinking)
+            local content
+            content=$(echo "$line" | jq -r '
+              [.message.content[] | select(.type == "text") | .text] |
+              join("") | gsub("\n"; " ") | .[:120]' 2>/dev/null)
+            if [ -n "$content" ]; then
+              show_status "💭 ${content}"
             fi
           fi
           ;;
-        "result")
-          local subtype cost_usd
-          subtype=$(echo "$line" | jq -r '.subtype // empty' 2>/dev/null)
-          cost_usd=$(echo "$line" | jq -r '.cost_usd // empty' 2>/dev/null)
-          if [ "$subtype" = "success" ]; then
-            show_status "✓ Done"
-          elif [ -n "$cost_usd" ]; then
-            show_status "💰 \$$cost_usd"
+        "user")
+          # Tool results - show brief stdout summary
+          local tool_stdout
+          tool_stdout=$(echo "$line" | jq -r '
+            if .tool_use_result.stdout then
+              .tool_use_result.stdout | gsub("\n"; " ") | .[:80]
+            else empty end' 2>/dev/null)
+          if [ -n "$tool_stdout" ]; then
+            show_status "📎 ${tool_stdout}"
           fi
           ;;
+        "result")
+          local subtype cost_usd duration_ms num_turns
+          subtype=$(echo "$line" | jq -r '.subtype // empty' 2>/dev/null)
+          cost_usd=$(echo "$line" | jq -r '.cost_usd // empty' 2>/dev/null)
+          duration_ms=$(echo "$line" | jq -r '.duration_ms // empty' 2>/dev/null)
+          num_turns=$(echo "$line" | jq -r '.num_turns // empty' 2>/dev/null)
+          if [ "$subtype" = "success" ]; then
+            local duration_s=""
+            [ -n "$duration_ms" ] && duration_s="$(( duration_ms / 1000 ))s"
+            show_status "✅ Done (${num_turns:-?} turns, ${duration_s:-?}, \$${cost_usd:-?})"
+          else
+            show_status "❌ Failed: $subtype (\$${cost_usd:-?})"
+          fi
+          ;;
+        "system")
+          local model
+          model=$(echo "$line" | jq -r '.model // empty' 2>/dev/null)
+          show_status "⋯ session started${model:+ ($model)}"
+          ;;
         *)
-          # Show more frequently in first 30 lines (startup), then every 10th
-          if [ "$line_count" -le 30 ] && [ $((line_count % 3)) -eq 0 ]; then
-            show_status "⋯ working"
-          elif [ $((line_count % 10)) -eq 0 ]; then
+          if [ $((line_count % 10)) -eq 0 ]; then
             show_status "⋯ working"
           fi
           ;;
       esac
     else
+      # Fallback without jq
       if echo "$line" | grep -q '"tool_use"'; then
         local tool
         tool=$(echo "$line" | grep -oE '"name":"[^"]+"' | head -1 | cut -d'"' -f4)
@@ -941,11 +972,9 @@ progress_filter() {
           last_tool="$tool"
           show_status "🔧 $tool"
         fi
-      elif echo "$line" | grep -q '"result"'; then
-        show_status "✓ Done"
-      elif [ "$line_count" -le 30 ] && [ $((line_count % 3)) -eq 0 ]; then
-        show_status "⋯ working"
-      elif [ $((line_count % 10)) -eq 0 ]; then
+      elif echo "$line" | grep -q '"type":"result"'; then
+        show_status "✅ Done"
+      elif [ $((line_count % 5)) -eq 0 ]; then
         show_status "⋯ working"
       fi
     fi
@@ -1481,11 +1510,19 @@ run_phase_once() {
   local task_id="$4"
   local task_file="$5"
   local attempt="$6"
+  local phase_idx="${7:-}"
+  local total_phases="${8:-}"
   local phase_name_lower
   phase_name_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
   local phase_log="$RUN_LOG_DIR/phase-${phase_name_lower}-$task_id-attempt${attempt}.log"
 
-  log_phase "Starting $phase_name phase (attempt $attempt)"
+  # Build phase label with index for clear identification
+  local phase_label="$phase_name"
+  if [ -n "$phase_idx" ] && [ -n "$total_phases" ]; then
+    phase_label="[$phase_idx/$total_phases] $phase_name"
+  fi
+
+  log_phase "Starting $phase_label phase (attempt $attempt)"
   echo "  Agent: $CURRENT_AGENT"
   echo "  Model: $CURRENT_MODEL"
   echo "  Timeout: ${timeout}s"
@@ -1519,7 +1556,7 @@ run_phase_once() {
 
   echo ""
   echo -e "${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
-  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_name (attempt $attempt) [$CURRENT_AGENT]${NC}"
+  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_label (attempt $attempt) [$CURRENT_AGENT]${NC}"
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
@@ -1542,7 +1579,7 @@ run_phase_once() {
     rate_limit_record
   fi
 
-  echo -e "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent..."
+  echo -e "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent for $phase_label..."
 
   # Build agent command using abstraction functions
   # Each agent uses its correct autonomous mode flags
@@ -1565,9 +1602,9 @@ run_phase_once() {
 
       if [ "$output_mode" = "progress" ]; then
         if [ -n "$timeout_cmd" ]; then
-          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" || exit_code=$?
         else
-          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" || exit_code=$?
         fi
       else
         if [ -n "$timeout_cmd" ]; then
@@ -1710,6 +1747,8 @@ run_phase() {
   local skip="$4"
   local task_id="$5"
   local task_file="$6"
+  local phase_idx="${7:-}"
+  local total_phases="${8:-}"
 
   if [ "$skip" = "1" ]; then
     log_phase "Skipping $phase_name (disabled)"
@@ -1727,7 +1766,7 @@ run_phase() {
 
   while [ "$attempt" -le "$max_attempts" ]; do
     local result=0
-    run_phase_once "$phase_name" "$prompt_file" "$timeout" "$task_id" "$task_file" "$attempt" || result=$?
+    run_phase_once "$phase_name" "$prompt_file" "$timeout" "$task_id" "$task_file" "$attempt" "$phase_idx" "$total_phases" || result=$?
 
     case $result in
       0)
@@ -1759,7 +1798,7 @@ run_phase() {
         ;;
     esac
 
-    ((attempt++))
+    ((++attempt))
   done
 
   log_error "$phase_name failed after $max_attempts attempts - check logs: $RUN_LOG_DIR/phase-*"
@@ -1777,7 +1816,10 @@ run_all_phases() {
     progress_init_phases "$task_id" "$CURRENT_MODEL"
   fi
 
+  local phase_idx=0
+  local total_phases=${#PHASES[@]}
   for phase_def in "${PHASES[@]}"; do
+    ((++phase_idx))
     # Check for interrupt before starting next phase
     if [ "$INTERRUPTED" = "1" ]; then
       log_warn "Interrupted - stopping phase execution"
@@ -1803,7 +1845,7 @@ run_all_phases() {
     fi
 
     local phase_result=0
-    run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file" || phase_result=$?
+    run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file" "$phase_idx" "$total_phases" || phase_result=$?
 
     if [ "$phase_result" -eq 130 ]; then
       status_line_clear 2>/dev/null || true
@@ -1932,7 +1974,7 @@ health_check() {
   if ! command -v "$agent_cmd" &> /dev/null; then
     log_error "$CURRENT_AGENT CLI ($agent_cmd) not found"
     agent_install_instructions "$CURRENT_AGENT"
-    ((issues++))
+    ((++issues))
   else
     log_success "$CURRENT_AGENT CLI ($agent_cmd) available"
   fi
@@ -2331,12 +2373,12 @@ run_with_retry() {
       return 0
     fi
 
-    ((attempt++))
+    ((++attempt))
   done
 
   log_error "All $max_retries retry attempts failed for iteration $iteration"
   log_info "Troubleshooting: check logs in $RUN_LOG_DIR, or increase AGENT_MAX_RETRIES"
-  ((CONSECUTIVE_FAILURES++))
+  ((++CONSECUTIVE_FAILURES))
 
   # Record failure in circuit breaker (replaces old naive threshold)
   if declare -f cb_record_iteration &>/dev/null; then
@@ -2652,7 +2694,7 @@ main() {
     run_with_retry "$i" || retry_result=$?
 
     if [ "$retry_result" -eq 0 ]; then
-      ((completed++))
+      ((++completed))
       # Track for periodic review
       review_tracker_increment > /dev/null 2>&1 || true
     elif [ "$retry_result" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
@@ -2663,10 +2705,10 @@ main() {
       available=$(get_next_available_task) || true
       if [ -z "$available" ] && [ "$(count_tasks todo)" -eq 0 ]; then
         log_info "No more tasks available - stopping early"
-        ((skipped++))
+        ((++skipped))
         break
       fi
-      ((failed++))
+      ((++failed))
       log_warn "Moving to next task after exhausting retries..."
     fi
 

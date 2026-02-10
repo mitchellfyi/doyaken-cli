@@ -215,7 +215,7 @@ ed_evaluate_completion() {
   fi
 
   # Low confidence
-  ((ED_LOW_CONFIDENCE_COUNT++))
+  ((++ED_LOW_CONFIDENCE_COUNT))
 
   if [ "$ED_LOW_CONFIDENCE_COUNT" -ge "$ED_LOW_CONFIDENCE_WARN" ]; then
     if declare -f log_warn &>/dev/null; then
