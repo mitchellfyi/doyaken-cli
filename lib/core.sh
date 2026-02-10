@@ -726,11 +726,11 @@ SKIP_VERIFY="${SKIP_VERIFY:-0}"
 TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-900}"
 TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-540}"
 TIMEOUT_PLAN="${TIMEOUT_PLAN:-900}"
-TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-5400}"
-TIMEOUT_TEST="${TIMEOUT_TEST:-1800}"
+TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-7200}"
+TIMEOUT_TEST="${TIMEOUT_TEST:-3600}"
 TIMEOUT_DOCS="${TIMEOUT_DOCS:-900}"
 TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-1800}"
-TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-900}"
+TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-1800}"
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(
@@ -1485,9 +1485,16 @@ build_phase_prompt() {
   local template
   template=$(cat "$prompt_path")
 
-  local recent_commits=""
-  if [[ "$prompt_file" == *"review"* ]]; then
+  # Context variables for downstream phases (4-test through 7-verify)
+  # These give later phases visibility into what earlier phases changed
+  local recent_commits="" changed_files="" task_commits=""
+  if [[ "$prompt_file" == *"review"* ]] || [[ "$prompt_file" == *"verify"* ]]; then
     recent_commits=$(git log --oneline -10 --grep="$task_id" 2>/dev/null || echo "(no commits yet)")
+  fi
+  if [[ "$prompt_file" == *"test"* ]] || [[ "$prompt_file" == *"docs"* ]] || \
+     [[ "$prompt_file" == *"review"* ]] || [[ "$prompt_file" == *"verify"* ]]; then
+    changed_files=$(git diff main...HEAD --name-only 2>/dev/null | head -30 || echo "(unable to determine)")
+    task_commits=$(git log --oneline -15 --grep="$task_id" 2>/dev/null || echo "(no commits yet)")
   fi
 
   local prompt="$template"
@@ -1495,6 +1502,8 @@ build_phase_prompt() {
   prompt="${prompt//\{\{TASK_FILE\}\}/$task_file}"
   prompt="${prompt//\{\{TIMESTAMP\}\}/$timestamp}"
   prompt="${prompt//\{\{RECENT_COMMITS\}\}/$recent_commits}"
+  prompt="${prompt//\{\{CHANGED_FILES\}\}/$changed_files}"
+  prompt="${prompt//\{\{TASK_COMMITS\}\}/$task_commits}"
   prompt="${prompt//\{\{AGENT_ID\}\}/$AGENT_ID}"
 
   # Process {{include:path}} directives

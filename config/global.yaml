@@ -94,10 +94,10 @@ timeouts:
   plan: 900        # 15 minutes
 
   # IMPLEMENT: Execute the plan, write code
-  implement: 5400  # 90 minutes
+  implement: 7200  # 120 minutes
 
   # TEST: Run tests, add coverage
-  test: 1800       # 30 minutes
+  test: 3600       # 60 minutes
 
   # DOCS: Sync documentation
   docs: 900        # 15 minutes
@@ -106,7 +106,7 @@ timeouts:
   review: 1800     # 30 minutes
 
   # VERIFY: Verify task management, commit task files
-  verify: 900      # 15 minutes
+  verify: 1800     # 30 minutes
 
 # ============================================================================
 # Skip Phases

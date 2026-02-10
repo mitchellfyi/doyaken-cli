@@ -161,11 +161,11 @@ load_timeout_config() {
   _load_config "TIMEOUT_EXPAND"    "timeouts.expand"    "900"  "$manifest_file"
   _load_config "TIMEOUT_TRIAGE"    "timeouts.triage"    "540"  "$manifest_file"
   _load_config "TIMEOUT_PLAN"      "timeouts.plan"      "900"  "$manifest_file"
-  _load_config "TIMEOUT_IMPLEMENT" "timeouts.implement" "5400" "$manifest_file"
-  _load_config "TIMEOUT_TEST"      "timeouts.test"      "1800" "$manifest_file"
+  _load_config "TIMEOUT_IMPLEMENT" "timeouts.implement" "7200" "$manifest_file"
+  _load_config "TIMEOUT_TEST"      "timeouts.test"      "3600" "$manifest_file"
   _load_config "TIMEOUT_DOCS"      "timeouts.docs"      "900"  "$manifest_file"
   _load_config "TIMEOUT_REVIEW"    "timeouts.review"    "1800" "$manifest_file"
-  _load_config "TIMEOUT_VERIFY"    "timeouts.verify"    "900"  "$manifest_file"
+  _load_config "TIMEOUT_VERIFY"    "timeouts.verify"    "1800" "$manifest_file"
 }
 
 # ============================================================================

@@ -2,6 +2,22 @@
 
 You are synchronizing documentation for task **{{TASK_ID}}**.
 
+## Context from Previous Phases
+
+**Read the task file's Work Log first** for what previous phases accomplished.
+
+Files changed on this branch:
+```
+{{CHANGED_FILES}}
+```
+
+Commits for this task:
+```
+{{TASK_COMMITS}}
+```
+
+Focus documentation updates on the files listed above.
+
 ## Methodology
 
 {{include:library/docs.md}}

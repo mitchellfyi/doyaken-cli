@@ -2,6 +2,22 @@
 
 You are verifying task **{{TASK_ID}}** is complete and CI passes.
 
+## Context from Previous Phases
+
+**Read the task file's Work Log first** for the full history.
+
+Files changed on this branch:
+```
+{{CHANGED_FILES}}
+```
+
+Commits for this task:
+```
+{{TASK_COMMITS}}
+```
+
+Verify these specific files and commits against acceptance criteria.
+
 ## Methodology
 
 {{include:library/ci.md}}

@@ -2,6 +2,22 @@
 
 You are performing final review for task **{{TASK_ID}}**.
 
+## Context from Previous Phases
+
+**Read the task file's Work Log first** for the full history of this task across all phases.
+
+Files changed on this branch:
+```
+{{CHANGED_FILES}}
+```
+
+Commits for this task:
+```
+{{TASK_COMMITS}}
+```
+
+Review these specific files and commits. Do not waste time re-discovering what changed.
+
 ## Methodology
 
 {{include:library/review.md}}

@@ -2,13 +2,29 @@
 
 You are testing the implementation for task **{{TASK_ID}}**.
 
+## Context from Previous Phases
+
+**Read the task file's Work Log first** for what EXPAND, TRIAGE, PLAN, and IMPLEMENT accomplished.
+
+Files changed on this branch:
+```
+{{CHANGED_FILES}}
+```
+
+Commits for this task:
+```
+{{TASK_COMMITS}}
+```
+
+Use the changed files list to determine which tests are most relevant. Find the corresponding test files for modified source files (check the project's test directory structure and naming conventions). Run those first for fast feedback, then run the full suite as a regression check.
+
 ## Methodology
 
 {{include:library/testing.md}}
 
 ## Phase Instructions
 
-1. **Run existing tests** - All must pass before writing new tests
+1. **Run relevant tests first** - Identify test files that correspond to the changed source files listed above. Run those specific tests first. If they pass, run the full test suite as a regression check. If the change is widespread or you can't determine the mapping, run the full suite immediately.
 2. **Write new tests** - Cover new/modified public functions
 3. **Run quality gates** - lint, typecheck, tests, build
 4. **Validate CI compatibility** - Ensure tests will pass in CI

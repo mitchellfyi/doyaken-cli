@@ -64,6 +64,16 @@ Structure every test:
 | **Interdependent** | Fail when run alone | Isolate each test |
 | **No assertions** | Proves nothing | Add meaningful assertions |
 
+## Test Selection Strategy
+
+When working in a project with many test files, run tests in this order:
+
+1. **Targeted first** - Run only tests for changed modules (map source files to their test files by naming convention and directory structure)
+2. **Full suite second** - Run the complete test suite to catch regressions
+3. **Integration last** - Run integration tests only after unit tests pass
+
+When in doubt about which tests are relevant, run everything.
+
 ## Checklist
 
 - [ ] All existing tests pass
