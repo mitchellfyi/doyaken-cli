@@ -35,6 +35,9 @@ coverage/
 dist/
 build/
 
+# Runtime data
+projects/
+
 # Local dev
 .env
 .env.local

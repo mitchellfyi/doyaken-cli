@@ -6,6 +6,7 @@
 - **CI environments differ** - Different OS, versions, missing tools
 - **Fail fast, fix fast** - Verify before committing
 - **CI failures are blockers** - Task is not complete until CI passes
+- **Supply chain security matters** - Pin actions, scope permissions, audit dependencies
 
 ## Common Failure Patterns
 
@@ -47,6 +48,30 @@
 4. **Fix and verify** - Push and watch CI
 5. **Iterate until green**
 
+## CI/CD Hardening
+
+### Supply Chain Security
+- Pin all third-party actions to full SHA hashes (not tags)
+- Example: `uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2`
+- Never use `@main` or `@master` for third-party actions
+
+### Least-Privilege Permissions
+- Declare explicit `permissions:` at the job level
+- Only grant what each job needs (e.g., `contents: read`)
+- Never use top-level `permissions: write-all`
+
+### Deploy Safety
+- Use concurrency groups to prevent parallel deploys
+- Add deploy summary steps with commit SHA and timestamp
+- Require CI to pass before deploy
+- Maintain a rollback workflow for emergencies
+
+### Branch Protection
+- Require CI status checks to pass before merge
+- Require at least one approval
+- Disable force pushes to main
+- Prefer squash or rebase merges for linear history
+
 ## CI Compatibility Checklist
 
 - [ ] Scripts have shebang (`#!/usr/bin/env bash`)
@@ -54,3 +79,5 @@
 - [ ] No hardcoded paths
 - [ ] Tests don't require unavailable secrets
 - [ ] No flaky tests (timing/order dependent)
+- [ ] Actions pinned to full SHA hashes
+- [ ] Job-level permissions declared

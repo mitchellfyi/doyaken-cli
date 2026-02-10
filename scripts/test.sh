@@ -142,7 +142,7 @@ else
 fi
 
 # Test 10: Core skills exist
-for skill in setup-quality.md check-quality.md audit-deps.md audit-security.md audit-performance.md audit-debt.md audit-ux.md sync-agents.md review-codebase.md research-features.md workflow.md mcp-status.md; do
+for skill in setup-quality.md check-quality.md audit-deps.md audit-security.md audit-performance.md audit-debt.md audit-ux.md sync-agents.md review-codebase.md research-features.md workflow.md mcp-status.md ci.md; do
   if [ -f "$ROOT_DIR/skills/$skill" ]; then
     pass "skills/$skill exists"
   else

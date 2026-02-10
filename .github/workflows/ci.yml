@@ -10,10 +10,12 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -26,10 +28,12 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install yq
         run: |
@@ -54,19 +58,32 @@ jobs:
     name: Test
     runs-on: ${{ matrix.os }}
     needs: [lint, validate]
+    permissions:
+      contents: read
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
 
       - name: Make scripts executable
-        run: chmod +x bin/doyaken lib/*.sh scripts/*.sh install.sh
+        run: chmod +x bin/doyaken lib/*.sh scripts/*.sh install.sh test/run-bats.sh
 
-      - name: Run tests
+      - name: Run basic tests
         run: ./scripts/test.sh
+
+      - name: Install bats
+        run: npm install
+
+      - name: Run bats tests
+        run: ./test/run-bats.sh
 
       - name: Test CLI commands
         run: |
@@ -78,13 +95,15 @@ jobs:
     name: Package
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
@@ -104,17 +123,30 @@ jobs:
       - name: Test npm pack
         run: npm pack --dry-run
 
+      - name: Security audit
+        run: |
+          # Ensure a lockfile exists; if not, generate one for the audit only
+          if [ ! -f package-lock.json ] && [ ! -f npm-shrinkwrap.json ]; then
+            echo "No lockfile found, generating a temporary package-lock.json for audit..."
+            npm install --package-lock-only --ignore-scripts
+          fi
+
+          # Fail the build on high and critical vulnerabilities in production deps
+          npm audit --omit=dev --audit-level=high
+
   install-test:
     name: Install Test
     runs-on: ${{ matrix.os }}
     needs: test
+    permissions:
+      contents: read
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Test install script (dry run check)
         run: bash -n install.sh
