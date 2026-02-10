@@ -20,6 +20,13 @@ Project: {{DOYAKEN_PROJECT}}
 Run ID: {{ARGS.run-id}}
 Auto-fix: {{ARGS.auto-fix}}
 
+## Self-Healing CI
+
+This project has an **automated self-healing CI system** that creates issues when CI fails on `main`. If you're working on a CI fix issue with the `ci-fix` and `automated` labels, you were likely assigned automatically.
+
+For details on the self-healing system, see:
+{{include:library/self-healing-ci.md}}
+
 ## CI Best Practices
 
 {{include:library/ci.md}}
