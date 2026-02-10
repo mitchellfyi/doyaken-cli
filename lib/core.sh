@@ -62,6 +62,9 @@ source "$SCRIPT_DIR/progress.sh"
 # Source circuit breaker
 source "$SCRIPT_DIR/circuit_breaker.sh"
 
+# Source rate limiter
+source "$SCRIPT_DIR/rate_limiter.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -652,6 +655,11 @@ fi
 # Load circuit breaker configuration
 if declare -f load_circuit_breaker_config &>/dev/null; then
   load_circuit_breaker_config "$MANIFEST_FILE"
+fi
+
+# Load rate limiter configuration
+if declare -f load_rate_limiter_config &>/dev/null; then
+  load_rate_limiter_config "$MANIFEST_FILE"
 fi
 
 # Project-specific directories
@@ -1484,6 +1492,16 @@ run_phase_once() {
 
   local exit_code=0
 
+  # Proactive rate limit check before agent invocation
+  if declare -f rate_limit_check &>/dev/null; then
+    local rl_result=0
+    rate_limit_check "$phase_name" || rl_result=$?
+    if [ "$rl_result" -ne 0 ]; then
+      log_warn "Rate limit wait interrupted — aborting $phase_name"
+      return 130
+    fi
+  fi
+
   echo ""
   echo -e "${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
   echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_name (attempt $attempt) [$CURRENT_AGENT]${NC}"
@@ -1499,6 +1517,11 @@ run_phase_once() {
     timeout_cmd="gtimeout"
   elif command -v timeout &> /dev/null; then
     timeout_cmd="timeout"
+  fi
+
+  # Record invocation for rate limiting
+  if declare -f rate_limit_record &>/dev/null; then
+    rate_limit_record
   fi
 
   # Build agent command using abstraction functions
