@@ -38,6 +38,19 @@ Step [N]: [description]
 - Reason: [why]
 ```
 
+## Completion Signal
+
+When you are done with this phase, include a structured status block in your output:
+
+```
+DOYAKEN_STATUS:
+  PHASE_COMPLETE: true/false
+  FILES_MODIFIED: <count>
+  TESTS_STATUS: pass/fail/skip/unknown
+  CONFIDENCE: high/medium/low
+  REMAINING_WORK: <brief description or "none">
+```
+
 ## Rules
 
 - **VERIFY after every file change** - don't accumulate broken state

@@ -65,6 +65,9 @@ source "$SCRIPT_DIR/circuit_breaker.sh"
 # Source rate limiter
 source "$SCRIPT_DIR/rate_limiter.sh"
 
+# Source exit detection
+source "$SCRIPT_DIR/exit_detection.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -2345,6 +2348,11 @@ run_agent_iteration() {
 
   save_session "$session_id" "$iteration" "running"
 
+  # Reset exit detection counters for new task
+  if declare -f ed_reset &>/dev/null; then
+    ed_reset
+  fi
+
   show_task_summary
 
   local task_file
@@ -2429,6 +2437,17 @@ run_agent_iteration() {
   fi
 
   if [ "$exit_code" -eq 0 ]; then
+    # Run exit detection confidence scoring
+    if declare -f ed_evaluate_completion &>/dev/null; then
+      local last_log=""
+      last_log=$(ls -t "$RUN_LOG_DIR"/phase-*.log 2>/dev/null | head -1 || echo "")
+      local ed_result=0
+      ed_evaluate_completion "$last_log" "$task_id" "$PROJECT_DIR" "$TASKS_DIR" || ed_result=$?
+      if [ "$ed_result" -eq 2 ]; then
+        log_warn "Repeated low-confidence completions — proceeding but flagging for review"
+      fi
+    fi
+
     log_success "Task iteration completed successfully"
     save_session "$session_id" "$iteration" "completed"
 
