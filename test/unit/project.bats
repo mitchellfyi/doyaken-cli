@@ -325,3 +325,73 @@ EOF
   [ "$status" -eq 1 ]
   [[ "$output" == *"does not match"* ]]
 }
+
+@test "rename_task_priority: preserves all non-priority file content" {
+  _create_test_task "$TEST_TEMP_DIR" "003-001-my-task.md" "003" "Medium"
+  # Add extra content after the metadata
+  cat >> "$TEST_TEMP_DIR/003-001-my-task.md" << 'EXTRA'
+
+## Work Log
+
+### 2026-01-01 - Created
+
+- Task created via CLI
+EXTRA
+
+  run rename_task_priority "$TEST_TEMP_DIR/003-001-my-task.md" "002"
+  [ "$status" -eq 0 ]
+
+  # All non-priority content should be preserved
+  grep -q '`003-001-my-task`' "$TEST_TEMP_DIR/002-001-my-task.md"
+  grep -q '`todo`' "$TEST_TEMP_DIR/002-001-my-task.md"
+  grep -q '## Work Log' "$TEST_TEMP_DIR/002-001-my-task.md"
+  grep -q 'Task created via CLI' "$TEST_TEMP_DIR/002-001-my-task.md"
+}
+
+@test "rename_task_priority: handles file without Priority metadata row" {
+  mkdir -p "$TEST_TEMP_DIR"
+  cat > "$TEST_TEMP_DIR/003-001-minimal.md" << 'EOF'
+# Task: Minimal Task
+
+No metadata table here.
+EOF
+
+  run rename_task_priority "$TEST_TEMP_DIR/003-001-minimal.md" "001"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TEST_TEMP_DIR/001-001-minimal.md" ]
+
+  # File should be renamed
+  [ -f "$TEST_TEMP_DIR/001-001-minimal.md" ]
+  [ ! -f "$TEST_TEMP_DIR/003-001-minimal.md" ]
+  # Content should be preserved (no Priority line to update)
+  grep -q 'No metadata table here' "$TEST_TEMP_DIR/001-001-minimal.md"
+}
+
+@test "rename_task_priority: returns error for empty priority" {
+  _create_test_task "$TEST_TEMP_DIR" "003-001-my-task.md" "003" "Medium"
+
+  run rename_task_priority "$TEST_TEMP_DIR/003-001-my-task.md" ""
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"invalid priority format"* ]]
+}
+
+@test "rename_task_priority: works with filename that has no sequence number" {
+  # Filename like 003-my-simple-task.md (no SSS part, just PPP-rest)
+  mkdir -p "$TEST_TEMP_DIR"
+  cat > "$TEST_TEMP_DIR/003-my-simple-task.md" << 'EOF'
+# Task: Simple
+| Priority    | `003` Medium                                   |
+EOF
+
+  run rename_task_priority "$TEST_TEMP_DIR/003-my-simple-task.md" "001"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TEST_TEMP_DIR/001-my-simple-task.md" ]
+  [ -f "$TEST_TEMP_DIR/001-my-simple-task.md" ]
+  grep -q '`001` Critical' "$TEST_TEMP_DIR/001-my-simple-task.md"
+}
+
+@test "get_priority_label: empty input returns Unknown" {
+  run get_priority_label ""
+  [ "$status" -eq 0 ]
+  [ "$output" = "Unknown" ]
+}
