@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `001-007-interactive-chat-mode-core`                   |
-| Status      | `todo`                                                 |
+| Status      | `done`                                                 |
 | Priority    | `001` Critical                                         |
 | Created     | `2026-02-06 15:30`                                     |
 | Started     |                                                        |
-| Completed   |                                                        |
+| Completed   | `2026-02-10 12:00`                                     |
 | Blocked By  |                                                        |
 | Blocks      | 002-007, 002-008, 002-009, 002-010, 002-011            |
 | Assigned To | `worker-1` |
@@ -66,12 +66,12 @@ Add an interactive REPL mode (`dk chat` or `doyaken --interactive`) that allows 
 
 ## Success Criteria
 
-- [ ] `dk chat` enters interactive mode with prompt
-- [ ] User can type messages and get AI responses
-- [ ] `/help`, `/quit`, `/clear`, `/status` work
-- [ ] Ctrl+C cancels current agent operation without exiting
-- [ ] Input history persists between sessions
-- [ ] Existing batch mode (`dk run`) unchanged
+- [x] `dk chat` enters interactive mode with prompt
+- [x] User can type messages and get AI responses
+- [x] `/help`, `/quit`, `/clear`, `/status` work
+- [x] Ctrl+C cancels current agent operation without exiting
+- [x] Input history persists between sessions
+- [x] Existing batch mode (`dk run`) unchanged
 
 ## Research Reference
 

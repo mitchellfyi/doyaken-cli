@@ -19,6 +19,7 @@ ${BOLD}USAGE:${NC}
 ${BOLD}COMMANDS:${NC}
   ${CYAN}(none)${NC}              Run 5 tasks in auto-detected project
   ${CYAN}run${NC} [N]             Run N tasks (default: 5)
+  ${CYAN}chat${NC}                Interactive chat/REPL mode
   ${CYAN}init${NC} [path]         Initialize a new project
   ${CYAN}register${NC}            Register current project in global registry
   ${CYAN}unregister${NC}          Remove current project from registry
@@ -178,6 +179,35 @@ ${BOLD}DESCRIPTION:${NC}
 ${BOLD}EXAMPLES:${NC}
   doyaken task "Fix the login bug"
   doyaken task "Add error handling to the API"
+
+EOF
+      ;;
+    chat)
+      cat << EOF
+${BOLD}doyaken chat${NC} - Interactive chat/REPL mode
+
+${BOLD}USAGE:${NC}
+  doyaken chat
+
+${BOLD}DESCRIPTION:${NC}
+  Enters an interactive REPL where you can have a conversation with the
+  AI agent. Send messages, use slash commands, and see streaming output.
+
+${BOLD}SLASH COMMANDS:${NC}
+  /help       Show available commands
+  /status     Show project and session status
+  /clear      Clear the screen
+  /quit       Exit interactive mode (also: /exit, Ctrl+D)
+
+${BOLD}KEYBOARD:${NC}
+  Ctrl+C      Cancel running agent operation
+  Ctrl+D      Exit interactive mode
+  Up/Down     Navigate input history
+
+${BOLD}EXAMPLES:${NC}
+  doyaken chat                        # Start interactive session
+  dk chat                             # Short alias
+  dk --agent codex chat               # Chat with Codex agent
 
 EOF
       ;;

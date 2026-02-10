@@ -38,6 +38,7 @@ source "$SCRIPT_DIR/hooks.sh"
 source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/upgrade.sh"
 source "$SCRIPT_DIR/review-tracker.sh"
+source "$SCRIPT_DIR/interactive.sh"
 
 # ============================================================================
 # Commands
@@ -98,6 +99,28 @@ cmd_run() {
   fi
 
   exec "$core_script" "$num_tasks"
+}
+
+cmd_chat() {
+  # Detect project (optional for chat mode)
+  local project
+  project=$(detect_project 2>/dev/null) || project=""
+  if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+    export DOYAKEN_PROJECT="$project"
+    export DOYAKEN_DIR="$project/.doyaken"
+  fi
+
+  # Set agent defaults
+  export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
+  export DOYAKEN_MODEL="${DOYAKEN_MODEL:-$(agent_default_model "$DOYAKEN_AGENT")}"
+
+  # Validate agent
+  if ! agent_validate "$DOYAKEN_AGENT" "$DOYAKEN_MODEL"; then
+    exit 1
+  fi
+
+  # Enter the REPL
+  run_repl
 }
 
 # Show menu when no tasks are available
@@ -1759,6 +1782,9 @@ main() {
   case "$cmd" in
     run)
       cmd_run "${args[@]+"${args[@]}"}"
+      ;;
+    chat)
+      cmd_chat
       ;;
     init)
       cmd_init "${args[@]+"${args[@]}"}"

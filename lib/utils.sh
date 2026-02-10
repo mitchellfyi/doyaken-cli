@@ -56,7 +56,7 @@ read_with_timeout() {
 # ============================================================================
 
 # List of valid commands for fuzzy matching
-DOYAKEN_COMMANDS="run init register unregister list tasks task add status manifest doctor skills skill config upgrade review mcp hooks sync commands version help"
+DOYAKEN_COMMANDS="run chat init register unregister list tasks task add status manifest doctor skills skill config upgrade review mcp hooks sync commands version help"
 
 # Find similar command for typo suggestions
 # Returns closest match or empty string
