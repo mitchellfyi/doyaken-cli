@@ -25,6 +25,7 @@ setup() {
   source "$PROJECT_ROOT/lib/logging.sh"
   source "$PROJECT_ROOT/lib/project.sh"
   source "$PROJECT_ROOT/lib/agents.sh"
+  source "$PROJECT_ROOT/lib/sessions.sh"
   source "$PROJECT_ROOT/lib/commands.sh"
   source "$PROJECT_ROOT/lib/interactive.sh"
 
@@ -794,4 +795,298 @@ EOF
   assert_output_contains "/quit"
   assert_output_contains "/status"
   assert_output_contains "/clear"
+}
+
+# ============================================================================
+# sessions.sh tests
+# ============================================================================
+
+@test "session_save_meta creates meta.yaml" {
+  init_session
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "active"
+  [ -f "$CHAT_SESSION_DIR/meta.yaml" ]
+}
+
+@test "session_save_meta writes correct fields" {
+  init_session
+  CHAT_CURRENT_TASK="test-task"
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved" "my-tag"
+  local meta="$CHAT_SESSION_DIR/meta.yaml"
+  [ -f "$meta" ]
+  grep -q "^id:" "$meta"
+  grep -q "^status: \"saved\"" "$meta"
+  grep -q "^tag: \"my-tag\"" "$meta"
+  grep -q "^task: \"test-task\"" "$meta"
+}
+
+@test "session_read_meta reads field correctly" {
+  init_session
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved" "test-tag"
+  local status
+  status=$(session_read_meta "$CHAT_SESSION_DIR" "status")
+  [ "$status" = "saved" ]
+  local tag
+  tag=$(session_read_meta "$CHAT_SESSION_DIR" "tag")
+  [ "$tag" = "test-tag" ]
+}
+
+@test "session_read_meta returns 1 for missing meta" {
+  run session_read_meta "/nonexistent/dir" "status"
+  assert_failure
+}
+
+@test "session_save saves with correct status" {
+  init_session
+  log_message "user" "test message"
+  session_save "my-save-tag"
+  local status
+  status=$(session_read_meta "$CHAT_SESSION_DIR" "status")
+  [ "$status" = "saved" ]
+}
+
+@test "session_save creates context.md" {
+  init_session
+  log_message "user" "test message"
+  session_save
+  [ -f "$CHAT_SESSION_DIR/context.md" ]
+}
+
+@test "session_save fails without active session" {
+  CHAT_SESSION_ID=""
+  CHAT_SESSION_DIR=""
+  run session_save
+  assert_failure
+  assert_output_contains "No active session"
+}
+
+@test "session_resume loads session state" {
+  # Create a session to resume
+  init_session
+  local orig_id="$CHAT_SESSION_ID"
+  local orig_dir="$CHAT_SESSION_DIR"
+  log_message "user" "hello"
+  CHAT_CURRENT_TASK="resumed-task"
+  session_save "resumable"
+
+  # Clear state
+  CHAT_SESSION_ID=""
+  CHAT_SESSION_DIR=""
+  CHAT_MESSAGES_FILE=""
+  CHAT_CURRENT_TASK=""
+
+  # Resume
+  session_resume "$orig_id"
+  [ "$CHAT_SESSION_ID" = "$orig_id" ]
+  [ -n "$CHAT_MESSAGES_FILE" ]
+}
+
+@test "session_resume finds latest saved session" {
+  # Create two sessions
+  init_session
+  local first_id="$CHAT_SESSION_ID"
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved"
+
+  sleep 1  # Ensure different timestamp
+  init_session
+  local second_id="$CHAT_SESSION_ID"
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved"
+
+  # Clear and resume latest
+  CHAT_SESSION_ID=""
+  session_resume ""
+  [ "$CHAT_SESSION_ID" = "$second_id" ]
+}
+
+@test "session_resume returns error for non-existent session" {
+  run session_resume "nonexistent-999"
+  assert_failure
+  assert_output_contains "Session not found"
+}
+
+@test "session_fork creates independent copy" {
+  init_session
+  local orig_id="$CHAT_SESSION_ID"
+  log_message "user" "original message"
+  session_save
+
+  local new_id
+  new_id=$(session_fork "$orig_id")
+  [ -n "$new_id" ]
+  [ "$new_id" != "$orig_id" ]
+  # Forked session should have messages
+  [ -f "$CHAT_SESSION_DIR/messages.jsonl" ]
+}
+
+@test "session_fork fails for non-existent session" {
+  run session_fork "nonexistent-999"
+  assert_failure
+  assert_output_contains "not found"
+}
+
+@test "session_list shows sessions" {
+  init_session
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved"
+  run session_list
+  assert_success
+  assert_output_contains "$CHAT_SESSION_ID"
+}
+
+@test "session_list shows 'No sessions found' when empty" {
+  rm -rf "$DOYAKEN_PROJECT/.doyaken/sessions"
+  run session_list
+  assert_success
+  assert_output_contains "No sessions found"
+}
+
+@test "session_export outputs markdown" {
+  init_session
+  log_message "user" "hello there"
+  log_message "assistant" "hi back"
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved"
+  run session_export "$CHAT_SESSION_ID"
+  assert_success
+  assert_output_contains "# Session:"
+  assert_output_contains "User"
+  assert_output_contains "Assistant"
+}
+
+@test "session_export fails for non-existent session" {
+  run session_export "nonexistent-999"
+  assert_failure
+  assert_output_contains "not found"
+}
+
+@test "session_delete removes session directory" {
+  # Manually create a session directory to delete
+  local sessions_root="$DOYAKEN_PROJECT/.doyaken/sessions"
+  local del_id="deletable-session-000"
+  local del_dir="$sessions_root/$del_id"
+  mkdir -p "$del_dir"
+  session_save_meta "$del_dir" "$del_id" "saved"
+
+  # Set active session to something else
+  init_session
+  session_delete "$del_id"
+  [ ! -d "$del_dir" ]
+}
+
+@test "session_delete fails for active session" {
+  init_session
+  run session_delete "$CHAT_SESSION_ID"
+  assert_failure
+  assert_output_contains "Cannot delete active session"
+}
+
+@test "session_delete requires ID" {
+  run session_delete ""
+  assert_failure
+  assert_output_contains "Session ID required"
+}
+
+@test "_generate_context_summary includes message count" {
+  init_session
+  log_message "user" "msg1"
+  log_message "user" "msg2"
+  _generate_context_summary "$CHAT_SESSION_DIR"
+  [ -f "$CHAT_SESSION_DIR/context.md" ]
+  local content
+  content=$(cat "$CHAT_SESSION_DIR/context.md")
+  [[ "$content" == *"Messages: 2"* ]]
+}
+
+@test "session_get_resume_context returns context content" {
+  init_session
+  log_message "user" "context test"
+  _generate_context_summary "$CHAT_SESSION_DIR"
+  local context
+  context=$(session_get_resume_context)
+  [[ "$context" == *"Session Context"* ]]
+}
+
+# ============================================================================
+# Session slash command tests
+# ============================================================================
+
+@test "dispatch_command handles /sessions" {
+  init_session
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved"
+  run dispatch_command "/sessions"
+  assert_success
+  assert_output_contains "Recent Sessions"
+}
+
+@test "dispatch_command handles /session without args" {
+  run dispatch_command "/session"
+  assert_failure
+  assert_output_contains "Usage:"
+}
+
+@test "dispatch_command handles /session save" {
+  init_session
+  run dispatch_command "/session save my-tag"
+  assert_success
+  assert_output_contains "Session saved"
+}
+
+@test "dispatch_command handles /session export" {
+  init_session
+  log_message "user" "test"
+  session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved"
+  run dispatch_command "/session export $CHAT_SESSION_ID"
+  assert_success
+  assert_output_contains "# Session:"
+}
+
+@test "dispatch_command handles /session delete" {
+  # Create a deletable session manually
+  local sessions_root="$DOYAKEN_PROJECT/.doyaken/sessions"
+  local del_id="deletable-cmd-test"
+  local del_dir="$sessions_root/$del_id"
+  mkdir -p "$del_dir"
+  session_save_meta "$del_dir" "$del_id" "saved"
+  # Set active session to something different
+  init_session
+  run dispatch_command "/session delete $del_id"
+  assert_success
+  assert_output_contains "Session deleted"
+}
+
+@test "dispatch_command handles /session unknown subcommand" {
+  run dispatch_command "/session foobar"
+  assert_failure
+  assert_output_contains "Unknown session subcommand"
+}
+
+@test "help includes session commands" {
+  run chat_cmd_help
+  assert_success
+  assert_output_contains "/sessions"
+  assert_output_contains "/session"
+}
+
+@test "completions file includes session commands" {
+  local comp_file="$TEST_TEMP_DIR/completions"
+  generate_completions_file "$comp_file"
+  local content
+  content=$(cat "$comp_file")
+  [[ "$content" == *"/sessions"* ]]
+  [[ "$content" == *"/session"* ]]
+}
+
+@test "sessions command is in fuzzy match list" {
+  source "$PROJECT_ROOT/lib/utils.sh"
+  [[ "$DOYAKEN_COMMANDS" == *"sessions"* ]]
+}
+
+@test "help text includes sessions command" {
+  source "$PROJECT_ROOT/lib/help.sh"
+  run show_help
+  assert_output_contains "sessions"
+}
+
+@test "chat help mentions --resume" {
+  source "$PROJECT_ROOT/lib/help.sh"
+  run show_command_help "chat"
+  assert_output_contains "--resume"
+  assert_output_contains "/session"
 }

@@ -102,6 +102,26 @@ cmd_run() {
 }
 
 cmd_chat() {
+  local resume_id=""
+
+  # Parse chat-specific args
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --resume)
+        if [ $# -ge 2 ] && [[ "$2" != --* ]]; then
+          resume_id="$2"
+          shift 2
+        else
+          resume_id="__latest__"
+          shift
+        fi
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
   # Detect project (optional for chat mode)
   local project
   project=$(detect_project 2>/dev/null) || project=""
@@ -119,8 +139,31 @@ cmd_chat() {
     exit 1
   fi
 
+  # Handle --resume
+  if [ -n "$resume_id" ]; then
+    export CHAT_RESUME_ID="$resume_id"
+  fi
+
   # Enter the REPL
   run_repl
+}
+
+cmd_sessions() {
+  # Detect project (optional)
+  local project
+  project=$(detect_project 2>/dev/null) || project=""
+  if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+    export DOYAKEN_PROJECT="$project"
+    export DOYAKEN_DIR="$project/.doyaken"
+  fi
+
+  source "$SCRIPT_DIR/sessions.sh"
+
+  echo ""
+  echo -e "${BOLD}Sessions${NC}"
+  echo ""
+  session_list "${1:-20}"
+  echo ""
 }
 
 # Show menu when no tasks are available
@@ -1784,7 +1827,10 @@ main() {
       cmd_run "${args[@]+"${args[@]}"}"
       ;;
     chat)
-      cmd_chat
+      cmd_chat "${args[@]+"${args[@]}"}"
+      ;;
+    sessions)
+      cmd_sessions "${args[@]+"${args[@]}"}"
       ;;
     init)
       cmd_init "${args[@]+"${args[@]}"}"

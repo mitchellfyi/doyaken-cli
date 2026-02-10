@@ -20,6 +20,8 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}(none)${NC}              Run 5 tasks in auto-detected project
   ${CYAN}run${NC} [N]             Run N tasks (default: 5)
   ${CYAN}chat${NC}                Interactive chat/REPL mode
+  ${CYAN}chat${NC} --resume [id]   Resume a previous session
+  ${CYAN}sessions${NC}             List chat sessions
   ${CYAN}init${NC} [path]         Initialize a new project
   ${CYAN}register${NC}            Register current project in global registry
   ${CYAN}unregister${NC}          Remove current project from registry
@@ -187,17 +189,27 @@ EOF
 ${BOLD}doyaken chat${NC} - Interactive chat/REPL mode
 
 ${BOLD}USAGE:${NC}
-  doyaken chat
+  doyaken chat [--resume [id]]
 
 ${BOLD}DESCRIPTION:${NC}
   Enters an interactive REPL where you can have a conversation with the
   AI agent. Send messages, use slash commands, and see streaming output.
 
+${BOLD}OPTIONS:${NC}
+  --resume          Resume the most recent session
+  --resume <id>     Resume a specific session by ID (partial match OK)
+
 ${BOLD}SLASH COMMANDS:${NC}
-  /help       Show available commands
-  /status     Show project and session status
-  /clear      Clear the screen
-  /quit       Exit interactive mode (also: /exit, Ctrl+D)
+  /help             Show available commands
+  /status           Show project and session status
+  /sessions         List recent sessions
+  /session save     Save current session (optionally with a tag)
+  /session resume   Resume a saved session
+  /session fork     Fork a session into a new branch
+  /session export   Export session as markdown
+  /session delete   Delete a session
+  /clear            Clear the screen
+  /quit             Exit interactive mode (also: /exit, Ctrl+D)
 
 ${BOLD}KEYBOARD:${NC}
   Ctrl+C      Cancel running agent operation
@@ -206,8 +218,26 @@ ${BOLD}KEYBOARD:${NC}
 
 ${BOLD}EXAMPLES:${NC}
   doyaken chat                        # Start interactive session
-  dk chat                             # Short alias
+  dk chat --resume                    # Resume last session
+  dk chat --resume 20260210           # Resume session by partial ID
   dk --agent codex chat               # Chat with Codex agent
+
+EOF
+      ;;
+    sessions)
+      cat << EOF
+${BOLD}doyaken sessions${NC} - List chat sessions
+
+${BOLD}USAGE:${NC}
+  doyaken sessions [limit]
+
+${BOLD}DESCRIPTION:${NC}
+  Lists recent chat sessions with their status, message count, and task info.
+  Default limit is 20 sessions.
+
+${BOLD}EXAMPLES:${NC}
+  doyaken sessions              # List recent sessions
+  dk sessions 50                # List up to 50 sessions
 
 EOF
       ;;

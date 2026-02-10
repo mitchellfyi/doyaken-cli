@@ -18,6 +18,7 @@ _DOYAKEN_INTERACTIVE_LOADED=1
 SCRIPT_DIR_INTERACTIVE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR_INTERACTIVE/logging.sh"
 source "$SCRIPT_DIR_INTERACTIVE/commands.sh"
+source "$SCRIPT_DIR_INTERACTIVE/sessions.sh"
 
 # ============================================================================
 # Session Management
@@ -214,8 +215,21 @@ run_repl() {
   local agent="${DOYAKEN_AGENT:-claude}"
   local model="${DOYAKEN_MODEL:-}"
 
-  # Initialize session
-  init_session
+  # Initialize or resume session
+  local resumed=false
+  if [ -n "${CHAT_RESUME_ID:-}" ] && declare -f session_resume &>/dev/null; then
+    local resume_target=""
+    [ "$CHAT_RESUME_ID" != "__latest__" ] && resume_target="$CHAT_RESUME_ID"
+    if session_resume "$resume_target" 2>/dev/null; then
+      resumed=true
+    else
+      echo -e "${YELLOW}Could not resume session${resume_target:+: $resume_target}. Starting new session.${NC}"
+      init_session
+    fi
+    unset CHAT_RESUME_ID
+  else
+    init_session
+  fi
 
   # Register commands (builtins + skills)
   register_builtin_commands
@@ -231,7 +245,17 @@ run_repl() {
   echo ""
   echo -e "${BOLD}doyaken interactive mode${NC}"
   echo -e "${DIM}Agent: $agent${model:+ (model: $model)}${NC}"
-  echo -e "${DIM}Session: $CHAT_SESSION_ID${NC}"
+  if [ "$resumed" = true ]; then
+    echo -e "${DIM}Session: $CHAT_SESSION_ID ${GREEN}(resumed)${NC}"
+    local context
+    context=$(session_get_resume_context 2>/dev/null)
+    if [ -n "$context" ]; then
+      echo ""
+      echo -e "${DIM}$context${NC}"
+    fi
+  else
+    echo -e "${DIM}Session: $CHAT_SESSION_ID${NC}"
+  fi
   echo -e "${DIM}Type /help for commands, /quit to exit${NC}"
   echo ""
 
@@ -252,7 +276,10 @@ run_repl() {
 
     # Read with readline editing support
     if ! IFS= read -re -p "$prompt" input; then
-      # EOF (Ctrl+D)
+      # EOF (Ctrl+D) — save session before exit
+      if declare -f session_save_meta &>/dev/null && [ -n "${CHAT_SESSION_ID:-}" ]; then
+        session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "saved" 2>/dev/null || true
+      fi
       echo ""
       echo "Goodbye!"
       break
@@ -269,6 +296,10 @@ run_repl() {
       dispatch_command "$input"
     else
       send_to_agent "$input"
+      # Auto-save session metadata after each agent exchange
+      if declare -f session_save_meta &>/dev/null && [ -n "${CHAT_SESSION_ID:-}" ]; then
+        session_save_meta "$CHAT_SESSION_DIR" "$CHAT_SESSION_ID" "active" 2>/dev/null || true
+      fi
     fi
 
     echo ""

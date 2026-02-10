@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-008-session-management`                           |
-| Status      | `todo`                                                 |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-06 15:30`                                     |
 | Started     |                                                        |
-| Completed   |                                                        |
+| Completed   | `2026-02-10`                                           |
 | Blocked By  | 001-007                                                |
 | Blocks      |                                                        |
 | Assigned To |                                                        |
@@ -74,9 +74,9 @@ Implement session persistence so users can pause work, resume later, fork sessio
 
 ## Success Criteria
 
-- [ ] Sessions persist between `dk chat` invocations
-- [ ] `/session resume` loads previous conversation context
-- [ ] `/session fork` creates independent branch
-- [ ] Auto-save on exit/interrupt
-- [ ] `dk sessions` shows session list from non-interactive mode
-- [ ] Session includes task state (current phase, completed phases)
+- [x] Sessions persist between `dk chat` invocations
+- [x] `/session resume` loads previous conversation context
+- [x] `/session fork` creates independent branch
+- [x] Auto-save on exit/interrupt
+- [x] `dk sessions` shows session list from non-interactive mode
+- [x] Session includes task state (current phase, completed phases)

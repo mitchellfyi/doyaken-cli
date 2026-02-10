@@ -67,6 +67,8 @@ dispatch_command() {
     config)       chat_cmd_config "$args" ;;
     log)          chat_cmd_log "$args" ;;
     diff)         chat_cmd_diff ;;
+    sessions)     chat_cmd_sessions ;;
+    session)      chat_cmd_session "$args" ;;
     *)
       # Try skill command
       if _try_skill_command "$cmd" "$args"; then
@@ -103,7 +105,7 @@ fuzzy_match_slash_command() {
   (( input_len < 2 )) && return 0
 
   # Collect all known command names
-  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff"
+  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff sessions session"
 
   # Add registered skill commands
   local i
@@ -242,7 +244,7 @@ _try_skill_command() {
 # Usage: generate_completions_file "/path/to/file"
 generate_completions_file() {
   local file="$1"
-  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff"
+  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session"
 
   # Add skill commands
   local i
@@ -258,7 +260,7 @@ generate_completions_file() {
 # Set up tab completion for the REPL (bash 4+ only)
 setup_tab_completion() {
   # Build list of completions
-  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff"
+  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session"
 
   local i
   for (( i=0; i < ${#REGISTERED_CMD_NAMES[@]}; i++ )); do
@@ -319,8 +321,10 @@ register_builtin_commands() {
   register_command "model"  "Show or change model: /model [name]"
   register_command "agent"  "Show or change agent: /agent [name]"
   register_command "config" "Show or set config: /config [key] [value]"
-  register_command "log"    "Show recent log entries"
-  register_command "diff"   "Show git diff of changes"
+  register_command "log"      "Show recent log entries"
+  register_command "diff"     "Show git diff of changes"
+  register_command "sessions" "List recent sessions"
+  register_command "session"  "Manage sessions: /session save|resume|fork|export|delete"
 }
 
 # ============================================================================
@@ -360,6 +364,10 @@ chat_cmd_help() {
 }
 
 chat_cmd_quit() {
+  # Auto-save session on clean exit
+  if declare -f session_save &>/dev/null && [ -n "${CHAT_SESSION_ID:-}" ]; then
+    session_save "" 2>/dev/null || true
+  fi
   echo "Goodbye!"
   CHAT_SHOULD_EXIT=1
 }
@@ -742,4 +750,117 @@ chat_cmd_diff() {
   git -C "$DOYAKEN_PROJECT" diff --stat 2>/dev/null
   echo ""
   echo -e "${DIM}Use 'git diff' for full diff${NC}"
+}
+
+# ============================================================================
+# Session Command Handlers
+# ============================================================================
+
+chat_cmd_sessions() {
+  if declare -f session_list &>/dev/null; then
+    echo ""
+    echo -e "${BOLD}Recent Sessions${NC}"
+    echo ""
+    session_list
+    echo ""
+  else
+    echo "Session management not available"
+    return 1
+  fi
+}
+
+chat_cmd_session() {
+  local args="$1"
+  local subcmd="${args%% *}"
+  local subargs="${args#* }"
+  [ "$subargs" = "$args" ] && subargs=""
+
+  if [ -z "$subcmd" ]; then
+    echo "Usage: /session <save|resume|fork|export|delete> [args]"
+    echo ""
+    echo "  /session save [tag]    Save current session"
+    echo "  /session resume [id]   Resume a session"
+    echo "  /session fork [id]     Fork a session"
+    echo "  /session export [id]   Export session as markdown"
+    echo "  /session delete <id>   Delete a session"
+    return 1
+  fi
+
+  case "$subcmd" in
+    save)
+      if declare -f session_save &>/dev/null; then
+        if session_save "$subargs"; then
+          echo -e "${GREEN}Session saved${NC}${subargs:+ (tag: $subargs)}"
+        else
+          echo -e "${RED}Failed to save session${NC}"
+          return 1
+        fi
+      else
+        echo "Session management not available"
+        return 1
+      fi
+      ;;
+    resume)
+      if declare -f session_resume &>/dev/null; then
+        local result
+        result=$(session_resume "$subargs" 2>&1) || {
+          echo "$result"
+          return 1
+        }
+        echo -e "${GREEN}Resumed session:${NC} $CHAT_SESSION_ID"
+        # Show context summary
+        local context
+        context=$(session_get_resume_context 2>/dev/null)
+        if [ -n "$context" ]; then
+          echo ""
+          echo -e "${DIM}$context${NC}"
+        fi
+      else
+        echo "Session management not available"
+        return 1
+      fi
+      ;;
+    fork)
+      if declare -f session_fork &>/dev/null; then
+        local new_id
+        new_id=$(session_fork "$subargs") || {
+          echo "$new_id"
+          return 1
+        }
+        echo -e "${GREEN}Forked to new session:${NC} $new_id"
+      else
+        echo "Session management not available"
+        return 1
+      fi
+      ;;
+    export)
+      if declare -f session_export &>/dev/null; then
+        session_export "$subargs"
+      else
+        echo "Session management not available"
+        return 1
+      fi
+      ;;
+    delete)
+      if [ -z "$subargs" ]; then
+        echo "Usage: /session delete <session-id>"
+        return 1
+      fi
+      if declare -f session_delete &>/dev/null; then
+        if session_delete "$subargs"; then
+          echo -e "${GREEN}Session deleted:${NC} $subargs"
+        else
+          return 1
+        fi
+      else
+        echo "Session management not available"
+        return 1
+      fi
+      ;;
+    *)
+      echo "Unknown session subcommand: $subcmd"
+      echo "Use: save, resume, fork, export, delete"
+      return 1
+      ;;
+  esac
 }
