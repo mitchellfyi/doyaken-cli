@@ -7,11 +7,9 @@
 #
 set -euo pipefail
 
-# Determine the installation directory
-if [ -n "${DOYAKEN_HOME:-}" ]; then
-  # Explicitly set
-  INSTALL_DIR="$DOYAKEN_HOME"
-elif [ -L "${BASH_SOURCE[0]}" ]; then
+# Determine the installation directory from script location first,
+# falling back to DOYAKEN_HOME env var only if local lib/ not found.
+if [ -L "${BASH_SOURCE[0]}" ]; then
   # Symlinked binary - resolve to actual location
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   REAL_PATH="$(readlink "${BASH_SOURCE[0]}")"
@@ -25,15 +23,19 @@ else
   INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fi
 
-# Check if we're running from npm global install
+# Prefer the script's own lib/ directory (development/source), then
+# fall back to DOYAKEN_HOME env var, then ~/.doyaken
 if [ -d "$INSTALL_DIR/lib" ] && [ -f "$INSTALL_DIR/lib/cli.sh" ]; then
-  # Running from package directory
+  # Running from source/package directory
   export DOYAKEN_HOME="$INSTALL_DIR"
+elif [ -n "${DOYAKEN_HOME:-}" ] && [ -d "$DOYAKEN_HOME/lib" ]; then
+  # Use env var
+  export DOYAKEN_HOME="$DOYAKEN_HOME"
 elif [ -d "$HOME/.doyaken/lib" ]; then
   # Use home directory installation
   export DOYAKEN_HOME="$HOME/.doyaken"
 else
-  # Fallback to package directory
+  # Fallback to script directory
   export DOYAKEN_HOME="$INSTALL_DIR"
 fi
 

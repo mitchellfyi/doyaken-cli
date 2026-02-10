@@ -41,3 +41,5 @@ projects/
 # Local dev
 .env
 .env.local
+
+.acknowledged

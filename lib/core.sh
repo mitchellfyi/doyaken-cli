@@ -887,6 +887,11 @@ progress_filter() {
   while IFS= read -r line; do
     ((line_count++))
 
+    # Show "connected" on very first line received from agent
+    if [ "$line_count" -eq 1 ]; then
+      show_status "⋯ connected, processing..."
+    fi
+
     if command -v jq &>/dev/null; then
       local msg_type tool_name content
       msg_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
@@ -920,7 +925,10 @@ progress_filter() {
           fi
           ;;
         *)
-          if [ $((line_count % 10)) -eq 0 ]; then
+          # Show more frequently in first 30 lines (startup), then every 10th
+          if [ "$line_count" -le 30 ] && [ $((line_count % 3)) -eq 0 ]; then
+            show_status "⋯ working"
+          elif [ $((line_count % 10)) -eq 0 ]; then
             show_status "⋯ working"
           fi
           ;;
@@ -935,6 +943,8 @@ progress_filter() {
         fi
       elif echo "$line" | grep -q '"result"'; then
         show_status "✓ Done"
+      elif [ "$line_count" -le 30 ] && [ $((line_count % 3)) -eq 0 ]; then
+        show_status "⋯ working"
       elif [ $((line_count % 10)) -eq 0 ]; then
         show_status "⋯ working"
       fi
@@ -1279,6 +1289,8 @@ start_phase_monitor() {
     start_time=$(date +%s)
     local stall_warned=0
 
+    echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} 00:00 │ ⋯ waiting for agent response..."
+
     while true; do
       sleep "$PHASE_MONITOR_INTERVAL" &
       wait $! 2>/dev/null || exit 0
@@ -1515,17 +1527,22 @@ run_phase_once() {
   start_phase_monitor "$phase_name" "$phase_log" "$timeout"
 
   # Build timeout prefix
+  # --foreground: prevents timeout from creating a new process group, which
+  # would cause the child to lose TTY access and get stopped (SIGTTIN/SIGTTOU).
+  # Without this, the agent process hangs silently in pipelines.
   local timeout_cmd=""
   if command -v gtimeout &> /dev/null; then
-    timeout_cmd="gtimeout"
+    timeout_cmd="gtimeout --foreground"
   elif command -v timeout &> /dev/null; then
-    timeout_cmd="timeout"
+    timeout_cmd="timeout --foreground"
   fi
 
   # Record invocation for rate limiting
   if declare -f rate_limit_record &>/dev/null; then
     rate_limit_record
   fi
+
+  echo -e "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent..."
 
   # Build agent command using abstraction functions
   # Each agent uses its correct autonomous mode flags
