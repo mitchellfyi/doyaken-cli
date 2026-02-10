@@ -127,6 +127,92 @@ count_files_excluding_gitkeep() {
 }
 
 # ============================================================================
+# Priority Helpers
+# ============================================================================
+
+# Map priority code to human-readable label
+# Args: priority_code (e.g., "001", "003")
+# Returns: label string (e.g., "Critical", "Medium")
+get_priority_label() {
+  local code="$1"
+  case "$code" in
+    001) echo "Critical" ;;
+    002) echo "High" ;;
+    003) echo "Medium" ;;
+    004) echo "Low" ;;
+    *) echo "Unknown" ;;
+  esac
+}
+
+# Rename a task file's priority prefix and update metadata
+# Args: task_file, new_priority
+# Returns: echoes new file path on success; returns 1 on error
+rename_task_priority() {
+  local task_file="$1"
+  local new_priority="$2"
+
+  # Validate file exists
+  if [[ ! -f "$task_file" ]]; then
+    echo "Error: file not found: $task_file" >&2
+    return 1
+  fi
+
+  # Validate priority format (exactly 3 digits)
+  if [[ ! "$new_priority" =~ ^[0-9]{3}$ ]]; then
+    echo "Error: invalid priority format: $new_priority (expected 3 digits)" >&2
+    return 1
+  fi
+
+  local filename
+  filename=$(basename "$task_file")
+  local dir
+  dir=$(dirname "$task_file")
+
+  # Validate filename matches PPP-SSS-* pattern
+  if [[ ! "$filename" =~ ^([0-9]{3})-(.+)$ ]]; then
+    echo "Error: filename does not match PPP-* pattern: $filename" >&2
+    return 1
+  fi
+
+  local old_priority="${BASH_REMATCH[1]}"
+  local rest="${BASH_REMATCH[2]}"
+
+  # No-op if priority unchanged
+  if [[ "$old_priority" == "$new_priority" ]]; then
+    echo "$task_file"
+    return 0
+  fi
+
+  local new_filename="${new_priority}-${rest}"
+  local new_path="${dir}/${new_filename}"
+
+  # Check for collision
+  if [[ -f "$new_path" ]]; then
+    echo "Error: target file already exists: $new_path" >&2
+    return 1
+  fi
+
+  # Rename the file
+  mv "$task_file" "$new_path" || {
+    echo "Error: failed to rename $task_file to $new_path" >&2
+    return 1
+  }
+
+  # Update Priority metadata row inside the file
+  local label
+  label=$(get_priority_label "$new_priority")
+  awk -v priority="$new_priority" -v label="$label" '
+    /^\| Priority/ {
+      printf "| Priority    | `%s` %s                          |\n", priority, label
+      next
+    }
+    { print }
+  ' "$new_path" > "${new_path}.tmp" && mv "${new_path}.tmp" "$new_path"
+
+  echo "$new_path"
+}
+
+# ============================================================================
 # Project Detection
 # ============================================================================
 

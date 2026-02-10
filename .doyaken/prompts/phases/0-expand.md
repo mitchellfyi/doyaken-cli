@@ -13,7 +13,12 @@ You are expanding task **{{TASK_ID}}** from a brief prompt into a full specifica
 3. **Analyze** the codebase - find related files, patterns, existing tests
 4. **Define** acceptance criteria - specific, testable, no vague language
 5. **Identify** edge cases and risks
-6. **Set** scope boundaries (in/out of scope)
+6. **Recommend priority** - Based on intent classification and urgency signals:
+   - 001 (Critical): Security vulnerabilities, data loss, production outages
+   - 002 (High): Bugs affecting users, blocking dependencies, urgent fixes
+   - 003 (Medium): Feature work, improvements, moderate bugs
+   - 004 (Low): Nice-to-haves, minor polish, documentation-only
+7. **Set** scope boundaries (in/out of scope)
 
 ## Output
 
@@ -55,6 +60,7 @@ Add to Work Log:
 - Scope: [summary]
 - Key files: [files to modify]
 - Complexity: [low/medium/high]
+- Recommended priority: [001-004] [label] - [reason]
 ```
 
 ## Rules

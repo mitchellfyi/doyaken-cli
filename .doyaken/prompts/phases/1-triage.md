@@ -8,6 +8,8 @@ You are validating task **{{TASK_ID}}** before work begins.
 2. **Validate task file** - Context clear? Criteria testable? Scope defined?
 3. **Check dependencies** - Are blockers resolved?
 4. **Assess complexity** - Files affected, risk level, test coverage needed
+5. **Check priority** - Compare the task's filename priority (PPP prefix) against the EXPAND phase's recommended priority in the work log. If they differ, note the discrepancy.
+6. **Backlog comparison** - List tasks in `2.todo/` sorted by priority. If any higher-priority unblocked task exists, note it in the work log. Do NOT automatically defer or switch tasks — just report findings.
 
 ## Output
 
@@ -30,6 +32,10 @@ Task validation:
 Complexity:
 - Files: [few/some/many]
 - Risk: [low/medium/high]
+
+Backlog check:
+- [list of todo tasks by priority, or "no tasks in todo"]
+- [note if higher-priority unblocked tasks exist]
 
 Ready: [yes/no - reason]
 ```
