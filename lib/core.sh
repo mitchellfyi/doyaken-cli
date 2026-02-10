@@ -59,6 +59,9 @@ source "$SCRIPT_DIR/approval.sh"
 # Source progress display
 source "$SCRIPT_DIR/progress.sh"
 
+# Source circuit breaker
+source "$SCRIPT_DIR/circuit_breaker.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -644,6 +647,11 @@ load_all_config "$MANIFEST_FILE"
 # Load display/progress configuration
 if declare -f load_display_config &>/dev/null; then
   load_display_config "$MANIFEST_FILE"
+fi
+
+# Load circuit breaker configuration
+if declare -f load_circuit_breaker_config &>/dev/null; then
+  load_circuit_breaker_config "$MANIFEST_FILE"
 fi
 
 # Project-specific directories
@@ -2247,6 +2255,16 @@ run_with_retry() {
   local max_retries="$AGENT_MAX_RETRIES"
   local attempt=1
 
+  # Check circuit breaker before attempting
+  if declare -f cb_should_proceed &>/dev/null; then
+    local cb_check=0
+    cb_should_proceed || cb_check=$?
+    if [ "$cb_check" -eq 1 ]; then
+      log_heal "Circuit breaker OPEN — skipping iteration $iteration"
+      return 1
+    fi
+  fi
+
   while [ "$attempt" -le "$max_retries" ]; do
     # Check for interrupt before each attempt
     if [ "$INTERRUPTED" = "1" ]; then
@@ -2262,6 +2280,11 @@ run_with_retry() {
 
     if run_agent_iteration "$iteration" "$attempt"; then
       CONSECUTIVE_FAILURES=0
+      # Record success in circuit breaker
+      if declare -f cb_record_iteration &>/dev/null; then
+        cb_record_iteration 0 "" "${PROJECT_DIR:-.}"
+        cb_save_state "${AGENT_ID:-agent}"
+      fi
       return 0
     fi
 
@@ -2272,11 +2295,13 @@ run_with_retry() {
   log_info "Troubleshooting: check logs in $RUN_LOG_DIR, or increase AGENT_MAX_RETRIES"
   ((CONSECUTIVE_FAILURES++))
 
-  if [ "$CONSECUTIVE_FAILURES" -ge 3 ]; then
-    log_heal "Circuit breaker triggered: $CONSECUTIVE_FAILURES consecutive failures"
-    log_heal "Pausing for 30 seconds before continuing..."
-    log_info "If persistent failures, check API rate limits or task complexity"
-    sleep 30
+  # Record failure in circuit breaker (replaces old naive threshold)
+  if declare -f cb_record_iteration &>/dev/null; then
+    local last_log=""
+    # Find most recent phase log
+    last_log=$(ls -t "$RUN_LOG_DIR"/phase-*.log 2>/dev/null | head -1 || echo "")
+    cb_record_iteration 1 "$last_log" "${PROJECT_DIR:-.}"
+    cb_save_state "${AGENT_ID:-agent}"
   fi
 
   return 1
@@ -2551,6 +2576,11 @@ main() {
   local failed=0
   local skipped=0
   CONSECUTIVE_FAILURES=$(get_consecutive_failures)
+
+  # Load circuit breaker state from previous run
+  if declare -f cb_load_state &>/dev/null; then
+    cb_load_state "${AGENT_ID:-agent}"
+  fi
 
   for ((i=start_iteration; i<=NUM_TASKS; i++)); do
     # Check for interrupt before starting next task

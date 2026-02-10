@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-012-circuit-breaker-stall-detection`              |
-| Status      | `todo`                                                 |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-10 12:00`                                     |
-| Started     |                                                        |
-| Completed   |                                                        |
+| Started     | `2026-02-10`                                           |
+| Completed   | `2026-02-10`                                           |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To |                                                        |
