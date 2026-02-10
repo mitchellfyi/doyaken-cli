@@ -8,12 +8,12 @@
 | Status      | `doing`                                                |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-06 15:30`                                     |
-| Started     | `2026-02-10 04:46`                                     |
+| Started     | `2026-02-10 09:41`                                     |
 | Completed   |                                                        |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
-| Assigned At | `2026-02-10 09:39` |
+| Assigned At | `2026-02-10 09:41` |
 
 ---
 
@@ -48,20 +48,57 @@ This task enhances the EXPAND phase output format with structured user stories a
 
 ---
 
-## Notes
+## Specification
+
+### User Stories
+
+- **US-1**: As a doyaken developer, I want the EXPAND phase to produce structured user stories and acceptance scenarios so that downstream phases (PLAN, IMPLEMENT, TEST) receive concrete, testable requirements instead of vague prose.
+- **US-2**: As a doyaken developer, I want the TRIAGE phase to validate spec completeness so that poorly-specified tasks are caught before implementation begins.
+- **US-3**: As a doyaken user, I want new task files to include Specification section placeholders so that the expected spec structure is visible from task creation.
+
+### Acceptance Scenarios
+
+**US-1:**
+- Given a non-trivial task brief, When the EXPAND phase runs, Then the task file contains a `## Specification` section with User Stories (`As a... I want... so that...`), Given/When/Then acceptance scenarios, measurable success metrics, and scope boundaries
+- Given a trivial task brief (typo fix), When the EXPAND phase runs, Then the task file contains an abbreviated Specification with "N/A" for user stories and only acceptance criteria + success metrics
+
+**US-2:**
+- Given a task with missing acceptance scenarios, When the TRIAGE phase runs, Then it flags the missing scenarios in its output
+- Given a task with `[NEEDS CLARIFICATION]` markers, When the TRIAGE phase runs, Then it STOPs and reports the unclear items
+
+**US-3:**
+- Given a user runs `dk tasks new`, When the task file is created, Then it contains `## Specification` with placeholder subsections (User Stories, Acceptance Scenarios, Success Metrics, Scope, Dependencies)
+
+### Success Metrics
+
+- [ ] All 588+ unit tests pass (no regressions)
+- [ ] Lint passes with 0 errors
+- [ ] New unit tests verify `create_task_file()` output contains all Specification subsection headers
+- [ ] All 4 template locations have consistent Specification section structure
+
+### Scope
 
 **In Scope:**
 - Update `0-expand.md` prompt with structured spec format, examples, and instructions
 - Update `1-triage.md` prompt with spec completeness validation
 - Update `create_task_file()` in `lib/project.sh` to include Specification section placeholder
 - Update `templates/TASK.md` and `.doyaken/tasks/_templates/TASK.md` reference template
-- Update unit tests for `create_task_file()` if the template output changes
+- Update `lib/cli.sh` fallback template
+- Add unit tests for `create_task_file()` output
 
 **Out of Scope:**
-- Adding a `--quick` CLI flag (the existing `SKIP_EXPAND` config already handles skipping the entire EXPAND phase; for trivial tasks, the EXPAND prompt itself should produce abbreviated specs)
-- Interactive user story prompting during `dk tasks new` (over-engineering for a CLI tool — agent generates stories in EXPAND phase)
-- Changes to PLAN, IMPLEMENT, or TEST phase prompts (they already consume whatever's in the task file)
-- Brownfield-specific instructions (the EXPAND prompt already instructs the agent to analyze the codebase; adding explicit "check for related existing code" is redundant with the planning.md include)
+- Adding a `--quick` CLI flag (the existing `SKIP_EXPAND` config already handles skipping)
+- Interactive user story prompting during `dk tasks new`
+- Changes to PLAN, IMPLEMENT, or TEST phase prompts (they already consume task file content)
+- Brownfield-specific instructions (redundant with planning.md include)
+
+### Dependencies
+
+- None
+
+---
+
+## Notes
 
 **Assumptions:**
 - The EXPAND phase agent has access to read the full codebase (confirmed — it runs as a full agent with file access)
@@ -77,8 +114,8 @@ This task enhances the EXPAND phase output format with structured user stories a
 **Risks:**
 - **Prompt bloat**: Adding examples and structure to `0-expand.md` could make it too long, causing the agent to lose focus. Mitigation: Keep the prompt concise with one good example, not exhaustive instructions.
 - **Over-specification**: For small tasks, generating full user stories is wasteful and may cause the agent to over-engineer. Mitigation: Explicitly tell the EXPAND agent to scale spec depth to task complexity.
-- **Template drift**: `create_task_file()`, `templates/TASK.md`, and `_templates/TASK.md` could diverge. Mitigation: Update all three in the same step and verify consistency.
-- **Test breakage**: Existing bats tests for `create_task_file()` assert on template output. Mitigation: Update tests to match new template sections.
+- **Template drift**: `create_task_file()`, `templates/TASK.md`, `_templates/TASK.md`, and `cli.sh` could diverge. Mitigation: Update all four in the same step and verify consistency.
+- **Test breakage**: No existing tests assert on `create_task_file()` output — need to ADD tests for the new template.
 
 ---
 
@@ -175,6 +212,84 @@ This task enhances the EXPAND phase output format with structured user stories a
 ---
 
 ## Work Log
+
+### 2026-02-10 - Implementation Progress (Step 7)
+
+Step 7: Added unit tests for `create_task_file()` output
+- Files modified: `test/unit/project.bats`
+- Changes: 18 new tests verifying `create_task_file()` output contains all expected sections (Metadata, Context, Acceptance Criteria, Specification with 5 subsections, Plan, Work Log, Notes, Links), correct section ordering, custom/default context, placeholder text, and metadata values
+- Verification: pass (51/51 project.bats tests, 606/606 total unit tests)
+
+Step 8: Quality gates
+- Lint: pass (0 errors)
+- Tests: pass (606/606 unit tests)
+- Build: pass (`npm run check` all checks passed)
+
+### 2026-02-10 09:41 - Triage Complete
+
+Quality gates:
+- Lint: `npm run lint` (scripts/lint.sh)
+- Types: N/A (shell project)
+- Tests: `npm run test:unit` (npx bats test/unit/)
+- Build: `npm run check` (scripts/check-all.sh)
+
+Task validation:
+- Context: clear — well-defined problem, solution, and implementation plan with 8 steps; steps 1-6 already completed
+- Criteria: specific — 12 acceptance criteria (AC-1 through AC-12), each testable
+- Dependencies: none
+
+Spec validation:
+- Acceptance scenarios: present — US-1, US-2, US-3 each have Given/When/Then scenarios
+- Success metrics: measurable — 588+ unit tests pass, lint 0 errors, new tests verify template output, 4 template locations consistent
+- Clarification needed: none
+
+Complexity:
+- Files: few — 6 files modified (steps 1-6 done) + test file (step 7 remaining)
+- Risk: low — primarily prompt/template changes, most already implemented and verified
+
+Priority check:
+- Task priority: 003 (Medium)
+- EXPAND recommended: 003 (Medium)
+- Match: yes, no discrepancy
+
+Backlog check:
+- 003-008 project-setup-wizard (Medium)
+- 003-009 plan-mode (Medium)
+- 003-010 context-file-management (Medium)
+- 003-011 session-continuity (Medium)
+- 003-012 through 003-019 (Medium, workflow tasks)
+- 004-007 hooks-lifecycle-events (Low)
+- 004-008 memory-learning-system (Low)
+- 005-001 through 005-011 (Research)
+- No higher-priority (001/002) unblocked tasks exist in 2.todo/
+
+Ready: yes — task is well-specified with structured spec, 6/8 steps already implemented with passing quality gates. Remaining: step 7 (unit tests), step 8 (quality gates).
+
+### 2026-02-10 09:39 - Task Expanded (Re-expansion)
+
+- Intent: IMPROVE
+- Scope: Added structured `## Specification` section to the task file itself (US-1/2/3, acceptance scenarios, success metrics, scope). Previously this task used the old format with specs in Notes section only.
+- Key files: `.doyaken/prompts/phases/0-expand.md`, `.doyaken/prompts/phases/1-triage.md`, `lib/project.sh`, `templates/TASK.md`, `.doyaken/tasks/_templates/TASK.md`, `lib/cli.sh`, `test/unit/project.bats`
+- Complexity: Low-Medium (primarily prompt/template changes, minor code changes; Steps 1-6 already complete)
+- Recommended priority: 003 Medium - Feature improvement, not urgent, no users blocked
+- Implementation status: Steps 1-6 complete. Remaining: Step 7 (unit tests for `create_task_file()`), Step 8 (quality gates).
+
+### 2026-02-10 09:42 - Planning Validated (Phase 2 Re-entry)
+
+Plan re-validated — all 8 steps still accurate. Steps 1-6 confirmed complete:
+- `0-expand.md`: 118 lines, addresses AC-1 through AC-6, AC-9 (user stories, scenarios, metrics, scope, clarification markers, abbreviated specs)
+- `1-triage.md`: Spec validation step added (AC-7), checks scenarios/metrics/clarification markers
+- All 4 template locations have consistent `## Specification` section with 5 subsections (AC-8)
+
+Remaining work:
+- Step 7: Add unit tests for `create_task_file()` to `test/unit/project.bats` (AC-10)
+- Step 8: Run quality gates (AC-11)
+
+No plan changes needed. Proceeding to IMPLEMENT.
+
+- Steps: 8 (6 complete, 2 remaining)
+- Risks: 4 (all low, mitigated)
+- Test coverage: moderate (unit tests for template output + manual prompt quality verification)
 
 ### 2026-02-10 - Planning Complete
 

@@ -395,3 +395,207 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "Unknown" ]
 }
+
+# ============================================================================
+# create_task_file() tests
+# ============================================================================
+
+@test "create_task_file: creates file at expected path" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  run create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TEST_TEMP_DIR/todo/003-001-test-task.md" ]
+  [ -f "$TEST_TEMP_DIR/todo/003-001-test-task.md" ]
+}
+
+@test "create_task_file: output contains Metadata section with correct values" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"# Task: Test Task"* ]]
+  [[ "$content" == *"## Metadata"* ]]
+  [[ "$content" == *'`003-001-test-task`'* ]]
+  [[ "$content" == *'`todo`'* ]]
+  [[ "$content" == *'`003` Medium'* ]]
+}
+
+@test "create_task_file: output contains Context section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Context"* ]]
+}
+
+@test "create_task_file: output contains custom context" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" "Custom context here" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"Custom context here"* ]]
+}
+
+@test "create_task_file: output contains default context when none provided" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"Why does this task exist?"* ]]
+}
+
+@test "create_task_file: output contains Acceptance Criteria section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Acceptance Criteria"* ]]
+}
+
+@test "create_task_file: output contains Specification section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Specification"* ]]
+}
+
+@test "create_task_file: Specification contains User Stories subsection" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"### User Stories"* ]]
+}
+
+@test "create_task_file: Specification contains Acceptance Scenarios subsection" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"### Acceptance Scenarios"* ]]
+}
+
+@test "create_task_file: Specification contains Success Metrics subsection" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"### Success Metrics"* ]]
+}
+
+@test "create_task_file: Specification contains Scope subsection" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"### Scope"* ]]
+}
+
+@test "create_task_file: Specification contains Dependencies subsection" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"### Dependencies"* ]]
+}
+
+@test "create_task_file: Specification subsections have placeholder text" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"(To be filled in during EXPAND phase)"* ]]
+}
+
+@test "create_task_file: output contains Plan section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Plan"* ]]
+}
+
+@test "create_task_file: output contains Work Log section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Work Log"* ]]
+}
+
+@test "create_task_file: output contains Notes section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Notes"* ]]
+}
+
+@test "create_task_file: output contains Links section" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local content
+  content=$(cat "$TEST_TEMP_DIR/todo/003-001-test-task.md")
+
+  [[ "$content" == *"## Links"* ]]
+}
+
+@test "create_task_file: sections appear in correct order" {
+  mkdir -p "$TEST_TEMP_DIR/todo"
+
+  create_task_file "003-001-test-task" "Test Task" "003" "Medium" "$TEST_TEMP_DIR/todo" > /dev/null
+  local file="$TEST_TEMP_DIR/todo/003-001-test-task.md"
+
+  # Extract line numbers of each section header
+  local metadata_line context_line ac_line spec_line plan_line worklog_line notes_line links_line
+  metadata_line=$(grep -n "## Metadata" "$file" | head -1 | cut -d: -f1)
+  context_line=$(grep -n "## Context" "$file" | head -1 | cut -d: -f1)
+  ac_line=$(grep -n "## Acceptance Criteria" "$file" | head -1 | cut -d: -f1)
+  spec_line=$(grep -n "## Specification" "$file" | head -1 | cut -d: -f1)
+  plan_line=$(grep -n "## Plan" "$file" | head -1 | cut -d: -f1)
+  worklog_line=$(grep -n "## Work Log" "$file" | head -1 | cut -d: -f1)
+  notes_line=$(grep -n "## Notes" "$file" | head -1 | cut -d: -f1)
+  links_line=$(grep -n "## Links" "$file" | head -1 | cut -d: -f1)
+
+  # Verify order: Metadata < Context < AC < Specification < Plan < Work Log < Notes < Links
+  [ "$metadata_line" -lt "$context_line" ]
+  [ "$context_line" -lt "$ac_line" ]
+  [ "$ac_line" -lt "$spec_line" ]
+  [ "$spec_line" -lt "$plan_line" ]
+  [ "$plan_line" -lt "$worklog_line" ]
+  [ "$worklog_line" -lt "$notes_line" ]
+  [ "$notes_line" -lt "$links_line" ]
+}

@@ -74,6 +74,30 @@ $context
 
 ---
 
+## Specification
+
+### User Stories
+
+(To be filled in during EXPAND phase)
+
+### Acceptance Scenarios
+
+(To be filled in during EXPAND phase)
+
+### Success Metrics
+
+(To be filled in during EXPAND phase)
+
+### Scope
+
+(To be filled in during EXPAND phase)
+
+### Dependencies
+
+(To be filled in during EXPAND phase)
+
+---
+
 ## Plan
 
 (To be filled in during planning phase)
