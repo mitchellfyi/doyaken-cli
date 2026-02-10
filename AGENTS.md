@@ -172,6 +172,8 @@ On-demand skills in `.doyaken/skills/`:
 Files in `.doyaken/tasks/` use format: `PPP-SSS-slug.md`
 - PPP = Priority (001=Critical, 002=High, 003=Medium, 004=Low)
 - SSS = Sequence number
+- Priority is evaluated during EXPAND (recommended) and TRIAGE (compared against backlog) phases
+- Use `rename_task_priority()` from `lib/project.sh` to change a task's priority prefix and metadata
 
 ### Task States
 

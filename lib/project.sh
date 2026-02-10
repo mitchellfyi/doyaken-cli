@@ -2,7 +2,9 @@
 #
 # project.sh - Project detection and task helpers for doyaken CLI
 #
-# Provides: detect_project, require_project, get_task_folder, create_task_file
+# Provides: detect_project, require_project, get_task_folder, create_task_file,
+#           count_files, count_task_files, count_files_excluding_gitkeep,
+#           get_priority_label, rename_task_priority
 #
 
 # ============================================================================
