@@ -1778,6 +1778,10 @@ main() {
         export DOYAKEN_SAFE_MODE=1
         shift
         ;;
+      --no-status-line)
+        export DISPLAY_STATUS_LINE=0
+        shift
+        ;;
       --supervised)
         export DOYAKEN_APPROVAL="supervised"
         shift

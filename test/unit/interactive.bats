@@ -28,6 +28,7 @@ setup() {
   source "$PROJECT_ROOT/lib/sessions.sh"
   source "$PROJECT_ROOT/lib/undo.sh"
   source "$PROJECT_ROOT/lib/approval.sh"
+  source "$PROJECT_ROOT/lib/progress.sh"
   source "$PROJECT_ROOT/lib/commands.sh"
   source "$PROJECT_ROOT/lib/interactive.sh"
 
@@ -1402,4 +1403,222 @@ _setup_git_repo() {
   run show_help
   assert_output_contains "--supervised"
   assert_output_contains "--plan-only"
+}
+
+# ============================================================================
+# Progress Display Tests
+# ============================================================================
+
+@test "progress.sh loads without error" {
+  # Already sourced in setup — just check the guard variable
+  [[ -n "$_DOYAKEN_PROGRESS_LOADED" ]]
+}
+
+@test "progress_init_phases initializes tracking arrays" {
+  # Simulate PHASES array from core.sh
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|0"
+    "PLAN|phases/2-plan.md|900|0"
+    "IMPLEMENT|phases/3-implement.md|5400|0"
+  )
+
+  progress_init_phases "test-task" "opus"
+
+  [[ "${#PROGRESS_PHASE_NAMES[@]}" -eq 4 ]]
+  [[ "${PROGRESS_PHASE_NAMES[0]}" == "EXPAND" ]]
+  [[ "${PROGRESS_PHASE_NAMES[3]}" == "IMPLEMENT" ]]
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "pending" ]]
+  [[ "$PROGRESS_TASK_ID" == "test-task" ]]
+  [[ "$PROGRESS_MODEL" == "opus" ]]
+}
+
+@test "progress_init_phases marks skipped phases" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|1"
+    "PLAN|phases/2-plan.md|900|0"
+  )
+
+  progress_init_phases "test-task" "opus"
+
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "pending" ]]
+  [[ "${PROGRESS_PHASE_STATUSES[1]}" == "skipped" ]]
+  [[ "${PROGRESS_PHASE_STATUSES[2]}" == "pending" ]]
+}
+
+@test "progress_phase_start marks phase as running" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|0"
+  )
+  DISPLAY_PHASE_PROGRESS=0  # disable rendering for test
+
+  progress_init_phases "test-task" "opus"
+  progress_phase_start "EXPAND"
+
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "running" ]]
+  [[ "$PROGRESS_CURRENT_PHASE" == "EXPAND" ]]
+  [[ "$PROGRESS_CURRENT_PHASE_IDX" -eq 0 ]]
+  [[ "$PROGRESS_PHASE_START" -gt 0 ]]
+}
+
+@test "progress_phase_done marks phase as done" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|0"
+  )
+  DISPLAY_PHASE_PROGRESS=0
+
+  progress_init_phases "test-task" "opus"
+  progress_phase_start "EXPAND"
+  progress_phase_done "EXPAND"
+
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "done" ]]
+}
+
+@test "progress_phase_skip marks phase as skipped" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|0"
+  )
+  DISPLAY_PHASE_PROGRESS=0
+
+  progress_init_phases "test-task" "opus"
+  progress_phase_skip "TRIAGE"
+
+  [[ "${PROGRESS_PHASE_STATUSES[1]}" == "skipped" ]]
+}
+
+@test "_phase_progress_short returns phase counter" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|0"
+    "PLAN|phases/2-plan.md|900|0"
+  )
+  DISPLAY_PHASE_PROGRESS=0
+
+  progress_init_phases "test-task" "opus"
+  progress_phase_done "EXPAND"
+  progress_phase_start "TRIAGE"
+
+  local short
+  short=$(_phase_progress_short)
+  [[ "$short" == *"TRIAGE"* ]]
+  [[ "$short" == *"1/3"* ]]
+}
+
+@test "_render_phase_pipeline shows phase indicators" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|0"
+    "PLAN|phases/2-plan.md|900|0"
+  )
+  DISPLAY_PHASE_PROGRESS=0
+
+  progress_init_phases "test-task" "opus"
+  progress_phase_done "EXPAND"
+  progress_phase_start "TRIAGE"
+
+  run _render_phase_pipeline
+  assert_output_contains "EXPAND"
+  assert_output_contains "TRIAGE"
+  assert_output_contains "PLAN"
+}
+
+@test "send_notification runs without error on macOS" {
+  # Just test that the function exists and doesn't crash
+  DISPLAY_NOTIFICATIONS=0
+  run send_notification "test" "body"
+  [[ "$status" -eq 0 ]]
+}
+
+@test "send_notification skipped when disabled" {
+  DISPLAY_NOTIFICATIONS=0
+  run send_notification "test" "body"
+  [[ "$status" -eq 0 ]]
+  [[ -z "$output" ]]
+}
+
+@test "send_bell skipped when disabled" {
+  DISPLAY_BELL=0
+  run send_bell
+  [[ "$status" -eq 0 ]]
+  [[ -z "$output" ]]
+}
+
+@test "notify_task_complete calls notification" {
+  DISPLAY_NOTIFICATIONS=0
+  DISPLAY_BELL=0
+  run notify_task_complete "task-001" "completed"
+  [[ "$status" -eq 0 ]]
+}
+
+@test "status_line_clear runs without error" {
+  PROGRESS_STATUS_LINE_ACTIVE=0
+  run status_line_clear
+  [[ "$status" -eq 0 ]]
+}
+
+@test "load_display_config sets defaults" {
+  # Reset to ensure defaults apply
+  unset DISPLAY_STATUS_LINE DISPLAY_PHASE_PROGRESS DISPLAY_NOTIFICATIONS DISPLAY_BELL
+  export DISPLAY_STATUS_LINE="" DISPLAY_PHASE_PROGRESS="" DISPLAY_NOTIFICATIONS="" DISPLAY_BELL=""
+
+  # Source config so _load_config_bool is available
+  source "$PROJECT_ROOT/lib/config.sh"
+
+  load_display_config ""
+
+  [[ "$DISPLAY_STATUS_LINE" == "1" ]]
+  [[ "$DISPLAY_PHASE_PROGRESS" == "1" ]]
+  [[ "$DISPLAY_NOTIFICATIONS" == "1" ]]
+  [[ "$DISPLAY_BELL" == "0" ]]
+}
+
+@test "_is_tty returns false in test environment" {
+  # bats runs without a real TTY
+  run _is_tty
+  [[ "$status" -ne 0 ]]
+}
+
+@test "help text includes --no-status-line flag" {
+  source "$PROJECT_ROOT/lib/help.sh"
+  run show_help
+  assert_output_contains "--no-status-line"
+}
+
+@test "full phase lifecycle tracking" {
+  PHASES=(
+    "EXPAND|phases/0-expand.md|900|0"
+    "TRIAGE|phases/1-triage.md|540|1"
+    "PLAN|phases/2-plan.md|900|0"
+    "IMPLEMENT|phases/3-implement.md|5400|0"
+  )
+  DISPLAY_PHASE_PROGRESS=0
+
+  progress_init_phases "task-123" "sonnet"
+
+  # EXPAND runs and completes
+  progress_phase_start "EXPAND"
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "running" ]]
+  progress_phase_done "EXPAND"
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "done" ]]
+
+  # TRIAGE was pre-skipped
+  [[ "${PROGRESS_PHASE_STATUSES[1]}" == "skipped" ]]
+
+  # PLAN runs and completes
+  progress_phase_start "PLAN"
+  [[ "${PROGRESS_PHASE_STATUSES[2]}" == "running" ]]
+  progress_phase_done "PLAN"
+  [[ "${PROGRESS_PHASE_STATUSES[2]}" == "done" ]]
+
+  # IMPLEMENT still pending
+  [[ "${PROGRESS_PHASE_STATUSES[3]}" == "pending" ]]
+
+  # Check counter
+  local short
+  short=$(_phase_progress_short)
+  [[ "$short" == *"2/4"* ]]
 }

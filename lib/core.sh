@@ -56,6 +56,9 @@ source "$SCRIPT_DIR/review-tracker.sh"
 # Source approval system
 source "$SCRIPT_DIR/approval.sh"
 
+# Source progress display
+source "$SCRIPT_DIR/progress.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -637,6 +640,11 @@ load_manifest
 # Load all configuration from global and project config files
 # This handles: timeouts, skip_phases, agent settings, output settings
 load_all_config "$MANIFEST_FILE"
+
+# Load display/progress configuration
+if declare -f load_display_config &>/dev/null; then
+  load_display_config "$MANIFEST_FILE"
+fi
 
 # Project-specific directories
 TASKS_DIR="${TASKS_DIR:-$DATA_DIR/tasks}"
@@ -1654,6 +1662,9 @@ run_phase() {
 
   if [ "$skip" = "1" ]; then
     log_phase "Skipping $phase_name (disabled)"
+    if declare -f progress_phase_skip &>/dev/null; then
+      progress_phase_skip "$phase_name"
+    fi
     return 0
   fi
 
@@ -1710,10 +1721,16 @@ run_all_phases() {
 
   log_info "Running ${#PHASES[@]} phases for task: $task_id"
 
+  # Initialize progress tracking
+  if declare -f progress_init_phases &>/dev/null; then
+    progress_init_phases "$task_id" "$CURRENT_MODEL"
+  fi
+
   for phase_def in "${PHASES[@]}"; do
     # Check for interrupt before starting next phase
     if [ "$INTERRUPTED" = "1" ]; then
       log_warn "Interrupted - stopping phase execution"
+      status_line_clear 2>/dev/null || true
       return 130
     fi
 
@@ -1723,17 +1740,32 @@ run_all_phases() {
     if [ "${APPROVAL_SKIP_NEXT:-0}" = "1" ]; then
       APPROVAL_SKIP_NEXT=0
       log_phase "Skipping $name (user requested)"
+      if declare -f progress_phase_skip &>/dev/null; then
+        progress_phase_skip "$name"
+      fi
       continue
+    fi
+
+    # Track phase start
+    if declare -f progress_phase_start &>/dev/null; then
+      progress_phase_start "$name"
     fi
 
     local phase_result=0
     run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file" || phase_result=$?
 
     if [ "$phase_result" -eq 130 ]; then
+      status_line_clear 2>/dev/null || true
       return 130
     elif [ "$phase_result" -ne 0 ]; then
       log_error "Phase $name failed - stopping task execution"
+      status_line_clear 2>/dev/null || true
       return 1
+    fi
+
+    # Track phase completion
+    if declare -f progress_phase_done &>/dev/null; then
+      progress_phase_done "$name"
     fi
 
     # Approval gate between phases
@@ -1749,6 +1781,7 @@ run_all_phases() {
     sleep 1
   done
 
+  status_line_clear 2>/dev/null || true
   log_success "All phases completed for task: $task_id"
   return 0
 }
@@ -2351,6 +2384,11 @@ run_agent_iteration() {
     log_success "Task iteration completed successfully"
     save_session "$session_id" "$iteration" "completed"
 
+    # Desktop notification + bell
+    if declare -f notify_task_complete &>/dev/null; then
+      notify_task_complete "$task_id" "completed"
+    fi
+
     reset_model
 
     local done_file done_dir
@@ -2366,6 +2404,11 @@ run_agent_iteration() {
   else
     log_error "Task iteration failed"
     save_session "$session_id" "$iteration" "failed"
+
+    # Desktop notification on failure
+    if declare -f notify_task_complete &>/dev/null; then
+      notify_task_complete "$task_id" "failed"
+    fi
     return 1
   fi
 }

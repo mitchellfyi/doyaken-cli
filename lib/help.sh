@@ -62,6 +62,7 @@ ${BOLD}OPTIONS:${NC}
   --supervised        Pause between phases for human review
   --plan-only         Stop after plan phase for approval
   --approval <level>  Set approval level (full-auto, supervised, plan-only)
+  --no-status-line    Disable persistent status line during execution
   -- <args>           Pass additional arguments to the underlying agent CLI
 
 ${BOLD}AGENTS & MODELS:${NC}
