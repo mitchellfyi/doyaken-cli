@@ -29,6 +29,7 @@ CHAT_MESSAGES_FILE=""
 CHAT_HISTORY_FILE=""
 CHAT_AGENT_PID=""
 CHAT_SHOULD_EXIT=0
+CHAT_CURRENT_TASK=""
 
 # Generate a unique session ID
 generate_session_id() {
@@ -198,7 +199,9 @@ handle_chat_interrupt() {
 
 # Build the prompt string (plain text for readline compatibility)
 build_chat_prompt() {
-  if [ -n "${DOYAKEN_PROJECT:-}" ]; then
+  if [ -n "${CHAT_CURRENT_TASK:-}" ]; then
+    echo "doyaken [$CHAT_CURRENT_TASK]> "
+  elif [ -n "${DOYAKEN_PROJECT:-}" ]; then
     echo "doyaken [$(basename "$DOYAKEN_PROJECT")]> "
   else
     echo "doyaken> "
@@ -213,6 +216,13 @@ run_repl() {
 
   # Initialize session
   init_session
+
+  # Register commands (builtins + skills)
+  register_builtin_commands
+  register_skill_commands
+
+  # Set up tab completion
+  setup_tab_completion
 
   # Set up signal handler
   trap handle_chat_interrupt INT
@@ -236,6 +246,9 @@ run_repl() {
   # Main loop
   while [ "$CHAT_SHOULD_EXIT" -eq 0 ]; do
     local input=""
+
+    # Rebuild prompt (may change after /pick)
+    prompt=$(build_chat_prompt)
 
     # Read with readline editing support
     if ! IFS= read -re -p "$prompt" input; then
