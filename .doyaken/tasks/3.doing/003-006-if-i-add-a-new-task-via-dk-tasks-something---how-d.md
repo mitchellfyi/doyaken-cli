@@ -161,13 +161,13 @@ Currently, when a task is created via `dk tasks new`, it is automatically assign
 ### Test Plan
 
 - [x] Unit: `get_priority_label()` returns correct labels for 001-004 and "Unknown" for unrecognized
-- [ ] Unit: `rename_task_priority()` — successful rename (file moved + metadata updated)
-- [ ] Unit: `rename_task_priority()` — no-op when same priority
-- [ ] Unit: `rename_task_priority()` — returns error for missing file
-- [ ] Unit: `rename_task_priority()` — returns error when target exists (collision)
-- [ ] Unit: `rename_task_priority()` — returns error for invalid priority format
-- [ ] Unit: `rename_task_priority()` — returns error for non-standard filename (no PPP-SSS pattern)
-- [ ] Integration: Quality gates pass (`scripts/check-all.sh`)
+- [x] Unit: `rename_task_priority()` — successful rename (file moved + metadata updated)
+- [x] Unit: `rename_task_priority()` — no-op when same priority
+- [x] Unit: `rename_task_priority()` — returns error for missing file
+- [x] Unit: `rename_task_priority()` — returns error when target exists (collision)
+- [x] Unit: `rename_task_priority()` — returns error for invalid priority format
+- [x] Unit: `rename_task_priority()` — returns error for non-standard filename (no PPP-SSS pattern)
+- [x] Integration: Quality gates pass (`scripts/check-all.sh`)
 
 ### Docs to Update
 
@@ -297,6 +297,53 @@ Ready: yes — task is well-defined, all key files exist, no blockers, quality g
   - `lib/project.sh` - Add `rename_task_priority()` function
   - `test/unit/` - Add tests for rename function
 - Complexity: Medium (4 files; prompt changes are low-risk, rename function needs careful edge case handling)
+
+### 2026-02-10 04:06 - Testing Complete
+
+Tests written:
+- `test/unit/project.bats` - 33 tests (unit), 5 new edge case tests added
+
+New tests:
+- `rename_task_priority: preserves all non-priority file content` - verifies awk transform keeps body text
+- `rename_task_priority: handles file without Priority metadata row` - no metadata → file renamed, content preserved
+- `rename_task_priority: returns error for empty priority` - empty string → invalid format error
+- `rename_task_priority: works with filename that has no sequence number` - PPP-slug pattern (no SSS)
+- `get_priority_label: empty input returns Unknown` - empty string → Unknown
+
+Quality gates:
+- Lint: pass (0 errors, 8 warnings — all pre-existing)
+- Types: N/A (shell scripts)
+- Tests: pass (588 total, 5 new)
+- Build: N/A (shell scripts)
+
+CI ready: yes
+
+### 2026-02-10 03:58 - Implementation Progress
+
+Step 1: Add get_priority_label() to lib/project.sh
+- Files modified: lib/project.sh
+- Verification: pass (sourced and tested interactively)
+
+Step 2: Implement rename_task_priority() in lib/project.sh
+- Files modified: lib/project.sh
+- Verification: pass (manual test: rename 003→001, metadata updated)
+
+Step 3-4: Add unit tests for rename_task_priority() and get_priority_label()
+- Files modified: test/unit/project.bats
+- Verification: pass (28/28 tests pass, 11 new tests added)
+
+Step 5: Update EXPAND phase prompt to recommend priority
+- Files modified: .doyaken/prompts/phases/0-expand.md
+- Verification: pass (new step 6 added, work log template updated)
+
+Step 6: Update TRIAGE phase prompt to compare priorities and list backlog
+- Files modified: .doyaken/prompts/phases/1-triage.md
+- Verification: pass (steps 5-6 added, work log template updated)
+
+Final: Quality gates pass
+- scripts/check-all.sh: 0 errors, 8 warnings (pre-existing)
+- npx bats test/unit/: 583/583 pass
+- Commit: 137956d
 
 ---
 
