@@ -108,8 +108,10 @@ Track these metrics to evaluate self-healing effectiveness:
 
 ```bash
 # Count ci-fix issues created this month
+# Portable date command (works on both Linux and macOS)
+ONE_MONTH_AGO=$(date -u -d '1 month ago' '+%Y-%m-%d' 2>/dev/null || date -u -v-1m '+%Y-%m-%d')
 gh issue list --label "ci-fix" --json createdAt,state --jq \
-  "[.[] | select(.createdAt > \"$(date -v-1m +%Y-%m-%d)\")] | length"
+  "[.[] | select(.createdAt > \"$ONE_MONTH_AGO\")] | length"
 
 # Count issues closed by Copilot (success)
 gh issue list --label "ci-fix" --state closed --limit 100 --json closedBy,title

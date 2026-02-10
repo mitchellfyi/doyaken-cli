@@ -39,7 +39,7 @@ This is a **safety net** for regressions and unexpected failures, NOT a replacem
 The generated issue follows this template:
 
 ```markdown
-## CI Failure — Auto-generated
+## CI Failure - Auto-generated
 
 The CI workflow failed on branch `main` at commit `<SHA>`.
 
