@@ -322,7 +322,7 @@ cb_record_iteration() {
 
     # Check for repeated errors
     if [ -n "$error_hash" ] && [ "$error_hash" = "$CB_LAST_ERROR_HASH" ]; then
-      ((CB_SAME_ERROR_COUNT++))
+      ((++CB_SAME_ERROR_COUNT))
       if [ "$CB_SAME_ERROR_COUNT" -ge "$CB_SAME_ERROR_THRESHOLD" ]; then
         _cb_transition "OPEN" "same error repeated $CB_SAME_ERROR_COUNT times"
       fi
@@ -355,7 +355,7 @@ _cb_on_progress() {
 
 _cb_on_no_progress() {
   local reason="${1:-unknown}"
-  ((CB_NO_PROGRESS_COUNT++))
+  ((++CB_NO_PROGRESS_COUNT))
 
   case "$CB_STATE" in
     CLOSED)
