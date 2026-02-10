@@ -65,6 +65,8 @@ Skills **compose from library prompts** - they don't contain methodology directl
 | `check-quality` | Run quality checks | `/check-quality` |
 | `setup-quality` | Configure quality tools | `/setup-quality` |
 | `audit-deps` | Audit dependencies | `/audit-deps` |
+| `ci-fix` | Diagnose and fix CI failures | `/ci-fix` |
+| `self-healing-ci` | Manage self-healing CI system | `/self-healing-ci` |
 
 ### Discovery & Planning
 

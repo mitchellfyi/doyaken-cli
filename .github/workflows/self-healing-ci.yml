@@ -1,0 +1,229 @@
+name: Self-Healing CI
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  issues: write
+  actions: read
+  checks: read
+
+jobs:
+  create-fix-issue:
+    name: Create CI Fix Issue
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch == 'main' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Get workflow run details
+        id: workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "run_url=${{ github.event.workflow_run.html_url }}" >> $GITHUB_OUTPUT
+          echo "commit_sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Check for existing open ci-fix issue
+        id: check_existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXISTING_ISSUE=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "ci-fix" \
+            --label "automated" \
+            --state open \
+            --json number,title \
+            --jq '.[0].number // empty')
+          
+          if [ -n "$EXISTING_ISSUE" ]; then
+            echo "existing_issue=$EXISTING_ISSUE" >> $GITHUB_OUTPUT
+            echo "Found existing issue #$EXISTING_ISSUE"
+            
+            COMMENT_COUNT=$(gh issue view "$EXISTING_ISSUE" \
+              --repo ${{ github.repository }} \
+              --json comments \
+              --jq '[.comments[] | select(.author.login == "github-actions[bot]")] | length')
+            
+            echo "comment_count=$COMMENT_COUNT" >> $GITHUB_OUTPUT
+            echo "Existing issue has $COMMENT_COUNT automation comments"
+          else
+            echo "No existing open ci-fix issue found"
+            echo "existing_issue=" >> $GITHUB_OUTPUT
+            echo "comment_count=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch failed job logs
+        id: logs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID="${{ steps.workflow.outputs.run_id }}"
+          
+          FAILED_JOBS=$(gh api \
+            "/repos/${{ github.repository }}/actions/runs/$RUN_ID/jobs" \
+            --jq '.jobs[] | select(.conclusion == "failure") | {id: .id, name: .name}')
+          
+          LOGS_FILE=$(mktemp)
+          echo "logs_file=$LOGS_FILE" >> $GITHUB_OUTPUT
+          
+          if [ -z "$FAILED_JOBS" ]; then
+            echo "No failed jobs found" > "$LOGS_FILE"
+          else
+            echo "$FAILED_JOBS" | jq -r '.id' | while read -r JOB_ID; do
+              JOB_NAME=$(echo "$FAILED_JOBS" | jq -r "select(.id == $JOB_ID) | .name")
+              echo "### Job: $JOB_NAME" >> "$LOGS_FILE"
+              echo "" >> "$LOGS_FILE"
+              echo '```' >> "$LOGS_FILE"
+              
+              gh api \
+                "/repos/${{ github.repository }}/actions/jobs/$JOB_ID/logs" \
+                2>/dev/null | tail -n 200 >> "$LOGS_FILE" || echo "Failed to fetch logs for job $JOB_ID" >> "$LOGS_FILE"
+              
+              echo '```' >> "$LOGS_FILE"
+              echo "" >> "$LOGS_FILE"
+            done
+          fi
+          
+          LOG_SIZE=$(wc -c < "$LOGS_FILE")
+          if [ "$LOG_SIZE" -gt 60000 ]; then
+            echo "Log size ($LOG_SIZE bytes) exceeds safe limit, truncating further..."
+            head -c 60000 "$LOGS_FILE" > "${LOGS_FILE}.tmp"
+            echo "" >> "${LOGS_FILE}.tmp"
+            echo "..." >> "${LOGS_FILE}.tmp"
+            echo "(logs truncated due to size)" >> "${LOGS_FILE}.tmp"
+            mv "${LOGS_FILE}.tmp" "$LOGS_FILE"
+          fi
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create "ci-fix" \
+            --repo ${{ github.repository }} \
+            --color "d73a4a" \
+            --description "Automated CI failure fix request" \
+            --force 2>/dev/null || true
+          
+          gh label create "automated" \
+            --repo ${{ github.repository }} \
+            --color "0e8a16" \
+            --description "Created by automation" \
+            --force 2>/dev/null || true
+          
+          gh label create "needs-human" \
+            --repo ${{ github.repository }} \
+            --color "e99695" \
+            --description "Requires human intervention" \
+            --force 2>/dev/null || true
+
+      - name: Create or update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXISTING_ISSUE="${{ steps.check_existing.outputs.existing_issue }}"
+          COMMENT_COUNT="${{ steps.check_existing.outputs.comment_count }}"
+          LOGS_FILE="${{ steps.logs.outputs.logs_file }}"
+          
+          LOGS_CONTENT=$(cat "$LOGS_FILE")
+          
+          if [ -z "$EXISTING_ISSUE" ]; then
+            echo "Creating new CI fix issue..."
+            {
+              echo "## CI Failure - Auto-generated"
+              echo ""
+              echo "The CI workflow failed on branch \`main\` at commit \`${{ steps.workflow.outputs.commit_sha }}\`."
+              echo ""
+              echo "**Failed run:** ${{ steps.workflow.outputs.run_url }}"
+              echo ""
+              echo "## Task"
+              echo ""
+              echo "Analyze the failure logs below and fix the code that is causing CI to fail."
+              echo ""
+              echo "**Rules:**"
+              echo "- Fix the root cause in the source code, tests, or configuration"
+              echo "- Do NOT skip, disable, or mark any tests as expected failures"
+              echo "- Do NOT add \`continue-on-error\` or any other workaround that masks the failure"
+              echo "- Run the full test suite locally before submitting your PR"
+              echo "- Keep your changes minimal and focused on the fix"
+              echo ""
+              echo "## Failure Logs"
+              echo ""
+              echo "$LOGS_CONTENT"
+            } > /tmp/issue-body.md
+            
+            gh issue create \
+              --repo ${{ github.repository }} \
+              --title "[CI Fix] Build failure on \`main\` (${{ steps.workflow.outputs.short_sha }})" \
+              --body-file /tmp/issue-body.md \
+              --label "ci-fix" \
+              --label "automated" \
+              --assignee "copilot"
+            echo "✅ Created new CI fix issue"
+          elif [ "$COMMENT_COUNT" -ge 3 ]; then
+            echo "Issue #$EXISTING_ISSUE has $COMMENT_COUNT automation comments, escalating to human..."
+            {
+              echo "⚠️ **Escalating to human review**"
+              echo ""
+              echo "CI continues to fail after multiple automated fix attempts. This requires manual intervention."
+              echo ""
+              echo "**Latest failure:** ${{ steps.workflow.outputs.run_url }}"
+              echo "**Commit:** \`${{ steps.workflow.outputs.commit_sha }}\`"
+              echo ""
+              echo "Please review the failure logs and fix manually."
+            } > /tmp/escalation.md
+            
+            gh issue comment "$EXISTING_ISSUE" \
+              --repo ${{ github.repository }} \
+              --body-file /tmp/escalation.md
+            
+            gh issue edit "$EXISTING_ISSUE" \
+              --repo ${{ github.repository }} \
+              --add-label "needs-human"
+            
+            echo "✅ Added needs-human label to issue #$EXISTING_ISSUE"
+          else
+            echo "Updating existing issue #$EXISTING_ISSUE with new failure logs..."
+            {
+              echo "## New CI Failure"
+              echo ""
+              echo "CI failed again on branch \`main\` at commit \`${{ steps.workflow.outputs.commit_sha }}\`."
+              echo ""
+              echo "**Failed run:** ${{ steps.workflow.outputs.run_url }}"
+              echo ""
+              echo "Please review the updated failure logs and iterate on the fix."
+              echo ""
+              echo "## Failure Logs"
+              echo ""
+              echo "$LOGS_CONTENT"
+            } > /tmp/comment-body.md
+            
+            gh issue comment "$EXISTING_ISSUE" \
+              --repo ${{ github.repository }} \
+              --body-file /tmp/comment-body.md
+            echo "✅ Updated issue #$EXISTING_ISSUE with new failure information"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Self-Healing CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Workflow Run** | [${{ steps.workflow.outputs.run_id }}](${{ steps.workflow.outputs.run_url }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ steps.workflow.outputs.short_sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`main\` |" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.check_existing.outputs.existing_issue }}" ]; then
+            echo "| **Action** | Updated existing issue #${{ steps.check_existing.outputs.existing_issue }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Action** | Created new CI fix issue |" >> $GITHUB_STEP_SUMMARY
+          fi
