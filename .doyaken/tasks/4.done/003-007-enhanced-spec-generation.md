@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `003-007-enhanced-spec-generation`                     |
-| Status      | `doing`                                                |
+| Status      | `done`                                                 |
 | Priority    | `003` Medium                                           |
 | Created     | `2026-02-06 15:30`                                     |
 | Started     | `2026-02-10 09:41`                                     |
-| Completed   |                                                        |
+| Completed   | `2026-02-10 09:55`                                     |
 | Blocked By  |                                                        |
 | Blocks      |                                                        |
 | Assigned To | `worker-1` |
@@ -33,18 +33,18 @@ This task enhances the EXPAND phase output format with structured user stories a
 
 ## Acceptance Criteria
 
-- [ ] AC-1: EXPAND phase prompt (`0-expand.md`) includes instructions and examples for generating structured user stories in `As a <role>, I want <feature> so that <benefit>` format
-- [ ] AC-2: EXPAND phase prompt instructs agent to write Given/When/Then acceptance scenarios for each user story
-- [ ] AC-3: EXPAND phase prompt instructs agent to define measurable success metrics (e.g., "Tests pass", "No regressions", "Lint clean")
-- [ ] AC-4: EXPAND phase prompt includes scope boundaries (in-scope / out-of-scope) — already partially exists in Notes section, formalize it
-- [ ] AC-5: EXPAND phase prompt instructs agent to mark unclear items with `[NEEDS CLARIFICATION]`
-- [ ] AC-6: EXPAND phase output includes a `## Specification` section with User Stories, Acceptance Criteria, Success Metrics, Scope, and Dependencies subsections
-- [ ] AC-7: TRIAGE phase prompt (`1-triage.md`) validates spec completeness: checks for missing acceptance criteria, vague success metrics, and `[NEEDS CLARIFICATION]` markers
-- [ ] AC-8: Task template (`create_task_file()` in `lib/project.sh` and `templates/TASK.md`) includes Specification section placeholders
-- [ ] AC-9: For trivial tasks (bug fixes, typos), the EXPAND prompt explicitly allows abbreviated specs without full user stories — guided by task context, not a CLI flag
-- [ ] AC-10: Tests written and passing
-- [ ] AC-11: Quality gates pass
-- [ ] AC-12: Changes committed with task reference
+- [x] AC-1: EXPAND phase prompt (`0-expand.md`) includes instructions and examples for generating structured user stories in `As a <role>, I want <feature> so that <benefit>` format
+- [x] AC-2: EXPAND phase prompt instructs agent to write Given/When/Then acceptance scenarios for each user story
+- [x] AC-3: EXPAND phase prompt instructs agent to define measurable success metrics (e.g., "Tests pass", "No regressions", "Lint clean")
+- [x] AC-4: EXPAND phase prompt includes scope boundaries (in-scope / out-of-scope) — already partially exists in Notes section, formalize it
+- [x] AC-5: EXPAND phase prompt instructs agent to mark unclear items with `[NEEDS CLARIFICATION]`
+- [x] AC-6: EXPAND phase output includes a `## Specification` section with User Stories, Acceptance Criteria, Success Metrics, Scope, and Dependencies subsections
+- [x] AC-7: TRIAGE phase prompt (`1-triage.md`) validates spec completeness: checks for missing acceptance criteria, vague success metrics, and `[NEEDS CLARIFICATION]` markers
+- [x] AC-8: Task template (`create_task_file()` in `lib/project.sh` and `templates/TASK.md`) includes Specification section placeholders
+- [x] AC-9: For trivial tasks (bug fixes, typos), the EXPAND prompt explicitly allows abbreviated specs without full user stories — guided by task context, not a CLI flag
+- [x] AC-10: Tests written and passing
+- [x] AC-11: Quality gates pass
+- [x] AC-12: Changes committed with task reference
 
 ---
 
@@ -212,6 +212,90 @@ This task enhances the EXPAND phase output format with structured user stories a
 ---
 
 ## Work Log
+
+### 2026-02-10 - Verification Complete
+
+Criteria: all met (AC-1 through AC-12)
+Quality gates: all pass (606/606 unit tests, 109 integration checks, lint clean)
+CI: pending push
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| AC-1: User stories in EXPAND prompt | [x] | `0-expand.md:14-15` — "As a <role>, I want <feature> so that <benefit>" |
+| AC-2: Given/When/Then scenarios | [x] | `0-expand.md:17-22` — full scenario template |
+| AC-3: Measurable success metrics | [x] | `0-expand.md:23` — "Tests pass", "No regressions", "Lint clean" |
+| AC-4: Scope boundaries formalized | [x] | `0-expand.md:24` — "Explicit in-scope and out-of-scope lists" |
+| AC-5: [NEEDS CLARIFICATION] markers | [x] | `0-expand.md:25,116` — tag unclear items instruction |
+| AC-6: Specification output section | [x] | `0-expand.md:56-89` — User Stories, Acceptance Scenarios, Success Metrics, Scope, Dependencies |
+| AC-7: TRIAGE validates spec | [x] | `1-triage.md:9-12` — checks scenarios, metrics, clarification markers |
+| AC-8: Task template placeholders | [x] | All 4 locations: `project.sh`, `templates/TASK.md`, `_templates/TASK.md`, `cli.sh` |
+| AC-9: Abbreviated specs for trivial | [x] | `0-expand.md:32` — scaling guidance for trivial tasks |
+| AC-10: Tests written and passing | [x] | 18 new tests in `project.bats`, 51/51 pass |
+| AC-11: Quality gates pass | [x] | `npm run check` — all checks passed |
+| AC-12: Changes committed | [x] | Commits: 21c9559, 4e85f7c (+ cd38429 for prompt changes) |
+
+Task location: 3.doing → 4.done
+Reason: complete — all acceptance criteria verified with evidence
+
+### 2026-02-10 09:55 - Review Complete
+
+Findings:
+- Blockers: 0
+- High: 0
+- Medium: 0
+- Low: 0
+
+Review passes:
+- Correctness: pass — all paths verified, tests cover happy path and edge cases
+- Design: pass — consistent patterns across all 4 template locations, logical section ordering
+- Security: pass — no user input handling, no external calls, proper variable escaping
+- Performance: pass — simple template generation, no concerns
+- Tests: pass — 18 new tests, 51/51 project.bats, full suite (npm run check) all green
+
+All criteria met: yes (AC-1 through AC-12 all checked)
+Follow-up tasks: none
+
+Status: COMPLETE
+
+### 2026-02-10 09:50 - Documentation Sync
+
+Docs updated:
+- `templates/TASK.md` — Specification section with examples already added (step 4)
+- `.doyaken/tasks/_templates/TASK.md` — Specification section already added (step 5)
+- `.doyaken/prompts/phases/0-expand.md` — structured spec output format already documented in-prompt (step 1)
+- `.doyaken/prompts/phases/1-triage.md` — spec validation step already documented in-prompt (step 2)
+
+Inline comments:
+- `lib/project.sh:29-30` — function docstring already lists `create_task_file` (no change needed)
+
+Consistency: verified
+- AGENTS.md references phases generically ("Turn a brief into a full spec") — still accurate, no update needed
+- PROJECT.md/CLAUDE.md don't reference task internal structure — no update needed
+- All 4 template locations have matching Specification subsection headers (User Stories, Acceptance Scenarios, Success Metrics, Scope, Dependencies)
+- Templates (TASK.md) use rich examples; programmatic templates (project.sh, cli.sh) use minimal placeholders — intentional design split
+
+No additional documentation changes required. The phase prompts and templates are self-documenting.
+
+### 2026-02-10 - Testing Complete
+
+Tests written:
+- `test/unit/project.bats` - 18 tests (unit) for `create_task_file()` output
+
+Quality gates:
+- Lint: pass (0 errors, 8 warnings — pre-existing)
+- Types: N/A (shell project)
+- Tests: pass (606 total, 18 new)
+- Build: pass (`npm run check` all checks passed)
+
+AC verification:
+- AC-1 through AC-9: all functional criteria verified in changed files
+- AC-10: 18 new unit tests, all passing
+- AC-11: quality gates pass
+- AC-12: changes committed (21c9559)
+
+Template consistency: all 4 locations (project.sh, templates/TASK.md, _templates/TASK.md, cli.sh) have matching Specification section with 5 subsections
+
+CI ready: yes
 
 ### 2026-02-10 - Implementation Progress (Step 7)
 
