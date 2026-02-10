@@ -53,6 +53,9 @@ source "$SCRIPT_DIR/config.sh"
 # Source review tracker for periodic reviews
 source "$SCRIPT_DIR/review-tracker.sh"
 
+# Source approval system
+source "$SCRIPT_DIR/approval.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -1716,6 +1719,13 @@ run_all_phases() {
 
     IFS='|' read -r name prompt_file timeout skip <<< "$phase_def"
 
+    # Check if this phase should be skipped due to approval gate
+    if [ "${APPROVAL_SKIP_NEXT:-0}" = "1" ]; then
+      APPROVAL_SKIP_NEXT=0
+      log_phase "Skipping $name (user requested)"
+      continue
+    fi
+
     local phase_result=0
     run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file" || phase_result=$?
 
@@ -1724,6 +1734,16 @@ run_all_phases() {
     elif [ "$phase_result" -ne 0 ]; then
       log_error "Phase $name failed - stopping task execution"
       return 1
+    fi
+
+    # Approval gate between phases
+    if declare -f approval_gate &>/dev/null; then
+      local gate_result=0
+      approval_gate "$name" "$task_id" || gate_result=$?
+      case "$gate_result" in
+        1) return 1 ;;  # abort/pause
+        2) APPROVAL_SKIP_NEXT=1 ;;  # skip next
+      esac
     fi
 
     sleep 1

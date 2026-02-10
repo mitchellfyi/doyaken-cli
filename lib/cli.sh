@@ -1778,6 +1778,22 @@ main() {
         export DOYAKEN_SAFE_MODE=1
         shift
         ;;
+      --supervised)
+        export DOYAKEN_APPROVAL="supervised"
+        shift
+        ;;
+      --plan-only)
+        export DOYAKEN_APPROVAL="plan-only"
+        shift
+        ;;
+      --approval)
+        if [ $# -lt 2 ] || [[ "$2" == --* ]]; then
+          log_error "--approval requires a value (full-auto, supervised, plan-only)"
+          exit 1
+        fi
+        export DOYAKEN_APPROVAL="$2"
+        shift 2
+        ;;
       --help|-h)
         show_help
         exit 0

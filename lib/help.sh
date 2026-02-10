@@ -59,6 +59,9 @@ ${BOLD}OPTIONS:${NC}
   --verbose           Show detailed output
   --quiet             Minimal output
   --safe-mode         Disable autonomous mode (agents will prompt for confirmation)
+  --supervised        Pause between phases for human review
+  --plan-only         Stop after plan phase for approval
+  --approval <level>  Set approval level (full-auto, supervised, plan-only)
   -- <args>           Pass additional arguments to the underlying agent CLI
 
 ${BOLD}AGENTS & MODELS:${NC}

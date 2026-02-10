@@ -20,6 +20,7 @@ source "$SCRIPT_DIR_INTERACTIVE/logging.sh"
 source "$SCRIPT_DIR_INTERACTIVE/commands.sh"
 source "$SCRIPT_DIR_INTERACTIVE/sessions.sh"
 source "$SCRIPT_DIR_INTERACTIVE/undo.sh"
+source "$SCRIPT_DIR_INTERACTIVE/approval.sh"
 
 # ============================================================================
 # Session Management

@@ -71,6 +71,7 @@ dispatch_command() {
     session)      chat_cmd_session "$args" ;;
     undo)         chat_cmd_undo ;;
     redo)         chat_cmd_redo ;;
+    approval)     chat_cmd_approval "$args" ;;
     checkpoint)   chat_cmd_checkpoint "$args" ;;
     restore)      chat_cmd_restore "$args" ;;
     *)
@@ -109,7 +110,7 @@ fuzzy_match_slash_command() {
   (( input_len < 2 )) && return 0
 
   # Collect all known command names
-  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff sessions session undo redo checkpoint restore"
+  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff sessions session undo redo checkpoint restore approval"
 
   # Add registered skill commands
   local i
@@ -248,7 +249,7 @@ _try_skill_command() {
 # Usage: generate_completions_file "/path/to/file"
 generate_completions_file() {
   local file="$1"
-  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore"
+  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore /approval"
 
   # Add skill commands
   local i
@@ -264,7 +265,7 @@ generate_completions_file() {
 # Set up tab completion for the REPL (bash 4+ only)
 setup_tab_completion() {
   # Build list of completions
-  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore"
+  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore /approval"
 
   local i
   for (( i=0; i < ${#REGISTERED_CMD_NAMES[@]}; i++ )); do
@@ -329,6 +330,7 @@ register_builtin_commands() {
   register_command "diff"     "Show git diff of changes"
   register_command "sessions"   "List recent sessions"
   register_command "session"    "Manage sessions: /session save|resume|fork|export|delete"
+  register_command "approval"   "Show or set approval level: /approval [level]"
   register_command "undo"       "Revert last agent change"
   register_command "redo"       "Re-apply last undone change"
   register_command "checkpoint" "Show or create checkpoints"
@@ -950,5 +952,33 @@ chat_cmd_restore() {
   else
     echo "Checkpoint system not available"
     return 1
+  fi
+}
+
+chat_cmd_approval() {
+  local level="$1"
+
+  if [ -z "$level" ]; then
+    # Show current level
+    local current="${DOYAKEN_APPROVAL:-full-auto}"
+    echo -e "${BOLD}Approval level:${NC} $current"
+    echo ""
+    echo "  full-auto    No approval needed (default)"
+    echo "  supervised   Pause between phases for review"
+    echo "  plan-only    Stop after plan phase for approval"
+    echo ""
+    echo "Set with: /approval <level>"
+    return 0
+  fi
+
+  if declare -f set_approval_level &>/dev/null; then
+    if set_approval_level "$level"; then
+      echo -e "${GREEN}Approval level set to:${NC} $level"
+    else
+      return 1
+    fi
+  else
+    export DOYAKEN_APPROVAL="$level"
+    echo -e "${GREEN}Approval level set to:${NC} $level"
   fi
 }

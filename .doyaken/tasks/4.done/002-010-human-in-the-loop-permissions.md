@@ -5,11 +5,11 @@
 | Field       | Value                                                  |
 | ----------- | ------------------------------------------------------ |
 | ID          | `002-010-human-in-the-loop-permissions`                |
-| Status      | `todo`                                                 |
+| Status      | `done`                                                 |
 | Priority    | `002` High                                             |
 | Created     | `2026-02-06 15:30`                                     |
-| Started     |                                                        |
-| Completed   |                                                        |
+| Started     | `2026-02-10`                                           |
+| Completed   | `2026-02-10`                                           |
 | Blocked By  | 001-007                                                |
 | Blocks      |                                                        |
 | Assigned To |                                                        |

@@ -27,6 +27,7 @@ setup() {
   source "$PROJECT_ROOT/lib/agents.sh"
   source "$PROJECT_ROOT/lib/sessions.sh"
   source "$PROJECT_ROOT/lib/undo.sh"
+  source "$PROJECT_ROOT/lib/approval.sh"
   source "$PROJECT_ROOT/lib/commands.sh"
   source "$PROJECT_ROOT/lib/interactive.sh"
 
@@ -1314,4 +1315,91 @@ _setup_git_repo() {
   assert_output_contains "/undo"
   assert_output_contains "/redo"
   assert_output_contains "/checkpoint"
+}
+
+# ============================================================================
+# approval.sh tests
+# ============================================================================
+
+@test "set_approval_level accepts full-auto" {
+  set_approval_level "full-auto"
+  [ "$DOYAKEN_APPROVAL" = "full-auto" ]
+}
+
+@test "set_approval_level accepts supervised" {
+  set_approval_level "supervised"
+  [ "$DOYAKEN_APPROVAL" = "supervised" ]
+}
+
+@test "set_approval_level accepts plan-only" {
+  set_approval_level "plan-only"
+  [ "$DOYAKEN_APPROVAL" = "plan-only" ]
+}
+
+@test "set_approval_level rejects unknown level" {
+  run set_approval_level "foobar"
+  assert_failure
+  assert_output_contains "Unknown approval level"
+}
+
+@test "get_approval_level returns current level" {
+  export DOYAKEN_APPROVAL="supervised"
+  local level
+  level=$(get_approval_level)
+  [ "$level" = "supervised" ]
+}
+
+@test "get_approval_level defaults to full-auto" {
+  unset DOYAKEN_APPROVAL
+  local level
+  level=$(get_approval_level)
+  [ "$level" = "full-auto" ]
+}
+
+@test "approval_gate returns 0 in full-auto mode" {
+  export DOYAKEN_APPROVAL="full-auto"
+  approval_gate "implement" "task-1"
+  [ $? -eq 0 ]
+}
+
+@test "dispatch_command handles /approval without args" {
+  export DOYAKEN_APPROVAL="full-auto"
+  run dispatch_command "/approval"
+  assert_success
+  assert_output_contains "full-auto"
+  assert_output_contains "supervised"
+  assert_output_contains "plan-only"
+}
+
+@test "dispatch_command handles /approval with valid level" {
+  run dispatch_command "/approval supervised"
+  assert_success
+  assert_output_contains "Approval level set to"
+}
+
+@test "dispatch_command handles /approval with invalid level" {
+  run dispatch_command "/approval foobar"
+  assert_failure
+  assert_output_contains "Unknown approval level"
+}
+
+@test "help includes /approval command" {
+  run chat_cmd_help
+  assert_success
+  assert_output_contains "/approval"
+}
+
+@test "completions file includes /approval" {
+  local comp_file="$TEST_TEMP_DIR/completions"
+  generate_completions_file "$comp_file"
+  local content
+  content=$(cat "$comp_file")
+  [[ "$content" == *"/approval"* ]]
+}
+
+@test "help text includes --supervised flag" {
+  source "$PROJECT_ROOT/lib/help.sh"
+  run show_help
+  assert_output_contains "--supervised"
+  assert_output_contains "--plan-only"
 }
