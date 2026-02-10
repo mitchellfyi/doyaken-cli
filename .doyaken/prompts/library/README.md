@@ -58,6 +58,8 @@ prompts/library/     ← YOU ARE HERE (Source of Truth)
 | [git-workflow.md](git-workflow.md) | Commits, branches, PRs | Git operations |
 | [documentation.md](documentation.md) | Documentation standards | Writing docs |
 | [refactor.md](refactor.md) | Refactoring guidelines | Refactoring code |
+| [ci.md](ci.md) | CI/CD best practices | Working with CI/CD pipelines |
+| [self-healing-ci.md](self-healing-ci.md) | Automated CI failure handling | Managing self-healing CI system |
 
 ### Composed Prompts
 
