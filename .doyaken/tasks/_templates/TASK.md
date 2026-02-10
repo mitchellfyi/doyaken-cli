@@ -40,6 +40,39 @@ All must be checked before moving to done:
 
 ---
 
+## Specification
+
+### User Stories
+
+- **US-1**: As a [role], I want [feature] so that [benefit]
+
+(For trivial tasks: "N/A — see Acceptance Criteria above")
+
+### Acceptance Scenarios
+
+**US-1:**
+- Given [precondition], When [action], Then [expected result]
+
+### Success Metrics
+
+- [ ] All tests pass
+- [ ] No lint errors
+- [ ] No regressions
+
+### Scope
+
+**In Scope:**
+- [what will be done]
+
+**Out of Scope:**
+- [what won't be done]
+
+### Dependencies
+
+- None
+
+---
+
 ## Plan
 
 Step-by-step implementation approach:
