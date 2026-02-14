@@ -1,0 +1,175 @@
+name: Copilot Merge Checker
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: "*/10 * * * *"
+  workflow_dispatch: # Manual trigger for testing
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  check-copilot-prs:
+    name: Check Copilot PRs for Merge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check and merge eligible PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MITCHELL_PAT }}
+          script: |
+            const COMMENT_WAIT_MINUTES = 10;
+            const now = new Date();
+
+            // Get all open PRs by Copilot
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+
+            const copilotPRs = prs.data.filter(pr => 
+              pr.user.login === 'copilot-swe-agent[bot]' ||
+              pr.user.type === 'Bot' && pr.user.login.includes('copilot')
+            );
+
+            console.log(`Found ${copilotPRs.length} Copilot PRs`);
+
+            for (const pr of copilotPRs) {
+              console.log(`\nChecking PR #${pr.number}: ${pr.title}`);
+              
+              // Skip WIP PRs
+              if (pr.title.includes('[WIP]') || pr.draft) {
+                console.log('  ⏳ Still WIP or draft, skipping');
+                continue;
+              }
+              
+              // Check CI status
+              const checks = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: pr.head.sha
+              });
+              
+              const ciCheck = checks.data.check_runs.find(c => 
+                c.name === 'Quality Gates' || c.name === 'CI' || c.name === 'quality'
+              );
+              
+              if (!ciCheck) {
+                console.log('  ⏳ CI not found, skipping');
+                continue;
+              }
+              
+              if (ciCheck.conclusion !== 'success') {
+                console.log(`  ❌ CI status: ${ciCheck.conclusion}, skipping`);
+                continue;
+              }
+              
+              console.log('  ✅ CI passing');
+              
+              // Check for recent review comments
+              const reviews = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              const comments = await github.rest.pulls.listReviewComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              // Find most recent comment/review time
+              let latestActivity = new Date(pr.updated_at);
+              
+              for (const review of reviews.data) {
+                const reviewTime = new Date(review.submitted_at);
+                if (reviewTime > latestActivity) latestActivity = reviewTime;
+              }
+              
+              for (const comment of comments.data) {
+                const commentTime = new Date(comment.updated_at);
+                if (commentTime > latestActivity) latestActivity = commentTime;
+                
+                // Check for unresolved comments not by Copilot
+                if (!comment.user.login.includes('copilot') && 
+                    comment.user.login !== 'github-actions[bot]') {
+                  // Check if this comment has been addressed (Copilot pushed after it)
+                  const commitTime = new Date(pr.updated_at);
+                  if (new Date(comment.created_at) > commitTime) {
+                    console.log(`  💬 Unaddressed comment from ${comment.user.login}`);
+                    
+                    // @mention Copilot to fix
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: pr.number,
+                      body: `@copilot Please address the review comment from @${comment.user.login}:\n\n> ${comment.body.substring(0, 500)}`
+                    });
+                    
+                    console.log('  📢 Asked Copilot to address comment');
+                    continue;
+                  }
+                }
+              }
+              
+              // Check if enough time has passed since last activity
+              const minutesSinceActivity = (now - latestActivity) / (1000 * 60);
+              
+              if (minutesSinceActivity < COMMENT_WAIT_MINUTES) {
+                console.log(`  ⏳ Only ${Math.round(minutesSinceActivity)} min since last activity, waiting for ${COMMENT_WAIT_MINUTES} min`);
+                continue;
+              }
+              
+              console.log(`  ✅ ${Math.round(minutesSinceActivity)} min since last activity, ready to merge`);
+              
+              // Approve the PR if not already approved
+              const myReviews = reviews.data.filter(r => 
+                r.user.login === 'github-actions[bot]' && r.state === 'APPROVED'
+              );
+              
+              if (myReviews.length === 0) {
+                try {
+                  await github.rest.pulls.createReview({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: pr.number,
+                    event: 'APPROVE',
+                    body: '✅ CI passing and no pending review comments. Auto-approved for merge.'
+                  });
+                  console.log('  ✅ Approved PR');
+                } catch (e) {
+                  console.log(`  ⚠️ Could not approve: ${e.message}`);
+                }
+              }
+              
+              // Merge the PR
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  merge_method: 'squash'
+                });
+                console.log('  🎉 Merged PR!');
+                
+                // Close linked issue if exists
+                const linkedIssueMatch = pr.body?.match(/Fixes #(\d+)/i);
+                if (linkedIssueMatch) {
+                  const issueNumber = parseInt(linkedIssueMatch[1]);
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    state: 'closed'
+                  });
+                  console.log(`  ✅ Closed linked issue #${issueNumber}`);
+                }
+              } catch (e) {
+                console.log(`  ❌ Could not merge: ${e.message}`);
+              }
+            }
