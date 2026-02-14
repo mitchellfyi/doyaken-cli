@@ -1,0 +1,207 @@
+name: Copilot PR Pipeline
+
+on:
+  # When Copilot requests review
+  pull_request_target:
+    types: [review_requested, ready_for_review]
+
+  # When CI checks complete
+  check_suite:
+    types: [completed]
+
+  # When a review is submitted
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  pull-requests: write
+  actions: write
+  contents: write
+  issues: write
+  checks: read
+
+jobs:
+  # Step 1: When Copilot requests review - mark ready and approve workflows
+  handle-review-request:
+    name: Handle Review Request
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.user.login == 'Copilot'
+    steps:
+      - name: Mark PR ready and approve workflows
+        env:
+          GH_TOKEN: ${{ secrets.MITCHELL_PAT }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          IS_DRAFT="${{ github.event.pull_request.draft }}"
+          REPO="${{ github.repository }}"
+
+          echo "=== Copilot PR #$PR_NUMBER received review request ==="
+
+          # Mark as ready if still draft
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "Marking PR as ready for review..."
+            gh pr ready "$PR_NUMBER" -R "$REPO" || echo "Could not mark ready"
+          fi
+
+          # Approve any pending workflow runs
+          echo "Checking for workflows needing approval..."
+          PENDING_RUNS=$(gh api "repos/$REPO/actions/runs" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$HEAD_SHA\" and (.status == \"action_required\" or .status == \"waiting\")) | .id" 2>/dev/null || echo "")
+
+          for RUN_ID in $PENDING_RUNS; do
+            if [ -n "$RUN_ID" ]; then
+              echo "Approving workflow run $RUN_ID..."
+              gh api --method POST "repos/$REPO/actions/runs/$RUN_ID/approve" 2>/dev/null || true
+            fi
+          done
+
+          echo "Done handling review request"
+
+  # Step 2: When CI completes - check results and merge or request fixes
+  handle-check-completion:
+    name: Handle CI Completion
+    runs-on: ubuntu-latest
+    if: github.event_name == 'check_suite' && github.event.check_suite.conclusion != null
+    steps:
+      - name: Process completed checks
+        env:
+          GH_TOKEN: ${{ secrets.MITCHELL_PAT }}
+        run: |
+          HEAD_SHA="${{ github.event.check_suite.head_sha }}"
+          CONCLUSION="${{ github.event.check_suite.conclusion }}"
+          REPO="${{ github.repository }}"
+
+          echo "=== Check suite completed: $CONCLUSION ==="
+          echo "SHA: $HEAD_SHA"
+
+          # Find PR for this commit
+          PR_DATA=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '.[0] | {number: .number, author: .user.login, draft: .draft, state: .state}' 2>/dev/null || echo "{}")
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number // empty')
+          PR_AUTHOR=$(echo "$PR_DATA" | jq -r '.author // empty')
+          PR_STATE=$(echo "$PR_DATA" | jq -r '.state // empty')
+
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "No open PR found for this commit"
+            exit 0
+          fi
+
+          if [ "$PR_AUTHOR" != "Copilot" ]; then
+            echo "PR #$PR_NUMBER is not from Copilot (author: $PR_AUTHOR). Skipping."
+            exit 0
+          fi
+
+          if [ "$PR_STATE" != "open" ]; then
+            echo "PR #$PR_NUMBER is not open (state: $PR_STATE). Skipping."
+            exit 0
+          fi
+
+          echo "Processing Copilot PR #$PR_NUMBER"
+
+          # Check if ALL checks have completed
+          ALL_CHECKS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --jq '.check_runs')
+          PENDING_COUNT=$(echo "$ALL_CHECKS" | jq '[.[] | select(.status != "completed")] | length')
+          FAILED_COUNT=$(echo "$ALL_CHECKS" | jq '[.[] | select(.conclusion == "failure")] | length')
+          TOTAL_COUNT=$(echo "$ALL_CHECKS" | jq 'length')
+
+          # Also check commit status API (for external services like Vercel)
+          STATUS_STATE=$(gh api "repos/$REPO/commits/$HEAD_SHA/status" --jq '.state' 2>/dev/null || echo "unknown")
+          PENDING_STATUSES=$(gh api "repos/$REPO/commits/$HEAD_SHA/status" --jq '[.statuses[] | select(.state == "pending")] | length' 2>/dev/null || echo "0")
+
+          echo "Check runs: $TOTAL_COUNT total, $PENDING_COUNT pending, $FAILED_COUNT failed"
+          echo "Status API: $STATUS_STATE ($PENDING_STATUSES pending)"
+
+          # Wait for all checks to complete
+          if [ "$PENDING_COUNT" != "0" ] || [ "$PENDING_STATUSES" != "0" ]; then
+            echo "Still waiting for checks to complete. Will process on next event."
+            exit 0
+          fi
+
+          # Handle failures
+          if [ "$FAILED_COUNT" != "0" ] || [ "$STATUS_STATE" = "failure" ]; then
+            echo "CI failed! Requesting Copilot to fix..."
+            
+            # Check if we already commented
+            EXISTING=$(gh pr view "$PR_NUMBER" -R "$REPO" --json comments \
+              --jq '[.comments[] | select(.body | contains("@copilot") and contains("checks have failed"))] | length' 2>/dev/null || echo "0")
+            
+            if [ "$EXISTING" = "0" ]; then
+              gh pr comment "$PR_NUMBER" -R "$REPO" --body "@copilot CI checks have failed. Please review the failed checks and fix the issues.
+
+          Check the Actions tab for detailed error logs." || true
+            else
+              echo "Already requested Copilot to fix"
+            fi
+            exit 0
+          fi
+
+          # All checks passed! Check if ready to merge
+          echo "All CI checks passed! Checking merge readiness..."
+
+          PR_STATUS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json mergeable,mergeStateStatus,reviewDecision)
+          MERGEABLE=$(echo "$PR_STATUS" | jq -r '.mergeable')
+          MERGE_STATE=$(echo "$PR_STATUS" | jq -r '.mergeStateStatus')
+          REVIEW_DECISION=$(echo "$PR_STATUS" | jq -r '.reviewDecision')
+
+          echo "Mergeable: $MERGEABLE | State: $MERGE_STATE | Review: $REVIEW_DECISION"
+
+          if [ "$REVIEW_DECISION" = "CHANGES_REQUESTED" ]; then
+            echo "Changes requested. Asking Copilot to address..."
+            
+            EXISTING=$(gh pr view "$PR_NUMBER" -R "$REPO" --json comments \
+              --jq '[.comments[] | select(.body | contains("@copilot") and contains("address the review"))] | length' 2>/dev/null || echo "0")
+            
+            if [ "$EXISTING" = "0" ]; then
+              gh pr comment "$PR_NUMBER" -R "$REPO" --body "@copilot Please address the review comments." || true
+            fi
+            exit 0
+          fi
+
+          # Approve if needed
+          if [ "$MERGE_STATE" = "BLOCKED" ]; then
+            echo "PR is blocked, adding approval..."
+            gh pr review "$PR_NUMBER" -R "$REPO" --approve --body "Auto-approved: CI passed" 2>/dev/null || true
+            sleep 2
+            
+            # Re-check merge state
+            MERGE_STATE=$(gh pr view "$PR_NUMBER" -R "$REPO" --json mergeStateStatus --jq '.mergeStateStatus')
+          fi
+
+          # Merge if ready
+          if [ "$MERGEABLE" = "MERGEABLE" ] && [ "$MERGE_STATE" = "CLEAN" ]; then
+            echo "✅ Auto-merging PR #$PR_NUMBER!"
+            gh pr merge "$PR_NUMBER" -R "$REPO" --squash \
+              --subject "fix: auto-merge Copilot PR #$PR_NUMBER" \
+              --body "Auto-merged by Copilot PR Pipeline after CI passed." || echo "Merge failed"
+          else
+            echo "Not ready to merge. State: $MERGE_STATE"
+          fi
+
+  # Step 3: When a review is submitted - check for changes requested
+  handle-review:
+    name: Handle Review Submission
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_review' &&
+      github.event.pull_request.user.login == 'Copilot' &&
+      github.event.review.state == 'changes_requested'
+    steps:
+      - name: Request Copilot to address review
+        env:
+          GH_TOKEN: ${{ secrets.MITCHELL_PAT }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          REVIEWER="${{ github.event.review.user.login }}"
+
+          echo "Review with changes requested from $REVIEWER on PR #$PR_NUMBER"
+
+          # Check if we already asked Copilot
+          EXISTING=$(gh pr view "$PR_NUMBER" -R "$REPO" --json comments \
+            --jq '[.comments[] | select(.body | contains("@copilot") and contains("address"))] | length' 2>/dev/null || echo "0")
+
+          if [ "$EXISTING" = "0" ]; then
+            gh pr comment "$PR_NUMBER" -R "$REPO" --body "@copilot $REVIEWER has requested changes. Please address the review comments." || true
+          fi
