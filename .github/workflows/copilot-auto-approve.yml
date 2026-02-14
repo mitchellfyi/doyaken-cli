@@ -1,10 +1,8 @@
 name: Auto-Approve Copilot PRs
 
 on:
-  # Run every 5 minutes
   schedule:
     - cron: '*/5 * * * *'
-  # Allow manual trigger
   workflow_dispatch:
 
 permissions:
@@ -21,66 +19,50 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.MITCHELL_PAT }}
         run: |
-          echo "Checking for Copilot PRs requesting review from mitchellfyi..."
+          echo "Checking for Copilot PRs..."
           
-          # Get open PRs from Copilot
-          PRS=$(gh pr list -R ${{ github.repository }} --author "app/copilot-swe-agent" --state open --json number,isDraft,reviewRequests,headRefOid)
+          # Get all open PRs from Copilot
+          PRS=$(gh pr list -R ${{ github.repository }} --author "app/copilot-swe-agent" --state open --json number,isDraft,headRefOid,title)
           
           echo "Found PRs: $PRS"
+          
+          if [ "$PRS" = "[]" ]; then
+            echo "No open Copilot PRs found"
+            exit 0
+          fi
           
           # Process each PR
           echo "$PRS" | jq -c '.[]' | while read -r pr; do
             PR_NUMBER=$(echo "$pr" | jq -r '.number')
             IS_DRAFT=$(echo "$pr" | jq -r '.isDraft')
             HEAD_SHA=$(echo "$pr" | jq -r '.headRefOid')
-            REVIEWERS=$(echo "$pr" | jq -r '.reviewRequests[].login' 2>/dev/null || echo "")
+            TITLE=$(echo "$pr" | jq -r '.title')
             
             echo ""
-            echo "=== Processing PR #$PR_NUMBER ==="
-            echo "Draft: $IS_DRAFT"
-            echo "Reviewers: $REVIEWERS"
+            echo "=== Processing PR #$PR_NUMBER: $TITLE ==="
+            echo "Draft: $IS_DRAFT, SHA: $HEAD_SHA"
             
-            # Check if mitchellfyi is requested reviewer
-            if echo "$REVIEWERS" | grep -q "mitchellfyi"; then
-              echo "mitchellfyi is a requested reviewer"
-              
-              # Mark as ready if draft
-              if [ "$IS_DRAFT" = "true" ]; then
-                echo "Marking PR #$PR_NUMBER as ready for review..."
-                gh pr ready "$PR_NUMBER" -R ${{ github.repository }} || echo "Failed to mark ready"
-              fi
-              
-              # Approve pending workflow runs
-              echo "Checking for workflow runs needing approval..."
-              RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
-                --jq ".workflow_runs[] | select(.head_sha == \"$HEAD_SHA\" and .status == \"action_required\") | .id" 2>/dev/null || echo "")
-              
-              for RUN_ID in $RUNS; do
-                if [ -n "$RUN_ID" ]; then
-                  echo "Approving workflow run $RUN_ID..."
-                  gh api --method POST \
-                    repos/${{ github.repository }}/actions/runs/$RUN_ID/approve 2>/dev/null || echo "Could not approve run $RUN_ID"
-                fi
-              done
-              
-              # Add comment if not already processed
-              COMMENTS=$(gh pr view "$PR_NUMBER" -R ${{ github.repository }} --json comments --jq '.comments[].body' 2>/dev/null || echo "")
-              if ! echo "$COMMENTS" | grep -q "Auto-approved by workflow"; then
-                echo "Adding approval comment..."
-                gh pr comment "$PR_NUMBER" -R ${{ github.repository }} \
-                  --body "✅ **Auto-approved by workflow**
-
-          This Copilot PR has been automatically:
-          - Marked as ready for review
-          - Workflow runs approved (if any were pending)
-
-          Ready for human review." || echo "Failed to add comment"
-              else
-                echo "Already processed (comment exists)"
-              fi
-            else
-              echo "mitchellfyi not in reviewers, skipping"
+            # Mark as ready if draft
+            if [ "$IS_DRAFT" = "true" ]; then
+              echo "Marking PR #$PR_NUMBER as ready for review..."
+              gh pr ready "$PR_NUMBER" -R ${{ github.repository }} 2>&1 || echo "Note: Could not mark ready (may still be in progress)"
             fi
+            
+            # Approve pending workflow runs for this PR's commits
+            echo "Checking for workflow runs needing approval..."
+            RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+              --jq ".workflow_runs[] | select(.head_sha == \"$HEAD_SHA\" and .status == \"action_required\") | .id" 2>/dev/null || echo "")
+            
+            if [ -n "$RUNS" ]; then
+              for RUN_ID in $RUNS; do
+                echo "Approving workflow run $RUN_ID..."
+                gh api --method POST \
+                  repos/${{ github.repository }}/actions/runs/$RUN_ID/approve 2>/dev/null || echo "Could not approve run $RUN_ID (may not need approval)"
+              done
+            else
+              echo "No workflow runs need approval"
+            fi
+            
           done
           
           echo ""
