@@ -1,0 +1,54 @@
+name: "AI Automation: Test Coverage Report"
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Monday 9am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+  id-token: write
+
+jobs:
+  coverage-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          gh label create "test-coverage" --repo "$REPO" --description "Weekly test coverage report" --color "0e8a16" 2>/dev/null || true
+          gh label create "automation" --repo "$REPO" --description "Automated workflow" --color "ededed" 2>/dev/null || true
+
+      - name: Build prompt
+        id: build-prompt
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          DELIM="PROMPT_EOF_$(date +%s)"
+          {
+            echo "content<<$DELIM"
+            cat .github/ai-automation/prompts/test-coverage.md
+            echo ""
+            echo "## Context"
+            echo "- Repository: $REPO"
+            echo "- Date: $(date +%Y-%m-%d)"
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
+
+      - name: Generate coverage report with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 20 --allowedTools 'Bash(*),Read(*),Glob(*),Grep(*),GitHub(*)'"

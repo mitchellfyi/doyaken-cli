@@ -1,0 +1,416 @@
+name: "AI Automation: PR Handler"
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────
+  # Job 1: Handle review comments on AI-managed PRs
+  # Moves PR to draft → Claude fixes → marks PR ready again
+  # Works for both ai-fix (CI fix) and ai-maintenance PRs
+  # ──────────────────────────────────────────────────────────────────────
+  handle-review-comments:
+    if: |
+      github.event_name == 'pull_request_review' &&
+      github.event.review.state == 'changes_requested'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if AI fix PR
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Checking if this is an AI-managed PR"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+
+          echo "Event: pull_request_review (changes_requested)"
+          echo "PR: #$PR_NUM"
+          echo "Reviewer: ${{ github.event.review.user.login }}"
+
+          LABELS=$(gh pr view $PR_NUM --repo $REPO --json labels --jq '[.labels[].name] | join(", ")')
+          echo "PR labels: $LABELS"
+
+          HAS_AI_LABEL=$(echo "$LABELS" | grep -cE "ai-fix|ai-maintenance" || echo "0")
+          if [ "$HAS_AI_LABEL" -gt 0 ]; then
+            echo "This is an AI-managed PR - will address review comments"
+            echo "is_ai=true" >> $GITHUB_OUTPUT
+          else
+            echo "Not an AI-managed PR - skipping"
+            echo "is_ai=false" >> $GITHUB_OUTPUT
+          fi
+          echo "::endgroup::"
+
+      - name: Move PR to draft
+        if: steps.check.outputs.is_ai == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          echo "Converting PR #$PR_NUM to draft while AI works..."
+          gh pr ready $PR_NUM --repo "$REPO" --undo
+
+      - name: Checkout
+        if: steps.check.outputs.is_ai == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Get review details
+        if: steps.check.outputs.is_ai == 'true'
+        id: review
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Getting review comments"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+
+          echo "Review body: ${{ github.event.review.body }}"
+
+          echo "Fetching line-level comments..."
+          COMMENTS=$(gh api repos/$REPO/pulls/$PR_NUM/comments --jq '[.[] | "- \(.path):\(.line // .original_line): \(.body)"] | join("\n")' 2>/dev/null || echo "")
+          COMMENT_COUNT=$(echo "$COMMENTS" | grep -c "^-" || echo "0")
+          echo "Found $COMMENT_COUNT line comments:"
+          echo "$COMMENTS"
+
+          echo "$COMMENTS" > /tmp/review_comments.txt
+          echo "::endgroup::"
+
+      - name: Build prompt
+        if: steps.check.outputs.is_ai == 'true'
+        id: build-prompt
+        run: |
+          DELIM="PROMPT_EOF_$(date +%s)"
+          {
+            echo "content<<$DELIM"
+            cat .github/ai-automation/prompts/review-fix.md
+            echo ""
+            echo "## Review Comment"
+            echo "${{ github.event.review.body }}"
+            echo ""
+            echo "## Line Comments"
+            cat /tmp/review_comments.txt
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
+
+      - name: Fix review comments with Claude
+        if: steps.check.outputs.is_ai == 'true'
+        id: claude
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 20 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+
+      - name: Mark PR ready for review
+        if: steps.check.outputs.is_ai == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          echo "AI finished addressing review. Marking PR #$PR_NUM ready for review..."
+          gh pr ready $PR_NUM --repo "$REPO"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Job 2: Retry fixing CI failures on AI-managed PRs
+  # Moves PR to draft → Claude fixes → marks PR ready again
+  # When retries are exhausted, closes the PR so a fresh cycle can start.
+  # Works for both ai/fix-ci-* and ai/maintain-* branches.
+  # ──────────────────────────────────────────────────────────────────────
+  fix-pr-ci-failure:
+    if: |
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      (startsWith(github.event.workflow_run.head_branch, 'ai/fix-ci-') ||
+       startsWith(github.event.workflow_run.head_branch, 'ai/maintain-'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find PR and check retry limit
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Finding PR and checking retry limit"
+          REPO="${{ github.repository }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+
+          echo "Event: workflow_run (CI failed)"
+          echo "Branch: $BRANCH"
+          echo "Run ID: $RUN_ID"
+          echo "Run URL: https://github.com/$REPO/actions/runs/$RUN_ID"
+
+          # Find the PR for this branch
+          PR_JSON=$(gh pr list --repo "$REPO" --head "$BRANCH" --json number,title,labels --jq '.[0] // empty')
+          if [ -z "$PR_JSON" ]; then
+            echo "No PR found for branch $BRANCH - skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
+          echo "Found PR #$PR_NUM"
+
+          HAS_LABEL=$(echo "$PR_JSON" | jq -r '[.labels[].name] | map(select(. == "ai-fix" or . == "ai-maintenance")) | length')
+          if [ "$HAS_LABEL" -eq 0 ]; then
+            echo "PR #$PR_NUM does not have ai-fix or ai-maintenance label - skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          # Count retry attempts by checking workflow runs for this branch
+          MAX_RETRIES=3
+          RETRY_COUNT=$(gh api "repos/$REPO/actions/workflows/ai-automation-pr-handler.yml/runs?branch=$BRANCH&event=workflow_run" --jq '.total_count' 2>/dev/null || echo "0")
+          echo "Previous retry attempts: $RETRY_COUNT (max: $MAX_RETRIES)"
+
+          if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+            echo "Retry limit reached - closing PR to allow fresh attempt on next CI failure"
+            gh pr comment "$PR_NUM" --repo "$REPO" --body "Closing after $RETRY_COUNT retry attempts. A fresh fix will be attempted on the next CI failure."
+
+            # Notify the linked tracking issue
+            ISSUE_NUM=$(gh pr view "$PR_NUM" --repo "$REPO" --json body --jq '.body' | grep -oE 'Fixes #[0-9]+' | grep -oE '[0-9]+' | head -1)
+            if [ -n "$ISSUE_NUM" ]; then
+              gh label create "needs-human" --repo "$REPO" --description "Automated fix failed — needs human intervention" --color "d73a4a" 2>/dev/null || true
+              gh issue edit "$ISSUE_NUM" --repo "$REPO" --add-label "needs-human"
+              gh issue comment "$ISSUE_NUM" --repo "$REPO" --body "Automated fix failed after $RETRY_COUNT retry attempts. PR #$PR_NUM has been closed. **Human intervention is required.** See the [closed PR](https://github.com/$REPO/pull/$PR_NUM) for Claude's attempts and error logs."
+            fi
+
+            gh pr close "$PR_NUM" --repo "$REPO" --delete-branch
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          ATTEMPT=$((RETRY_COUNT + 1))
+          echo "This is retry attempt #$ATTEMPT of $MAX_RETRIES"
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "attempt=$ATTEMPT" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Move PR to draft
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUM="${{ steps.check.outputs.pr_number }}"
+          REPO="${{ github.repository }}"
+          echo "Converting PR #$PR_NUM to draft while AI retries..."
+          gh pr ready $PR_NUM --repo "$REPO" --undo
+
+      - name: Get failure details
+        if: steps.check.outputs.skip != 'true'
+        id: failure
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Getting failure details"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          REPO="${{ github.repository }}"
+
+          echo "Fetching job details for run $RUN_ID..."
+          JOBS_JSON=$(gh api repos/$REPO/actions/runs/$RUN_ID/jobs)
+          FAILED_JOBS=$(echo "$JOBS_JSON" | jq -r '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")' || echo "Unknown")
+          echo "Failed jobs: $FAILED_JOBS"
+
+          FAILED_STEPS=$(echo "$JOBS_JSON" | jq -r '[.jobs[] | select(.conclusion == "failure") | .steps[] | select(.conclusion == "failure") | .name] | join(", ")' 2>/dev/null || echo "Unknown")
+          echo "Failed steps: $FAILED_STEPS"
+
+          echo "Fetching error logs..."
+          ERROR_LOGS=$(gh run view $RUN_ID --repo $REPO --log-failed 2>/dev/null | tail -200 | head -c 8000 || echo "Could not fetch logs")
+          LOG_LENGTH=${#ERROR_LOGS}
+          echo "Captured $LOG_LENGTH chars of error logs"
+
+          echo "failed_jobs=$FAILED_JOBS" >> $GITHUB_OUTPUT
+          echo "failed_steps=$FAILED_STEPS" >> $GITHUB_OUTPUT
+          echo "run_url=https://github.com/$REPO/actions/runs/$RUN_ID" >> $GITHUB_OUTPUT
+
+          echo "$ERROR_LOGS" > /tmp/error_logs.txt
+          echo "::endgroup::"
+
+      - name: Checkout PR branch
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Configure git
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Build prompt
+        if: steps.check.outputs.skip != 'true'
+        id: build-prompt
+        run: |
+          DELIM="PROMPT_EOF_$(date +%s)"
+          {
+            echo "content<<$DELIM"
+            echo "CI has failed on this fix PR (attempt #${{ steps.check.outputs.attempt }}). You are on branch \`${{ github.event.workflow_run.head_branch }}\`."
+            echo ""
+            echo "## Failure Context"
+            echo "- **Failed jobs:** ${{ steps.failure.outputs.failed_jobs }}"
+            echo "- **Failed steps:** ${{ steps.failure.outputs.failed_steps }}"
+            echo "- **Run URL:** ${{ steps.failure.outputs.run_url }}"
+            echo ""
+            echo "## Error Logs"
+            echo '```'
+            cat /tmp/error_logs.txt
+            echo '```'
+            echo ""
+            cat .github/ai-automation/prompts/ci-retry.md
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
+
+      - name: Retry fix with Claude
+        if: steps.check.outputs.skip != 'true'
+        id: claude
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 30 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+
+      - name: Mark PR ready for review
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          PR_NUM="${{ steps.check.outputs.pr_number }}"
+
+          # Push any unpushed commits
+          git push 2>/dev/null || true
+
+          echo "AI finished retry. Marking PR #$PR_NUM ready for review..."
+          gh pr ready $PR_NUM --repo "$REPO"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Job 3: Auto-merge AI-managed PRs when ready
+  # Triggered by CI success or review submission — merges when both
+  # CI is green and at least one reviewer has looked at it without
+  # requesting changes. No scheduler needed.
+  # Works for both ai-fix and ai-maintenance PRs.
+  # ──────────────────────────────────────────────────────────────────────
+  check-auto-merge:
+    if: |
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'pull_request_review' &&
+       github.event.review.state != 'changes_requested')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find AI-managed PRs ready for merge
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Finding AI-managed PRs"
+          REPO="${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+
+          echo ""
+          echo "Looking for open, non-draft AI-managed PRs..."
+
+          # Collect PRs from both labels (deduplicate by number)
+          FIX_PRS=$(gh pr list --repo $REPO --label "ai-fix" --state open --json number,isDraft,mergeable,title 2>/dev/null || echo "[]")
+          MAINT_PRS=$(gh pr list --repo $REPO --label "ai-maintenance" --state open --json number,isDraft,mergeable,title 2>/dev/null || echo "[]")
+          PRS_JSON=$(echo "$FIX_PRS $MAINT_PRS" | jq -s 'add | unique_by(.number)')
+
+          echo "All AI-managed PRs:"
+          echo "$PRS_JSON" | jq -r '.[] | "  #\(.number) draft=\(.isDraft) mergeable=\(.mergeable) title=\(.title)"'
+
+          PRS=$(echo "$PRS_JSON" | jq -r '.[] | select(.isDraft == false and .mergeable == "MERGEABLE") | .number' | tr '\n' ' ')
+          echo ""
+          echo "Eligible PRs (non-draft, mergeable): ${PRS:-none}"
+          echo "prs=$PRS" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Process each PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+
+          if [ -z "${{ steps.find.outputs.prs }}" ]; then
+            echo "No eligible PRs to process"
+            exit 0
+          fi
+
+          for PR_NUM in ${{ steps.find.outputs.prs }}; do
+            echo "::group::Processing PR #$PR_NUM"
+
+            # [1/3] Check CI status (exclude this workflow's jobs)
+            echo "[1/3] Checking CI status..."
+            ALL_CHECKS=$(gh pr checks $PR_NUM --repo $REPO --json state,name 2>/dev/null || echo "[]")
+            echo "All checks:"
+            echo "$ALL_CHECKS" | jq -r '.[] | "  \(.name): \(.state)"'
+
+            CI_STATUS=$(echo "$ALL_CHECKS" | jq -r '[.[] | select(.name | test("^(check-auto-merge|handle-review-comments|fix-pr-ci-failure)$") | not)] | if length == 0 then "pending" elif all(.state == "SUCCESS") then "pass" elif any(.state == "FAILURE") then "fail" else "pending" end')
+            echo "CI verdict: $CI_STATUS"
+
+            if [ "$CI_STATUS" != "pass" ]; then
+              echo "CI not passing - skipping"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # [2/3] Check review status
+            echo ""
+            echo "[2/3] Checking review status..."
+            REVIEW_DECISION=$(gh pr view $PR_NUM --repo $REPO --json reviewDecision --jq '.reviewDecision')
+            echo "Review decision: ${REVIEW_DECISION:-NONE}"
+
+            if [ "$REVIEW_DECISION" = "CHANGES_REQUESTED" ]; then
+              echo "Changes requested - skipping auto-merge"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Check that at least one review has been submitted
+            REVIEW_COUNT=$(gh api repos/$REPO/pulls/$PR_NUM/reviews --jq '[.[] | select(.state != "PENDING" and .state != "DISMISSED")] | length' 2>/dev/null || echo "0")
+            echo "Reviews submitted: $REVIEW_COUNT"
+
+            if [ "$REVIEW_COUNT" -eq 0 ]; then
+              echo "No reviews yet - waiting for reviewer"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # [3/3] All conditions met
+            echo ""
+            echo "[3/3] CI passing + reviewed + no changes requested"
+            echo "All checks passed! Auto-merging PR #$PR_NUM..."
+            gh pr merge $PR_NUM --repo $REPO --squash --auto --delete-branch
+            echo "PR #$PR_NUM queued for auto-merge"
+            echo "::endgroup::"
+          done

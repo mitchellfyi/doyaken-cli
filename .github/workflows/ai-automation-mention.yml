@@ -1,0 +1,154 @@
+name: "AI Automation: @claude Mention"
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: claude-mention-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+jobs:
+  respond:
+    if: |
+      contains(github.event.comment.body, '@claude') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acknowledge mention
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Acknowledging mention"
+          REPO="${{ github.repository }}"
+          COMMENT_ID="${{ github.event.comment.id }}"
+          echo "Comment by: ${{ github.event.comment.user.login }}"
+          echo "Association: ${{ github.event.comment.author_association }}"
+
+          # React with eyes emoji to acknowledge
+          gh api repos/$REPO/issues/comments/$COMMENT_ID/reactions \
+            -f content=eyes --silent
+          echo "::endgroup::"
+
+      - name: Determine context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Determining context"
+          REPO="${{ github.repository }}"
+          ISSUE_NUM="${{ github.event.issue.number }}"
+
+          # Check if this is a PR (issue_comment fires for both issues and PRs)
+          PR_JSON=$(gh pr view $ISSUE_NUM --repo "$REPO" --json number,headRefName 2>/dev/null || echo "")
+          if [ -n "$PR_JSON" ]; then
+            BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
+            echo "Context: PR #$ISSUE_NUM on branch $BRANCH"
+            echo "is_pr=true" >> $GITHUB_OUTPUT
+            echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "Context: Issue #$ISSUE_NUM"
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+            echo "branch=main" >> $GITHUB_OUTPUT
+          fi
+          echo "::endgroup::"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.context.outputs.branch }}
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Get thread context
+        id: thread
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Getting thread context"
+          REPO="${{ github.repository }}"
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          IS_PR="${{ steps.context.outputs.is_pr }}"
+
+          # Get issue/PR body
+          if [ "$IS_PR" = "true" ]; then
+            BODY=$(gh pr view $ISSUE_NUM --repo "$REPO" --json title,body --jq '"# \(.title)\n\n\(.body)"')
+          else
+            BODY=$(gh issue view $ISSUE_NUM --repo "$REPO" --json title,body --jq '"# \(.title)\n\n\(.body)"')
+          fi
+
+          # Get recent comments for context (last 10)
+          COMMENTS=$(gh api repos/$REPO/issues/$ISSUE_NUM/comments \
+            --jq '[.[-10:] // .[] | "**\(.user.login):** \(.body)"] | join("\n\n---\n\n")' 2>/dev/null || echo "")
+
+          COMMENT_COUNT=$(gh api repos/$REPO/issues/$ISSUE_NUM/comments --jq 'length' 2>/dev/null || echo "0")
+          echo "Thread has $COMMENT_COUNT comments"
+
+          {
+            echo "$BODY"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Thread Comments"
+            echo "$COMMENTS"
+          } > /tmp/thread_context.txt
+
+          echo "::endgroup::"
+
+      - name: Build prompt
+        id: build-prompt
+        env:
+          IS_PR: ${{ steps.context.outputs.is_pr }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          DELIM="PROMPT_EOF_$(date +%s)"
+          COMMENT_BODY=$(cat <<'COMMENT_EOF'
+          ${{ github.event.comment.body }}
+          COMMENT_EOF
+          )
+          {
+            echo "content<<$DELIM"
+            cat .github/ai-automation/prompts/mention.md
+            echo ""
+            echo "## Context"
+            echo "- Type: $([ "$IS_PR" = "true" ] && echo "Pull Request" || echo "Issue") #$ISSUE_NUM"
+            echo "- Repository: $REPO"
+            echo "- Can make code changes: $IS_PR"
+            echo ""
+            echo "## Thread"
+            cat /tmp/thread_context.txt
+            echo ""
+            echo "## Request"
+            echo "$COMMENT_BODY"
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
+
+      - name: Respond with Claude (PR - write access)
+        if: steps.context.outputs.is_pr == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 25 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+
+      - name: Respond with Claude (Issue - read only)
+        if: steps.context.outputs.is_pr == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 25 --allowedTools 'Bash(*),Read(*),Glob(*),Grep(*),GitHub(*)'"

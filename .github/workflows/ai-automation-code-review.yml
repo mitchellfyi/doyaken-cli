@@ -1,0 +1,118 @@
+name: "AI Automation: Code Review"
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+concurrency:
+  group: code-review-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  actions: read
+  id-token: write
+
+jobs:
+  review:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find PR for this CI run
+        id: find-pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Finding PR"
+          REPO="${{ github.repository }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+
+          echo "CI passed on branch: $BRANCH (commit: ${SHA:0:7})"
+
+          # Skip main/master branch
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            echo "Main branch CI - skipping review"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          # Find open PR for this branch
+          PR_JSON=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,isDraft,title --jq '.[0] // empty')
+          if [ -z "$PR_JSON" ]; then
+            echo "No open PR for branch $BRANCH - skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
+          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
+          PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
+
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "PR #$PR_NUM is draft - skipping review"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          # Check if already reviewed this commit (avoid duplicate reviews)
+          EXISTING=$(gh api "repos/$REPO/pulls/$PR_NUM/reviews" --jq "[.[] | select(.commit_id == \"$SHA\" and .state != \"PENDING\" and .state != \"DISMISSED\")] | length" 2>/dev/null || echo "0")
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Already reviewed commit ${SHA:0:7} on PR #$PR_NUM - skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          echo "Will review PR #$PR_NUM: $PR_TITLE"
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Checkout
+        if: steps.find-pr.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Build prompt
+        if: steps.find-pr.outputs.skip != 'true'
+        id: build-prompt
+        env:
+          PR_NUMBER: ${{ steps.find-pr.outputs.pr_number }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          DELIM="PROMPT_EOF_$(date +%s)"
+          {
+            echo "content<<$DELIM"
+            cat .github/ai-automation/prompts/code-review.md
+            echo ""
+            echo "## Review Target"
+            echo "- PR number: $PR_NUMBER"
+            echo "- Commit SHA: $COMMIT_SHA"
+            echo "- Repository: $REPO"
+            echo ""
+            echo "Review PR #$PR_NUMBER now."
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
+
+      - name: Review with Claude
+        if: steps.find-pr.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 15 --allowedTools 'Bash(*),Read(*),Glob(*),Grep(*),GitHub(*)'"

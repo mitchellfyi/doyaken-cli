@@ -1,0 +1,323 @@
+name: "AI Automation: Maintenance"
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # 12am UTC — code
+    - cron: "0 1 * * *" # 1am UTC  — tests
+    - cron: "0 2 * * *" # 2am UTC  — docs
+    - cron: "0 3 * * *" # 3am UTC  — ci
+    - cron: "0 4 * * *" # 4am UTC  — agents
+    - cron: "0 5 * * *" # 5am UTC  — security
+    - cron: "0 6 * * *" # 6am UTC  — deps
+    - cron: "0 7 * * *" # 7am UTC  — performance
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: "Domain to review"
+        required: true
+        type: choice
+        options:
+          - code
+          - tests
+          - docs
+          - ci
+          - agents
+          - security
+          - deps
+          - performance
+
+concurrency:
+  group: maintenance-${{ inputs.domain || 'scheduled' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine domain
+        id: domain
+        run: |
+          echo "::group::Determining domain"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DOMAIN="${{ inputs.domain }}"
+            echo "Manual trigger: domain=$DOMAIN"
+          else
+            HOUR=$(date -u +%H)
+            case $HOUR in
+              00) DOMAIN="code" ;;
+              01) DOMAIN="tests" ;;
+              02) DOMAIN="docs" ;;
+              03) DOMAIN="ci" ;;
+              04) DOMAIN="agents" ;;
+              05) DOMAIN="security" ;;
+              06) DOMAIN="deps" ;;
+              07) DOMAIN="performance" ;;
+              *)  DOMAIN="code" ;; # fallback
+            esac
+            echo "Scheduled trigger: hour=$HOUR domain=$DOMAIN"
+          fi
+
+          # Format domain name for display
+          case $DOMAIN in
+            code) DISPLAY="Code Quality" ;;
+            tests) DISPLAY="Test Coverage & Quality" ;;
+            docs) DISPLAY="Documentation" ;;
+            ci) DISPLAY="CI/CD & Quality Scripts" ;;
+            agents) DISPLAY="AI Agent Configuration" ;;
+            security) DISPLAY="Application Security" ;;
+            deps) DISPLAY="Dependencies" ;;
+            performance) DISPLAY="Performance" ;;
+          esac
+
+          echo "domain=$DOMAIN" >> $GITHUB_OUTPUT
+          echo "display=$DISPLAY" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Check for existing maintenance work
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Checking for existing maintenance work"
+          REPO="${{ github.repository }}"
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+
+          # Check for open issues with both labels
+          EXISTING_ISSUE=$(gh issue list --repo "$REPO" --label "ai-maintenance" --label "maintain:$DOMAIN" --state open --json number,title --jq '.[0] // empty')
+          if [ -n "$EXISTING_ISSUE" ]; then
+            echo "Found existing maintenance issue: $EXISTING_ISSUE"
+            echo "Skipping to avoid duplicate work"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          # Check for open PRs with both labels
+          EXISTING_PR=$(gh pr list --repo "$REPO" --label "ai-maintenance" --label "maintain:$DOMAIN" --state open --json number,title --jq '.[0] // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Found existing maintenance PR: $EXISTING_PR"
+            echo "Skipping to avoid duplicate work"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          echo "No existing work found — proceeding"
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Ensure labels exist
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+          gh label create "ai-maintenance" --repo "$REPO" --description "Automated maintenance by AI" --color "0e8a16" 2>/dev/null || true
+          gh label create "automation" --repo "$REPO" --description "Automated workflow" --color "ededed" 2>/dev/null || true
+          gh label create "maintain:$DOMAIN" --repo "$REPO" --description "Maintenance: $DOMAIN" --color "c5def5" 2>/dev/null || true
+
+      - name: Create tracking issue
+        if: steps.check.outputs.skip != 'true'
+        id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Creating tracking issue"
+          REPO="${{ github.repository }}"
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+          DISPLAY="${{ steps.domain.outputs.display }}"
+          DATE=$(date -u +%Y-%m-%d)
+
+          {
+            echo "Scheduled maintenance review of **$DISPLAY**."
+            echo ""
+            echo "## Scope"
+            echo "- **Domain:** $DOMAIN"
+            echo "- **Date:** $DATE"
+            echo "- **Trigger:** ${{ github.event_name }}"
+            echo ""
+            echo "## Lifecycle"
+            echo "1. Review — audit current state"
+            echo "2. Fix — fix existing problems"
+            echo "3. Sync — remove stale content, update references"
+            echo "4. Improve — enhance existing code/docs"
+            echo "5. Add — fill gaps"
+            echo ""
+            echo "---"
+            echo "This issue will be auto-closed when the maintenance PR merges."
+          } > /tmp/issue_body.md
+
+          ISSUE_URL=$(gh issue create \
+            --repo "$REPO" \
+            --title "Maintenance: $DISPLAY review ($DATE)" \
+            --body-file /tmp/issue_body.md \
+            --label "automation,ai-maintenance,maintain:$DOMAIN")
+
+          ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+          echo "Created issue #$ISSUE_NUM: $ISSUE_URL"
+          echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Checkout
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Create maintenance branch
+        if: steps.check.outputs.skip != 'true'
+        id: branch
+        run: |
+          echo "::group::Creating maintenance branch"
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+          BRANCH_NAME="ai/maintain-${DOMAIN}-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git commit --allow-empty -m "maintain: $DOMAIN review (in progress)"
+          git push -u origin "$BRANCH_NAME"
+
+          echo "Created and pushed branch: $BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Create draft PR
+        if: steps.check.outputs.skip != 'true'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Creating draft PR"
+          REPO="${{ github.repository }}"
+          BRANCH="${{ steps.branch.outputs.branch_name }}"
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+          DISPLAY="${{ steps.domain.outputs.display }}"
+          ISSUE_NUM="${{ steps.issue.outputs.issue_number }}"
+
+          {
+            echo "## Maintenance: $DISPLAY (In Progress)"
+            echo ""
+            echo "Scheduled maintenance review. PR is in draft while the AI agent works."
+            echo ""
+            echo "Fixes #$ISSUE_NUM"
+            echo ""
+            echo "---"
+            echo "_Generated with [Claude Code](https://claude.ai/code)_"
+          } > /tmp/pr_body.md
+
+          PR_URL=$(gh pr create \
+            --repo "$REPO" \
+            --head "$BRANCH" \
+            --base main \
+            --title "maintain: $DOMAIN improvements" \
+            --body-file /tmp/pr_body.md \
+            --label "ai-maintenance,maintain:$DOMAIN" \
+            --draft)
+
+          PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "Created draft PR #$PR_NUM: $PR_URL"
+          echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Build prompt
+        if: steps.check.outputs.skip != 'true'
+        id: build-prompt
+        run: |
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+          PROMPT_FILE=".github/ai-automation/prompts/maintain-${DOMAIN}.md"
+
+          if [ ! -f "$PROMPT_FILE" ]; then
+            echo "::error::Prompt file not found: $PROMPT_FILE"
+            exit 1
+          fi
+
+          DELIM="PROMPT_EOF_$(date +%s)"
+          {
+            echo "content<<$DELIM"
+            echo "You are on branch \`${{ steps.branch.outputs.branch_name }}\`."
+            echo "A tracking issue #${{ steps.issue.outputs.issue_number }} and draft PR #${{ steps.pr.outputs.pr_number }} have been created."
+            echo ""
+            cat "$PROMPT_FILE"
+            echo ""
+            echo "Do NOT create a new PR — one already exists (#${{ steps.pr.outputs.pr_number }}). Just push to this branch."
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
+
+      - name: Run maintenance with Claude
+        if: steps.check.outputs.skip != 'true'
+        id: claude
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.build-prompt.outputs.content }}
+          claude_args: "--max-turns 30 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+
+      - name: Finalize PR
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Finalizing"
+          REPO="${{ github.repository }}"
+          PR_NUM="${{ steps.pr.outputs.pr_number }}"
+          BRANCH="${{ steps.branch.outputs.branch_name }}"
+          ISSUE_NUM="${{ steps.issue.outputs.issue_number }}"
+          DOMAIN="${{ steps.domain.outputs.domain }}"
+          DISPLAY="${{ steps.domain.outputs.display }}"
+          CLAUDE_OUTCOME="${{ steps.claude.outcome }}"
+
+          # Push any unpushed commits
+          UNPUSHED=$(git rev-list --count origin/$BRANCH..HEAD 2>/dev/null || echo "0")
+          if [ "$UNPUSHED" -gt 0 ]; then
+            echo "Pushing $UNPUSHED unpushed commits..."
+            git push
+          fi
+
+          COMMIT_COUNT=$(git rev-list --count origin/main..HEAD)
+          CHANGED_FILES=$(git diff --name-only origin/main..HEAD | head -30)
+          REAL_COMMITS=$((COMMIT_COUNT - 1))
+          echo "Claude outcome: $CLAUDE_OUTCOME"
+          echo "Maintenance commits: $REAL_COMMITS"
+
+          if [ "$REAL_COMMITS" -gt 0 ]; then
+            echo "Changes found — updating PR and marking ready"
+
+            {
+              echo "## Maintenance: $DISPLAY"
+              echo ""
+              echo "Scheduled maintenance improvements."
+              echo ""
+              echo "### Changes"
+              echo "- **Commits:** $REAL_COMMITS"
+              echo '```'
+              echo "$CHANGED_FILES"
+              echo '```'
+              echo ""
+              echo "Fixes #$ISSUE_NUM"
+              echo ""
+              echo "---"
+              echo "_Generated with [Claude Code](https://claude.ai/code)_"
+            } > /tmp/pr_body_done.md
+
+            gh pr edit $PR_NUM --repo "$REPO" --body-file /tmp/pr_body_done.md
+            gh pr ready $PR_NUM --repo "$REPO"
+            echo "PR #$PR_NUM marked ready for review"
+          else
+            echo "No changes made — closing PR and issue"
+            gh pr close $PR_NUM --repo "$REPO" --delete-branch --comment "No improvements needed at this time."
+            gh issue close $ISSUE_NUM --repo "$REPO" --comment "No improvements needed at this time. Will check again next cycle."
+          fi
+          echo "::endgroup::"
