@@ -77,28 +77,47 @@ jobs:
             }
             return { failedJobs: failedJobs.map(j => j.name), jobLogs, sha, shortSha, runUrl: context.payload.workflow_run.html_url };
 
-      - name: Check for existing open issue
+      - name: Check for existing ci-fix issue (open OR closed)
         id: check-issue
         uses: actions/github-script@v7
         with:
           script: |
-            const issues = await github.rest.issues.listForRepo({
+            // Check for ANY issue with ci-fix label (open or closed)
+            const openIssues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'ci-fix,automated'
             });
-            if (issues.data.length > 0) {
-              const issue = issues.data[0];
+            
+            if (openIssues.data.length > 0) {
+              const issue = openIssues.data[0];
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number
               });
               const workflowComments = comments.data.filter(c => c.body.includes('## New Failure Detected'));
-              return { exists: true, number: issue.number, commentCount: workflowComments.length };
+              return { exists: true, number: issue.number, state: 'open', commentCount: workflowComments.length };
             }
-            return { exists: false, number: null, commentCount: 0 };
+            
+            // Check closed issues
+            const closedIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              labels: 'ci-fix,automated',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 1
+            });
+            
+            if (closedIssues.data.length > 0) {
+              const issue = closedIssues.data[0];
+              return { exists: true, number: issue.number, state: 'closed', commentCount: 0 };
+            }
+            
+            return { exists: false, number: null, state: null, commentCount: 0 };
 
       - name: Create or update issue
         id: create-issue
@@ -107,12 +126,18 @@ jobs:
           script: |
             const workflowDetails = ${{ steps.workflow-details.outputs.result }};
             const issueCheck = ${{ steps.check-issue.outputs.result }};
-            if (workflowDetails.failedJobs.length === 0) return { issueNumber: null };
+            if (workflowDetails.failedJobs.length === 0) return { issueNumber: null, action: 'none' };
+            
             let logsSection = '';
             for (const jobLog of workflowDetails.jobLogs) {
               logsSection += `### Job: ${jobLog.name}\n\n\`\`\`\n${jobLog.log}\n\`\`\`\n\n`;
             }
+            
+            const repo = context.repo.repo;
+            const owner = context.repo.owner;
+            
             if (!issueCheck.exists) {
+              // Create new issue
               const issueBody = `## CI Failure — Auto-generated
 
             The CI workflow failed on branch \`main\` at commit \`${workflowDetails.sha}\`.
@@ -129,54 +154,104 @@ jobs:
             - Do NOT add \`continue-on-error\` or any other workaround
             - Run the full test suite locally before submitting your PR
             - Keep your changes minimal and focused on the fix
+            - **IMPORTANT: Include \`Fixes #ISSUE_NUMBER\` in your PR description** (replace ISSUE_NUMBER with this issue's number)
 
             ## Failure Logs
 
             ${logsSection}`;
 
               const issue = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner,
+                repo,
                 title: `[CI Fix] CI failure on \`main\` (${workflowDetails.shortSha})`,
                 body: issueBody,
                 labels: ['ci-fix', 'automated']
               });
               console.log(`Created issue #${issue.data.number}`);
-              return { issueNumber: issue.data.number };
-            } else if (issueCheck.commentCount < 3) {
+              return { issueNumber: issue.data.number, action: 'created' };
+              
+            } else {
+              const issueNumber = issueCheck.number;
+              
+              // If issue is closed, reopen it
+              if (issueCheck.state === 'closed') {
+                console.log(`Reopening closed issue #${issueNumber}`);
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  state: 'open'
+                });
+              }
+              
+              // Check comment count (for max retries)
+              if (issueCheck.commentCount >= 3) {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  labels: ['needs-human']
+                });
+                console.log(`Max retries reached for issue #${issueNumber}`);
+                return { issueNumber, action: 'max-retries' };
+              }
+              
+              // Add new failure comment
               const commentBody = `## New Failure Detected
 
             **Failed run:** ${workflowDetails.runUrl}
             **Commit:** \`${workflowDetails.sha}\`
+
+            The issue has been reassigned to Copilot for another fix attempt.
+
+            **Remember: Include \`Fixes #${issueNumber}\` in your PR description.**
 
             ## Failure Logs
 
             ${logsSection}`;
 
               await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueCheck.number,
+                owner,
+                repo,
+                issue_number: issueNumber,
                 body: commentBody
               });
-              return { issueNumber: issueCheck.number };
-            } else {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueCheck.number,
-                labels: ['needs-human']
+              
+              // Update title with latest commit
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                title: `[CI Fix] CI failure on \`main\` (${workflowDetails.shortSha})`
               });
-              return { issueNumber: issueCheck.number };
+              
+              console.log(`Updated issue #${issueNumber}`);
+              return { issueNumber, action: 'updated' };
             }
 
-      - name: Assign to Copilot
-        if: steps.create-issue.outputs.result != 'null' && steps.check-issue.outputs.result == '{"exists":false,"number":null,"commentCount":0}'
+      - name: Reassign to Copilot
+        if: steps.create-issue.outputs.result != '{"issueNumber":null,"action":"none"}' && steps.create-issue.outputs.result != '{"issueNumber":null}'
         env:
           GH_TOKEN: ${{ secrets.MITCHELL_PAT }}
         run: |
-          ISSUE_NUMBER=$(echo '${{ steps.create-issue.outputs.result }}' | jq -r '.issueNumber')
-          if [ "$ISSUE_NUMBER" != "null" ] && [ -n "$ISSUE_NUMBER" ]; then
+          RESULT='${{ steps.create-issue.outputs.result }}'
+          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          
+          if [ "$ISSUE_NUMBER" != "null" ] && [ -n "$ISSUE_NUMBER" ] && [ "$ACTION" != "max-retries" ]; then
+            echo "Processing issue #$ISSUE_NUMBER (action: $ACTION)"
+            
+            # Remove all current assignees first
+            ASSIGNEES=$(gh api /repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/assignees --jq '.[].login' 2>/dev/null | tr '\n' ' ')
+            if [ -n "$ASSIGNEES" ]; then
+              echo "Removing current assignees: $ASSIGNEES"
+              for assignee in $ASSIGNEES; do
+                gh api --method DELETE /repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/assignees \
+                  -f "assignees[]=$assignee" 2>/dev/null || true
+              done
+            fi
+            
+            # Assign to Copilot
             echo "Assigning issue #$ISSUE_NUMBER to Copilot..."
             gh api \
               --method POST \
