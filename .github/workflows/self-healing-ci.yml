@@ -18,10 +18,10 @@ jobs:
     if: github.event.workflow_run.conclusion == 'failure'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Ensure labels exist
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const labels = [
@@ -48,7 +48,7 @@ jobs:
 
       - name: Fetch workflow run details
         id: workflow-details
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const runId = context.payload.workflow_run.id;
@@ -79,7 +79,7 @@ jobs:
 
       - name: Check if issue exists for this commit
         id: check-issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const workflowDetails = ${{ steps.workflow-details.outputs.result }};
@@ -109,7 +109,7 @@ jobs:
       - name: Create issue for this commit
         id: create-issue
         if: steps.check-issue.outputs.result != '{"exists":true}' && !contains(steps.check-issue.outputs.result, '"exists":true')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const workflowDetails = ${{ steps.workflow-details.outputs.result }};
