@@ -1,0 +1,83 @@
+name: Auto-Approve Copilot PRs
+
+on:
+  pull_request_target:
+    types: [review_requested]
+
+permissions:
+  pull-requests: write
+  actions: write
+
+jobs:
+  auto-approve:
+    name: Auto-Approve Copilot PR
+    runs-on: ubuntu-latest
+    # Only run for Copilot PRs requesting review from mitchellfyi
+    if: |
+      github.event.pull_request.user.login == 'Copilot' &&
+      github.event.requested_reviewer.login == 'mitchellfyi'
+    steps:
+      - name: Mark PR ready for review (if draft)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            if (pr.draft) {
+              console.log('PR is a draft, marking as ready for review...');
+              await github.graphql(`
+                mutation($pullRequestId: ID!) {
+                  markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+                    pullRequest {
+                      isDraft
+                    }
+                  }
+                }
+              `, {
+                pullRequestId: pr.node_id
+              });
+              console.log('PR marked as ready for review');
+            } else {
+              console.log('PR is already ready for review');
+            }
+
+      - name: Approve pending workflow runs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Get all workflow runs for this PR's head SHA
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head_sha: pr.head.sha,
+              status: 'action_required'
+            });
+            
+            console.log(`Found ${runs.data.total_count} workflow runs needing approval`);
+            
+            for (const run of runs.data.workflow_runs) {
+              console.log(`Approving workflow run ${run.id} (${run.name})...`);
+              try {
+                await github.rest.actions.approveWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id
+                });
+                console.log(`Approved workflow run ${run.id}`);
+              } catch (error) {
+                console.log(`Could not approve run ${run.id}: ${error.message}`);
+              }
+            }
+
+      - name: Add comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: '✅ **Auto-approved by workflow**\n\nThis Copilot PR has been automatically:\n- Marked as ready for review\n- Workflow runs approved\n\nReady for human review.'
+            });
