@@ -30,31 +30,38 @@ jobs:
         run: |
           echo "::group::Finding PR"
           REPO="${{ github.repository }}"
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          # Note: workflow_run.head_branch is unreliable (often shows 'main')
+          # Use head_sha to find the actual PR
           SHA="${{ github.event.workflow_run.head_sha }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
 
-          echo "CI passed on branch: $BRANCH (commit: ${SHA:0:7})"
+          echo "CI run: $RUN_ID (commit: ${SHA:0:7})"
 
-          # Skip main/master branch
-          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            echo "Main branch CI - skipping review"
+          # Find PR associated with this commit using the GitHub API
+          PR_JSON=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0] // empty' 2>/dev/null || echo "")
+          
+          if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then
+            # Fallback: check if this was a push to main (no PR)
+            echo "No PR found for commit ${SHA:0:7} - likely a direct push to main"
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "::endgroup::"
             exit 0
           fi
-
-          # Find open PR for this branch
-          PR_JSON=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,isDraft,title --jq '.[0] // empty')
-          if [ -z "$PR_JSON" ]; then
-            echo "No open PR for branch $BRANCH - skipping"
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "::endgroup::"
-            exit 0
-          fi
-
+          
           PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
-          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
+          PR_STATE=$(echo "$PR_JSON" | jq -r '.state')
+          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.draft')
           PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
+          PR_BRANCH=$(echo "$PR_JSON" | jq -r '.head.ref')
+          
+          echo "Found PR #$PR_NUM: $PR_TITLE (branch: $PR_BRANCH)"
+          
+          if [ "$PR_STATE" != "open" ]; then
+            echo "PR #$PR_NUM is $PR_STATE - skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
 
           if [ "$IS_DRAFT" = "true" ]; then
             echo "PR #$PR_NUM is draft - skipping review"
