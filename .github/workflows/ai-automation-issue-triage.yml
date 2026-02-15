@@ -68,6 +68,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
+          LABELS="${{ steps.issue.outputs.labels }}"
+          
+          # Skip issues created by other AI workflows (ci-fix, maintenance)
+          # These workflows handle their own implementation
+          if echo "$LABELS" | grep -qE "ai-fix|ai-maintenance|ci"; then
+            echo "already_triaged=true" >> $GITHUB_OUTPUT
+            echo "Issue has AI workflow label (ai-fix/ai-maintenance/ci) - another workflow handles this"
+            exit 0
+          fi
           
           # Check if there's already a linked PR
           LINKED_PRS=$(gh pr list --search "linked:$ISSUE_NUMBER" --json number --jq 'length' 2>/dev/null || echo "0")
@@ -80,7 +89,6 @@ jobs:
           fi
           
           # Check for triaged label
-          LABELS="${{ steps.issue.outputs.labels }}"
           if echo "$LABELS" | grep -q "triaged"; then
             echo "already_triaged=true" >> $GITHUB_OUTPUT
             echo "Issue already triaged"
