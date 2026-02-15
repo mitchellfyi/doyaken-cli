@@ -21,7 +21,9 @@ permissions:
 
 jobs:
   fix-ci-failure:
-    if: github.event.workflow_run.conclusion == 'failure'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     steps:
       - name: Check for existing fix PR or issue
@@ -32,10 +34,29 @@ jobs:
           echo "::group::Checking for existing fix PR or issue"
           REPO="${{ github.repository }}"
           echo "Repository: $REPO"
-          echo "Trigger: workflow_run (CI failed on main)"
-          echo "Failed run ID: ${{ github.event.workflow_run.id }}"
-          echo "Failed run commit: ${{ github.event.workflow_run.head_sha }}"
-          echo "Failed run URL: https://github.com/$REPO/actions/runs/${{ github.event.workflow_run.id }}"
+          
+          # For workflow_dispatch, find the latest failed CI run
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Trigger: workflow_dispatch (manual)"
+            FAILED_RUN=$(gh run list --repo "$REPO" --workflow "CI" --branch main --status failure --limit 1 --json databaseId,headSha --jq '.[0] // empty')
+            if [ -z "$FAILED_RUN" ]; then
+              echo "No failed CI runs found on main - nothing to fix"
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "::endgroup::"
+              exit 0
+            fi
+            FAILED_RUN_ID=$(echo "$FAILED_RUN" | jq -r '.databaseId')
+            FAILED_RUN_SHA=$(echo "$FAILED_RUN" | jq -r '.headSha')
+            echo "Found failed run: $FAILED_RUN_ID"
+            echo "failed_run_id=$FAILED_RUN_ID" >> $GITHUB_OUTPUT
+            echo "failed_run_sha=$FAILED_RUN_SHA" >> $GITHUB_OUTPUT
+          else
+            echo "Trigger: workflow_run (CI failed on main)"
+            echo "failed_run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+            echo "failed_run_sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          fi
+          
+          # URL will be printed in failure details step
 
           # Check for existing PR
           EXISTING_PR=$(gh pr list --repo "$REPO" --label "ai-fix" --state open --json number,title,headRefName --jq '.[0] // empty')
@@ -68,7 +89,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "::group::Getting failure details"
-          RUN_ID="${{ github.event.workflow_run.id }}"
+          RUN_ID="${{ steps.check.outputs.failed_run_id || github.event.workflow_run.id }}"
           REPO="${{ github.repository }}"
 
           echo "Fetching job details for run $RUN_ID..."
@@ -84,10 +105,14 @@ jobs:
           LOG_LENGTH=${#ERROR_LOGS}
           echo "Captured $LOG_LENGTH chars of error logs"
 
+          # Get commit SHA for this run
+          COMMIT_SHA=$(gh api repos/$REPO/actions/runs/$RUN_ID --jq '.head_sha' 2>/dev/null || echo "unknown")
+          
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
           echo "failed_jobs=$FAILED_JOBS" >> $GITHUB_OUTPUT
           echo "failed_steps=$FAILED_STEPS" >> $GITHUB_OUTPUT
           echo "run_url=https://github.com/$REPO/actions/runs/$RUN_ID" >> $GITHUB_OUTPUT
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
           echo "$ERROR_LOGS" > /tmp/error_logs.txt
           echo "::endgroup::"
@@ -148,7 +173,7 @@ jobs:
             echo "- **Failed Run:** $RUN_URL"
             echo "- **Failed Jobs:** $FAILED_JOBS"
             echo "- **Failed Steps:** $FAILED_STEPS"
-            echo "- **Commit:** \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "- **Commit:** \`${{ steps.failure.outputs.commit_sha }}\`"
             echo ""
             echo "## Error Logs"
             echo ""
