@@ -12,6 +12,11 @@ on:
         required: true
         type: number
 
+# Only allow one issue-triage run at a time per repo
+concurrency:
+  group: ai-issue-triage-${{ github.repository }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -29,11 +34,6 @@ jobs:
       (github.event.action == 'labeled' && github.event.label.name == 'claude')
     
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GH_PAT }}
-
       - name: Get issue details
         id: issue
         env:
@@ -48,7 +48,7 @@ jobs:
           echo "number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
           
           # Get issue data
-          gh issue view "$ISSUE_NUMBER" --json title,body,labels,author > /tmp/issue.json
+          gh issue view "$ISSUE_NUMBER" --repo "${{ github.repository }}" --json title,body,labels,author > /tmp/issue.json
           
           TITLE=$(jq -r '.title' /tmp/issue.json)
           BODY=$(jq -r '.body // "No description provided"' /tmp/issue.json)
@@ -62,54 +62,78 @@ jobs:
           # Write body to file (multiline safe)
           echo "$BODY" > /tmp/issue_body.txt
 
-      - name: Check for existing implementation
-        id: existing
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
-          LABELS="${{ steps.issue.outputs.labels }}"
-          
-          # Skip issues created by other AI workflows (ci-fix, maintenance)
-          # These workflows handle their own implementation
-          if echo "$LABELS" | grep -qE "ai-fix|ai-maintenance|ci"; then
-            echo "already_triaged=true" >> $GITHUB_OUTPUT
-            echo "Issue has AI workflow label (ai-fix/ai-maintenance/ci) - another workflow handles this"
-            exit 0
-          fi
-          
-          # Check if there's already a linked PR
-          LINKED_PRS=$(gh pr list --search "linked:$ISSUE_NUMBER" --json number --jq 'length' 2>/dev/null || echo "0")
-          
-          if [ "$LINKED_PRS" -gt 0 ]; then
-            echo "has_pr=true" >> $GITHUB_OUTPUT
-            echo "Issue #$ISSUE_NUMBER already has a linked PR"
-          else
-            echo "has_pr=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # Check for triaged label
-          if echo "$LABELS" | grep -q "triaged"; then
-            echo "already_triaged=true" >> $GITHUB_OUTPUT
-            echo "Issue already triaged"
-          else
-            echo "already_triaged=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Ensure labels exist
-        if: steps.existing.outputs.already_triaged == 'false'
+      - name: Check queue and existing work
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           REPO="${{ github.repository }}"
+          ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
+          LABELS="${{ steps.issue.outputs.labels }}"
+          
+          echo "::group::Checking issue queue"
+          
+          # Ensure required labels exist
+          gh label create "in-progress" --repo "$REPO" --description "AI is currently working on this" --color "fbca04" 2>/dev/null || true
+          gh label create "queued" --repo "$REPO" --description "Waiting for AI to be available" --color "d4c5f9" 2>/dev/null || true
           gh label create "triaged" --repo "$REPO" --description "Issue has been triaged by AI" --color "c5def5" 2>/dev/null || true
-          gh label create "in-progress" --repo "$REPO" --description "Work in progress" --color "fbca04" 2>/dev/null || true
-          gh label create "claude" --repo "$REPO" --description "Assigned to Claude AI" --color "7057ff" 2>/dev/null || true
           gh label create "ai-fix" --repo "$REPO" --description "Automated fix by AI" --color "0e8a16" 2>/dev/null || true
-          gh label create "ai-maintenance" --repo "$REPO" --description "AI maintenance task" --color "1d76db" 2>/dev/null || true
+          
+          # Skip issues created by other AI workflows (ci-fix, maintenance)
+          if echo "$LABELS" | grep -qE "ai-fix|ai-maintenance|ci"; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "reason=handled_by_other_workflow" >> $GITHUB_OUTPUT
+            echo "Issue has AI workflow label - another workflow handles this"
+            echo "::endgroup::"
+            exit 0
+          fi
+          
+          # Skip if already triaged
+          if echo "$LABELS" | grep -q "triaged"; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "reason=already_triaged" >> $GITHUB_OUTPUT
+            echo "Issue already triaged"
+            echo "::endgroup::"
+            exit 0
+          fi
+          
+          # Skip if this issue already has a linked PR
+          LINKED_PRS=$(gh pr list --repo "$REPO" --search "linked:$ISSUE_NUMBER" --json number --jq 'length' 2>/dev/null || echo "0")
+          if [ "$LINKED_PRS" -gt 0 ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "reason=has_pr" >> $GITHUB_OUTPUT
+            echo "Issue #$ISSUE_NUMBER already has a linked PR"
+            echo "::endgroup::"
+            exit 0
+          fi
+          
+          # Check if another issue is currently being worked on
+          IN_PROGRESS=$(gh issue list --repo "$REPO" --label "in-progress" --state open --json number --jq '.[0].number // empty')
+          
+          if [ -n "$IN_PROGRESS" ] && [ "$IN_PROGRESS" != "$ISSUE_NUMBER" ]; then
+            echo "Another issue (#$IN_PROGRESS) is currently in progress"
+            echo "Adding this issue to queue..."
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "queued"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "reason=queued" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+          
+          # This issue can proceed - mark as in-progress
+          echo "No other issues in progress - proceeding with #$ISSUE_NUMBER"
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "in-progress" --remove-label "queued" 2>/dev/null || true
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Checkout
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
 
       - name: Build prompt
-        if: steps.existing.outputs.already_triaged == 'false'
+        if: steps.check.outputs.skip != 'true'
         id: prompt
         env:
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
@@ -139,7 +163,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Run Claude
-        if: steps.existing.outputs.already_triaged == 'false'
+        if: steps.check.outputs.skip != 'true'
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
@@ -149,10 +173,25 @@ jobs:
           prompt: ${{ steps.prompt.outputs.content }}
           claude_args: "--model claude-opus-4-20250514 --max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
-      - name: Add triaged label
-        if: steps.existing.outputs.already_triaged == 'false'
+      - name: Finalize issue labels
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          REPO="${{ github.repository }}"
           ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
-          gh issue edit "$ISSUE_NUMBER" --add-label "triaged" 2>/dev/null || true
+          
+          # Remove in-progress label (work is done or failed)
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label "in-progress" 2>/dev/null || true
+          
+          # Add triaged label if we actually processed it
+          if [ "${{ steps.check.outputs.skip }}" != "true" ]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "triaged" 2>/dev/null || true
+          fi
+          
+          # Trigger next queued issue if any
+          NEXT_QUEUED=$(gh issue list --repo "$REPO" --label "queued" --state open --json number --jq 'sort_by(.number) | .[0].number // empty')
+          if [ -n "$NEXT_QUEUED" ]; then
+            echo "Triggering next queued issue: #$NEXT_QUEUED"
+            gh workflow run ai-automation-issue-triage.yml --repo "$REPO" -f issue_number="$NEXT_QUEUED"
+          fi

@@ -12,6 +12,11 @@ on:
   # Allow manual trigger for retries
   workflow_dispatch:
 
+# Only allow one CI fix at a time per repo
+concurrency:
+  group: ai-ci-fix-${{ github.repository }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -73,6 +78,16 @@ jobs:
           if [ -n "$EXISTING_ISSUE" ]; then
             echo "Found existing fix issue: $EXISTING_ISSUE"
             echo "Skipping to avoid duplicate fix attempts"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          # Check if AI is currently working on another issue (queue system)
+          IN_PROGRESS=$(gh issue list --repo "$REPO" --label "in-progress" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$IN_PROGRESS" ]; then
+            echo "AI is currently working on issue #$IN_PROGRESS"
+            echo "Skipping - CI fix will retry on next failure"
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "::endgroup::"
             exit 0
@@ -190,12 +205,15 @@ jobs:
             echo "This issue will be auto-closed when the fix PR merges."
           } > /tmp/issue_body.md
 
+          # Ensure in-progress label exists
+          gh label create "in-progress" --repo "$REPO" --description "AI is currently working on this" --color "fbca04" 2>/dev/null || true
+
           echo "Creating issue..."
           ISSUE_URL=$(gh issue create \
             --repo "$REPO" \
             --title "CI Fix: $FAILED_JOBS failure" \
             --body-file /tmp/issue_body.md \
-            --label "automation,ci,ai-fix")
+            --label "automation,ci,ai-fix,in-progress")
 
           ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
           echo "Created issue #$ISSUE_NUM: $ISSUE_URL"
@@ -379,3 +397,23 @@ jobs:
           gh pr ready $PR_NUM --repo "$REPO"
           echo "PR #$PR_NUM marked ready for review"
           echo "::endgroup::"
+
+      - name: Finalize and trigger queue
+        if: always() && steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          ISSUE_NUM="${{ steps.issue.outputs.issue_number }}"
+          
+          # Remove in-progress label (work is done or failed)
+          if [ -n "$ISSUE_NUM" ]; then
+            gh issue edit "$ISSUE_NUM" --repo "$REPO" --remove-label "in-progress" 2>/dev/null || true
+          fi
+          
+          # Trigger next queued issue if any
+          NEXT_QUEUED=$(gh issue list --repo "$REPO" --label "queued" --state open --json number --jq 'sort_by(.number) | .[0].number // empty')
+          if [ -n "$NEXT_QUEUED" ]; then
+            echo "Triggering next queued issue: #$NEXT_QUEUED"
+            gh workflow run ai-automation-issue-triage.yml --repo "$REPO" -f issue_number="$NEXT_QUEUED"
+          fi
