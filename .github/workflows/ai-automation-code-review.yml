@@ -146,7 +146,7 @@ jobs:
 
       - name: Checkout
         if: steps.find-pr.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.find-pr.outputs.pr_branch }}
           token: ${{ secrets.GH_PAT }}

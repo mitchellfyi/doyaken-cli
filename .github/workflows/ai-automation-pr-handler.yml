@@ -127,7 +127,7 @@ jobs:
 
       - name: Checkout
         if: steps.check.outputs.is_ai == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GH_PAT }}
@@ -314,7 +314,7 @@ jobs:
 
       - name: Checkout PR branch
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
           token: ${{ secrets.GH_PAT }}
