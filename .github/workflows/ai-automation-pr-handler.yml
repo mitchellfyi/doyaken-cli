@@ -512,7 +512,7 @@ jobs:
             echo ""
             echo "[3/3] CI passing + reviewed + no changes requested"
             echo "All checks passed! Auto-merging PR #$PR_NUM..."
-            gh pr merge $PR_NUM --repo $REPO --squash --auto --delete-branch
-            echo "PR #$PR_NUM queued for auto-merge"
+            gh pr merge $PR_NUM --repo $REPO --squash --delete-branch
+            echo "✓ PR #$PR_NUM merged"
             echo "::endgroup::"
           done
