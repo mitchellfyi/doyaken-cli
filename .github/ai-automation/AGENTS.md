@@ -20,7 +20,6 @@ This directory contains GitHub Actions workflows for automated CI repair, code r
     ├── ci-fix-issue.md
     ├── ci-fix-pr-draft.md
     ├── ci-fix-pr-done.md
-    ├── copilot-bootstrap-comment.md
     ├── conflict-detected.md
     └── ...
 ```
@@ -35,7 +34,6 @@ The workflow files live in `.github/workflows/` (GitHub requirement) and are pre
 | `pr-handler` | CI complete / review submitted | Retries failed fixes, handles review comments, auto-merges |
 | `code-review` | CI passes on PR | Reviews all PRs automatically |
 | `mention` | `@claude` in comment | Responds to direct mentions from collaborators |
-| `copilot-bootstrap` | Push to copilot/* or ai/* | Marks Copilot PRs ready when finished |
 | `conflict-resolution` | PR opened/synced | Detects merge conflicts, asks Copilot to resolve |
 | `dependabot-automerge` | Dependabot PR + CI passes | Auto-merges security/patch updates |
 | `maintenance` | Daily schedule | Proactive codebase maintenance by domain |

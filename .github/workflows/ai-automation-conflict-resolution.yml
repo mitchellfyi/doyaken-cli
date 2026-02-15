@@ -38,7 +38,7 @@ jobs:
           # Get all open PRs on AI-managed branches
           PRS=$(gh pr list --repo "$REPO" --state open --json number,headRefName,labels \
             --jq '.[] | select(
-              (.headRefName | (startswith("copilot/") or startswith("ai/"))) or
+              (.headRefName | (startswith("ai/") or startswith("claude/"))) or
               (.labels[].name | (. == "ai-fix" or . == "ai-maintenance"))
             ) | .number' || echo "")
           
