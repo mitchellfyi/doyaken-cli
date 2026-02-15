@@ -117,7 +117,7 @@ jobs:
           fi
           
           # Check CI status for this PR
-          CI_STATUS=$(gh pr checks "$PR_NUM" --repo "$REPO" --json state --jq '[.[] | select(.name | test("^(code-review|check-auto-merge|handle-review-comments|fix-pr-ci-failure|mark-pr-ready)$") | not)] | if length == 0 then "pending" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" elif any(.state == "FAILURE") then "fail" else "pending" end' 2>/dev/null || echo "unknown")
+          CI_STATUS=$(gh pr checks "$PR_NUM" --repo "$REPO" --json name,state --jq '[.[] | select(.name | test("^(code-review|check-auto-merge|handle-review-comments|fix-pr-ci-failure|mark-pr-ready)$") | not)] | if length == 0 then "pending" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" elif any(.state == "FAILURE") then "fail" else "pending" end' 2>/dev/null || echo "unknown")
           echo "CI status: $CI_STATUS"
           
           if [ "$CI_STATUS" != "pass" ]; then
