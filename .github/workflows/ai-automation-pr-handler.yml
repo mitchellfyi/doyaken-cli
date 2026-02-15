@@ -375,7 +375,7 @@ jobs:
             echo "All checks:"
             echo "$ALL_CHECKS" | jq -r '.[] | "  \(.name): \(.state)"'
 
-            CI_STATUS=$(echo "$ALL_CHECKS" | jq -r '[.[] | select(.name | test("^(check-auto-merge|handle-review-comments|fix-pr-ci-failure)$") | not)] | if length == 0 then "pending" elif all(.state == "SUCCESS") then "pass" elif any(.state == "FAILURE") then "fail" else "pending" end')
+            CI_STATUS=$(echo "$ALL_CHECKS" | jq -r '[.[] | select(.name | test("^(check-auto-merge|handle-review-comments|fix-pr-ci-failure)$") | not)] | if length == 0 then "pending" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" elif any(.state == "FAILURE") then "fail" else "pending" end')
             echo "CI verdict: $CI_STATUS"
 
             if [ "$CI_STATUS" != "pass" ]; then
