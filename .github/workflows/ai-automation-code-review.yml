@@ -1,14 +1,27 @@
 name: "AI Automation: Code Review"
 
 on:
+  # Trigger when PR is marked ready for review
+  pull_request:
+    types: [ready_for_review]
+
+  # Trigger when CI completes (for PRs that were already ready)
   workflow_run:
     workflows:
       - CI
     types:
       - completed
 
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        required: true
+        type: number
+
 concurrency:
-  group: code-review-${{ github.event.workflow_run.head_branch }}
+  group: code-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.event.workflow_run.id }}
   cancel-in-progress: true
 
 permissions:
@@ -20,43 +33,76 @@ permissions:
 
 jobs:
   review:
-    if: github.event.workflow_run.conclusion == 'success'
+    # Skip if workflow_run failed (for workflow_run trigger)
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
-      - name: Find PR for this CI run
+      - name: Find PR to review
         id: find-pr
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "::group::Finding PR"
           REPO="${{ github.repository }}"
-          # Note: workflow_run.head_branch is unreliable (often shows 'main')
-          # Use head_sha to find the actual PR
-          SHA="${{ github.event.workflow_run.head_sha }}"
-          RUN_ID="${{ github.event.workflow_run.id }}"
-
-          echo "CI run: $RUN_ID (commit: ${SHA:0:7})"
-
-          # Find PR associated with this commit using the GitHub API
-          PR_JSON=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0] // empty' 2>/dev/null || echo "")
           
-          if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then
-            # Fallback: check if this was a push to main (no PR)
-            echo "No PR found for commit ${SHA:0:7} - likely a direct push to main"
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "::endgroup::"
-            exit 0
+          # Determine PR number based on trigger type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUM="${{ github.event.pull_request.number }}"
+            echo "Trigger: pull_request (ready_for_review)"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUM="${{ github.event.inputs.pr_number }}"
+            echo "Trigger: workflow_dispatch"
+          else
+            # workflow_run trigger - find PR by scanning open PRs
+            echo "Trigger: workflow_run (CI completed)"
+            RUN_ID="${{ github.event.workflow_run.id }}"
+            echo "CI run: $RUN_ID"
+            
+            # Get the branch from the CI run
+            CI_BRANCH="${{ github.event.workflow_run.head_branch }}"
+            echo "CI branch: $CI_BRANCH"
+            
+            # Skip if CI was on main (no PR to review)
+            if [ "$CI_BRANCH" = "main" ] || [ "$CI_BRANCH" = "master" ]; then
+              echo "CI ran on default branch - no PR to review"
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "::endgroup::"
+              exit 0
+            fi
+            
+            # Find PR for this branch
+            PR_JSON=$(gh pr list --repo "$REPO" --head "$CI_BRANCH" --state open --json number,draft --jq '.[0] // empty' 2>/dev/null)
+            
+            if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then
+              echo "No open PR found for branch $CI_BRANCH"
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "::endgroup::"
+              exit 0
+            fi
+            
+            PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
           fi
           
-          PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
+          echo "PR number: $PR_NUM"
+          
+          # Get full PR details
+          PR_JSON=$(gh pr view "$PR_NUM" --repo "$REPO" --json number,state,isDraft,title,headRefName,headRefOid)
           PR_STATE=$(echo "$PR_JSON" | jq -r '.state')
-          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.draft')
+          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
           PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
-          PR_BRANCH=$(echo "$PR_JSON" | jq -r '.head.ref')
+          PR_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
+          PR_SHA=$(echo "$PR_JSON" | jq -r '.headRefOid')
           
-          echo "Found PR #$PR_NUM: $PR_TITLE (branch: $PR_BRANCH)"
+          echo "PR #$PR_NUM: $PR_TITLE"
+          echo "Branch: $PR_BRANCH"
+          echo "SHA: ${PR_SHA:0:7}"
+          echo "State: $PR_STATE"
+          echo "Draft: $IS_DRAFT"
           
-          if [ "$PR_STATE" != "open" ]; then
+          if [ "$PR_STATE" != "OPEN" ]; then
             echo "PR #$PR_NUM is $PR_STATE - skipping"
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "::endgroup::"
@@ -69,11 +115,22 @@ jobs:
             echo "::endgroup::"
             exit 0
           fi
+          
+          # Check CI status for this PR
+          CI_STATUS=$(gh pr checks "$PR_NUM" --repo "$REPO" --json state --jq '[.[] | select(.name | test("^(code-review|check-auto-merge|handle-review-comments|fix-pr-ci-failure|mark-pr-ready)$") | not)] | if length == 0 then "pending" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" elif any(.state == "FAILURE") then "fail" else "pending" end' 2>/dev/null || echo "unknown")
+          echo "CI status: $CI_STATUS"
+          
+          if [ "$CI_STATUS" != "pass" ]; then
+            echo "CI not passing - skipping review"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
 
           # Check if already reviewed this commit (avoid duplicate reviews)
-          EXISTING=$(gh api "repos/$REPO/pulls/$PR_NUM/reviews" --jq "[.[] | select(.commit_id == \"$SHA\" and .state != \"PENDING\" and .state != \"DISMISSED\")] | length" 2>/dev/null || echo "0")
+          EXISTING=$(gh api "repos/$REPO/pulls/$PR_NUM/reviews" --jq "[.[] | select(.commit_id == \"$PR_SHA\" and .state != \"PENDING\" and .state != \"DISMISSED\")] | length" 2>/dev/null || echo "0")
           if [ "$EXISTING" -gt 0 ]; then
-            echo "Already reviewed commit ${SHA:0:7} on PR #$PR_NUM - skipping"
+            echo "Already reviewed commit ${PR_SHA:0:7} on PR #$PR_NUM - skipping"
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "::endgroup::"
             exit 0
@@ -82,13 +139,15 @@ jobs:
           echo "Will review PR #$PR_NUM: $PR_TITLE"
           echo "skip=false" >> $GITHUB_OUTPUT
           echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
+          echo "pr_sha=$PR_SHA" >> $GITHUB_OUTPUT
           echo "::endgroup::"
 
       - name: Checkout
         if: steps.find-pr.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ steps.find-pr.outputs.pr_branch }}
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
 
@@ -97,7 +156,7 @@ jobs:
         id: build-prompt
         env:
           PR_NUMBER: ${{ steps.find-pr.outputs.pr_number }}
-          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          COMMIT_SHA: ${{ steps.find-pr.outputs.pr_sha }}
           REPO: ${{ github.repository }}
         run: |
           DELIM="PROMPT_EOF_$(date +%s)"
