@@ -10,6 +10,9 @@ on:
     types:
       - completed
 
+  # Allow manual trigger to re-check PRs
+  workflow_dispatch:
+
 permissions:
   contents: write
   pull-requests: write
@@ -323,6 +326,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────
   check-auto-merge:
     if: |
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'pull_request_review' &&
