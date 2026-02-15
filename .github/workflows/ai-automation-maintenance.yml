@@ -315,6 +315,14 @@ jobs:
             gh pr edit $PR_NUM --repo "$REPO" --body-file /tmp/pr_body_done.md
             gh pr ready $PR_NUM --repo "$REPO"
             echo "PR #$PR_NUM marked ready for review"
+          elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
+            echo "Claude failed — leaving PR open for retry"
+            gh pr comment $PR_NUM --repo "$REPO" --body "⚠️ **Claude execution failed**
+
+The maintenance task could not be completed due to an error. The PR will remain open for retry.
+
+Check the [workflow run](https://github.com/$REPO/actions/runs/${{ github.run_id }}) for details."
+            gh issue comment $ISSUE_NUM --repo "$REPO" --body "Claude execution failed. PR #$PR_NUM remains open for retry."
           else
             echo "No changes made — closing PR and issue"
             gh pr close $PR_NUM --repo "$REPO" --delete-branch --comment "No improvements needed at this time."
