@@ -1,144 +1,109 @@
 name: "AI Automation: Copilot Bootstrap"
 
-# This workflow handles Copilot PRs that need workflow approval
-# It approves pending workflows, waits for Copilot to finish, then triggers PR handler
+# Handles Copilot PRs:
+# - Marks PR ready when Copilot finishes (requests review)
+# - Adds ai-fix label to trigger PR handler
+# - Also triggers for ai/* branches (Claude-created fix branches)
 
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review]
-  
-  # Also trigger when review is requested (Copilot requests review when done)
-  pull_request_target:
-    types: [review_requested]
+  push:
+    branches:
+      - 'copilot/**'
+      - 'copilot/*'
+      - 'ai/**'
+      - 'ai/*'
 
 permissions:
   contents: read
   pull-requests: write
-  actions: write
 
 jobs:
-  # ──────────────────────────────────────────────────────────────────────
-  # Job 1: Approve workflow runs for Copilot PRs
-  # ──────────────────────────────────────────────────────────────────────
-  approve-copilot-workflows:
-    if: |
-      github.event.pull_request.user.login == 'copilot-swe-agent[bot]' ||
-      contains(github.event.pull_request.head.ref, 'copilot/')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for workflow runs to appear
-        run: |
-          echo "Waiting for workflow runs to be queued..."
-          sleep 15
-
-      - name: Approve pending workflow runs
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          
-          echo "::group::Approving workflows for Copilot PR #$PR_NUM"
-          echo "HEAD SHA: $HEAD_SHA"
-          
-          # Get all workflow runs for this commit that need approval
-          PENDING_RUNS=$(gh api repos/$REPO/actions/runs \
-            --jq ".workflow_runs[] | select(.head_sha == \"$HEAD_SHA\" and .status == \"action_required\") | .id" 2>/dev/null || echo "")
-          
-          if [ -z "$PENDING_RUNS" ]; then
-            echo "No pending workflow runs to approve"
-          else
-            for RUN_ID in $PENDING_RUNS; do
-              echo "Approving workflow run $RUN_ID..."
-              gh api repos/$REPO/actions/runs/$RUN_ID/approve -X POST \
-                && echo "✓ Approved run $RUN_ID" \
-                || echo "✗ Could not approve run $RUN_ID (may already be approved)"
-            done
-          fi
-          echo "::endgroup::"
-
-  # ──────────────────────────────────────────────────────────────────────
-  # Job 2: Handle when Copilot requests review (signals it's done)
-  # ──────────────────────────────────────────────────────────────────────
   handle-copilot-ready:
-    if: |
-      github.event_name == 'pull_request_target' &&
-      github.event.action == 'review_requested' &&
-      (github.event.pull_request.user.login == 'copilot-swe-agent[bot]' ||
-       contains(github.event.pull_request.head.ref, 'copilot/'))
     runs-on: ubuntu-latest
     steps:
-      - name: Check if review requested from mitchellfyi
+      - name: Find PR and check if Copilot is done
         id: check
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
+          BRANCH="${{ github.ref_name }}"
           
-          echo "::group::Checking review request"
-          REQUESTED=$(gh pr view $PR_NUM --repo $REPO --json reviewRequests --jq '.reviewRequests[].login' 2>/dev/null || echo "")
-          echo "Review requested from: $REQUESTED"
+          echo "::group::Checking Copilot PR status"
+          echo "Branch: $BRANCH"
+          
+          PR_JSON=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,isDraft,title,reviewRequests --jq '.[0] // empty')
+          
+          if [ -z "$PR_JSON" ]; then
+            echo "No open PR found for branch $BRANCH"
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+          
+          PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
+          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
+          
+          echo "Found PR #$PR_NUM (draft: $IS_DRAFT)"
+          
+          REQUESTED=$(echo "$PR_JSON" | jq -r '.reviewRequests[].login' 2>/dev/null || echo "")
+          echo "Review requested from: ${REQUESTED:-none}"
           
           if echo "$REQUESTED" | grep -q "mitchellfyi"; then
-            echo "Review requested from mitchellfyi - Copilot is done!"
+            echo "✓ Copilot has requested review - it's done!"
             echo "ready=true" >> $GITHUB_OUTPUT
+            echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+            echo "is_draft=$IS_DRAFT" >> $GITHUB_OUTPUT
           else
-            echo "Review not requested from mitchellfyi yet"
+            echo "Review not yet requested - Copilot still working"
             echo "ready=false" >> $GITHUB_OUTPUT
           fi
           echo "::endgroup::"
 
       - name: Mark PR as ready for review
+        if: steps.check.outputs.ready == 'true' && steps.check.outputs.is_draft == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUM="${{ steps.check.outputs.pr_number }}"
+          REPO="${{ github.repository }}"
+          
+          echo "Marking PR #$PR_NUM as ready for review..."
+          gh pr ready $PR_NUM --repo $REPO \
+            && echo "✓ PR marked as ready for review" \
+            || echo "✗ Could not mark PR ready"
+
+      - name: Add ai-fix label
         if: steps.check.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
+          PR_NUM="${{ steps.check.outputs.pr_number }}"
           REPO="${{ github.repository }}"
           
-          echo "::group::Marking PR ready for review"
-          IS_DRAFT=$(gh pr view $PR_NUM --repo $REPO --json isDraft --jq '.isDraft')
+          gh pr edit $PR_NUM --repo $REPO --add-label "ai-fix" 2>/dev/null \
+            || gh api repos/$REPO/issues/$PR_NUM/labels -f labels[]="ai-fix" 2>/dev/null \
+            || true
+
+      - name: Comment to confirm automation
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUM="${{ steps.check.outputs.pr_number }}"
+          REPO="${{ github.repository }}"
           
-          if [ "$IS_DRAFT" == "true" ]; then
-            echo "PR is draft - marking as ready..."
-            gh pr ready $PR_NUM --repo $REPO \
-              && echo "✓ PR marked as ready for review" \
-              || echo "✗ Could not mark PR ready"
-          else
-            echo "PR is already ready for review"
+          EXISTING=$(gh api repos/$REPO/issues/$PR_NUM/comments --jq '[.[] | select(.body | contains("Copilot Bootstrap Complete"))] | length' 2>/dev/null || echo "0")
+          
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Already commented - skipping"
+            exit 0
           fi
-          echo "::endgroup::"
-
-      - name: Add ai-fix label to trigger PR handler
-        if: steps.check.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
           
-          echo "Adding ai-fix label to trigger PR handler workflow..."
-          gh pr edit $PR_NUM --repo $REPO --add-label "ai-fix" \
-            || echo "Label may already exist or could not be added"
-
-      - name: Comment to confirm automation activated
-        if: steps.check.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
+          BODY="🤖 **Copilot Bootstrap Complete**"
+          BODY="${BODY}"$'\n\n'"Copilot has finished. The PR Handler will now:"
+          BODY="${BODY}"$'\n'"• Wait for CI to complete"
+          BODY="${BODY}"$'\n'"• Request code review if needed"
+          BODY="${BODY}"$'\n'"• Auto-merge when approved"
           
-          gh pr comment $PR_NUM --repo $REPO --body "🤖 **Copilot Bootstrap Complete**
-
-Copilot has finished working on this PR. Automation activated:
-- ✅ Workflow runs approved
-- ✅ PR marked as ready for review  
-- ✅ AI automation label added
-
-The PR Handler will now:
-1. Wait for CI to complete
-2. Request code review if needed
-3. Auto-merge when approved"
+          gh pr comment $PR_NUM --repo $REPO --body "$BODY"

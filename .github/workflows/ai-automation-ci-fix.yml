@@ -21,12 +21,12 @@ jobs:
     if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     steps:
-      - name: Check for existing fix PR
+      - name: Check for existing fix PR or issue
         id: check
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          echo "::group::Checking for existing fix PR"
+          echo "::group::Checking for existing fix PR or issue"
           REPO="${{ github.repository }}"
           echo "Repository: $REPO"
           echo "Trigger: workflow_run (CI failed on main)"
@@ -34,15 +34,28 @@ jobs:
           echo "Failed run commit: ${{ github.event.workflow_run.head_sha }}"
           echo "Failed run URL: https://github.com/$REPO/actions/runs/${{ github.event.workflow_run.id }}"
 
-          EXISTING=$(gh pr list --repo "$REPO" --label "ai-fix" --state open --json number,title,headRefName --jq '.[0] // empty')
-          if [ -n "$EXISTING" ]; then
-            echo "Found existing fix PR: $EXISTING"
+          # Check for existing PR
+          EXISTING_PR=$(gh pr list --repo "$REPO" --label "ai-fix" --state open --json number,title,headRefName --jq '.[0] // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Found existing fix PR: $EXISTING_PR"
             echo "Skipping to avoid duplicate fix attempts"
             echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "No existing fix PR found - will create one"
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
           fi
+
+          # Check for existing issue (to avoid creating duplicates)
+          EXISTING_ISSUE=$(gh issue list --repo "$REPO" --label "ai-fix" --state open --json number,title --jq '.[0] // empty')
+          if [ -n "$EXISTING_ISSUE" ]; then
+            echo "Found existing fix issue: $EXISTING_ISSUE"
+            echo "Skipping to avoid duplicate fix attempts"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          echo "No existing fix PR or issue found - will create one"
+          echo "skip=false" >> $GITHUB_OUTPUT
           echo "::endgroup::"
 
       - name: Get failure details
@@ -78,7 +91,7 @@ jobs:
 
       - name: Checkout
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
@@ -273,6 +286,9 @@ jobs:
           FAILED_STEPS="${{ steps.failure.outputs.failed_steps }}"
           ERROR_LOGS=$(cat /tmp/error_logs.txt)
           CLAUDE_OUTCOME="${{ steps.claude.outcome }}"
+
+          # Configure git auth (token from checkout may be lost after claude-code-action)
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
 
           # Push any unpushed commits
           UNPUSHED=$(git rev-list --count origin/$BRANCH..HEAD 2>/dev/null || echo "0")

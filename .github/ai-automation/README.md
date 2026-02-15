@@ -275,7 +275,24 @@ Labels are created automatically on first run. If you prefer to create them manu
 
 ## Prompt Files
 
-AI prompts are stored as separate Markdown files in `.github/ai-automation/prompts/` so they can be edited without touching the workflow YAML:
+AI prompts are stored as separate Markdown files in `.github/ai-automation/prompts/` so they can be edited without touching the workflow YAML.
+
+## Template Files
+
+Reusable text content (issue bodies, PR bodies, comments) is stored in `.github/ai-automation/templates/`. Templates use `{{VARIABLE}}` placeholders that workflows substitute at runtime.
+
+| File                           | Used by                      | Purpose                                 |
+| ------------------------------ | ---------------------------- | --------------------------------------- |
+| `ci-fix-issue.md`              | `ai-automation-ci-fix`       | Tracking issue body                     |
+| `ci-fix-pr-draft.md`           | `ai-automation-ci-fix`       | Draft PR body                           |
+| `ci-fix-pr-done.md`            | `ai-automation-ci-fix`       | Final PR body after Claude works        |
+| `copilot-bootstrap-comment.md` | `ai-automation-copilot-*`    | Comment when Copilot finishes           |
+| `conflict-detected.md`         | `ai-automation-conflict-*`   | Comment for merge conflict              |
+| `retry-limit-pr-comment.md`    | `ai-automation-pr-handler`   | Comment when closing exhausted PR       |
+| `retry-limit-issue-comment.md` | `ai-automation-pr-handler`   | Comment on issue when PR exhausted      |
+| `dependabot-automerge.md`      | `ai-automation-dependabot-*` | Comment when auto-merging Dependabot PR |
+
+## Prompt Files
 
 | File                      | Used by                       | Purpose                                      |
 | ------------------------- | ----------------------------- | -------------------------------------------- |

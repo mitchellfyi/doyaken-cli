@@ -63,7 +63,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.context.outputs.branch }}
           token: ${{ secrets.GH_PAT }}
@@ -141,7 +141,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
-          claude_args: "--max-turns 25 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
       - name: Respond with Claude (Issue - read only)
         if: steps.context.outputs.is_pr == 'false'
@@ -151,4 +151,4 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
-          claude_args: "--max-turns 25 --allowedTools 'Bash(*),Read(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Glob(*),Grep(*),GitHub(*)'"
