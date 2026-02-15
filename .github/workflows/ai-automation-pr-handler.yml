@@ -177,6 +177,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GH_PAT }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
@@ -355,6 +356,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GH_PAT }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
@@ -511,7 +513,7 @@ jobs:
             # [3/3] All conditions met
             echo ""
             echo "[3/3] CI passing + reviewed + no changes requested"
-            echo "All checks passed! Auto-merging PR #$PR_NUM..."
+            echo "All checks passed! Merging PR #$PR_NUM..."
             gh pr merge $PR_NUM --repo $REPO --squash --delete-branch
             echo "✓ PR #$PR_NUM merged"
             echo "::endgroup::"
