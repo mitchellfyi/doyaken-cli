@@ -108,50 +108,25 @@ jobs:
         run: |
           ISSUE_BODY=$(cat /tmp/issue_body.txt)
           
-          cat > /tmp/prompt.txt << 'PROMPT_HEREDOC'
-          You are triaging and implementing a GitHub issue.
-
-          ## Your Tasks
-
-          1. **Analyze the issue** - understand what's being requested
-          2. **Comment on the issue** with your analysis:
-             - Summary (1-2 sentences)
-             - Type: Bug fix / Feature / Enhancement / Documentation / Refactor / Question
-             - Complexity: Low (< 1 hour) / Medium (1-4 hours) / High (4+ hours)
-             - Implementation approach (2-3 sentences)
+          # Read prompt template
+          PROMPT_TEMPLATE=$(cat .github/ai-automation/prompts/issue-triage.md)
           
-          3. **If implementable:**
-             - Create a new branch named `claude/issue-ISSUE_NUMBER-short-desc`
-             - Make the necessary code changes
-             - Commit with a descriptive message
-             - Push the branch
-             - Create a draft PR linking to the issue with "Fixes #ISSUE_NUMBER" in the body
-          
-          4. **If not implementable** (needs clarification, question, too complex):
-             - Just comment with your analysis and any questions
-
-          Use `gh` CLI for GitHub operations. The repo is already checked out.
-
-          PROMPT_HEREDOC
-          
-          # Append issue details
-          cat >> /tmp/prompt.txt << DETAILS_HEREDOC
-          
-          ## Issue Details
-          
-          - **Issue:** #${ISSUE_NUMBER}
-          - **Title:** ${ISSUE_TITLE}
-          - **Author:** @${ISSUE_AUTHOR}
-          
-          **Description:**
-          ${ISSUE_BODY}
-          DETAILS_HEREDOC
-          
-          # Output for the action
-          PROMPT_CONTENT=$(cat /tmp/prompt.txt)
-          echo "content<<PROMPT_EOF" >> $GITHUB_OUTPUT
-          echo "$PROMPT_CONTENT" >> $GITHUB_OUTPUT
-          echo "PROMPT_EOF" >> $GITHUB_OUTPUT
+          # Build full prompt with issue details
+          DELIM="PROMPT_EOF_$(date +%s)"
+          {
+            echo "content<<$DELIM"
+            echo "$PROMPT_TEMPLATE"
+            echo ""
+            echo "## Issue Details"
+            echo ""
+            echo "- **Issue:** #${ISSUE_NUMBER}"
+            echo "- **Title:** ${ISSUE_TITLE}"
+            echo "- **Author:** @${ISSUE_AUTHOR}"
+            echo ""
+            echo "**Description:**"
+            echo "${ISSUE_BODY}"
+            echo "$DELIM"
+          } >> $GITHUB_OUTPUT
 
       - name: Run Claude
         if: steps.existing.outputs.already_triaged == 'false'

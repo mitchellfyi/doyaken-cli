@@ -27,10 +27,13 @@ jobs:
   # Works for both ai-fix (CI fix) and ai-maintenance PRs
   # ──────────────────────────────────────────────────────────────────────
   handle-review-comments:
+    # Note: GitHub event context uses UPPERCASE states (COMMENTED, CHANGES_REQUESTED, APPROVED)
     if: |
       github.event_name == 'pull_request_review' &&
       (github.event.review.state == 'changes_requested' ||
-       github.event.review.state == 'commented')
+       github.event.review.state == 'CHANGES_REQUESTED' ||
+       github.event.review.state == 'commented' ||
+       github.event.review.state == 'COMMENTED')
     runs-on: ubuntu-latest
     steps:
       - name: Check if AI fix PR
@@ -326,12 +329,14 @@ jobs:
   # Works for both ai-fix and ai-maintenance PRs.
   # ──────────────────────────────────────────────────────────────────────
   check-auto-merge:
+    # Note: GitHub event context uses UPPERCASE states (APPROVED)
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'pull_request_review' &&
-       github.event.review.state == 'approved')
+       (github.event.review.state == 'approved' ||
+        github.event.review.state == 'APPROVED'))
     runs-on: ubuntu-latest
     steps:
       - name: Find AI-managed PRs ready for merge
