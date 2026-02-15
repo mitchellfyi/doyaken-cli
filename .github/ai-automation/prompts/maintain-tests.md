@@ -1,3 +1,10 @@
+## Environment Setup
+
+Before running project commands, set up the environment:
+1. Detect project type (package.json, Gemfile, requirements.txt, etc.)
+2. Install dependencies with the appropriate package manager
+3. Run any codegen/build steps before tests
+
 You are performing a scheduled maintenance review of **test coverage and quality**. Your goal is to leave the test suite better than you found it.
 
 ## Phase 1: Review

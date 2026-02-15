@@ -1,3 +1,19 @@
+## Environment Setup
+
+Before running any project commands, set up the environment:
+
+1. **Detect the project type** by checking for config files (package.json, Gemfile, requirements.txt, go.mod, Cargo.toml, etc.)
+2. **Install the runtime** if needed (use available version managers or install directly)
+3. **Install dependencies** using the appropriate package manager
+
+Common setups:
+- **Node.js**: `npm ci` or `yarn install`
+- **Ruby**: `bundle install` (install Ruby if missing)
+- **Python**: `pip install -r requirements.txt` or `poetry install`
+- **Go**: Dependencies auto-install on build
+
+If a required tool isn't available, install it. The GitHub runner has common tools available.
+
 ## Instructions
 
 1. **Understand the project** — Read `AGENTS.md` (if it exists) for project conventions. Read the README and build config (package.json, Cargo.toml, pyproject.toml, etc.) to understand the tech stack.
