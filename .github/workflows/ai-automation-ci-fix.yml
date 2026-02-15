@@ -297,7 +297,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
-          claude_args: "--max-turns 50 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
       - name: Mark PR ready for review
         if: steps.check.outputs.skip != 'true'
@@ -333,42 +333,12 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
-          # Capture Claude error details if failed
-          CLAUDE_ERROR_SECTION=""
-          if [ "$CLAUDE_OUTCOME" = "failure" ]; then
-            echo "Capturing Claude error details..."
-            EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
-            if [ -f "$EXEC_FILE" ]; then
-              ERRORS=$(jq -r '.errors // [] | .[]' "$EXEC_FILE" 2>/dev/null || echo "")
-              LAST_OUTPUT=$(jq -r '.messages[-3:] | .[] | select(.role == "assistant") | .content[0].text // empty' "$EXEC_FILE" 2>/dev/null | tail -500 || echo "")
-              
-              CLAUDE_ERROR_SECTION="
-### ⚠️ Claude Execution Failed
-
-<details>
-<summary>Error details (click to expand)</summary>
-
-**Errors:** ${ERRORS:-None captured}
-
-**Last output:**
-\`\`\`
-${LAST_OUTPUT:-No output captured}
-\`\`\`
-
-</details>
-"
-            fi
-          fi
-
           # Update PR body
           {
             echo "## CI Fix"
             echo ""
             if [ "$REAL_COMMITS" -gt 0 ]; then
               echo "Automated fix for CI failures on \`main\`."
-            elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
-              echo "Automated fix attempt failed. Claude encountered an error. Awaiting retry."
-              echo "$CLAUDE_ERROR_SECTION"
             else
               echo "Automated fix attempt for CI failures on \`main\`. No changes made yet — awaiting retry."
             fi

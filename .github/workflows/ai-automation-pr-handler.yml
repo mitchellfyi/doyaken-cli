@@ -127,7 +127,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
-          claude_args: "--max-turns 20 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
       - name: Mark PR ready for review
         if: steps.check.outputs.is_ai == 'true'
@@ -305,7 +305,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
-          claude_args: "--max-turns 30 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
       - name: Mark PR ready for review
         if: steps.check.outputs.skip != 'true'

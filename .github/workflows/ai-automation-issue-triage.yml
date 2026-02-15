@@ -137,7 +137,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.prompt.outputs.content }}
-          claude_args: "--max-turns 30 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
       - name: Add triaged label
         if: steps.existing.outputs.already_triaged == 'false'

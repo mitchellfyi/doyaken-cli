@@ -263,7 +263,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
           prompt: ${{ steps.build-prompt.outputs.content }}
-          claude_args: "--max-turns 30 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+          claude_args: "--max-turns 200 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
 
       - name: Finalize PR
         if: steps.check.outputs.skip != 'true'
@@ -315,59 +315,6 @@ jobs:
             gh pr edit $PR_NUM --repo "$REPO" --body-file /tmp/pr_body_done.md
             gh pr ready $PR_NUM --repo "$REPO"
             echo "PR #$PR_NUM marked ready for review"
-          elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
-            echo "Claude failed — capturing error details"
-            
-            # Try to extract error details from Claude's execution output
-            EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
-            ERROR_DETAILS=""
-            
-            if [ -f "$EXEC_FILE" ]; then
-              echo "Found execution file: $EXEC_FILE"
-              # Extract relevant error info
-              ERRORS=$(jq -r '.errors // [] | .[]' "$EXEC_FILE" 2>/dev/null || echo "")
-              COST=$(jq -r '.costUSD // "unknown"' "$EXEC_FILE" 2>/dev/null || echo "unknown")
-              MODEL=$(jq -r 'keys | map(select(startswith("claude"))) | .[0] // "unknown"' "$EXEC_FILE" 2>/dev/null || echo "unknown")
-              
-              if [ -n "$ERRORS" ]; then
-                ERROR_DETAILS="**Errors:**
-\`\`\`
-$ERRORS
-\`\`\`"
-              fi
-              
-              # Also try to get the last few lines of Claude's output
-              LAST_OUTPUT=$(jq -r '.messages[-3:] | .[] | select(.role == "assistant") | .content[0].text // empty' "$EXEC_FILE" 2>/dev/null | tail -500 || echo "")
-              if [ -n "$LAST_OUTPUT" ]; then
-                ERROR_DETAILS="$ERROR_DETAILS
-
-<details>
-<summary>Last Claude output (click to expand)</summary>
-
-\`\`\`
-$LAST_OUTPUT
-\`\`\`
-
-</details>"
-              fi
-            else
-              echo "No execution file found at $EXEC_FILE"
-              ERROR_DETAILS="No execution log available."
-            fi
-            
-            echo "Claude failed — leaving PR open for retry"
-            gh pr comment $PR_NUM --repo "$REPO" --body "⚠️ **Claude execution failed**
-
-The maintenance task could not be completed due to an error. The PR will remain open for retry.
-
-$ERROR_DETAILS
-
-**Debug info:**
-- Workflow run: https://github.com/$REPO/actions/runs/${{ github.run_id }}
-- Domain: $DOMAIN
-- Claude outcome: $CLAUDE_OUTCOME"
-            
-            gh issue comment $ISSUE_NUM --repo "$REPO" --body "Claude execution failed. PR #$PR_NUM remains open for retry. See PR for error details."
           else
             echo "No changes made — closing PR and issue"
             gh pr close $PR_NUM --repo "$REPO" --delete-branch --comment "No improvements needed at this time."
