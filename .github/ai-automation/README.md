@@ -2,6 +2,42 @@
 
 Automated CI repair, code review, interactive assistance, and test coverage reporting using Claude Code.
 
+## ⚠️ Setup Requirement: CI Workflow
+
+**All AI automation depends on a standalone workflow named "CI" that runs directly on push to main.**
+
+```yaml
+# .github/workflows/ci.yml
+name: CI  # ← Must be named "CI"
+on:
+  push:
+    branches: [main]  # ← Must run on push to main
+  pull_request:
+    branches: [main]
+```
+
+**Deploy/other workflows should trigger AFTER CI completes:**
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy
+on:
+  workflow_run:
+    workflows: [CI]       # ← Triggers after CI
+    types: [completed]
+    branches: [main]
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    # ... deploy steps
+```
+
+**Why?** The AI automation workflows (`ci-fix`, `code-review`, `pr-handler`) use `workflow_run` events to watch the CI workflow. If CI runs inside another workflow via `workflow_call`, the AI automation won't detect failures.
+
+See [AGENTS.md](./AGENTS.md) for detailed setup instructions.
+
+---
+
 ## How It Works
 
 ### CI Fix & Retry Loop

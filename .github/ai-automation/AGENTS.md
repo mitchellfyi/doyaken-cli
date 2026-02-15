@@ -2,6 +2,75 @@
 
 This directory contains GitHub Actions workflows for automated CI repair, code review, and maintenance using Claude Code.
 
+## ⚠️ Critical: CI Workflow Requirements
+
+**All AI automation workflows depend on a workflow named "CI" running directly on push to main.**
+
+### Required Setup
+
+1. **CI workflow must be named "CI"** (the `name:` field in the YAML)
+2. **CI must run on push to main**:
+   ```yaml
+   name: CI
+   on:
+     push:
+       branches: [main]
+     pull_request:
+       branches: [main]
+   ```
+
+3. **Deploy/other workflows run AFTER CI** (using `workflow_run`):
+   ```yaml
+   name: Deploy
+   on:
+     workflow_run:
+       workflows: [CI]
+       types: [completed]
+       branches: [main]
+   ```
+
+### Why This Matters
+
+- `ci-fix` triggers on CI workflow failure — if CI doesn't run directly, fixes won't trigger
+- `code-review` triggers on CI workflow success — same issue
+- `pr-handler` watches CI for auto-merge decisions
+
+### ❌ Wrong Pattern
+```yaml
+# deploy.yml — calls CI, but CI failure only shows as Deploy failure
+name: Deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml  # workflow_call — doesn't trigger ci-fix!
+  deploy:
+    needs: [ci]
+    # ...
+```
+
+### ✅ Correct Pattern
+```yaml
+# ci.yml — runs directly
+name: CI
+on:
+  push:
+    branches: [main]
+
+# deploy.yml — triggers after CI passes
+name: Deploy
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    # ...
+```
+
 ## Directory Structure
 
 ```
