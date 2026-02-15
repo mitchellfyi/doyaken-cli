@@ -2,42 +2,93 @@
 
 You are triaging and implementing a GitHub issue.
 
-## Environment Setup
+## Step 1: Read Project Documentation
 
-Before running any project-specific commands (tests, linters, builds), set up the environment:
+**Before doing anything else:**
 
-1. **Detect the project type** by checking for config files (package.json, Gemfile, requirements.txt, go.mod, Cargo.toml, etc.)
-2. **Install dependencies** using the appropriate package manager
-3. **Check for setup scripts** (.tool-versions, .nvmrc, Dockerfile, docker-compose.yml)
+1. Check for `AGENTS.md` in the repo root — AI agent instructions
+2. Check for `README.md` — project setup and commands
+3. Check for `.github/ai-automation/AGENTS.md` — automation guidance
 
-Common setups:
+These files tell you how to set up the environment and what commands to run.
 
-- **Node.js**: `npm ci` or `yarn install`
-- **Ruby**: Install Ruby version if needed, then `bundle install`
-- **Python**: `pip install -r requirements.txt` or `poetry install`
-- **Go**: Dependencies auto-install on build
+## Step 2: Set Up Your Environment
 
-If a tool isn't available, install it or skip that step and note it.
+**Identify the tech stack** from config files:
+- `package.json` → Node.js
+- `Gemfile` → Ruby/Rails
+- `requirements.txt` / `pyproject.toml` → Python
+- `go.mod` → Go
 
-## Your Tasks
+**Install dependencies using the project's standard commands:**
+- Read `.github/workflows/ci.yml` to find the exact install commands
+- Use frozen lockfile commands: `npm ci`, `pnpm install --frozen-lockfile`, `bundle install`
 
-1. **Analyze the issue** - understand what's being requested
-2. **Comment on the issue** with your analysis:
-   - Summary (1-2 sentences)
-   - Type: Bug fix / Feature / Enhancement / Documentation / Refactor / Question
-   - Complexity: Low (< 1 hour) / Medium (1-4 hours) / High (4+ hours)
-   - Implementation approach (2-3 sentences)
+## Step 3: Discover ALL Quality Gates
 
-3. **If implementable:**
-   - Create a new branch named `claude/issue-{ISSUE_NUMBER}-short-desc`
-   - Make the necessary code changes
-   - Run relevant tests/linters to verify (set up environment first)
-   - Commit with a descriptive message
-   - Push the branch
-   - Create a draft PR linking to the issue with "Fixes #{ISSUE_NUMBER}" in the body
-   - **Add the `ai-fix` label to the PR** (required for auto-merge): `gh pr edit {PR_NUMBER} --add-label "ai-fix"`
+**Read `.github/workflows/ci.yml` carefully.** Find every command:
 
-4. **If not implementable** (needs clarification, question, too complex):
-   - Just comment with your analysis and any questions
+1. Dependency installation
+2. Code generation (Prisma, GraphQL, etc.)
+3. Formatting checks
+4. Linting
+5. Type checking
+6. Tests
+7. Build
 
-Use `gh` CLI for GitHub operations. The repo is already checked out.
+**Write down the exact commands** — you must run them all before pushing.
+
+## Step 4: Analyze the Issue
+
+Understand what's being requested, then comment with:
+- **Summary** (1-2 sentences)
+- **Type**: Bug fix / Feature / Enhancement / Documentation / Refactor / Question
+- **Complexity**: Low (< 1 hour) / Medium (1-4 hours) / High (4+ hours)
+- **Implementation approach** (2-3 sentences)
+
+## Step 5: Implement (If Feasible)
+
+**If implementable:**
+
+1. Create a branch: `git checkout -b claude/issue-{ISSUE_NUMBER}-short-desc`
+2. Make the code changes
+3. **Run ALL quality gates** (see Step 6)
+4. Commit: `git commit -m "fix: description"`
+5. Push: `git push -u origin HEAD`
+6. Create draft PR with `gh pr create --draft --title "..." --body "Fixes #{ISSUE_NUMBER}"`
+7. Add label: `gh pr edit {PR_NUMBER} --add-label "ai-fix"`
+
+**If not implementable** (needs clarification, too complex):
+- Just comment with analysis and questions
+
+## Step 6: Verify ALL Quality Gates Pass (MANDATORY)
+
+**Before committing, run EVERY check from the CI workflow:**
+
+Find the commands in `.github/workflows/ci.yml` and run them all:
+
+```bash
+# Example — adapt to your project's actual commands
+npm ci                    # or pnpm install --frozen-lockfile
+npm run generate          # if codegen exists
+npm run format:check      # formatting
+npm run lint              # linting
+npm run typecheck         # type checking
+npm run test              # tests
+npm run build             # build
+```
+
+**DO NOT COMMIT if any check fails.** Fix the issue and re-run ALL checks.
+
+## Principles
+
+- **Match existing patterns** — Follow the codebase conventions
+- **Minimal changes** — Only change what's necessary
+- **Run checks locally** — Never push without verifying all quality gates pass
+
+## Common Mistakes to Avoid
+
+- ❌ Pushing without running quality gates locally
+- ❌ Skipping codegen steps before lint/type checks
+- ❌ Not reading AGENTS.md for project-specific guidance
+- ❌ Adding ignore comments or disabling rules
