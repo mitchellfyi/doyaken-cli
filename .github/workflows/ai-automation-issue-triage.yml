@@ -59,7 +59,7 @@ jobs:
           echo "author=$AUTHOR" >> $GITHUB_OUTPUT
           echo "labels=$LABELS" >> $GITHUB_OUTPUT
           
-          # Write body to file (can be multiline)
+          # Write body to file (multiline safe)
           echo "$BODY" > /tmp/issue_body.txt
 
       - name: Check for existing implementation
@@ -70,7 +70,7 @@ jobs:
           ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
           
           # Check if there's already a linked PR
-          LINKED_PRS=$(gh pr list --search "linked:issue:$ISSUE_NUMBER" --json number --jq 'length')
+          LINKED_PRS=$(gh pr list --search "linked:$ISSUE_NUMBER" --json number --jq 'length' 2>/dev/null || echo "0")
           
           if [ "$LINKED_PRS" -gt 0 ]; then
             echo "has_pr=true" >> $GITHUB_OUTPUT
@@ -79,83 +79,95 @@ jobs:
             echo "has_pr=false" >> $GITHUB_OUTPUT
           fi
           
-          # Check if claude has already commented
-          CLAUDE_COMMENTS=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '[.comments[] | select(.author.login == "github-actions" or .author.login == "github-actions[bot]")] | length')
-          
-          if [ "$CLAUDE_COMMENTS" -gt 0 ]; then
+          # Check for triaged label
+          LABELS="${{ steps.issue.outputs.labels }}"
+          if echo "$LABELS" | grep -q "triaged"; then
             echo "already_triaged=true" >> $GITHUB_OUTPUT
+            echo "Issue already triaged"
           else
             echo "already_triaged=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Setup Claude Code
+      - name: Ensure labels exist
         if: steps.existing.outputs.already_triaged == 'false'
-        uses: anthropics/claude-code-action@beta
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      - name: Triage and expand issue
-        if: steps.existing.outputs.already_triaged == 'false'
-        id: triage
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          gh label create "triaged" --repo "$REPO" --description "Issue has been triaged by AI" --color "c5def5" 2>/dev/null || true
+          gh label create "in-progress" --repo "$REPO" --description "Work in progress" --color "fbca04" 2>/dev/null || true
+          gh label create "claude" --repo "$REPO" --description "Assigned to Claude AI" --color "7057ff" 2>/dev/null || true
+
+      - name: Build prompt
+        if: steps.existing.outputs.already_triaged == 'false'
+        id: prompt
+        env:
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
           ISSUE_TITLE: ${{ steps.issue.outputs.title }}
           ISSUE_AUTHOR: ${{ steps.issue.outputs.author }}
         run: |
           ISSUE_BODY=$(cat /tmp/issue_body.txt)
           
-          # Build prompt for Claude
-          PROMPT=$(cat <<'PROMPT_END'
-          You are triaging a GitHub issue. Analyze it and provide:
+          cat > /tmp/prompt.txt << 'PROMPT_HEREDOC'
+          You are triaging and implementing a GitHub issue.
 
-          1. **Summary**: A clear 1-2 sentence summary of what's being requested
-          2. **Type**: Bug fix, Feature, Enhancement, Documentation, Refactor, or Question
-          3. **Complexity**: Low (< 1 hour), Medium (1-4 hours), High (4+ hours), or Unknown
-          4. **Affected areas**: Which files/modules likely need changes
-          5. **Implementation approach**: Brief technical approach (2-3 sentences)
-          6. **Questions** (if any): What clarifications would help?
+          ## Your Tasks
 
-          Then, if this looks implementable:
-          - Create a branch and implement the fix/feature
-          - Open a draft PR linking to this issue
-          - Comment on the issue with your analysis and link to the PR
-
-          If it's a question or needs clarification, just comment with helpful information.
-
-          Issue #$ISSUE_NUMBER: $ISSUE_TITLE
-          Author: @$ISSUE_AUTHOR
+          1. **Analyze the issue** - understand what's being requested
+          2. **Comment on the issue** with your analysis:
+             - Summary (1-2 sentences)
+             - Type: Bug fix / Feature / Enhancement / Documentation / Refactor / Question
+             - Complexity: Low (< 1 hour) / Medium (1-4 hours) / High (4+ hours)
+             - Implementation approach (2-3 sentences)
           
-          Description:
-          $ISSUE_BODY
-          PROMPT_END
-          )
+          3. **If implementable:**
+             - Create a new branch named `claude/issue-ISSUE_NUMBER-short-desc`
+             - Make the necessary code changes
+             - Commit with a descriptive message
+             - Push the branch
+             - Create a draft PR linking to the issue with "Fixes #ISSUE_NUMBER" in the body
           
-          # Let Claude do its thing
-          claude -p "$PROMPT" --allowedTools "Bash,GitHub,Read,Write,Edit" 2>&1 | tee /tmp/claude_output.txt
-          
-          # Check if a PR was created
-          sleep 2
-          NEW_PR=$(gh pr list --author "@me" --search "head:claude/" --json number,title --jq '.[0].number // empty')
-          
-          if [ -n "$NEW_PR" ]; then
-            echo "pr_created=true" >> $GITHUB_OUTPUT
-            echo "pr_number=$NEW_PR" >> $GITHUB_OUTPUT
-          else
-            echo "pr_created=false" >> $GITHUB_OUTPUT
-          fi
+          4. **If not implementable** (needs clarification, question, too complex):
+             - Just comment with your analysis and any questions
 
-      - name: Add labels based on triage
+          Use `gh` CLI for GitHub operations. The repo is already checked out.
+
+          PROMPT_HEREDOC
+          
+          # Append issue details
+          cat >> /tmp/prompt.txt << DETAILS_HEREDOC
+          
+          ## Issue Details
+          
+          - **Issue:** #${ISSUE_NUMBER}
+          - **Title:** ${ISSUE_TITLE}
+          - **Author:** @${ISSUE_AUTHOR}
+          
+          **Description:**
+          ${ISSUE_BODY}
+          DETAILS_HEREDOC
+          
+          # Output for the action
+          PROMPT_CONTENT=$(cat /tmp/prompt.txt)
+          echo "content<<PROMPT_EOF" >> $GITHUB_OUTPUT
+          echo "$PROMPT_CONTENT" >> $GITHUB_OUTPUT
+          echo "PROMPT_EOF" >> $GITHUB_OUTPUT
+
+      - name: Run Claude
+        if: steps.existing.outputs.already_triaged == 'false'
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: ${{ steps.prompt.outputs.content }}
+          claude_args: "--max-turns 30 --allowedTools 'Bash(*),Read(*),Write(*),Edit(*),MultiEdit(*),Glob(*),Grep(*),GitHub(*)'"
+
+      - name: Add triaged label
         if: steps.existing.outputs.already_triaged == 'false'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
-          
-          # Add 'triaged' label to mark this issue as processed
           gh issue edit "$ISSUE_NUMBER" --add-label "triaged" 2>/dev/null || true
-          
-          # If we created a PR, add 'in-progress' label
-          if [ "${{ steps.triage.outputs.pr_created }}" = "true" ]; then
-            gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null || true
-          fi
