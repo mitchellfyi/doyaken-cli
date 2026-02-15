@@ -22,6 +22,59 @@ permissions:
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────
+  # Job 0: Convert draft PRs to ready when CI passes
+  # When CI completes successfully on an AI branch, mark the draft PR ready
+  # ──────────────────────────────────────────────────────────────────────
+  mark-pr-ready:
+    if: |
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      (startsWith(github.event.workflow_run.head_branch, 'ai/') ||
+       startsWith(github.event.workflow_run.head_branch, 'claude/'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find and mark PR ready
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "::group::Finding PR for branch"
+          REPO="${{ github.repository }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          
+          echo "CI succeeded on branch: $BRANCH"
+          
+          # Find PR for this branch
+          PR_JSON=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,isDraft,title,labels --jq '.[0] // empty')
+          
+          if [ -z "$PR_JSON" ]; then
+            echo "No open PR found for branch $BRANCH"
+            exit 0
+          fi
+          
+          PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
+          IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
+          TITLE=$(echo "$PR_JSON" | jq -r '.title')
+          
+          echo "Found PR #$PR_NUM: $TITLE"
+          echo "Is draft: $IS_DRAFT"
+          
+          # Check if it has AI labels
+          HAS_AI_LABEL=$(echo "$PR_JSON" | jq -r '[.labels[].name] | map(select(. == "ai-fix" or . == "ai-maintenance")) | length')
+          if [ "$HAS_AI_LABEL" -eq 0 ]; then
+            echo "PR #$PR_NUM does not have ai-fix or ai-maintenance label - skipping"
+            exit 0
+          fi
+          
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "Converting PR #$PR_NUM from draft to ready for review..."
+            gh pr ready "$PR_NUM" --repo "$REPO"
+            echo "✓ PR #$PR_NUM is now ready for review"
+          else
+            echo "PR #$PR_NUM is already ready for review"
+          fi
+          echo "::endgroup::"
+
+  # ──────────────────────────────────────────────────────────────────────
   # Job 1: Handle review comments on AI-managed PRs
   # Moves PR to draft → Claude fixes → marks PR ready again
   # Works for both ai-fix (CI fix) and ai-maintenance PRs
