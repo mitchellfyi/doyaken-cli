@@ -97,6 +97,8 @@ jobs:
           gh label create "triaged" --repo "$REPO" --description "Issue has been triaged by AI" --color "c5def5" 2>/dev/null || true
           gh label create "in-progress" --repo "$REPO" --description "Work in progress" --color "fbca04" 2>/dev/null || true
           gh label create "claude" --repo "$REPO" --description "Assigned to Claude AI" --color "7057ff" 2>/dev/null || true
+          gh label create "ai-fix" --repo "$REPO" --description "Automated fix by AI" --color "0e8a16" 2>/dev/null || true
+          gh label create "ai-maintenance" --repo "$REPO" --description "AI maintenance task" --color "1d76db" 2>/dev/null || true
 
       - name: Build prompt
         if: steps.existing.outputs.already_triaged == 'false'

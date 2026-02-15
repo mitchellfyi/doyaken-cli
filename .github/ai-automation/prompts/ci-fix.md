@@ -7,6 +7,7 @@ Before running any project commands, set up the environment:
 3. **Install dependencies** using the appropriate package manager
 
 Common setups:
+
 - **Node.js**: `npm ci` or `yarn install`
 - **Ruby**: `bundle install` (install Ruby if missing)
 - **Python**: `pip install -r requirements.txt` or `poetry install`
