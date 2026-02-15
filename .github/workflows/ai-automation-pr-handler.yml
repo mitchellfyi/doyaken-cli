@@ -29,7 +29,8 @@ jobs:
   handle-review-comments:
     if: |
       github.event_name == 'pull_request_review' &&
-      github.event.review.state == 'changes_requested'
+      (github.event.review.state == 'changes_requested' ||
+       github.event.review.state == 'commented')
     runs-on: ubuntu-latest
     steps:
       - name: Check if AI fix PR
@@ -41,7 +42,7 @@ jobs:
           PR_NUM="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
 
-          echo "Event: pull_request_review (changes_requested)"
+          echo "Event: pull_request_review (${{ github.event.review.state }})"
           echo "PR: #$PR_NUM"
           echo "Reviewer: ${{ github.event.review.user.login }}"
 
@@ -330,7 +331,7 @@ jobs:
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'pull_request_review' &&
-       github.event.review.state != 'changes_requested')
+       github.event.review.state == 'approved')
     runs-on: ubuntu-latest
     steps:
       - name: Find AI-managed PRs ready for merge
