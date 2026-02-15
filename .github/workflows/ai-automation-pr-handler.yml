@@ -354,7 +354,46 @@ jobs:
           echo "All AI-managed PRs:"
           echo "$PRS_JSON" | jq -r '.[] | "  #\(.number) draft=\(.isDraft) mergeable=\(.mergeable) title=\(.title)"'
 
-          PRS=$(echo "$PRS_JSON" | jq -r '.[] | select(.isDraft == false and .mergeable == "MERGEABLE") | .number' | tr '\n' ' ')
+          # Get non-draft PRs
+          NON_DRAFT_PRS=$(echo "$PRS_JSON" | jq -r '.[] | select(.isDraft == false) | .number' | tr '\n' ' ')
+          
+          # For each non-draft PR, resolve UNKNOWN mergeable status
+          ELIGIBLE_PRS=""
+          for PR_NUM in $NON_DRAFT_PRS; do
+            MERGEABLE=$(echo "$PRS_JSON" | jq -r ".[] | select(.number == $PR_NUM) | .mergeable")
+            
+            if [ "$MERGEABLE" = "UNKNOWN" ]; then
+              echo ""
+              echo "PR #$PR_NUM has UNKNOWN mergeable status, resolving..."
+              
+              # Step 1: Wait 10s and retry
+              echo "  Step 1: Waiting 10s for GitHub to compute..."
+              sleep 10
+              MERGEABLE=$(gh pr view $PR_NUM --repo $REPO --json mergeable --jq '.mergeable' 2>/dev/null || echo "UNKNOWN")
+              echo "  After wait: mergeable=$MERGEABLE"
+              
+              # Step 2: Force computation via API
+              if [ "$MERGEABLE" = "UNKNOWN" ] || [ -z "$MERGEABLE" ]; then
+                echo "  Step 2: Forcing computation via API..."
+                gh api repos/$REPO/pulls/$PR_NUM > /dev/null 2>&1 || true
+                sleep 3
+                MERGEABLE=$(gh pr view $PR_NUM --repo $REPO --json mergeable --jq '.mergeable' 2>/dev/null || echo "UNKNOWN")
+                echo "  After force: mergeable=$MERGEABLE"
+              fi
+              
+              # Step 3: Proceed if still UNKNOWN (merge will fail if conflict)
+              if [ "$MERGEABLE" = "UNKNOWN" ] || [ -z "$MERGEABLE" ]; then
+                echo "  Step 3: Still UNKNOWN, proceeding anyway (merge will validate)"
+                MERGEABLE="MERGEABLE"
+              fi
+            fi
+            
+            if [ "$MERGEABLE" = "MERGEABLE" ]; then
+              ELIGIBLE_PRS="$ELIGIBLE_PRS $PR_NUM"
+            fi
+          done
+          
+          PRS=$(echo "$ELIGIBLE_PRS" | xargs)
           echo ""
           echo "Eligible PRs (non-draft, mergeable): ${PRS:-none}"
           echo "prs=$PRS" >> $GITHUB_OUTPUT
