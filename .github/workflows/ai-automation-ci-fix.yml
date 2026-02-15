@@ -9,6 +9,9 @@ on:
     branches:
       - main
 
+  # Allow manual trigger for retries
+  workflow_dispatch:
+
 permissions:
   contents: write
   pull-requests: write
