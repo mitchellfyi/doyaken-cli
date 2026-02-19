@@ -86,7 +86,7 @@ list_hooks() {
 
       # Extract description from script header
       local desc
-      desc=$(grep -m1 "^#.*-.*" "$hook_file" 2>/dev/null | sed 's/^#[^-]*- //' || echo "No description")
+      desc=$(grep -m1 "^#.*-.*" "$hook_file" 2>/dev/null | sed 's/^# *[^ ]* *- *//' || echo "No description")
 
       local location="global"
       [[ "$dir" == *"/.doyaken/hooks" ]] && location="project"

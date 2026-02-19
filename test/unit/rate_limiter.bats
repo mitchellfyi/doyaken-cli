@@ -227,3 +227,93 @@ teardown() {
   status_str=$(rate_limit_status)
   [[ "$status_str" == "0/10" ]]
 }
+
+# ============================================================================
+# Edge Cases
+# ============================================================================
+
+@test "_rl_prune_and_count handles malformed timestamps" {
+  local log_file
+  log_file=$(_rl_log_file)
+  local now
+  now=$(date +%s)
+
+  # Mix valid and invalid timestamps
+  echo "$now" > "$log_file"
+  echo "not-a-timestamp" >> "$log_file"
+  echo "$((now - 100))" >> "$log_file"
+  echo "" >> "$log_file"  # empty line
+  echo "123abc" >> "$log_file"
+
+  local count
+  count=$(_rl_prune_and_count)
+  # Should only count valid timestamps within window
+  [[ "$count" -eq 2 ]]
+}
+
+@test "_rl_earliest_expiry handles corrupted log file" {
+  local log_file
+  log_file=$(_rl_log_file)
+
+  # Write invalid data
+  echo "invalid" > "$log_file"
+  echo "" >> "$log_file"
+  echo "abc123" >> "$log_file"
+
+  local expiry
+  expiry=$(_rl_earliest_expiry)
+  # Should return 0 when no valid timestamps found
+  [[ "$expiry" -eq 0 ]]
+}
+
+@test "rate_limit_check handles boundary values" {
+  # Test exactly at quota
+  RL_CALLS_PER_HOUR=5
+  for i in $(seq 1 5); do
+    rate_limit_record
+  done
+
+  # Should still pass (not over quota yet)
+  rate_limit_check "TEST"
+}
+
+@test "rate_limit_record handles concurrent writes" {
+  # Simulate concurrent writes by appending in background
+  local log_file
+  log_file=$(_rl_log_file)
+
+  # Start multiple background writers
+  for i in $(seq 1 5); do
+    (rate_limit_record) &
+  done
+
+  # Wait for all to complete
+  wait
+
+  # Log file should exist and have entries
+  [[ -f "$log_file" ]]
+  local count
+  count=$(wc -l < "$log_file" | tr -d ' ')
+  [[ "$count" -ge 1 ]]  # At least one write succeeded
+}
+
+@test "_rl_prune_and_count handles large log files" {
+  local log_file
+  log_file=$(_rl_log_file)
+  local now
+  now=$(date +%s)
+
+  # Create large log with mix of old and new entries
+  for i in $(seq 1 1000); do
+    if (( i % 2 == 0 )); then
+      echo "$((now - 5000))" >> "$log_file"  # Old entry
+    else
+      echo "$((now - i))" >> "$log_file"     # Recent entry
+    fi
+  done
+
+  local count
+  count=$(_rl_prune_and_count)
+  # Should have pruned old entries and count only recent ones
+  [[ "$count" -eq 500 ]]
+}

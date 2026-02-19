@@ -70,6 +70,19 @@ EOF
   [ "$(yaml_bool "")" = "0" ]
 }
 
+@test "yaml_bool: edge cases return 0" {
+  # Any unexpected value should return 0 (false)
+  [ "$(yaml_bool "maybe")" = "0" ]
+  [ "$(yaml_bool "y")" = "0" ]
+  [ "$(yaml_bool "n")" = "0" ]
+  [ "$(yaml_bool "on")" = "0" ]
+  [ "$(yaml_bool "off")" = "0" ]
+  [ "$(yaml_bool " true ")" = "0" ]  # with spaces
+  [ "$(yaml_bool "TRUE1")" = "0" ]   # with extra chars
+  [ "$(yaml_bool "null")" = "0" ]
+  [ "$(yaml_bool "undefined")" = "0" ]
+}
+
 # ============================================================================
 # _yq_get tests
 # ============================================================================
@@ -93,6 +106,61 @@ EOF
   run _yq_get "$TEST_TEMP_DIR/test.yaml" "nested.key" "default"
   [ "$status" -eq 0 ]
   [ "$output" = "value" ]
+}
+
+@test "yq_get: handles null values" {
+  if ! command -v yq &>/dev/null; then
+    skip "yq not installed"
+  fi
+
+  cat > "$TEST_TEMP_DIR/test.yaml" << 'EOF'
+nullkey: null
+emptykey: ""
+missingvalue:
+EOF
+
+  run _yq_get "$TEST_TEMP_DIR/test.yaml" "nullkey" "default"
+  [ "$status" -eq 0 ]
+  [ "$output" = "default" ]
+
+  run _yq_get "$TEST_TEMP_DIR/test.yaml" "emptykey" "default"
+  [ "$status" -eq 0 ]
+  [ "$output" = "default" ]
+
+  run _yq_get "$TEST_TEMP_DIR/test.yaml" "missingvalue" "default"
+  [ "$status" -eq 0 ]
+  [ "$output" = "default" ]
+}
+
+@test "yq_get: handles missing key" {
+  if ! command -v yq &>/dev/null; then
+    skip "yq not installed"
+  fi
+
+  cat > "$TEST_TEMP_DIR/test.yaml" << 'EOF'
+existing: "value"
+EOF
+
+  run _yq_get "$TEST_TEMP_DIR/test.yaml" "nonexistent.key" "default"
+  [ "$status" -eq 0 ]
+  [ "$output" = "default" ]
+}
+
+@test "yq_get: handles deeply nested keys" {
+  if ! command -v yq &>/dev/null; then
+    skip "yq not installed"
+  fi
+
+  cat > "$TEST_TEMP_DIR/test.yaml" << 'EOF'
+very:
+  deeply:
+    nested:
+      key: "found"
+EOF
+
+  run _yq_get "$TEST_TEMP_DIR/test.yaml" "very.deeply.nested.key" "default"
+  [ "$status" -eq 0 ]
+  [ "$output" = "found" ]
 }
 
 # ============================================================================
