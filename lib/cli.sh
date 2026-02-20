@@ -1044,122 +1044,6 @@ cmd_upgrade() {
 # Review Command
 # ============================================================================
 
-cmd_review() {
-  local fix_mode="true"
-  local create_tasks="true"
-  local scope="all"
-
-  # Parse arguments
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --fix|-f)
-        fix_mode="true"
-        shift
-        ;;
-      --no-tasks)
-        create_tasks="false"
-        shift
-        ;;
-      --scope=*)
-        scope="${1#*=}"
-        shift
-        ;;
-      --scope)
-        if [ $# -lt 2 ] || [[ "$2" == --* ]]; then
-          log_error "--scope requires a value"
-          exit 1
-        fi
-        scope="$2"
-        shift 2
-        ;;
-      --status|-s)
-        # Show review status
-        if review_tracker_is_enabled; then
-          echo ""
-          echo "Periodic Review Status"
-          echo "======================"
-          echo ""
-          echo "  Enabled: yes"
-          echo "  $(review_tracker_status)"
-          echo "  Threshold: $(review_tracker_get_threshold)"
-          echo "  Auto-fix: ${REVIEW_AUTO_FIX:-0}"
-          echo ""
-        else
-          echo ""
-          echo "Periodic reviews are disabled"
-          echo ""
-        fi
-        return 0
-        ;;
-      --reset)
-        # Reset counter
-        review_tracker_reset
-        log_success "Review counter reset to 0"
-        return 0
-        ;;
-      --no-fix)
-        fix_mode="false"
-        shift
-        ;;
-      --help|-h)
-        echo ""
-        echo "doyaken review - Periodic codebase review"
-        echo ""
-        echo "Usage:"
-        echo "  doyaken review              Run full periodic review (auto-fix enabled)"
-        echo "  doyaken review --no-fix     Run without auto-fix (only create tasks)"
-        echo "  doyaken review --status     Show review status"
-        echo "  doyaken review --reset      Reset completion counter"
-        echo ""
-        echo "Options:"
-        echo "  --fix, -f         Auto-fix issues where possible (default)"
-        echo "  --no-fix          Disable auto-fix, only create tasks"
-        echo "  --no-tasks        Don't create follow-up tasks"
-        echo "  --scope=SCOPE     Review scope: all, quality, security, performance, debt, ux, docs"
-        echo "  --status, -s      Show review status (counter, threshold)"
-        echo "  --reset           Reset the task completion counter"
-        echo ""
-        echo "Examples:"
-        echo "  doyaken review                      # Full review with auto-fix"
-        echo "  doyaken review --no-fix             # Review only, create tasks"
-        echo "  doyaken review --scope=security     # Security-focused review"
-        echo "  doyaken review --status             # Check review status"
-        echo ""
-        return 0
-        ;;
-      *)
-        shift
-        ;;
-    esac
-  done
-
-  # Check if enabled
-  if ! review_tracker_is_enabled; then
-    log_warn "Periodic reviews are disabled in configuration"
-    log_info "Enable in config: periodic_review.enabled: true"
-    return 0
-  fi
-
-  # Run the review script
-  local review_script="$SCRIPT_DIR/run-periodic-review.sh"
-  if [ ! -f "$review_script" ]; then
-    log_error "Review script not found: $review_script"
-    return 1
-  fi
-
-  # Make it executable
-  chmod +x "$review_script"
-
-  # Build args
-  local args=""
-  [ "$fix_mode" = "true" ] && args="$args --fix"
-  [ "$create_tasks" = "false" ] && args="$args --no-tasks"
-  [ "$scope" != "all" ] && args="$args --scope=$scope"
-
-  # Execute
-  # shellcheck disable=SC2086
-  "$review_script" $args
-}
 
 cmd_mcp() {
   local subcmd="${1:-status}"
@@ -1453,9 +1337,6 @@ main() {
       ;;
     upgrade)
       cmd_upgrade "${args[@]+"${args[@]}"}"
-      ;;
-    review)
-      cmd_review "${args[@]+"${args[@]}"}"
       ;;
     mcp)
       cmd_mcp "${args[@]+"${args[@]}"}"

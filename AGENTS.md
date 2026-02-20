@@ -60,7 +60,7 @@ For non-trivial work, follow the 8-phase workflow in `.doyaken/prompts/phases/`.
 6. **Review** (`6-review.md`) — Self-review the changes
 7. **Verify** (`7-verify.md`) — Final verification and commit
 
-When running through the doyaken CLI, verification gates (build, lint, test) run automatically after IMPLEMENT, TEST, and REVIEW phases. If gates fail, the phase retries with error context until the code passes.
+When running through the doyaken CLI, verification gates (build, lint, format, test) run automatically after every phase. Each phase has a configurable retry budget — if gates fail and retries remain, the phase re-runs with the error output in context.
 
 You don't need to run all 8 phases for every change. Use your judgment — a typo fix doesn't need phase 0, but a new feature should go through most phases.
 
@@ -143,7 +143,7 @@ For structured execution, use phases in `.doyaken/prompts/phases/`:
 | 6 | [6-review.md](.doyaken/prompts/phases/6-review.md) | Code review |
 | 7 | [7-verify.md](.doyaken/prompts/phases/7-verify.md) | Final verification |
 
-Phases 3, 4, and 6 include verification gates that retry on quality check failures.
+All phases run verification gates after completion. Retry budgets are configurable per phase.
 
 ## Skills
 

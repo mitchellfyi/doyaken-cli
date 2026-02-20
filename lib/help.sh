@@ -11,14 +11,13 @@
 
 show_help() {
   cat << EOF
-${BOLD}doyaken${NC} - Autonomous AI agent for software development
+${BOLD}doyaken${NC} - A coding agent that delivers robust, working code
 
 ${BOLD}USAGE:${NC}
-  doyaken [command] [options]
+  doyaken run "<prompt>" [options]
 
 ${BOLD}COMMANDS:${NC}
-  ${CYAN}(none)${NC}              Run 5 tasks in auto-detected project
-  ${CYAN}run${NC} [N]             Run N tasks (default: 5)
+  ${CYAN}run${NC} "<prompt>"     Execute a prompt through the 8-phase pipeline
   ${CYAN}chat${NC}                Interactive chat/REPL mode
   ${CYAN}chat${NC} --resume [id]   Resume a previous session
   ${CYAN}sessions${NC}             List chat sessions
@@ -26,18 +25,14 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}register${NC}            Register current project in global registry
   ${CYAN}unregister${NC}          Remove current project from registry
   ${CYAN}list${NC}                List all registered projects
-  ${CYAN}tasks${NC}               Show taskboard
-  ${CYAN}tasks new${NC} <title>   Create new task interactively
-  ${CYAN}task${NC} "<prompt>"     Create and immediately run a single task
-  ${CYAN}add${NC} "<title>"       Alias for 'tasks new'
   ${CYAN}skills${NC}              List available skills
   ${CYAN}skill${NC} <name>        Run a skill
   ${CYAN}config${NC}              Show effective configuration
   ${CYAN}config${NC} edit         Edit global or project config
   ${CYAN}upgrade${NC}             Upgrade doyaken to latest version
   ${CYAN}upgrade${NC} --check     Check if upgrade is available
-  ${CYAN}review${NC}              Run periodic codebase review
-  ${CYAN}review${NC} --status     Show review status and counter
+  ${CYAN}review${NC}              Run codebase review
+  ${CYAN}review${NC} --status     Show review status
   ${CYAN}mcp${NC} status          Show MCP integration status
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
@@ -47,7 +42,7 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
-  ${CYAN}cleanup${NC}             Clean locks, logs, state, done tasks, stale doing, registry
+  ${CYAN}cleanup${NC}             Clean logs, state, and registry
   ${CYAN}version${NC}             Show version
   ${CYAN}help${NC} [command]      Show help
 
@@ -80,24 +75,17 @@ ${BOLD}AUTONOMOUS MODE FLAGS (automatically applied):${NC}
   opencode: --auto-approve
 
 ${BOLD}EXAMPLES:${NC}
-  doyaken                              # Run 5 tasks in current project
-  doyaken run 3                        # Run 3 tasks
-  doyaken --agent codex run 1          # Run with OpenAI Codex
-  doyaken --agent gemini --model gemini-2.5-flash run 2
-  doyaken --project ~/app run 1        # Run 1 task in specific project
-  doyaken init                         # Initialize current directory
-  doyaken tasks new "Add feature X"    # Create new task
-  doyaken add "Fix the bug"            # Shortcut to create task
-  doyaken task "Fix the login bug"     # Create and run task immediately
-  doyaken run 1 -- --sandbox read-only # Pass extra args to agent
+  doyaken run "Add user authentication with JWT"
+  doyaken --agent codex run "Fix the login bug"
+  doyaken --agent gemini --model gemini-2.5-flash run "Optimize database queries"
+  doyaken --project ~/app run "Add health check endpoint"
+  doyaken run "Refactor error handling" -- --sandbox read-only
 
 ${BOLD}ENVIRONMENT:${NC}
   DOYAKEN_HOME         Global installation directory (default: ~/.doyaken)
   DOYAKEN_PROJECT      Override project detection
   DOYAKEN_AGENT        Default agent (claude, codex, gemini, copilot, opencode)
   DOYAKEN_MODEL        Default model for the agent
-  DOYAKEN_AUTO_TIMEOUT Auto-select menu options after N seconds (default: 60)
-                       Set to 0 to disable and wait for user input
 
 EOF
 }
@@ -122,69 +110,42 @@ ${BOLD}DESCRIPTION:${NC}
 
 ${BOLD}WHAT IT CREATES:${NC}
   .doyaken/
-    manifest.yaml       Project metadata
-    tasks/1.blocked/    Blocked tasks (waiting on something)
-    tasks/2.todo/       Ready-to-start tasks
-    tasks/3.doing/      In-progress tasks
-    tasks/4.done/       Completed tasks
-    tasks/_templates/   Task templates
-    logs/               Execution logs
-    state/              Session state
-    locks/              Lock files
-  AGENT.md              Operating manual (if not exists)
+    manifest.yaml       Project configuration (quality gates, retry budgets)
+    prompts/library/     Methodology prompts
+    prompts/phases/      8-phase workflow prompts
+    skills/              Project-specific skills
+    logs/                Execution logs
+    state/               Session state
+  AGENTS.md              AI agent instructions
 
 EOF
       ;;
     run)
       cat << EOF
-${BOLD}doyaken run${NC} - Run tasks with AI agent
+${BOLD}doyaken run${NC} - Execute a prompt through the 8-phase pipeline
 
 ${BOLD}USAGE:${NC}
-  doyaken run [N]
+  doyaken run "<prompt>"
 
 ${BOLD}ARGUMENTS:${NC}
-  N    Number of tasks to run (default: 5)
+  prompt    The task to execute (required)
 
 ${BOLD}OPTIONS:${NC}
   --agent <name>    Use specific agent (claude, codex, gemini, copilot, opencode)
   --model <name>    Use specific model
   --dry-run         Preview without executing
 
-${BOLD}EXAMPLES:${NC}
-  doyaken run           # Run 5 tasks
-  doyaken run 1         # Run 1 task
-  doyaken run 10        # Run 10 tasks
+${BOLD}PIPELINE:${NC}
+  EXPAND -> TRIAGE -> PLAN -> IMPLEMENT -> TEST -> DOCS -> REVIEW -> VERIFY
 
-EOF
-      ;;
-    tasks)
-      cat << EOF
-${BOLD}doyaken tasks${NC} - Task management
-
-${BOLD}USAGE:${NC}
-  doyaken tasks              Show taskboard
-  doyaken tasks new <title>  Create new task
+  After each phase, verification gates run your quality commands.
+  If gates fail and the phase has retries remaining, it re-runs
+  with error context so the agent can fix the issue.
 
 ${BOLD}EXAMPLES:${NC}
-  doyaken tasks                        # Show taskboard
-  doyaken tasks new "Add login page"   # Create new task
-
-EOF
-      ;;
-    task)
-      cat << EOF
-${BOLD}doyaken task${NC} - Create and run a task immediately
-
-${BOLD}USAGE:${NC}
-  doyaken task "<prompt>"
-
-${BOLD}DESCRIPTION:${NC}
-  Creates a high-priority task and immediately runs the AI agent on it.
-  Use this for quick one-off tasks without managing the backlog.
-
-${BOLD}EXAMPLES:${NC}
-  doyaken task "Fix the login bug"
-  doyaken task "Add error handling to the API"
+  doyaken run "Add user authentication with JWT"
+  doyaken run "Fix the login bug in src/auth.ts"
+  doyaken --agent codex run "Optimize database queries"
 
 EOF
       ;;
@@ -247,19 +208,6 @@ ${BOLD}DESCRIPTION:${NC}
 ${BOLD}EXAMPLES:${NC}
   doyaken sessions              # List recent sessions
   dk sessions 50                # List up to 50 sessions
-
-EOF
-      ;;
-    add)
-      cat << EOF
-${BOLD}doyaken add${NC} - Create a new task (alias for 'tasks new')
-
-${BOLD}USAGE:${NC}
-  doyaken add "<title>"
-
-${BOLD}EXAMPLES:${NC}
-  doyaken add "Implement user authentication"
-  doyaken add "Fix database connection issue"
 
 EOF
       ;;

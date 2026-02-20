@@ -120,32 +120,18 @@ skip_phases:
 # If gates fail, the phase retries with error context up to the budget limit.
 
 retry_budget:
-  # Max retries for IMPLEMENT phase (build + lint + format gates)
+  # Max verification gate retries per phase.
+  # Phases default to 1 (single pass, no retry).
+  # Increase for phases where you want automatic retry on gate failure.
+  expand: 1
+  triage: 1
+  plan: 1
   implement: 5
-
-  # Max retries for TEST phase (test gate)
   test: 3
-
-  # Max retries for REVIEW phase (build + lint + format gates)
+  docs: 1
   review: 3
+  verify: 1
 
-# ============================================================================
-# Periodic Review Settings
-# ============================================================================
-# After completing N tasks, automatically trigger a comprehensive review
-# covering code quality, security, performance, debt, UX, and documentation.
-
-periodic_review:
-  # Enable/disable periodic reviews globally
-  enabled: true
-
-  # Number of completed tasks before triggering a review
-  # Default: 3 tasks
-  threshold: 3
-
-  # Auto-fix issues where possible (formatting, simple refactors)
-  # Creates tasks only for issues that require manual intervention
-  auto_fix: true
 
 # ============================================================================
 # Tool-specific Global Defaults

@@ -114,17 +114,17 @@ Each phase runs in a fresh agent context with dedicated prompts:
 | **EXPAND** | 2min | Expand brief prompt into full specification |
 | **TRIAGE** | 2min | Validate feasibility, check dependencies |
 | **PLAN** | 5min | Gap analysis, detailed planning |
-| **IMPLEMENT** | 30min | Write the code (with verification gates) |
-| **TEST** | 10min | Run tests, add coverage (with verification gates) |
+| **IMPLEMENT** | 30min | Write the code |
+| **TEST** | 10min | Run tests, add coverage |
 | **DOCS** | 5min | Sync documentation |
-| **REVIEW** | 10min | Code review, quality check (with verification gates) |
+| **REVIEW** | 10min | Code review, quality check |
 | **VERIFY** | 3min | Final verification, commit |
 
 ### Verification Gates
 
-After IMPLEMENT, TEST, and REVIEW, doyaken runs your project's quality commands (build, lint, format, test). If any gate fails, the phase retries with the error output injected into the prompt.
+After every phase, doyaken runs your project's quality commands (build, lint, format, test). If any gate fails and the phase has retries remaining, it re-runs with the error output injected into the prompt.
 
-Configure gates in `.doyaken/manifest.yaml`:
+Configure gates and per-phase retry budgets in `.doyaken/manifest.yaml`:
 
 ```yaml
 quality:
@@ -134,9 +134,14 @@ quality:
   test_command: "npm test"
 
 retry_budget:
-  implement: 5
+  expand: 1       # 1 = single pass (no retry)
+  triage: 1
+  plan: 1
+  implement: 5    # Up to 5 attempts for IMPLEMENT
   test: 3
+  docs: 1
   review: 3
+  verify: 1
 ```
 
 ## Skills
@@ -314,9 +319,14 @@ agent:
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase (rate limit retries) |
+| `RETRY_BUDGET_EXPAND` | `1` | Verification gate retries for EXPAND |
+| `RETRY_BUDGET_TRIAGE` | `1` | Verification gate retries for TRIAGE |
+| `RETRY_BUDGET_PLAN` | `1` | Verification gate retries for PLAN |
 | `RETRY_BUDGET_IMPLEMENT` | `5` | Verification gate retries for IMPLEMENT |
 | `RETRY_BUDGET_TEST` | `3` | Verification gate retries for TEST |
+| `RETRY_BUDGET_DOCS` | `1` | Verification gate retries for DOCS |
 | `RETRY_BUDGET_REVIEW` | `3` | Verification gate retries for REVIEW |
+| `RETRY_BUDGET_VERIFY` | `1` | Verification gate retries for VERIFY |
 | `TIMEOUT_EXPAND` | `300` | Expand phase timeout (seconds) |
 | `TIMEOUT_IMPLEMENT` | `1800` | Implement phase timeout (seconds) |
 | `TIMEOUT_TEST` | `600` | Test phase timeout (seconds) |

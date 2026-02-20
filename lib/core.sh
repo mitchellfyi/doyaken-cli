@@ -50,9 +50,6 @@ source "$SCRIPT_DIR/skills.sh"
 # Source configuration library
 source "$SCRIPT_DIR/config.sh"
 
-# Source review tracker for periodic reviews
-source "$SCRIPT_DIR/review-tracker.sh"
-
 # Source approval system
 source "$SCRIPT_DIR/approval.sh"
 
@@ -1522,15 +1519,7 @@ run_all_phases() {
     fi
 
     local phase_result=0
-    # Use verification-gated execution for IMPLEMENT, TEST, REVIEW
-    case "$name" in
-      IMPLEMENT|TEST|REVIEW)
-        run_phase_with_verification "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
-        ;;
-      *)
-        run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
-        ;;
-    esac
+    run_phase_with_verification "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
 
     if [ "$phase_result" -eq 130 ]; then
       status_line_clear 2>/dev/null || true
@@ -1806,18 +1795,14 @@ run_verification_gates() {
   local any_configured=0
   GATE_ERRORS=""
 
-  local gates=()
-  case "$phase_name" in
-    IMPLEMENT|REVIEW)
-      gates=("build:${QUALITY_BUILD_CMD:-}" "lint:${QUALITY_LINT_CMD:-}" "format:${QUALITY_FORMAT_CMD:-}")
-      ;;
-    TEST)
-      gates=("test:${QUALITY_TEST_CMD:-}")
-      ;;
-    *)
-      return 0  # No gates for other phases
-      ;;
-  esac
+  # All phases run all configured quality gates.
+  # Gates with empty commands are automatically skipped.
+  local gates=(
+    "build:${QUALITY_BUILD_CMD:-}"
+    "lint:${QUALITY_LINT_CMD:-}"
+    "format:${QUALITY_FORMAT_CMD:-}"
+    "test:${QUALITY_TEST_CMD:-}"
+  )
 
   local gate_results=""
   for gate_entry in "${gates[@]}"; do
@@ -2130,16 +2115,6 @@ main() {
   echo ""
 
   log_success "Execution completed successfully!"
-
-  # Track for periodic review
-  review_tracker_increment > /dev/null 2>&1 || true
-
-  # Check if periodic review should be triggered
-  if review_tracker_is_enabled && review_tracker_should_trigger; then
-    echo ""
-    log_info "Periodic review threshold reached ($(review_tracker_status))"
-    log_info "Run 'doyaken review' to perform a codebase review"
-  fi
 }
 
 # ============================================================================

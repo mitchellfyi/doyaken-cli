@@ -82,7 +82,7 @@ The 8-phase pipeline executed by `dk run "<prompt>"`:
 | 6 | `6-review.md` | Code review, quality check |
 | 7 | `7-verify.md` | Final verification, commit |
 
-Phases 3, 4, and 6 include verification gates that run the project's quality commands and retry on failure.
+All phases run verification gates (the project's quality commands). Each phase has a configurable retry budget — on gate failure, phases with retries remaining re-run with error context.
 
 Phases compose from library:
 ```markdown
@@ -132,7 +132,7 @@ Includes can nest (max depth 5):
 | `{{TASK_ID}}` | Phases | Generated task ID |
 | `{{TASK_PROMPT}}` | Phases | The original prompt text |
 | `{{ACCUMULATED_CONTEXT}}` | Phases | Context from prior phases and retries |
-| `{{VERIFICATION_CONTEXT}}` | Phases 3, 4, 6 | Gate failure output for retries |
+| `{{VERIFICATION_CONTEXT}}` | All phases | Gate failure output for retries |
 | `{{TIMESTAMP}}` | Phases | Current timestamp |
 | `{{AGENT_ID}}` | Phases | Worker agent ID |
 | `{{DOYAKEN_PROJECT}}` | Skills | Project directory |

@@ -94,6 +94,8 @@ DOYAKEN_STATUS:
 - "Almost done" is not done - be honest
 - Incomplete tasks stay in `3.doing/`
 
+{{VERIFICATION_CONTEXT}}
+
 {{ACCUMULATED_CONTEXT}}
 
 Task prompt: {{TASK_PROMPT}}

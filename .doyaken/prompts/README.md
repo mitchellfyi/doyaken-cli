@@ -130,7 +130,7 @@ Includes can nest (max depth 5):
 | `{{TASK_ID}}` | Phases | Generated task ID |
 | `{{TASK_PROMPT}}` | Phases | The original prompt text |
 | `{{ACCUMULATED_CONTEXT}}` | Phases | Context from prior phases and retries |
-| `{{VERIFICATION_CONTEXT}}` | Phases 3, 4, 6 | Gate failure output for retries |
+| `{{VERIFICATION_CONTEXT}}` | All phases | Gate failure output for retries |
 | `{{TIMESTAMP}}` | Phases | Current timestamp |
 | `{{AGENT_ID}}` | Phases | Worker agent ID |
 | `{{DOYAKEN_PROJECT}}` | Skills | Project directory |

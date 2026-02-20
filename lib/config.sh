@@ -224,9 +224,6 @@ load_agent_config() {
   # Retry settings
   _load_config "AGENT_MAX_RETRIES"  "defaults.max_retries"       "2"     "$manifest_file"
   _load_config "AGENT_RETRY_DELAY"  "defaults.retry_delay"       "5"     "$manifest_file"
-  _load_config "AGENT_LOCK_TIMEOUT" "defaults.lock_timeout"      "10800" "$manifest_file"
-  _load_config "AGENT_HEARTBEAT"    "defaults.heartbeat_interval" "3600"  "$manifest_file"
-
   # Phase monitor settings
   _load_config "PHASE_MONITOR_INTERVAL"  "defaults.monitor_interval"  "30"  "$manifest_file"
   _load_config "PHASE_STALL_THRESHOLD"   "defaults.stall_threshold"   "180" "$manifest_file"
@@ -251,20 +248,6 @@ load_output_config() {
 }
 
 # ============================================================================
-# Periodic Review Configuration
-# ============================================================================
-
-# Load periodic review settings with priority chain
-# Usage: load_periodic_review_config "manifest_file"
-load_periodic_review_config() {
-  local manifest_file="${1:-}"
-
-  _load_config_bool "REVIEW_ENABLED"   "periodic_review.enabled"   "true"  "$manifest_file"
-  _load_config      "REVIEW_THRESHOLD" "periodic_review.threshold" "3"     "$manifest_file"
-  _load_config_bool "REVIEW_AUTO_FIX"  "periodic_review.auto_fix"  "false" "$manifest_file"
-}
-
-# ============================================================================
 # Retry Budget Configuration
 # ============================================================================
 
@@ -273,9 +256,14 @@ load_periodic_review_config() {
 load_retry_budget_config() {
   local manifest_file="${1:-}"
 
+  _load_config "RETRY_BUDGET_EXPAND"    "retry_budget.expand"    "1" "$manifest_file"
+  _load_config "RETRY_BUDGET_TRIAGE"    "retry_budget.triage"    "1" "$manifest_file"
+  _load_config "RETRY_BUDGET_PLAN"      "retry_budget.plan"      "1" "$manifest_file"
   _load_config "RETRY_BUDGET_IMPLEMENT" "retry_budget.implement" "5" "$manifest_file"
   _load_config "RETRY_BUDGET_TEST"      "retry_budget.test"      "3" "$manifest_file"
+  _load_config "RETRY_BUDGET_DOCS"      "retry_budget.docs"      "1" "$manifest_file"
   _load_config "RETRY_BUDGET_REVIEW"    "retry_budget.review"    "3" "$manifest_file"
+  _load_config "RETRY_BUDGET_VERIFY"    "retry_budget.verify"    "1" "$manifest_file"
 }
 
 # ============================================================================
@@ -295,7 +283,6 @@ load_all_config() {
   load_skip_phases_config "$manifest_file"
   load_agent_config "$manifest_file"
   load_output_config "$manifest_file"
-  load_periodic_review_config "$manifest_file"
   load_retry_budget_config "$manifest_file"
 }
 
@@ -360,13 +347,12 @@ show_effective_config() {
   echo ""
 
   echo "## Retry Budget (verification gates)"
+  echo "  expand: ${RETRY_BUDGET_EXPAND:-1}"
+  echo "  triage: ${RETRY_BUDGET_TRIAGE:-1}"
+  echo "  plan: ${RETRY_BUDGET_PLAN:-1}"
   echo "  implement: ${RETRY_BUDGET_IMPLEMENT:-5}"
   echo "  test: ${RETRY_BUDGET_TEST:-3}"
+  echo "  docs: ${RETRY_BUDGET_DOCS:-1}"
   echo "  review: ${RETRY_BUDGET_REVIEW:-3}"
-  echo ""
-
-  echo "## Periodic Review"
-  echo "  enabled: ${REVIEW_ENABLED:-1}"
-  echo "  threshold: ${REVIEW_THRESHOLD:-3}"
-  echo "  auto_fix: ${REVIEW_AUTO_FIX:-0}"
+  echo "  verify: ${RETRY_BUDGET_VERIFY:-1}"
 }
