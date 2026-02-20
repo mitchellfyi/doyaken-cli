@@ -90,5 +90,9 @@ DOYAKEN_STATUS:
 - Be honest about what's done vs remaining
 - If incomplete, leave in `3.doing/`
 
-Task file: {{TASK_FILE}}
+{{VERIFICATION_CONTEXT}}
+
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}
 Recent commits: {{RECENT_COMMITS}}

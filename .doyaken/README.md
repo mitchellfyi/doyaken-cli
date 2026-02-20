@@ -1,16 +1,16 @@
 # Doyaken
 
-A standalone multi-project autonomous agent CLI that works with any AI coding agent. Install once, use on any project.
+A coding agent that delivers robust, working code through phased execution with verification loops. One prompt in, verified code out.
 
 **Aliases:** `doyaken`, `dk`
 
 ## Features
 
-- **Agent Agnostic**: Works with Claude, Codex, Gemini, Copilot, or OpenCode
+- **Single-Shot Execution**: `dk run "prompt"` runs your work through an 8-phase pipeline
+- **Verification Gates**: Build, lint, and test checks run after key phases, retrying on failure with error context
+- **Agent Agnostic**: Works with Claude, Codex, Gemini, Copilot, Cursor, or OpenCode
 - **Multi-Project Support**: Manage multiple projects from a single global installation
-- **8-Phase Execution**: Expand → Triage → Plan → Implement → Test → Docs → Review → Verify
 - **Self-Healing**: Automatic retries, model fallback, crash recovery
-- **Parallel Agents**: Multiple agents can work simultaneously with lock coordination
 - **Skills System**: Reusable prompts with MCP tool integration
 - **MCP Integration**: Connect to GitHub, Linear, Slack, Jira via MCP tools
 - **Project Registry**: Track projects by path, git remote, domains, and services
@@ -48,30 +48,20 @@ cd doyaken-cli
 cd /path/to/your/project
 dk init
 
-# Create a task
-dk tasks new "Add user authentication"
-
 # Run the agent
-dk run 1     # Run 1 task
-dk           # Run 5 tasks (default)
+dk run "Add user authentication with JWT"
 
 # Check status
-dk status    # Project status
-dk tasks     # Show taskboard
-dk doctor    # Health check
+dk status
+dk doctor
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `dk` | Run 5 tasks in current project |
-| `dk run [N]` | Run N tasks |
-| `dk task "<prompt>"` | Create and immediately run a single task |
+| `dk run "<prompt>"` | Execute a prompt through the 8-phase pipeline |
 | `dk init [path]` | Initialize a new project |
-| `dk tasks` | Show taskboard |
-| `dk tasks new <title>` | Create a new task |
-| `dk tasks view <id>` | View a specific task |
 | `dk skills` | List available skills |
 | `dk skill <name>` | Run a skill |
 | `dk mcp status` | Show MCP integration status |
@@ -89,12 +79,12 @@ dk doctor    # Health check
 Doyaken supports multiple AI coding agents. Use `--agent` to switch between them:
 
 ```bash
-dk --agent claude run 1      # Use Claude (default)
-dk --agent cursor run 1      # Use Cursor
-dk --agent codex run 1       # Use OpenAI Codex
-dk --agent gemini run 1      # Use Google Gemini
-dk --agent copilot run 1     # Use GitHub Copilot
-dk --agent opencode run 1    # Use OpenCode
+dk --agent claude run "Add auth"      # Use Claude (default)
+dk --agent codex run "Add auth"       # Use OpenAI Codex
+dk --agent gemini run "Add auth"      # Use Google Gemini
+dk --agent cursor run "Add auth"      # Use Cursor
+dk --agent copilot run "Add auth"     # Use GitHub Copilot
+dk --agent opencode run "Add auth"    # Use OpenCode
 ```
 
 ### Supported Agents & Models
@@ -111,50 +101,52 @@ dk --agent opencode run 1    # Use OpenCode
 ### Specifying Models
 
 ```bash
-dk --agent codex --model o3 run 1
-dk --agent gemini --model gemini-2.5-flash run 2
+dk --agent codex --model o3 run "Optimize queries"
+dk --agent gemini --model gemini-2.5-flash run "Fix login bug"
 ```
 
-## Agent Workflow
+## 8-Phase Pipeline
 
-The agent operates in 8 phases for each task:
+Each phase runs in a fresh agent context with dedicated prompts:
 
 | Phase | Timeout | Purpose |
 |-------|---------|---------|
-| **EXPAND** | 2min | Expand brief prompt into full task specification |
-| **TRIAGE** | 2min | Validate task, check dependencies |
+| **EXPAND** | 2min | Expand brief prompt into full specification |
+| **TRIAGE** | 2min | Validate feasibility, check dependencies |
 | **PLAN** | 5min | Gap analysis, detailed planning |
-| **IMPLEMENT** | 30min | Execute the plan, write code |
-| **TEST** | 10min | Run tests, add coverage |
+| **IMPLEMENT** | 30min | Write the code (with verification gates) |
+| **TEST** | 10min | Run tests, add coverage (with verification gates) |
 | **DOCS** | 5min | Sync documentation |
-| **REVIEW** | 10min | Code review, create follow-ups |
-| **VERIFY** | 3min | Verify task management, commit |
+| **REVIEW** | 10min | Code review, quality check (with verification gates) |
+| **VERIFY** | 3min | Final verification, commit |
 
-### Parallel Execution
+### Verification Gates
 
-Run multiple agents simultaneously:
+After IMPLEMENT, TEST, and REVIEW, doyaken runs your project's quality commands (build, lint, format, test). If any gate fails, the phase retries with the error output injected into the prompt.
 
-```bash
-dk run 5 &
-dk run 5 &
-dk run 5 &
+Configure gates in `.doyaken/manifest.yaml`:
+
+```yaml
+quality:
+  build_command: "npm run build"
+  lint_command: "npm run lint"
+  format_command: "npm run format"
+  test_command: "npm test"
+
+retry_budget:
+  implement: 5
+  test: 3
+  review: 3
 ```
-
-Agents coordinate via lock files in `.doyaken/locks/` and will not work on the same task.
 
 ## Skills
 
 Skills are reusable prompts with YAML frontmatter that declare tool requirements:
 
 ```bash
-# List available skills
-dk skills
-
-# Run a skill
-dk skill github-import --filter=open
-
-# Show skill info
-dk skill github-import --info
+dk skills                          # List available skills
+dk skill github-import --filter=open  # Run a skill
+dk skill github-import --info         # Show skill info
 ```
 
 ### Built-in Skills
@@ -176,14 +168,14 @@ dk skill github-import --info
 | `review-codebase` | Comprehensive codebase review |
 | `research-features` | Discover next best feature to build |
 | `ci-fix` | Diagnose and fix CI/CD failures |
-| `workflow` | Run the 8-phase task workflow |
+| `workflow` | Run the 8-phase workflow |
 | `sync-agents` | Sync agent config files to project |
 
 **Integrations** (require MCP servers):
 | Skill | Description | Requires |
 |-------|-------------|----------|
-| `github-import` | Import GitHub issues as tasks | GitHub MCP |
-| `github-sync` | Sync task status to GitHub | GitHub MCP |
+| `github-import` | Import GitHub issues | GitHub MCP |
+| `github-sync` | Sync status to GitHub | GitHub MCP |
 | `github-pr` | Create PR from recent commits | GitHub MCP |
 | `notify-slack` | Send Slack notifications | Slack MCP |
 | `mcp-status` | Check MCP integration status | - |
@@ -214,11 +206,8 @@ Instructions for the AI agent...
 Doyaken supports MCP (Model Context Protocol) tools for external integrations:
 
 ```bash
-# Show integration status
-dk mcp status
-
-# Generate MCP configs for enabled integrations
-dk mcp configure
+dk mcp status       # Show integration status
+dk mcp configure    # Generate MCP configs
 ```
 
 ### Enabling Integrations
@@ -270,16 +259,15 @@ After running `dk init`, your project will have:
 your-project/
 ├── .doyaken/
 │   ├── manifest.yaml        # Project configuration
-│   ├── tasks/
-│   │   ├── 1.blocked/       # Blocked tasks
-│   │   ├── 2.todo/          # Ready to start
-│   │   ├── 3.doing/         # In progress
-│   │   └── 4.done/          # Completed
+│   ├── prompts/
+│   │   ├── library/         # 25+ methodology prompts
+│   │   └── phases/          # 8-phase workflow prompts
+│   ├── skills/              # Project-specific skills
+│   ├── hooks/               # Claude Code hooks
 │   ├── logs/                # Execution logs
-│   ├── state/               # Session recovery
-│   └── locks/               # Parallel coordination
-├── AGENT.md                 # Project-specific agent notes
-└── TASKBOARD.md             # Generated task overview
+│   └── state/               # Session recovery
+├── AGENTS.md                # Multi-agent instructions
+└── CLAUDE.md                # Claude Code config
 ```
 
 ## Project Manifest
@@ -300,38 +288,20 @@ domains:
   staging: "https://staging.my-app.com"
 
 quality:
+  build_command: "npm run build"
   test_command: "npm test"
   lint_command: "npm run lint"
+  format_command: "npm run format"
+
+retry_budget:
+  implement: 5
+  test: 3
+  review: 3
 
 agent:
   name: "claude"
   model: "opus"
   max_retries: 2
-```
-
-## Task System
-
-### Task Priority
-
-Tasks use the naming format `PPP-SSS-slug.md`:
-
-| Priority | Code | Use For |
-|----------|------|---------|
-| Critical | 001  | Blocking, security, broken |
-| High     | 002  | Important features, bugs |
-| Medium   | 003  | Normal work |
-| Low      | 004  | Nice-to-have, cleanup |
-
-Example: `002-001-add-user-auth.md` = High priority, first in sequence
-
-### Creating Tasks
-
-```bash
-# Via CLI
-dk tasks new "Add user authentication"
-
-# Manually create in .doyaken/tasks/todo/
-# Use the template format
 ```
 
 ## Environment Variables
@@ -340,19 +310,17 @@ dk tasks new "Add user authentication"
 |----------|---------|-------------|
 | `DOYAKEN_AGENT` | `claude` | AI agent to use |
 | `DOYAKEN_MODEL` | agent-specific | Model for the selected agent |
-| `DOYAKEN_AUTO_TIMEOUT` | `60` | Auto-select menu options after N seconds (0 to disable) |
 | `AGENT_DRY_RUN` | `0` | Preview without executing |
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
-| `AGENT_MAX_RETRIES` | `2` | Retries per phase |
+| `AGENT_MAX_RETRIES` | `2` | Retries per phase (rate limit retries) |
+| `RETRY_BUDGET_IMPLEMENT` | `5` | Verification gate retries for IMPLEMENT |
+| `RETRY_BUDGET_TEST` | `3` | Verification gate retries for TEST |
+| `RETRY_BUDGET_REVIEW` | `3` | Verification gate retries for REVIEW |
 | `TIMEOUT_EXPAND` | `300` | Expand phase timeout (seconds) |
-| `TIMEOUT_TRIAGE` | `180` | Triage phase timeout (seconds) |
-| `TIMEOUT_PLAN` | `300` | Plan phase timeout (seconds) |
 | `TIMEOUT_IMPLEMENT` | `1800` | Implement phase timeout (seconds) |
 | `TIMEOUT_TEST` | `600` | Test phase timeout (seconds) |
-| `TIMEOUT_DOCS` | `300` | Docs phase timeout (seconds) |
 | `TIMEOUT_REVIEW` | `600` | Review phase timeout (seconds) |
-| `TIMEOUT_VERIFY` | `300` | Verify phase timeout (seconds) |
 | `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
 
 ## Troubleshooting
@@ -364,9 +332,8 @@ dk doctor
 # View logs
 ls -la .doyaken/logs/
 
-# Reset stuck state
-rm -rf .doyaken/locks/*.lock
-mv .doyaken/tasks/doing/*.md .doyaken/tasks/todo/
+# Clean up old logs and state
+dk cleanup
 ```
 
 ## Development

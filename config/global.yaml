@@ -32,22 +32,11 @@ defaults:
   # Fallback model when rate limited
   fallback_model: "sonnet"
 
-  # Default number of tasks per run
-  tasks_per_run: 5
-
   # Maximum retry attempts per phase
   max_retries: 2
 
   # Base retry delay in seconds (exponential backoff: 5s, 10s, 20s...)
   retry_delay: 5
-
-  # Task lock timeout in seconds (3 hours)
-  # Locks older than this are considered stale
-  lock_timeout: 10800
-
-  # Heartbeat interval in seconds (1 hour)
-  # How often to refresh lock timestamps during long tasks
-  heartbeat_interval: 3600
 
   # Phase monitor interval in seconds (30s)
   # How often to check if the agent is producing output
@@ -123,6 +112,22 @@ skip_phases:
   docs: false
   review: false
   verify: false
+
+# ============================================================================
+# Retry Budget (Verification Gates)
+# ============================================================================
+# After IMPLEMENT, TEST, and REVIEW phases, quality gates run automatically.
+# If gates fail, the phase retries with error context up to the budget limit.
+
+retry_budget:
+  # Max retries for IMPLEMENT phase (build + lint + format gates)
+  implement: 5
+
+  # Max retries for TEST phase (test gate)
+  test: 3
+
+  # Max retries for REVIEW phase (build + lint + format gates)
+  review: 3
 
 # ============================================================================
 # Periodic Review Settings

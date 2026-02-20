@@ -45,12 +45,15 @@ source "$SCRIPT_DIR/interactive.sh"
 # ============================================================================
 
 cmd_run() {
-  local num_tasks="${1:-5}"
-
-  # Validate task count early
-  if ! [[ "$num_tasks" =~ ^[0-9]+$ ]] || [ "$num_tasks" -lt 1 ]; then
-    log_error "Invalid task count: $num_tasks"
-    echo "Usage: doyaken run [N]  (where N is a positive number)"
+  local prompt="$*"
+  if [ -z "$prompt" ]; then
+    log_error "Prompt required"
+    echo "Usage: dk run \"<prompt>\""
+    echo ""
+    echo "Examples:"
+    echo "  dk run \"Add user authentication with JWT\""
+    echo "  dk run \"Fix the typo in README\""
+    echo "  dk run \"Add a health check endpoint at /api/health\""
     exit 1
   fi
 
@@ -59,6 +62,7 @@ cmd_run() {
 
   export DOYAKEN_PROJECT="$project"
   export DOYAKEN_DIR="$project/.doyaken"
+  export DOYAKEN_PROMPT="$prompt"
 
   # Set agent defaults
   export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
@@ -69,21 +73,7 @@ cmd_run() {
     exit 1
   fi
 
-  # Check if there are any tasks to run
-  local todo_dir doing_dir
-  todo_dir=$(get_task_folder "$DOYAKEN_DIR" "todo")
-  doing_dir=$(get_task_folder "$DOYAKEN_DIR" "doing")
-  local todo_count doing_count
-  todo_count=$(count_task_files "$todo_dir")
-  doing_count=$(count_task_files "$doing_dir")
-
-  if [ "$todo_count" -eq 0 ] && [ "$doing_count" -eq 0 ]; then
-    # No tasks available - show interactive menu
-    show_no_tasks_menu "$project"
-    return $?
-  fi
-
-  log_info "Running $num_tasks task(s) in: $project"
+  log_info "Running: ${prompt:0:80}$([ ${#prompt} -gt 80 ] && echo "...")"
   log_info "Agent: $DOYAKEN_AGENT (model: $DOYAKEN_MODEL)"
 
   # Determine which core.sh to use
@@ -98,7 +88,7 @@ cmd_run() {
     exit 1
   fi
 
-  exec "$core_script" "$num_tasks"
+  exec "$core_script"
 }
 
 cmd_chat() {
@@ -164,181 +154,6 @@ cmd_sessions() {
   echo ""
   session_list "${1:-20}"
   echo ""
-}
-
-# Show menu when no tasks are available
-show_no_tasks_menu() {
-  local project="$1"
-
-  echo ""
-  echo -e "${BOLD}No tasks in backlog${NC}"
-  echo ""
-  echo "What would you like to do?"
-  echo ""
-  echo -e "  ${CYAN}1${NC}) ${GREEN}Code Review${NC} - Comprehensive review of the codebase"
-  echo "     Analyze architecture, code quality, security, and suggest improvements"
-  echo ""
-  echo -e "  ${CYAN}2${NC}) ${GREEN}Feature Discovery${NC} - Research and suggest the next best feature"
-  echo "     Analyze competitors, industry trends, and identify opportunities"
-  echo ""
-  echo -e "  ${CYAN}3${NC}) ${GREEN}Create Task${NC} - Create a new task manually"
-  echo "     Use: doyaken tasks new \"<description>\""
-  echo ""
-  echo -e "  ${CYAN}4${NC}) ${GREEN}Quick Task${NC} - Create and immediately run a task"
-  echo "     Use: doyaken task \"<prompt>\""
-  echo ""
-  echo -e "  ${CYAN}q${NC}) Quit"
-  echo ""
-
-  local choice
-  # Auto-timeout only selects from options 1-2 (Code Review, Feature Discovery)
-  # Options 3-4 require user input and are not suitable for auto-selection
-  read_with_timeout choice "Enter choice [1-4, q]: " 1 2
-
-  case "$choice" in
-    1)
-      run_code_review "$project"
-      ;;
-    2)
-      run_feature_discovery "$project"
-      ;;
-    3)
-      echo ""
-      local title
-      read -rp "Task title: " title
-      if [ -n "$title" ]; then
-        cmd_tasks "new" "$title"
-      else
-        log_warn "No title provided"
-      fi
-      ;;
-    4)
-      echo ""
-      local prompt
-      read -rp "Task prompt: " prompt
-      if [ -n "$prompt" ]; then
-        cmd_task "$prompt"
-      else
-        log_warn "No prompt provided"
-      fi
-      ;;
-    q|Q|"")
-      log_info "Exiting"
-      return 0
-      ;;
-    *)
-      log_warn "Invalid choice: $choice"
-      return 1
-      ;;
-  esac
-}
-
-# Run comprehensive code review using skills
-run_code_review() {
-  local project="$1"
-
-  echo ""
-  echo -e "${BOLD}Code Review Options${NC}"
-  echo ""
-  echo -e "  ${CYAN}1${NC}) Full codebase review (architecture, quality, security)"
-  echo -e "  ${CYAN}2${NC}) Security audit only"
-  echo -e "  ${CYAN}3${NC}) Performance analysis"
-  echo -e "  ${CYAN}4${NC}) Code quality & technical debt"
-  echo -e "  ${CYAN}5${NC}) Review specific directory/module"
-  echo ""
-
-  local choice
-  # Auto-timeout selects from options 1-4 (option 5 requires path input)
-  read_with_timeout choice "Enter choice [1-5]: " 1 2 3 4
-
-  local skill_name skill_args
-  case "$choice" in
-    1)
-      skill_name="review-codebase"
-      skill_args="--scope=full"
-      ;;
-    2)
-      skill_name="audit-security"
-      skill_args=""
-      ;;
-    3)
-      skill_name="audit-performance"
-      skill_args=""
-      ;;
-    4)
-      skill_name="audit-debt"
-      skill_args=""
-      ;;
-    5)
-      echo ""
-      local target_path
-      read -rp "Path to review (relative to project root): " target_path
-      skill_name="review-codebase"
-      skill_args="--scope=path --path=$target_path"
-      ;;
-    *)
-      log_warn "Invalid choice"
-      return 1
-      ;;
-  esac
-
-  echo ""
-  log_info "Running skill: $skill_name $skill_args"
-  echo ""
-
-  # Run the skill
-  run_skill "$skill_name" $skill_args
-}
-
-# Run feature discovery using skills
-run_feature_discovery() {
-  local project="$1"
-
-  echo ""
-  echo -e "${BOLD}Feature Discovery${NC}"
-  echo ""
-  echo "This will analyze the project and research opportunities for new features."
-  echo ""
-  echo -e "  ${CYAN}1${NC}) Full discovery (competitors, trends, user needs)"
-  echo -e "  ${CYAN}2${NC}) Competitor analysis only"
-  echo -e "  ${CYAN}3${NC}) Missing features analysis (based on project type)"
-  echo -e "  ${CYAN}4${NC}) User experience improvements"
-  echo ""
-
-  local choice
-  # All options 1-4 are suitable for auto-selection
-  read_with_timeout choice "Enter choice [1-4]: " 1 2 3 4
-
-  local skill_name skill_args
-  case "$choice" in
-    1)
-      skill_name="research-features"
-      skill_args="--scope=full"
-      ;;
-    2)
-      skill_name="research-features"
-      skill_args="--scope=competitors"
-      ;;
-    3)
-      skill_name="research-features"
-      skill_args="--scope=gaps"
-      ;;
-    4)
-      skill_name="audit-ux"
-      skill_args="--focus=full"
-      ;;
-    *)
-      log_warn "Invalid choice"
-      return 1
-      ;;
-  esac
-
-  echo ""
-  log_info "Running skill: $skill_name $skill_args"
-  echo ""
-
-  # Run the skill
-  run_skill "$skill_name" $skill_args
 }
 
 # Generate slash commands for Claude Code
@@ -721,17 +536,6 @@ cmd_cleanup() {
   echo "Cleaning up project: $(basename "$project")"
   echo ""
 
-  # Clean locks
-  if [ -d "$doyaken_dir/locks" ]; then
-    local lock_count
-    lock_count=$(count_files_excluding_gitkeep "$doyaken_dir/locks")
-    if [ "$lock_count" -gt 0 ]; then
-      find "$doyaken_dir/locks" -type f ! -name '.gitkeep' -delete
-      echo "  ${GREEN}✓${NC} Removed $lock_count lock file(s)"
-      total_cleaned=$((total_cleaned + lock_count))
-    fi
-  fi
-
   # Clean logs
   if [ -d "$doyaken_dir/logs" ]; then
     local log_count
@@ -751,44 +555,6 @@ cmd_cleanup() {
       find "$doyaken_dir/state" -type f ! -name '.gitkeep' -delete
       echo "  ${GREEN}✓${NC} Removed $state_count state file(s)"
       total_cleaned=$((total_cleaned + state_count))
-    fi
-  fi
-
-  # Clean done tasks
-  if [ -d "$doyaken_dir/tasks/4.done" ]; then
-    local done_count
-    done_count=$(count_files_excluding_gitkeep "$doyaken_dir/tasks/4.done")
-    if [ "$done_count" -gt 0 ]; then
-      find "$doyaken_dir/tasks/4.done" -type f ! -name '.gitkeep' -delete
-      echo "  ${GREEN}✓${NC} Removed $done_count completed task(s)"
-      total_cleaned=$((total_cleaned + done_count))
-    fi
-  fi
-
-  # Move stale "doing" tasks back to todo (older than 24 hours)
-  if [ -d "$doyaken_dir/tasks/3.doing" ]; then
-    local stale_count=0
-    local now
-    now=$(date +%s)
-    while IFS= read -r task_file; do
-      [ -z "$task_file" ] && continue
-      local mtime
-      # Get modification time in seconds since epoch (works on macOS and Linux)
-      if stat -f %m "$task_file" &>/dev/null; then
-        mtime=$(stat -f %m "$task_file")  # macOS
-      else
-        mtime=$(stat -c %Y "$task_file")  # Linux
-      fi
-      local age=$((now - mtime))
-      # 24 hours = 86400 seconds
-      if [ "$age" -gt 86400 ]; then
-        mv "$task_file" "$doyaken_dir/tasks/2.todo/"
-        stale_count=$((stale_count + 1))
-      fi
-    done < <(find "$doyaken_dir/tasks/3.doing" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
-    if [ "$stale_count" -gt 0 ]; then
-      echo "  ${GREEN}✓${NC} Moved $stale_count stale task(s) back to todo"
-      total_cleaned=$((total_cleaned + stale_count))
     fi
   fi
 
@@ -824,212 +590,6 @@ cmd_list() {
   list_projects
 }
 
-cmd_tasks() {
-  local subcmd="${1:-show}"
-  shift || true
-
-  local project
-  project=$(require_project)
-  local doyaken_dir="$project/.doyaken"
-
-  case "$subcmd" in
-    show|"")
-      # Generate and show taskboard
-      local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
-      if [ ! -f "$taskboard_script" ]; then
-        taskboard_script="$SCRIPT_DIR/taskboard.sh"
-      fi
-
-      if [ -f "$taskboard_script" ]; then
-        DOYAKEN_PROJECT="$project" "$taskboard_script"
-        echo ""
-        cat "$project/TASKBOARD.md" 2>/dev/null || log_warn "TASKBOARD.md not found"
-      else
-        # Fallback: simple list
-        echo "Tasks in $project:"
-        echo ""
-        local blocked_dir todo_dir doing_dir done_dir
-        blocked_dir=$(get_task_folder "$doyaken_dir" "blocked")
-        todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-        doing_dir=$(get_task_folder "$doyaken_dir" "doing")
-        done_dir=$(get_task_folder "$doyaken_dir" "done")
-        echo "BLOCKED:"
-        find "$blocked_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
-        echo ""
-        echo "TODO:"
-        find "$todo_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
-        echo ""
-        echo "DOING:"
-        find "$doing_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null || echo "  (none)"
-        echo ""
-        echo "DONE (recent):"
-        find "$done_dir" -name "*.md" -maxdepth 1 -exec basename {} \; 2>/dev/null | head -5 || echo "  (none)"
-      fi
-      ;;
-    new)
-      local title="$*"
-      if [ -z "$title" ]; then
-        log_error "Task title required"
-        echo "Usage: doyaken tasks new <title>"
-        exit 1
-      fi
-
-      # Generate task ID
-      local priority="003"
-      local todo_dir
-      todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-      local todo_count
-      todo_count=$(count_task_files "$todo_dir")
-      local sequence
-      sequence=$(printf "%03d" $((todo_count + 1)))
-      local slug
-      slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
-      local task_id="${priority}-${sequence}-${slug}"
-
-      # Create task file using helper
-      local task_file
-      task_file=$(create_task_file "$task_id" "$title" "$priority" "Medium" "$todo_dir")
-
-      log_success "Created task: $task_id"
-      echo "  File: $task_file"
-      ;;
-    view)
-      local task_pattern="$*"
-      if [ -z "$task_pattern" ]; then
-        log_error "Task ID or pattern required"
-        echo "Usage: doyaken tasks view <task-id-pattern>"
-        exit 1
-      fi
-
-      # Search all task directories for matching file
-      local task_file=""
-      local blocked_dir todo_dir doing_dir done_dir
-      blocked_dir=$(get_task_folder "$doyaken_dir" "blocked")
-      todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-      doing_dir=$(get_task_folder "$doyaken_dir" "doing")
-      done_dir=$(get_task_folder "$doyaken_dir" "done")
-
-      for dir in "$doing_dir" "$todo_dir" "$blocked_dir" "$done_dir"; do
-        local found
-        found=$(find "$dir" -maxdepth 1 -name "*${task_pattern}*.md" 2>/dev/null | head -1)
-        if [ -n "$found" ]; then
-          task_file="$found"
-          break
-        fi
-      done
-
-      if [ -z "$task_file" ]; then
-        log_error "No task found matching: $task_pattern"
-        exit 1
-      fi
-
-      cat "$task_file"
-      ;;
-    *)
-      log_error "Unknown tasks subcommand: $subcmd"
-      echo "Usage: doyaken tasks [show|new <title>|view <task-id>]"
-      exit 1
-      ;;
-  esac
-}
-
-# Run a single task immediately (create and execute)
-cmd_task() {
-  local prompt="$*"
-  if [ -z "$prompt" ]; then
-    log_error "Task prompt required"
-    echo "Usage: doyaken task \"<prompt>\""
-    echo ""
-    echo "Creates a high-priority task and immediately runs it."
-    echo "Use this to work on something specific without managing the backlog."
-    exit 1
-  fi
-
-  # Check for common mistakes - user might mean a different command
-  local first_word="${prompt%% *}"
-  case "$first_word" in
-    list|ls)
-      log_warn "Did you mean 'dk tasks' to see the taskboard?"
-      echo "  dk tasks        - Show taskboard"
-      echo "  dk tasks new    - Create a new task"
-      echo "  dk task \"...\"   - Create AND run a task immediately"
-      exit 1
-      ;;
-    show|view|get)
-      log_warn "To view a task, open the file directly:"
-      echo "  cat .doyaken/tasks/2.todo/<task-id>.md"
-      echo ""
-      echo "Or use 'dk tasks' to see all tasks."
-      exit 1
-      ;;
-    new|add|create)
-      log_warn "Did you mean 'dk tasks new \"${prompt#* }\"'?"
-      echo "  dk tasks new    - Create a task (without running)"
-      echo "  dk task \"...\"   - Create AND run immediately"
-      exit 1
-      ;;
-    delete|remove|rm)
-      log_warn "To delete a task, remove the file:"
-      echo "  rm .doyaken/tasks/2.todo/<task-id>.md"
-      exit 1
-      ;;
-  esac
-
-  local project
-  project=$(require_project)
-  local doyaken_dir="$project/.doyaken"
-
-  export DOYAKEN_PROJECT="$project"
-
-  # Set agent defaults
-  export DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
-  export DOYAKEN_MODEL="${DOYAKEN_MODEL:-$(agent_default_model "$DOYAKEN_AGENT")}"
-
-  # Validate agent and model
-  if ! agent_validate "$DOYAKEN_AGENT" "$DOYAKEN_MODEL"; then
-    exit 1
-  fi
-
-  # Generate task ID with high priority (002) to run before medium tasks
-  local priority="002"
-  # Use timestamp-based sequence to ensure uniqueness
-  local sequence
-  sequence=$(date '+%H%M%S')
-  local slug
-  slug=$(echo "$prompt" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-50)
-  local task_id="${priority}-${sequence}-${slug}"
-  local todo_dir
-  todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-
-  log_info "Creating task: $task_id"
-
-  # Create task file using helper with custom context
-  local context="Task created via \`doyaken task\` for immediate execution.
-
-Prompt: $prompt"
-  local task_file
-  task_file=$(create_task_file "$task_id" "$prompt" "$priority" "High (immediate)" "$todo_dir" "$context")
-
-  log_success "Created task: $task_id"
-  echo ""
-
-  # Now run the agent for 1 task
-  log_info "Running task with agent: $DOYAKEN_AGENT (model: $DOYAKEN_MODEL)"
-
-  # Determine which core.sh to use
-  local core_script="$DOYAKEN_HOME/lib/core.sh"
-  if [ ! -f "$core_script" ]; then
-    core_script="$SCRIPT_DIR/core.sh"
-  fi
-
-  if [ ! -f "$core_script" ]; then
-    log_error "core.sh not found"
-    exit 1
-  fi
-
-  exec "$core_script" 1
-}
-
 cmd_status() {
   local project
   project=$(require_project)
@@ -1055,24 +615,6 @@ cmd_status() {
     echo "  Branch: $branch"
     echo "  Remote: $remote"
   fi
-
-  # Task counts
-  echo ""
-  echo "Tasks:"
-  local blocked_dir todo_dir doing_dir done_dir
-  blocked_dir=$(get_task_folder "$doyaken_dir" "blocked")
-  todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-  doing_dir=$(get_task_folder "$doyaken_dir" "doing")
-  done_dir=$(get_task_folder "$doyaken_dir" "done")
-  local blocked todo doing done_count
-  blocked=$(count_task_files "$blocked_dir")
-  todo=$(count_task_files "$todo_dir")
-  doing=$(count_task_files "$doing_dir")
-  done_count=$(count_task_files "$done_dir")
-  echo "  Blocked: $blocked"
-  echo "  Todo:    $todo"
-  echo "  Doing:   $doing"
-  echo "  Done:    $done_count"
 
   # Manifest info (if exists)
   local manifest="$doyaken_dir/manifest.yaml"
@@ -1862,8 +1404,8 @@ main() {
     export DOYAKEN_PROJECT="$project_override"
   fi
 
-  # Default command is run
-  cmd="${cmd:-run}"
+  # Default command is help (run requires a prompt)
+  cmd="${cmd:-help}"
 
   # Dispatch command
   case "$cmd" in
@@ -1890,16 +1432,6 @@ main() {
       ;;
     list)
       cmd_list
-      ;;
-    tasks)
-      cmd_tasks "${args[@]+"${args[@]}"}"
-      ;;
-    task)
-      cmd_task "${args[@]+"${args[@]}"}"
-      ;;
-    add)
-      # Alias: dk add "title" -> dk tasks new "title"
-      cmd_tasks "new" "${args[@]+"${args[@]}"}"
       ;;
     status)
       cmd_status
@@ -1948,30 +1480,23 @@ main() {
       fi
       ;;
     *)
-      # Check if it's a number (shortcut for run N)
-      if [[ "$cmd" =~ ^[0-9]+$ ]]; then
-        cmd_run "$cmd"
-      else
-        log_error "Unknown command: $cmd"
+      log_error "Unknown command: $cmd"
 
-        # Try to suggest similar command
-        local suggestion
-        suggestion=$(fuzzy_match_command "$cmd")
-        if [ -n "$suggestion" ]; then
-          echo ""
-          echo -e "  Did you mean ${BOLD}dk $suggestion${NC}?"
-        else
-          echo ""
-          echo "Common commands:"
-          echo "  dk init          Initialize project"
-          echo "  dk tasks         Show taskboard"
-          echo "  dk tasks new     Create a task"
-          echo "  dk run [N]       Run N tasks (default: 5)"
-          echo "  dk status        Project status"
-          echo "  dk help          Full help"
-        fi
-        exit 1
+      # Try to suggest similar command
+      local suggestion
+      suggestion=$(fuzzy_match_command "$cmd")
+      if [ -n "$suggestion" ]; then
+        echo ""
+        echo -e "  Did you mean ${BOLD}dk $suggestion${NC}?"
+      else
+        echo ""
+        echo "Common commands:"
+        echo "  dk init              Initialize project"
+        echo "  dk run \"<prompt>\"    Run a prompt through the pipeline"
+        echo "  dk status            Project status"
+        echo "  dk help              Full help"
       fi
+      exit 1
       ;;
   esac
 }

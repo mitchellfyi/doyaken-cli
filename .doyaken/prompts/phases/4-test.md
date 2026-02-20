@@ -77,4 +77,8 @@ DOYAKEN_STATUS:
 - Every new public function needs a test
 - If a test is flaky, fix the root cause
 
-Task file: {{TASK_FILE}}
+{{VERIFICATION_CONTEXT}}
+
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}

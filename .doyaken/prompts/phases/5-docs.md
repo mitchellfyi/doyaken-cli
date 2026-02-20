@@ -62,4 +62,6 @@ Consistency: [verified/issues found]
 - Keep docs concise - don't over-document
 - Remove outdated content
 
-Task file: {{TASK_FILE}}
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}

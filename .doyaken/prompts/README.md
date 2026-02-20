@@ -69,18 +69,18 @@ See [library/README.md](library/README.md) for the full list.
 
 ### [phases/](phases/)
 
-The 8-phase workflow executed by `doyaken run`:
+The 8-phase pipeline executed by `dk run "<prompt>"`:
 
 | Phase | File | Purpose |
 |-------|------|---------|
 | 0 | `0-expand.md` | Expand brief prompt into full spec |
-| 1 | `1-triage.md` | Validate task, check dependencies |
+| 1 | `1-triage.md` | Validate feasibility, check dependencies |
 | 2 | `2-plan.md` | Gap analysis, detailed planning |
-| 3 | `3-implement.md` | Execute the plan, write code |
-| 4 | `4-test.md` | Run tests, add coverage |
+| 3 | `3-implement.md` | Write code (with verification gates) |
+| 4 | `4-test.md` | Run tests, add coverage (with verification gates) |
 | 5 | `5-docs.md` | Sync documentation |
-| 6 | `6-review.md` | Code review, create follow-ups |
-| 7 | `7-verify.md` | Verify completion, commit |
+| 6 | `6-review.md` | Code review, quality check (with verification gates) |
+| 7 | `7-verify.md` | Final verification, commit |
 
 Phases compose from library:
 ```markdown
@@ -127,8 +127,10 @@ Includes can nest (max depth 5):
 
 | Variable | Available In | Description |
 |----------|--------------|-------------|
-| `{{TASK_ID}}` | Phases | Current task ID |
-| `{{TASK_FILE}}` | Phases | Path to task file |
+| `{{TASK_ID}}` | Phases | Generated task ID |
+| `{{TASK_PROMPT}}` | Phases | The original prompt text |
+| `{{ACCUMULATED_CONTEXT}}` | Phases | Context from prior phases and retries |
+| `{{VERIFICATION_CONTEXT}}` | Phases 3, 4, 6 | Gate failure output for retries |
 | `{{TIMESTAMP}}` | Phases | Current timestamp |
 | `{{AGENT_ID}}` | Phases | Worker agent ID |
 | `{{DOYAKEN_PROJECT}}` | Skills | Project directory |

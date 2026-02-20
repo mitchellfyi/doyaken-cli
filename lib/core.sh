@@ -18,10 +18,10 @@
 # FEATURES:
 #   - Modular phase-based execution (fresh context per phase)
 #   - Phase-specific prompts and timeouts
-#   - Automatic retry with exponential backoff
+#   - Verification gates with retry loops (IMPLEMENT, TEST, REVIEW)
 #   - Model fallback (opus -> sonnet on rate limits)
-#   - Parallel agent support via lock files
 #   - Self-healing and crash recovery
+#   - Single-shot execution: dk run "prompt"
 #
 set -euo pipefail
 
@@ -666,10 +666,8 @@ if declare -f load_rate_limiter_config &>/dev/null; then
 fi
 
 # Project-specific directories
-TASKS_DIR="${TASKS_DIR:-$DATA_DIR/tasks}"
 LOGS_DIR="${LOGS_DIR:-$DATA_DIR/logs/claude-loop}"
 STATE_DIR="${STATE_DIR:-$DATA_DIR/state}"
-LOCKS_DIR="${LOCKS_DIR:-$DATA_DIR/locks}"
 
 # Detect operating manual (AGENT.md or CLAUDE.md for legacy)
 if [ -f "$PROJECT_DIR/AGENT.md" ]; then
@@ -683,8 +681,6 @@ fi
 # ============================================================================
 # Configuration Defaults
 # ============================================================================
-
-NUM_TASKS="${1:-5}"
 
 # Agent configuration
 DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
@@ -702,12 +698,9 @@ AGENT_PROGRESS="${AGENT_PROGRESS:-1}"
 AGENT_MAX_RETRIES="${AGENT_MAX_RETRIES:-2}"
 AGENT_RETRY_DELAY="${AGENT_RETRY_DELAY:-5}"
 AGENT_NO_RESUME="${AGENT_NO_RESUME:-0}"
-AGENT_LOCK_TIMEOUT="${AGENT_LOCK_TIMEOUT:-10800}"
-AGENT_HEARTBEAT="${AGENT_HEARTBEAT:-3600}"
 PHASE_MONITOR_INTERVAL="${PHASE_MONITOR_INTERVAL:-30}"
 PHASE_STALL_THRESHOLD="${PHASE_STALL_THRESHOLD:-180}"
 AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
-AGENT_NO_PROMPT="${AGENT_NO_PROMPT:-0}"
 
 # Phase skip flags and timeouts are loaded from config files via load_all_config()
 # They can still be overridden via environment variables
@@ -759,42 +752,9 @@ else
   DOYAKEN_PASSTHROUGH_ARGS=()
 fi
 
-# Generate unique agent ID with nicer default (atomic to prevent race conditions)
-if [ -z "${AGENT_NAME:-}" ]; then
-  # Ensure locks directory exists with secure permissions
-  mkdir -p "$LOCKS_DIR" 2>/dev/null || true
-  chmod 700 "$LOCKS_DIR" 2>/dev/null || true
-
-  # Auto-generate worker name using atomic mkdir to prevent race conditions
-  WORKER_NUM=1
-  while true; do
-    WORKER_LOCK_DIR="$LOCKS_DIR/.worker-${WORKER_NUM}.active"
-    if mkdir "$WORKER_LOCK_DIR" 2>/dev/null; then
-      echo "$$" > "$WORKER_LOCK_DIR/pid"
-      break
-    fi
-    if [ -f "$WORKER_LOCK_DIR/pid" ]; then
-      OLD_PID=$(cat "$WORKER_LOCK_DIR/pid" 2>/dev/null || echo "0")
-      if [ "$OLD_PID" != "0" ] && ! kill -0 "$OLD_PID" 2>/dev/null; then
-        rm -rf "$WORKER_LOCK_DIR" 2>/dev/null || true
-        if mkdir "$WORKER_LOCK_DIR" 2>/dev/null; then
-          echo "$$" > "$WORKER_LOCK_DIR/pid"
-          break
-        fi
-      fi
-    fi
-    ((WORKER_NUM++))
-    if [ "$WORKER_NUM" -gt 100 ]; then
-      echo "ERROR: Could not find available worker number (max 100)" >&2
-      exit 1
-    fi
-  done
-  AGENT_NAME="worker-${WORKER_NUM}"
-fi
+# Agent identification
+AGENT_NAME="${AGENT_NAME:-doyaken}"
 AGENT_ID="${AGENT_NAME}"
-
-# Track locks held by this agent
-HELD_LOCKS=()
 
 # Track if this is an interrupt (Ctrl+C) vs normal exit
 INTERRUPTED=0
@@ -835,10 +795,6 @@ log_step() {
 
 log_heal() {
   echo -e "${MAGENTA}[$AGENT_ID HEAL]${NC} $1"
-}
-
-log_lock() {
-  echo -e "${YELLOW}[$AGENT_ID LOCK]${NC} $1"
 }
 
 log_monitor() {
@@ -981,317 +937,6 @@ progress_filter() {
   done
 }
 
-# ============================================================================
-# Lock Management (Parallel Agent Support)
-# ============================================================================
-
-init_locks() {
-  mkdir -p "$LOCKS_DIR"
-  chmod 700 "$LOCKS_DIR"
-}
-
-get_task_id_from_file() {
-  local file="$1"
-  basename "$file" .md
-}
-
-get_lock_file() {
-  local task_id="$1"
-  echo "$LOCKS_DIR/${task_id}.lock"
-}
-
-is_lock_stale() {
-  local lock_file="$1"
-
-  if [ ! -f "$lock_file" ]; then
-    return 0
-  fi
-
-  local locked_at pid
-  locked_at=$(grep "^LOCKED_AT=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "0")
-  pid=$(grep "^PID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "0")
-
-  if [ -n "$pid" ] && [ "$pid" != "0" ]; then
-    if ! kill -0 "$pid" 2>/dev/null; then
-      log_heal "Lock PID $pid is not running - lock is stale"
-      return 0
-    fi
-  fi
-
-  local now locked_timestamp age
-  now=$(date +%s)
-  locked_timestamp=$(date -j -f "%Y-%m-%d %H:%M:%S" "$locked_at" +%s 2>/dev/null || date -d "$locked_at" +%s 2>/dev/null || echo "0")
-
-  if [ "$locked_timestamp" != "0" ]; then
-    age=$((now - locked_timestamp))
-    if [ "$age" -gt "$AGENT_LOCK_TIMEOUT" ]; then
-      log_heal "Lock is ${age}s old (> ${AGENT_LOCK_TIMEOUT}s) - lock is stale"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
-is_task_locked() {
-  local task_id="$1"
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-
-  if [ ! -f "$lock_file" ]; then
-    return 1
-  fi
-
-  local lock_agent
-  lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-
-  if [ "$lock_agent" = "$AGENT_ID" ]; then
-    return 1
-  fi
-
-  if is_lock_stale "$lock_file"; then
-    log_heal "Removing stale lock for $task_id"
-    rm -f "$lock_file"
-    return 1
-  fi
-
-  return 0
-}
-
-acquire_lock() {
-  local task_id="$1"
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-
-  local lock_dir="${lock_file}.acquiring"
-
-  if ! mkdir "$lock_dir" 2>/dev/null; then
-    sleep 0.5
-    if [ -d "$lock_dir" ]; then
-      log_warn "Lock acquisition in progress by another agent for $task_id"
-      return 1
-    fi
-  fi
-
-  if [ -f "$lock_file" ]; then
-    local lock_agent
-    lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-
-    if [ "$lock_agent" != "$AGENT_ID" ] && ! is_lock_stale "$lock_file"; then
-      rmdir "$lock_dir" 2>/dev/null || true
-      return 1
-    fi
-  fi
-
-  # Atomic write: temp file + mv prevents corruption from concurrent writers
-  local lock_tmp="${lock_file}.tmp.$$"
-  cat > "$lock_tmp" << EOF
-AGENT_ID="$AGENT_ID"
-LOCKED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
-PID="$$"
-TASK_ID="$task_id"
-EOF
-  mv "$lock_tmp" "$lock_file"
-
-  rmdir "$lock_dir" 2>/dev/null || true
-
-  HELD_LOCKS+=("$task_id")
-  log_lock "Acquired lock for $task_id"
-
-  return 0
-}
-
-release_lock() {
-  local task_id="$1"
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-
-  if [ -f "$lock_file" ]; then
-    local lock_agent
-    lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-
-    if [ "$lock_agent" = "$AGENT_ID" ]; then
-      rm -f "$lock_file"
-      log_lock "Released lock for $task_id"
-
-      local new_held=()
-      for held in "${HELD_LOCKS[@]}"; do
-        if [ "$held" != "$task_id" ]; then
-          new_held+=("$held")
-        fi
-      done
-      HELD_LOCKS=("${new_held[@]+"${new_held[@]}"}")
-    fi
-  fi
-}
-
-release_all_locks() {
-  log_lock "Releasing all held locks..."
-  for task_id in "${HELD_LOCKS[@]+"${HELD_LOCKS[@]}"}"; do
-    release_lock "$task_id"
-  done
-  HELD_LOCKS=()
-}
-
-# ============================================================================
-# Task File Git Operations
-# ============================================================================
-
-commit_task_files() {
-  local message="$1"
-  local task_id="${2:-}"
-
-  # Only attempt git operations if we're in a git repo
-  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-    return 0  # Not a git repo, silently skip
-  fi
-
-  # Check for merge conflicts or rebase in progress
-  if [ -d "$(git rev-parse --git-dir)/rebase-merge" ] || [ -d "$(git rev-parse --git-dir)/rebase-apply" ]; then
-    log_warn "Git rebase in progress - skipping commit"
-    return 1
-  fi
-
-  if ! git add "$TASKS_DIR" TASKBOARD.md 2>/dev/null; then
-    log_warn "Failed to stage task files"
-    return 1
-  fi
-
-  if git diff --cached --quiet 2>/dev/null; then
-    return 0  # Nothing to commit
-  fi
-
-  local commit_result=0
-  if [ -n "$task_id" ]; then
-    git commit -m "$message [$task_id]" --no-verify 2>/dev/null || commit_result=$?
-  else
-    git commit -m "$message" --no-verify 2>/dev/null || commit_result=$?
-  fi
-
-  if [ "$commit_result" -ne 0 ]; then
-    log_warn "Git commit failed (code: $commit_result) - task state may not be persisted"
-    return 1
-  fi
-
-  log_info "Committed task file changes: $message"
-}
-
-# ============================================================================
-# Task Assignment (Update task file metadata)
-# ============================================================================
-
-# Update a metadata field in a task file's markdown table
-# Uses awk -v to pass values as literal strings (not regex patterns)
-# This avoids sed metacharacter injection vulnerabilities
-update_task_metadata() {
-  local task_file="$1"
-  local field_name="$2"
-  local new_value="$3"
-
-  [ -f "$task_file" ] || return 1
-
-  # Escape backslashes for awk -v (which interprets escape sequences)
-  local escaped_value="${new_value//\\/\\\\}"
-
-  local temp_file="${task_file}.tmp.$$"
-  # Use awk's index() to find "| FieldName |" pattern (literal string match)
-  awk -v field="$field_name" -v value="$escaped_value" '
-    BEGIN { found = 0; pattern = "| " field " |" }
-    index($0, pattern) == 1 {
-      printf "| %s | %s |\n", field, value
-      found = 1
-      next
-    }
-    { print }
-    END { exit (found ? 0 : 1) }
-  ' "$task_file" > "$temp_file" && mv "$temp_file" "$task_file"
-  local result=$?
-  rm -f "$temp_file" 2>/dev/null
-  return $result
-}
-
-assign_task() {
-  local task_file="$1"
-  local timestamp
-  timestamp=$(date '+%Y-%m-%d %H:%M')
-
-  if [ -f "$task_file" ]; then
-    update_task_metadata "$task_file" "Assigned To" "\`$AGENT_ID\`"
-    update_task_metadata "$task_file" "Assigned At" "\`$timestamp\`"
-    log_info "Assigned task to $AGENT_ID"
-  fi
-}
-
-unassign_task() {
-  local task_file="$1"
-
-  if [ -f "$task_file" ]; then
-    update_task_metadata "$task_file" "Assigned To" ""
-    update_task_metadata "$task_file" "Assigned At" ""
-    log_info "Unassigned task"
-  fi
-}
-
-refresh_assignment() {
-  local task_file="$1"
-  local timestamp
-  timestamp=$(date '+%Y-%m-%d %H:%M')
-
-  if [ -f "$task_file" ]; then
-    update_task_metadata "$task_file" "Assigned At" "\`$timestamp\`"
-    log_info "Refreshed assignment timestamp"
-  fi
-}
-
-# ============================================================================
-# Heartbeat (Refresh assignment to prevent stale detection)
-# ============================================================================
-
-HEARTBEAT_PID=""
-CURRENT_TASK_FILE=""
-
-start_heartbeat() {
-  local task_file="$1"
-  CURRENT_TASK_FILE="$task_file"
-
-  stop_heartbeat
-
-  (
-    trap "exit 0" INT TERM
-    while true; do
-      sleep "$AGENT_HEARTBEAT" &
-      wait $! 2>/dev/null || exit 0
-      if [ -f "$CURRENT_TASK_FILE" ]; then
-        refresh_assignment "$CURRENT_TASK_FILE"
-        local task_id
-        task_id=$(get_task_id_from_file "$CURRENT_TASK_FILE")
-        local lock_file
-        lock_file=$(get_lock_file "$task_id")
-        if [ -f "$lock_file" ]; then
-          local lock_tmp="${lock_file}.tmp.$$"
-          cat > "$lock_tmp" << EOF
-AGENT_ID="$AGENT_ID"
-LOCKED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
-PID="$$"
-TASK_ID="$task_id"
-EOF
-          mv "$lock_tmp" "$lock_file"
-        fi
-      fi
-    done
-  ) &
-  HEARTBEAT_PID=$!
-  log_info "Started heartbeat (PID: $HEARTBEAT_PID, interval: ${AGENT_HEARTBEAT}s)"
-}
-
-stop_heartbeat() {
-  if [ -n "$HEARTBEAT_PID" ] && kill -0 "$HEARTBEAT_PID" 2>/dev/null; then
-    kill "$HEARTBEAT_PID" 2>/dev/null || true
-    wait "$HEARTBEAT_PID" 2>/dev/null || true
-    log_info "Stopped heartbeat"
-  fi
-  HEARTBEAT_PID=""
-}
 
 # ============================================================================
 # Phase Monitor (Active Health Checking)
@@ -1471,7 +1116,7 @@ reset_model() {
 build_phase_prompt() {
   local prompt_file="$1"
   local task_id="$2"
-  local task_file="$3"
+  local task_prompt="$3"
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M')
 
@@ -1489,22 +1134,32 @@ build_phase_prompt() {
   # These give later phases visibility into what earlier phases changed
   local recent_commits="" changed_files="" task_commits=""
   if [[ "$prompt_file" == *"review"* ]] || [[ "$prompt_file" == *"verify"* ]]; then
-    recent_commits=$(git log --oneline -10 --grep="$task_id" 2>/dev/null || echo "(no commits yet)")
+    recent_commits=$(git log --oneline -10 2>/dev/null || echo "(no commits yet)")
   fi
   if [[ "$prompt_file" == *"test"* ]] || [[ "$prompt_file" == *"docs"* ]] || \
      [[ "$prompt_file" == *"review"* ]] || [[ "$prompt_file" == *"verify"* ]]; then
     changed_files=$(git diff main...HEAD --name-only 2>/dev/null | head -30 || echo "(unable to determine)")
-    task_commits=$(git log --oneline -15 --grep="$task_id" 2>/dev/null || echo "(no commits yet)")
+    task_commits=$(git log --oneline -15 2>/dev/null || echo "(no commits yet)")
   fi
+
+  # Accumulated context from previous verification attempts
+  local context_file
+  context_file=$(get_context_file "$task_id")
+  local accumulated_context=""
+  [ -f "$context_file" ] && accumulated_context=$(cat "$context_file")
 
   local prompt="$template"
   prompt="${prompt//\{\{TASK_ID\}\}/$task_id}"
-  prompt="${prompt//\{\{TASK_FILE\}\}/$task_file}"
+  prompt="${prompt//\{\{TASK_PROMPT\}\}/$task_prompt}"
+  # Legacy support: resolve {{TASK_FILE}} to empty (no longer used)
+  prompt="${prompt//\{\{TASK_FILE\}\}/}"
   prompt="${prompt//\{\{TIMESTAMP\}\}/$timestamp}"
   prompt="${prompt//\{\{RECENT_COMMITS\}\}/$recent_commits}"
   prompt="${prompt//\{\{CHANGED_FILES\}\}/$changed_files}"
   prompt="${prompt//\{\{TASK_COMMITS\}\}/$task_commits}"
   prompt="${prompt//\{\{AGENT_ID\}\}/$AGENT_ID}"
+  prompt="${prompt//\{\{ACCUMULATED_CONTEXT\}\}/$accumulated_context}"
+  prompt="${prompt//\{\{VERIFICATION_CONTEXT\}\}/${PHASE_VERIFICATION_CONTEXT:-}}"
 
   # Process {{include:path}} directives
   prompt=$(process_includes "$prompt")
@@ -1517,7 +1172,7 @@ run_phase_once() {
   local prompt_file="$2"
   local timeout="$3"
   local task_id="$4"
-  local task_file="$5"
+  local task_prompt="$5"
   local attempt="$6"
   local phase_idx="${7:-}"
   local total_phases="${8:-}"
@@ -1538,7 +1193,7 @@ run_phase_once() {
   echo "  Log: $phase_log"
 
   local prompt build_result=0
-  prompt=$(build_phase_prompt "$prompt_file" "$task_id" "$task_file") || build_result=$?
+  prompt=$(build_phase_prompt "$prompt_file" "$task_id" "$task_prompt") || build_result=$?
   if [ "$build_result" -ne 0 ]; then
     log_error "Failed to build prompt for $phase_name (prompt file: $PROMPTS_DIR/$prompt_file)"
     return 1
@@ -1755,7 +1410,7 @@ run_phase() {
   local timeout="$3"
   local skip="$4"
   local task_id="$5"
-  local task_file="$6"
+  local task_prompt="$6"
   local phase_idx="${7:-}"
   local total_phases="${8:-}"
 
@@ -1775,7 +1430,7 @@ run_phase() {
 
   while [ "$attempt" -le "$max_attempts" ]; do
     local result=0
-    run_phase_once "$phase_name" "$prompt_file" "$timeout" "$task_id" "$task_file" "$attempt" "$phase_idx" "$total_phases" || result=$?
+    run_phase_once "$phase_name" "$prompt_file" "$timeout" "$task_id" "$task_prompt" "$attempt" "$phase_idx" "$total_phases" || result=$?
 
     case $result in
       0)
@@ -1816,7 +1471,7 @@ run_phase() {
 
 run_all_phases() {
   local task_id="$1"
-  local task_file="$2"
+  local task_prompt="$2"
 
   log_info "Running ${#PHASES[@]} phases for task: $task_id"
 
@@ -1867,11 +1522,24 @@ run_all_phases() {
     fi
 
     local phase_result=0
-    run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file" "$phase_idx" "$total_phases" || phase_result=$?
+    # Use verification-gated execution for IMPLEMENT, TEST, REVIEW
+    case "$name" in
+      IMPLEMENT|TEST|REVIEW)
+        run_phase_with_verification "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
+        ;;
+      *)
+        run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
+        ;;
+    esac
 
     if [ "$phase_result" -eq 130 ]; then
       status_line_clear 2>/dev/null || true
       return 130
+    elif [ "$phase_result" -eq 3 ]; then
+      log_error "Phase $name exhausted verification budget - needs human input"
+      log_info "Re-run 'dk run' with the same prompt to resume from this phase"
+      status_line_clear 2>/dev/null || true
+      return 1
     elif [ "$phase_result" -ne 0 ]; then
       log_error "Phase $name failed - stopping task execution"
       status_line_clear 2>/dev/null || true
@@ -1916,26 +1584,22 @@ init_state() {
   chmod 700 "$RUN_LOG_DIR"
   # Auto-rotate old logs (>7 days)
   find "$LOGS_DIR" -maxdepth 1 -type d -mtime +7 ! -name 'logs' -exec rm -rf {} + 2>/dev/null || true
-  init_locks
 }
 
 save_session() {
   local session_id="$1"
-  local iteration="$2"
-  local status="$3"
+  local status="$2"
   local session_file="$STATE_DIR/session-$AGENT_ID"
 
   cat > "$session_file" << EOF
 SESSION_ID="$session_id"
 AGENT_ID="$AGENT_ID"
-ITERATION="$iteration"
 STATUS="$status"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
-NUM_TASKS="$NUM_TASKS"
 MODEL="${DOYAKEN_MODEL:-opus}"
 LOG_DIR="$RUN_LOG_DIR"
 EOF
-  log_info "Session state saved: $session_id (iteration $iteration)"
+  log_info "Session state saved: $session_id"
 }
 
 # Save phase progress for a task (enables phase-level resume)
@@ -1987,12 +1651,10 @@ load_session() {
     # Parse session file safely instead of sourcing (prevents code injection)
     SESSION_ID=$(grep '^SESSION_ID=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
     STATUS=$(grep '^STATUS=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
-    ITERATION=$(grep '^ITERATION=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
     LOG_DIR=$(grep '^LOG_DIR=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
 
     if [ -n "${SESSION_ID:-}" ] && [ "${STATUS:-}" = "running" ]; then
       log_heal "Found interrupted session: $SESSION_ID"
-      log_heal "Last iteration: ${ITERATION:-1}, Status: $STATUS"
       return 0
     fi
   fi
@@ -2062,31 +1724,12 @@ health_check() {
     log_success "Operating manual exists: $(basename "$AGENT_MD")"
   fi
 
-  for dir in 1.blocked 2.todo 3.doing 4.done _templates; do
-    if [ ! -d "$TASKS_DIR/$dir" ]; then
-      log_warn "Creating missing directory: $TASKS_DIR/$dir"
-      mkdir -p "$TASKS_DIR/$dir"
-    fi
-  done
-  log_success "Task directories ready"
-
-  if [ ! -d "$LOCKS_DIR" ]; then
-    mkdir -p "$LOCKS_DIR"
-  fi
-  log_success "Locks directory ready"
-
   local available_kb
   available_kb=$(df -k "$PROJECT_DIR" | awk 'NR==2 {print $4}')
   if [ "$available_kb" -lt 1048576 ]; then
     log_warn "Low disk space: $((available_kb / 1024))MB available"
   else
     log_success "Disk space OK: $((available_kb / 1024))MB available"
-  fi
-
-  local active_locks
-  active_locks=$(find "$LOCKS_DIR" -name "*.lock" 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$active_locks" -gt 0 ]; then
-    log_info "Active task locks: $active_locks"
   fi
 
   if [ "$issues" -gt 0 ]; then
@@ -2098,21 +1741,12 @@ health_check() {
   return 0
 }
 
-# ============================================================================
-# Validation
-# ============================================================================
-
 validate_environment() {
   log_step "Validating environment..."
 
-  if ! [[ "$NUM_TASKS" =~ ^[0-9]+$ ]]; then
-    log_error "Invalid number of tasks: $NUM_TASKS"
-    echo "Usage: doyaken run [number_of_tasks]"
-    exit 1
-  fi
-
-  if [ "$NUM_TASKS" -lt 1 ] || [ "$NUM_TASKS" -gt 50 ]; then
-    log_error "Number of tasks must be between 1 and 50"
+  if [ -z "${DOYAKEN_PROMPT:-}" ]; then
+    log_error "No prompt provided (DOYAKEN_PROMPT is empty)"
+    echo "Usage: dk run \"your prompt here\""
     exit 1
   fi
 
@@ -2120,490 +1754,233 @@ validate_environment() {
 }
 
 # ============================================================================
-# Task Management
+# Verification Gates (Quality Gate Checking)
 # ============================================================================
 
-# Get the actual folder path, supporting both old and new naming
-get_task_folder() {
-  local state="$1"
-  # Check for new numbered naming first
-  case "$state" in
-    blocked) [ -d "$TASKS_DIR/1.blocked" ] && echo "$TASKS_DIR/1.blocked" && return ;;
-    todo)    [ -d "$TASKS_DIR/2.todo" ] && echo "$TASKS_DIR/2.todo" && return ;;
-    doing)   [ -d "$TASKS_DIR/3.doing" ] && echo "$TASKS_DIR/3.doing" && return ;;
-    done)    [ -d "$TASKS_DIR/4.done" ] && echo "$TASKS_DIR/4.done" && return ;;
-  esac
-  # Fall back to old naming
-  echo "$TASKS_DIR/$state"
-}
+# Run a single quality gate command
+# Args: gate_name, gate_cmd
+# Sets: GATE_RESULT (output), returns 0=pass, 1=fail, 2=skip
+_run_gate() {
+  local gate_name="$1"
+  local gate_cmd="$2"
 
-count_tasks() {
-  local state="$1"
-  local dir
-  dir=$(get_task_folder "$state")
-  find "$dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' '
-}
-
-count_locked_tasks() {
-  find "$LOCKS_DIR" -maxdepth 1 -name "*.lock" 2>/dev/null | wc -l | tr -d ' '
-}
-
-get_doing_task_for_agent() {
-  local doing_dir
-  doing_dir=$(get_task_folder "doing")
-  for file in "$doing_dir"/*.md; do
-    [ -f "$file" ] || continue
-    local task_id
-    task_id=$(get_task_id_from_file "$file")
-
-    local lock_file
-    lock_file=$(get_lock_file "$task_id")
-
-    if [ -f "$lock_file" ]; then
-      local lock_agent
-      lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-      if [ "$lock_agent" = "$AGENT_ID" ]; then
-        echo "$file"
-        return 0
-      fi
-    fi
-  done
-
-  return 1
-}
-
-# Find orphaned tasks in 3.doing/ that don't have a valid lock from this agent
-# Returns: task file path and orphan reason via echo, or returns 1 if none found
-# Usage: local result; result=$(find_orphaned_doing_task) && read task_file orphan_reason <<< "$result"
-find_orphaned_doing_task() {
-  local doing_dir
-  doing_dir=$(get_task_folder "doing")
-
-  for file in "$doing_dir"/*.md; do
-    [ -f "$file" ] || continue
-    local task_id
-    task_id=$(get_task_id_from_file "$file")
-
-    local lock_file
-    lock_file=$(get_lock_file "$task_id")
-
-    # Skip tasks with valid lock from THIS agent (handled by get_doing_task_for_agent)
-    if [ -f "$lock_file" ]; then
-      local lock_agent
-      lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-      if [ "$lock_agent" = "$AGENT_ID" ]; then
-        continue
-      fi
-
-      # Check if lock is stale
-      if is_lock_stale "$lock_file"; then
-        log_heal "Found orphaned task $task_id (stale lock from $lock_agent)"
-        echo "$file stale:$lock_agent"
-        return 0
-      else
-        # Lock from different agent that isn't stale - this is an orphan we can offer to take over
-        log_heal "Found orphaned task $task_id (locked by $lock_agent)"
-        echo "$file locked:$lock_agent"
-        return 0
-      fi
-    else
-      # No lock file at all - orphaned
-      log_heal "Found orphaned task $task_id (no lock)"
-      echo "$file nolock"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-# Prompt user to resume an orphaned task with 60-second timeout defaulting to "yes"
-# Args: task_id, orphan_reason
-# Returns: 0 if user wants to resume, 1 if declined
-prompt_orphan_resume() {
-  local task_id="$1"
-  local orphan_reason="$2"
-
-  # In non-interactive mode, auto-resume
-  if [ "$AGENT_NO_PROMPT" = "1" ]; then
-    log_info "Auto-resuming orphaned task (AGENT_NO_PROMPT=1): $task_id"
-    return 0
+  # Empty command = SKIP
+  if [ -z "$gate_cmd" ]; then
+    return 2
   fi
 
-  # Check if we have a tty for interactive prompting
-  if ! [ -t 0 ]; then
-    log_info "Auto-resuming orphaned task (non-interactive): $task_id"
-    return 0
+  log_info "Running gate: $gate_name ($gate_cmd)"
+
+  local gate_output exit_code=0
+  local timeout_cmd=""
+  if command -v gtimeout &>/dev/null; then
+    timeout_cmd="gtimeout --foreground"
+  elif command -v timeout &>/dev/null; then
+    timeout_cmd="timeout --foreground"
   fi
 
-  echo ""
-  log_warn "Found orphaned task in doing/"
-  echo "  Task: $task_id"
-  case "$orphan_reason" in
-    nolock)
-      echo "  Reason: No lock file (previous run may have crashed)"
-      ;;
-    stale:*)
-      local prev_agent="${orphan_reason#stale:}"
-      echo "  Reason: Stale lock from $prev_agent (process no longer running)"
-      ;;
-    locked:*)
-      local prev_agent="${orphan_reason#locked:}"
-      echo "  Reason: Locked by $prev_agent (may be abandoned)"
-      ;;
-  esac
-  echo ""
-  echo "  Resume this task? [Y/n] (auto-yes in 60s)"
-
-  local response=""
-  local timeout=60
-
-  # Read with timeout
-  if read -r -t "$timeout" response 2>/dev/null; then
-    # User provided input
-    case "$response" in
-      [nN]|[nN][oO])
-        log_info "User declined to resume orphaned task: $task_id"
-        return 1
-        ;;
-      *)
-        log_info "User chose to resume orphaned task: $task_id"
-        return 0
-        ;;
-    esac
+  if [ -n "$timeout_cmd" ]; then
+    gate_output=$($timeout_cmd 300s bash -c "cd '$PROJECT_DIR' && $gate_cmd" 2>&1 | tail -50) || exit_code=$?
   else
-    # Timeout - default to yes
-    echo ""
-    log_info "Timeout - auto-resuming orphaned task: $task_id"
+    gate_output=$(bash -c "cd '$PROJECT_DIR' && $gate_cmd" 2>&1 | tail -50) || exit_code=$?
+  fi
+
+  GATE_RESULT="$gate_output"
+
+  if [ "$exit_code" -eq 0 ]; then
+    log_success "Gate $gate_name: PASS"
     return 0
-  fi
-}
-
-# Move a task from doing/ back to todo/, clearing locks and assignment
-move_task_to_todo() {
-  local task_file="$1"
-  local task_id
-  task_id=$(get_task_id_from_file "$task_file")
-
-  # Remove any existing lock
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-  if [ -f "$lock_file" ]; then
-    rm -f "$lock_file"
-    log_heal "Removed stale lock for $task_id"
-  fi
-
-  # Clear assignment metadata
-  unassign_task "$task_file"
-
-  # Move to todo/
-  local todo_dir new_path
-  todo_dir=$(get_task_folder "todo")
-  mkdir -p "$todo_dir"
-  new_path="$todo_dir/$(basename "$task_file")"
-  if ! mv "$task_file" "$new_path"; then
-    log_error "Failed to move task file to $new_path"
+  else
+    log_warn "Gate $gate_name: FAIL (exit $exit_code)"
     return 1
   fi
-
-  log_info "Moved declined task back to todo: $task_id"
-
-  # Commit the move
-  commit_task_files "chore: Move orphaned task back to todo $task_id" "$task_id"
 }
 
-get_next_available_task() {
-  # 1. First check for OUR doing task (we have valid lock)
-  local our_doing
-  our_doing=$(get_doing_task_for_agent) || true
-  if [ -n "$our_doing" ]; then
-    echo "$our_doing"
-    return 0
-  fi
+# Run verification gates for a phase
+# Args: phase_name
+# Returns: 0=all pass (or all skipped), 1=at least one failed
+# Sets: GATE_ERRORS (combined error output)
+run_verification_gates() {
+  local phase_name="$1"
+  local any_failed=0
+  local any_configured=0
+  GATE_ERRORS=""
 
-  # 2. Check todo/ for available tasks
-  local todo_dir
-  todo_dir=$(get_task_folder "todo")
-  for file in $(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
-    [ -f "$file" ] || continue
-    local task_id
-    task_id=$(get_task_id_from_file "$file")
+  local gates=()
+  case "$phase_name" in
+    IMPLEMENT|REVIEW)
+      gates=("build:${QUALITY_BUILD_CMD:-}" "lint:${QUALITY_LINT_CMD:-}" "format:${QUALITY_FORMAT_CMD:-}")
+      ;;
+    TEST)
+      gates=("test:${QUALITY_TEST_CMD:-}")
+      ;;
+    *)
+      return 0  # No gates for other phases
+      ;;
+  esac
 
-    if ! is_task_locked "$task_id"; then
-      echo "$file"
-      return 0
-    else
-      log_info "Skipping $task_id (locked by another agent)"
+  local gate_results=""
+  for gate_entry in "${gates[@]}"; do
+    local gate_name="${gate_entry%%:*}"
+    local gate_cmd="${gate_entry#*:}"
+
+    local gate_rc=0
+    GATE_RESULT=""
+    _run_gate "$gate_name" "$gate_cmd" || gate_rc=$?
+
+    case "$gate_rc" in
+      0) gate_results="${gate_results}${gate_name}=PASS " ;;
+      1)
+        gate_results="${gate_results}${gate_name}=FAIL "
+        GATE_ERRORS="${GATE_ERRORS}--- ${gate_name} ---\n${GATE_RESULT}\n\n"
+        any_failed=1
+        any_configured=1
+        ;;
+      2) gate_results="${gate_results}${gate_name}=SKIP " ;;
+    esac
+
+    # Track that at least one gate was configured (not skipped)
+    if [ "$gate_rc" -eq 0 ]; then
+      any_configured=1
     fi
   done
 
-  # 3. Check for orphaned tasks in doing/ (no lock, stale lock, or different agent's lock)
-  local orphan_result orphan_file orphan_reason
-  orphan_result=$(find_orphaned_doing_task) || true
-  if [ -n "$orphan_result" ]; then
-    # Parse result: "filepath reason"
-    orphan_file="${orphan_result%% *}"
-    orphan_reason="${orphan_result#* }"
-
-    local orphan_task_id
-    orphan_task_id=$(get_task_id_from_file "$orphan_file")
-
-    # Prompt user (or auto-resume in non-interactive mode)
-    if prompt_orphan_resume "$orphan_task_id" "$orphan_reason"; then
-      # User wants to resume - clear stale lock if any and acquire our lock
-      local lock_file
-      lock_file=$(get_lock_file "$orphan_task_id")
-      if [ -f "$lock_file" ]; then
-        rm -f "$lock_file"
-        log_heal "Cleared stale/orphan lock for $orphan_task_id"
-      fi
-
-      if acquire_lock "$orphan_task_id"; then
-        log_info "Resuming orphaned task: $orphan_task_id"
-        echo "$orphan_file"
-        return 0
-      else
-        log_warn "Failed to acquire lock for orphaned task - another agent may have claimed it"
-      fi
-    else
-      # User declined - move task back to todo
-      move_task_to_todo "$orphan_file"
-      # Continue looking (recursively check for more orphans or other tasks)
-      get_next_available_task
-      return $?
-    fi
+  if [ "$any_configured" -eq 0 ]; then
+    log_info "No quality gates configured - pass-through"
+    return 0
   fi
 
-  return 1
+  log_info "Gate results: $gate_results"
+
+  if [ "$any_failed" -eq 1 ]; then
+    return 1
+  fi
+  return 0
 }
 
-show_task_summary() {
-  log_info "Task Summary:"
-  echo "  - Blocked: $(count_tasks blocked)"
-  echo "  - Todo:    $(count_tasks todo)"
-  echo "  - Doing:   $(count_tasks doing)"
-  echo "  - Done:    $(count_tasks "done")"
-  echo "  - Locked:  $(count_locked_tasks)"
-}
+# Run a phase with verification gates and retry loop
+# Wraps run_phase() with gate checking and accumulated context
+run_phase_with_verification() {
+  local phase_name="$1"
+  local prompt_file="$2"
+  local timeout="$3"
+  local skip="$4"
+  local task_id="$5"
+  local task_prompt="$6"
+  local phase_idx="${7:-}"
+  local total_phases="${8:-}"
 
-# ============================================================================
-# Retry Logic with Exponential Backoff
-# ============================================================================
-
-calculate_backoff() {
-  local attempt="$1"
-  local base_delay="$AGENT_RETRY_DELAY"
-  local max_delay=60
-
-  local delay=$((base_delay * (2 ** (attempt - 1))))
-  if [ "$delay" -gt "$max_delay" ]; then
-    delay=$max_delay
+  # If phase is skipped, delegate directly
+  if [ "$skip" = "1" ]; then
+    run_phase "$phase_name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases"
+    return $?
   fi
 
-  echo "$delay"
-}
+  # Get retry budget for this phase
+  local phase_lower
+  phase_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
+  local budget_var="RETRY_BUDGET_${phase_name}"
+  local max_verification_attempts="${!budget_var:-3}"
 
-run_with_retry() {
-  local iteration="$1"
-  local max_retries="$AGENT_MAX_RETRIES"
-  local attempt=1
-
-  # Check circuit breaker before attempting
-  if declare -f cb_should_proceed &>/dev/null; then
-    local cb_check=0
-    cb_should_proceed || cb_check=$?
-    if [ "$cb_check" -eq 1 ]; then
-      log_heal "Circuit breaker OPEN — skipping iteration $iteration"
-      return 1
-    fi
-  fi
-
-  while [ "$attempt" -le "$max_retries" ]; do
-    # Check for interrupt before each attempt
+  local verification_attempt=1
+  while [ "$verification_attempt" -le "$max_verification_attempts" ]; do
+    # Check for interrupt
     if [ "$INTERRUPTED" = "1" ]; then
       return 130
     fi
 
-    if [ "$attempt" -gt 1 ]; then
-      local backoff
-      backoff=$(calculate_backoff "$attempt")
-      log_heal "Retry attempt $attempt/$max_retries (waiting ${backoff}s)..."
-      sleep "$backoff"
+    # Clear verification context for first attempt
+    if [ "$verification_attempt" -eq 1 ]; then
+      PHASE_VERIFICATION_CONTEXT=""
     fi
 
-    if run_agent_iteration "$iteration" "$attempt"; then
-      CONSECUTIVE_FAILURES=0
-      # Record success in circuit breaker
-      if declare -f cb_record_iteration &>/dev/null; then
-        cb_record_iteration 0 "" "${PROJECT_DIR:-.}"
-        cb_save_state "${AGENT_ID:-agent}"
-      fi
+    # Run the phase (inner loop handles rate-limit retries)
+    local phase_result=0
+    run_phase "$phase_name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
+
+    # Propagate interrupt
+    if [ "$phase_result" -eq 130 ]; then
+      return 130
+    fi
+
+    # Phase failed at the agent level (not gate level)
+    if [ "$phase_result" -ne 0 ]; then
+      return "$phase_result"
+    fi
+
+    # Phase succeeded - now run verification gates
+    local gate_result=0
+    run_verification_gates "$phase_name" || gate_result=$?
+
+    if [ "$gate_result" -eq 0 ]; then
+      # All gates passed
+      log_success "$phase_name verification gates passed"
       return 0
     fi
 
-    ((++attempt))
+    # Gates failed - prepare context for retry
+    if [ "$verification_attempt" -lt "$max_verification_attempts" ]; then
+      log_warn "$phase_name verification failed (attempt $verification_attempt/$max_verification_attempts) - retrying with error context"
+
+      # Build verification context for next attempt
+      PHASE_VERIFICATION_CONTEXT="VERIFICATION FAILURE (attempt $verification_attempt/$max_verification_attempts):
+The previous $phase_name attempt completed but quality gates FAILED.
+Fix these errors before proceeding:
+
+$(echo -e "$GATE_ERRORS")"
+
+      # Append to accumulated context
+      append_phase_context "$task_id" "$phase_name" "$verification_attempt" \
+        "Gate failures:\n$(echo -e "$GATE_ERRORS" | head -30)"
+    fi
+
+    ((++verification_attempt))
   done
 
-  log_error "All $max_retries retry attempts failed for iteration $iteration"
-  log_info "Troubleshooting: check logs in $RUN_LOG_DIR, or increase AGENT_MAX_RETRIES"
-  ((++CONSECUTIVE_FAILURES))
-
-  # Record failure in circuit breaker (replaces old naive threshold)
-  if declare -f cb_record_iteration &>/dev/null; then
-    local last_log=""
-    # Find most recent phase log
-    last_log=$(ls -t "$RUN_LOG_DIR"/phase-*.log 2>/dev/null | head -1 || echo "")
-    cb_record_iteration 1 "$last_log" "${PROJECT_DIR:-.}"
-    cb_save_state "${AGENT_ID:-agent}"
-  fi
-
-  return 1
+  # All verification attempts exhausted
+  log_error "$phase_name failed verification after $max_verification_attempts attempts"
+  log_info "Check logs: $RUN_LOG_DIR"
+  return 3  # Needs human input
 }
 
 # ============================================================================
-# Agent Execution
+# Context Tracking
 # ============================================================================
 
-run_agent_iteration() {
-  local iteration="$1"
-  local attempt="${2:-1}"
-  local session_id
+# Get path to context file for a task
+get_context_file() {
+  local task_id="$1"
+  echo "$STATE_DIR/context-${task_id}.md"
+}
 
-  session_id="$AGENT_ID-iter$iteration"
+# Append structured context from a phase attempt
+append_phase_context() {
+  local task_id="$1"
+  local phase="$2"
+  local attempt="$3"
+  local content="$4"
 
-  log_header "Task $iteration of $NUM_TASKS (Attempt $attempt)"
+  local context_file
+  context_file=$(get_context_file "$task_id")
 
-  save_session "$session_id" "$iteration" "running"
+  # Append structured block
+  {
+    echo ""
+    echo "## Phase: $phase — Attempt $attempt"
+    echo "Timestamp: $(date '+%Y-%m-%d %H:%M')"
+    echo -e "$content"
+    echo ""
+  } >> "$context_file"
 
-  # Reset exit detection counters for new task
-  if declare -f ed_reset &>/dev/null; then
-    ed_reset
-  fi
-
-  show_task_summary
-
-  local task_file
-  task_file=$(get_next_available_task) || true
-
-  if [ -z "$task_file" ]; then
-    log_info "No available tasks (all locked or empty)"
-    log_info "Agent will create one from PROJECT.md or wait for tasks"
-  else
-    local task_id
-    task_id=$(get_task_id_from_file "$task_file")
-
-    if [[ "$task_file" == *"/doing/"* ]]; then
-      log_info "Resuming task: $task_id"
-      # Refresh assignment to this agent (handles orphan takeover)
-      assign_task "$task_file"
-    else
-      log_info "Picking up task: $task_id"
-
-      if ! acquire_lock "$task_id"; then
-        log_warn "Failed to acquire lock for $task_id - another agent got it"
-        return 1
-      fi
-
-      local new_path doing_dir
-      doing_dir=$(get_task_folder "doing")
-      mkdir -p "$doing_dir"
-      new_path="$doing_dir/$(basename "$task_file")"
-      if ! mv "$task_file" "$new_path"; then
-        log_error "Failed to move task to doing: $new_path"
-        release_lock "$task_id"
-        return 1
-      fi
-      task_file="$new_path"
-
-      assign_task "$task_file"
-
-      commit_task_files "chore: Start task $task_id" "$task_id"
+  # Cap at ~200 lines - trim oldest entries if exceeded
+  if [ -f "$context_file" ]; then
+    local line_count
+    line_count=$(wc -l < "$context_file" | tr -d ' ')
+    if [ "$line_count" -gt 200 ]; then
+      local trim_lines=$((line_count - 150))
+      tail -n +$((trim_lines + 1)) "$context_file" > "${context_file}.tmp"
+      mv "${context_file}.tmp" "$context_file"
     fi
-  fi
-
-  if [ "$AGENT_DRY_RUN" = "1" ]; then
-    log_warn "DRY RUN - would execute phases here"
-    log_info "Phases: ${PHASES[*]}"
-    save_session "$session_id" "$iteration" "dry-run"
-    return 0
-  fi
-
-  if [ -z "${task_file:-}" ]; then
-    log_error "No task file available for phase execution"
-    save_session "$session_id" "$iteration" "no-task"
-    return 1
-  fi
-
-  local task_id
-  task_id=$(get_task_id_from_file "$task_file")
-
-  start_heartbeat "$task_file"
-
-  log_step "Running modular phase-based execution..."
-  echo "  Task: $task_id"
-  echo "  Model: $CURRENT_MODEL"
-  echo "  Phases: EXPAND → TRIAGE → PLAN → IMPLEMENT → TEST → DOCS → REVIEW → VERIFY"
-  if [ "$AGENT_QUIET" = "1" ]; then
-    echo "  Output: quiet"
-  elif [ "$AGENT_PROGRESS" != "1" ]; then
-    echo "  Output: full stream"
-  else
-    echo "  Output: progress"
-  fi
-  echo ""
-
-  local exit_code=0
-  run_all_phases "$task_id" "$task_file" || exit_code=$?
-
-  stop_heartbeat
-
-  # Propagate interrupt immediately
-  if [ "$exit_code" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
-    save_session "$session_id" "$iteration" "interrupted"
-    return 130
-  fi
-
-  if [ "$exit_code" -eq 0 ]; then
-    # Run exit detection confidence scoring
-    if declare -f ed_evaluate_completion &>/dev/null; then
-      local last_log=""
-      last_log=$(ls -t "$RUN_LOG_DIR"/phase-*.log 2>/dev/null | head -1 || echo "")
-      local ed_result=0
-      ed_evaluate_completion "$last_log" "$task_id" "$PROJECT_DIR" "$TASKS_DIR" || ed_result=$?
-      if [ "$ed_result" -eq 2 ]; then
-        log_warn "Repeated low-confidence completions — proceeding but flagging for review"
-      fi
-    fi
-
-    log_success "Task iteration completed successfully"
-    save_session "$session_id" "$iteration" "completed"
-
-    # Desktop notification + bell
-    if declare -f notify_task_complete &>/dev/null; then
-      notify_task_complete "$task_id" "completed"
-    fi
-
-    reset_model
-
-    local done_file done_dir
-    done_dir=$(get_task_folder "done")
-    done_file="$done_dir/$(basename "$task_file")"
-    if [ -f "$done_file" ]; then
-      release_lock "$task_id"
-      unassign_task "$done_file"
-      commit_task_files "chore: Complete task $task_id" "$task_id"
-    fi
-
-    return 0
-  else
-    log_error "Task iteration failed"
-    save_session "$session_id" "$iteration" "failed"
-
-    # Desktop notification on failure
-    if declare -f notify_task_complete &>/dev/null; then
-      notify_task_complete "$task_id" "failed"
-    fi
-    return 1
   fi
 }
 
@@ -2613,51 +1990,12 @@ run_agent_iteration() {
 
 cleanup() {
   if [ "$INTERRUPTED" = "1" ]; then
-    log_info "Interrupted - preserving task state for resume..."
-
-    stop_phase_monitor
-    stop_heartbeat
-
-    rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
-
-    # Run taskboard regeneration
-    local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
-    if [ ! -f "$taskboard_script" ]; then
-      taskboard_script="$SCRIPTS_DIR/taskboard.sh"
-    fi
-    if [ -x "$taskboard_script" ]; then
-      DOYAKEN_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
-    fi
-
-    log_info "Task preserved in doing/ - run 'doyaken' to resume"
+    log_info "Interrupted - run 'dk run' again to resume"
   else
     log_info "Cleaning up..."
-
-    stop_phase_monitor
-    stop_heartbeat
-
-    release_all_locks
-
-    rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
-
-    local doing_dir
-    doing_dir=$(get_task_folder "doing")
-    for file in "$doing_dir"/*.md; do
-      [ -f "$file" ] || continue
-      if grep -q "$AGENT_ID" "$file" 2>/dev/null; then
-        unassign_task "$file"
-      fi
-    done
-
-    # Run taskboard regeneration
-    local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
-    if [ ! -f "$taskboard_script" ]; then
-      taskboard_script="$SCRIPTS_DIR/taskboard.sh"
-    fi
-    if [ -x "$taskboard_script" ]; then
-      DOYAKEN_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
-    fi
   fi
+
+  stop_phase_monitor
 }
 
 handle_interrupt() {
@@ -2667,10 +2005,8 @@ handle_interrupt() {
 
   # Kill background monitors immediately (they now have signal handlers)
   stop_phase_monitor
-  stop_heartbeat
 
   # Kill all remaining child processes (agent pipeline, tee, etc.)
-  # Use pkill to find children of this shell process
   pkill -P $$ 2>/dev/null || true
 
   exit 130
@@ -2684,17 +2020,26 @@ trap cleanup EXIT
 # ============================================================================
 
 main() {
-  log_header "Doyaken Agent Runner (Phase-Based)"
+  # Read prompt from environment (set by cli.sh)
+  local task_prompt="${DOYAKEN_PROMPT:-}"
+  if [ -z "$task_prompt" ]; then
+    log_error "No prompt provided. Usage: dk run \"your prompt here\""
+    exit 1
+  fi
+
+  # Generate a task ID from the prompt slug (for log naming, context file)
+  local task_id
+  task_id=$(echo "$task_prompt" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-50)
+  task_id="${task_id:-task}"
+
+  log_header "Doyaken Agent Runner"
   echo ""
   echo "  Project: $PROJECT_DIR"
-  echo "  Data: $DATA_DIR"
-  echo "  Worker ID: $AGENT_ID"
-  echo "  Tasks to run: $NUM_TASKS"
+  echo "  Prompt: ${task_prompt:0:80}$([ ${#task_prompt} -gt 80 ] && echo "...")"
+  echo "  Task ID: $task_id"
   echo "  AI Agent: $DOYAKEN_AGENT"
   echo "  Model: $DOYAKEN_MODEL"
   echo "  Max retries: $AGENT_MAX_RETRIES per phase"
-  echo "  Lock timeout: ${AGENT_LOCK_TIMEOUT}s ($(( AGENT_LOCK_TIMEOUT / 3600 ))h)"
-  echo "  Heartbeat: ${AGENT_HEARTBEAT}s ($(( AGENT_HEARTBEAT / 60 ))min)"
   echo "  Phase monitor: every ${PHASE_MONITOR_INTERVAL}s, stall warning at ${PHASE_STALL_THRESHOLD}s"
   if [ "$AGENT_QUIET" = "1" ]; then
     echo "  Output: quiet (no streaming)"
@@ -2729,10 +2074,8 @@ main() {
     exit 1
   fi
 
-  local start_iteration=1
+  # Resume from interrupted session if available
   if load_session; then
-    log_heal "Resuming from iteration ${ITERATION:-1}"
-    start_iteration="${ITERATION:-1}"
     if [ -n "${LOG_DIR:-}" ] && [ -d "$LOG_DIR" ]; then
       RUN_LOG_DIR="$LOG_DIR"
       log_info "Resuming logs in: $RUN_LOG_DIR"
@@ -2741,9 +2084,6 @@ main() {
 
   validate_environment
 
-  local completed=0
-  local failed=0
-  local skipped=0
   CONSECUTIVE_FAILURES=$(get_consecutive_failures)
 
   # Load circuit breaker state from previous run
@@ -2751,61 +2091,48 @@ main() {
     cb_load_state "${AGENT_ID:-agent}"
   fi
 
-  for ((i=start_iteration; i<=NUM_TASKS; i++)); do
-    # Check for interrupt before starting next task
-    if [ "$INTERRUPTED" = "1" ]; then
-      log_warn "Interrupted - stopping task loop"
-      break
-    fi
+  # Save session as running
+  save_session "$SESSION_ID" "running"
 
-    local retry_result=0
-    run_with_retry "$i" || retry_result=$?
+  # Single-shot execution: run all phases for the prompt
+  local run_result=0
+  run_all_phases "$task_id" "$task_prompt" || run_result=$?
 
-    if [ "$retry_result" -eq 0 ]; then
-      ((++completed))
-      # Track for periodic review
-      review_tracker_increment > /dev/null 2>&1 || true
-    elif [ "$retry_result" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
-      log_warn "Interrupted - stopping task loop"
-      break
-    else
-      local available
-      available=$(get_next_available_task) || true
-      if [ -z "$available" ] && [ "$(count_tasks todo)" -eq 0 ]; then
-        log_info "No more tasks available - stopping early"
-        ((++skipped))
-        break
-      fi
-      ((++failed))
-      log_warn "Moving to next task after exhausting retries..."
-    fi
-
-    if [ "$i" -lt "$NUM_TASKS" ]; then
-      sleep 2
-    fi
-  done
-
-  if [ "$failed" -eq 0 ]; then
-    clear_session
+  if [ "$run_result" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
+    log_warn "Interrupted during execution"
+    save_session "$SESSION_ID" "interrupted"
+    exit 130
   fi
 
-  log_header "Run Complete"
-  echo ""
-  echo "  Agent: $AGENT_ID"
-  echo "  Project: $PROJECT_DIR"
-  echo "  Completed: $completed"
-  echo "  Failed: $failed"
-  echo "  Skipped: $skipped"
-  echo "  Logs: $RUN_LOG_DIR"
-  echo ""
-  show_task_summary
-
-  if [ "$failed" -gt 0 ]; then
-    log_warn "Some tasks failed - run 'doyaken' again to retry"
+  if [ "$run_result" -eq 3 ]; then
+    log_warn "Execution paused - human input needed"
+    log_info "Check logs for details, then re-run: dk run \"$task_prompt\""
+    save_session "$SESSION_ID" "paused"
     exit 1
   fi
 
-  log_success "All tasks completed successfully!"
+  if [ "$run_result" -ne 0 ]; then
+    log_error "Execution failed (exit code: $run_result)"
+    log_info "Check logs: $RUN_LOG_DIR"
+    save_session "$SESSION_ID" "failed"
+    exit 1
+  fi
+
+  # Success
+  clear_session
+  clear_phase_progress
+
+  log_header "Run Complete"
+  echo ""
+  echo "  Project: $PROJECT_DIR"
+  echo "  Prompt: ${task_prompt:0:80}$([ ${#task_prompt} -gt 80 ] && echo "...")"
+  echo "  Logs: $RUN_LOG_DIR"
+  echo ""
+
+  log_success "Execution completed successfully!"
+
+  # Track for periodic review
+  review_tracker_increment > /dev/null 2>&1 || true
 
   # Check if periodic review should be triggered
   if review_tracker_is_enabled && review_tracker_should_trigger; then

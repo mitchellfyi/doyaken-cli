@@ -115,4 +115,6 @@ Add to Work Log:
 - Scale spec depth to task complexity - don't over-specify trivial work
 - Mark anything unclear with `[NEEDS CLARIFICATION]`
 
-Task file: {{TASK_FILE}}
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}

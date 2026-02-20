@@ -59,4 +59,8 @@ DOYAKEN_STATUS:
 - Do NOT update documentation (later phase)
 - FOCUS only on implementation code
 
-Task file: {{TASK_FILE}}
+{{VERIFICATION_CONTEXT}}
+
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}

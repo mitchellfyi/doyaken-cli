@@ -62,4 +62,6 @@ If ready, update task metadata:
 - If quality gates are missing, flag as risk
 - If `[NEEDS CLARIFICATION]` markers exist, STOP and report them
 
-Task file: {{TASK_FILE}}
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}

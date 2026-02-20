@@ -62,4 +62,6 @@ Add to Work Log:
 - Be SPECIFIC - vague plans lead to vague implementations
 - If something already exists and is complete, note it and move on
 
-Task file: {{TASK_FILE}}
+{{ACCUMULATED_CONTEXT}}
+
+Task prompt: {{TASK_PROMPT}}

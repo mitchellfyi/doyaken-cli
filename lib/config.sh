@@ -265,6 +265,20 @@ load_periodic_review_config() {
 }
 
 # ============================================================================
+# Retry Budget Configuration
+# ============================================================================
+
+# Load retry budget settings for verification gates
+# Usage: load_retry_budget_config "manifest_file"
+load_retry_budget_config() {
+  local manifest_file="${1:-}"
+
+  _load_config "RETRY_BUDGET_IMPLEMENT" "retry_budget.implement" "5" "$manifest_file"
+  _load_config "RETRY_BUDGET_TEST"      "retry_budget.test"      "3" "$manifest_file"
+  _load_config "RETRY_BUDGET_REVIEW"    "retry_budget.review"    "3" "$manifest_file"
+}
+
+# ============================================================================
 # Main Configuration Loader
 # ============================================================================
 
@@ -282,6 +296,7 @@ load_all_config() {
   load_agent_config "$manifest_file"
   load_output_config "$manifest_file"
   load_periodic_review_config "$manifest_file"
+  load_retry_budget_config "$manifest_file"
 }
 
 # ============================================================================
@@ -310,8 +325,6 @@ show_effective_config() {
   echo "  model: ${DOYAKEN_MODEL:-(auto)}"
   echo "  max_retries: ${AGENT_MAX_RETRIES:-2}"
   echo "  retry_delay: ${AGENT_RETRY_DELAY:-5}s"
-  echo "  lock_timeout: ${AGENT_LOCK_TIMEOUT:-10800}s"
-  echo "  heartbeat_interval: ${AGENT_HEARTBEAT:-3600}s"
   echo "  monitor_interval: ${PHASE_MONITOR_INTERVAL:-30}s"
   echo "  stall_threshold: ${PHASE_STALL_THRESHOLD:-180}s"
   echo "  no_fallback: ${AGENT_NO_FALLBACK:-0}"
@@ -344,6 +357,12 @@ show_effective_config() {
   echo "  docs: ${SKIP_DOCS:-0}"
   echo "  review: ${SKIP_REVIEW:-0}"
   echo "  verify: ${SKIP_VERIFY:-0}"
+  echo ""
+
+  echo "## Retry Budget (verification gates)"
+  echo "  implement: ${RETRY_BUDGET_IMPLEMENT:-5}"
+  echo "  test: ${RETRY_BUDGET_TEST:-3}"
+  echo "  review: ${RETRY_BUDGET_REVIEW:-3}"
   echo ""
 
   echo "## Periodic Review"

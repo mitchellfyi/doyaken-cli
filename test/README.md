@@ -12,7 +12,7 @@ npm run test
 bats test/unit/core.bats
 
 # Run tests matching a pattern
-bats test/unit/core.bats --filter "lock"
+bats test/unit/core.bats --filter "session"
 ```
 
 ## Directory Structure
@@ -73,38 +73,6 @@ MOCK_OUTPUT="custom response" MOCK_EXIT_CODE=1 ./test/mocks/claude -p "test"
 
 The `test_helper.bash` file provides utilities for test setup.
 
-### Lock Management
-
-```bash
-# Create a lock file
-create_test_lock "task-001" "agent-id" "$$"
-
-# Create a stale lock (backdated 4 hours)
-create_stale_lock "task-001"
-
-# Wait for lock to appear/disappear
-wait_for_lock "task-001" 5 "exists"   # Wait up to 5s for lock
-wait_for_lock "task-001" 5 "gone"     # Wait up to 5s for removal
-```
-
-### Task Creation
-
-```bash
-# Create task in specific folder
-create_test_task "003-001-my-task" "todo"
-create_test_task "003-001-my-task" "doing" "# Custom content"
-```
-
-### Background Process Tracking
-
-```bash
-# Track background process for cleanup
-track_background sleep 10
-
-# Clean up all tracked processes (called in teardown)
-cleanup_background_processes
-```
-
 ### Test Environment Setup
 
 ```bash
@@ -112,10 +80,15 @@ cleanup_background_processes
 setup_core_test_env
 
 # Creates:
-# - $DOYAKEN_PROJECT/.doyaken/tasks/{1.blocked,2.todo,3.doing,4.done}
-# - $DOYAKEN_PROJECT/.doyaken/locks
 # - $DOYAKEN_PROJECT/.doyaken/state
 # - $DOYAKEN_PROJECT/.doyaken/logs
+```
+
+### Mock Project Creation
+
+```bash
+# Create a mock project with manifest
+create_mock_project "$TEST_TEMP_DIR/project"
 ```
 
 ## Writing Tests
@@ -125,18 +98,17 @@ setup_core_test_env
 Follow the Arrange-Act-Assert pattern:
 
 ```bash
-@test "lock: acquire creates lock file with correct content" {
+@test "session: save creates file with correct content" {
   # Arrange
-  setup_core_test_env
-  source_core_functions
-  local task_id="003-001-test-task"
+  _setup_core_test
 
   # Act
-  acquire_lock "$task_id"
+  save_session "session-123" "running"
 
   # Assert
-  [ -f "$LOCKS_DIR/${task_id}.lock" ]
-  grep -q "AGENT_ID=\"$AGENT_ID\"" "$LOCKS_DIR/${task_id}.lock"
+  local session_file="$STATE_DIR/session-test-worker"
+  [ -f "$session_file" ]
+  grep -q "SESSION_ID=\"session-123\"" "$session_file"
 }
 ```
 
@@ -169,18 +141,17 @@ fi
 
 Test individual functions in isolation:
 
-- Lock acquisition/release
-- Stale lock detection
-- Task selection
-- Model fallback
-- Session state
-- Backoff calculation
+- Model fallback (opus -> sonnet, gpt-5 -> o4-mini)
+- Session state (save, load, clear, resume)
+- Health checks (status tracking, consecutive failures)
+- Prompt file resolution and include processing
+- Verification gates and retry logic
 
 ### Integration Tests (`test/integration/`)
 
 Test complete workflows:
 
-- Task state transitions (todo → doing → done)
-- Concurrent agent coordination
-- Failure recovery
-- Interrupted workflow resume
+- Single-shot prompt execution
+- Verification gate pass/fail cycles
+- Failure recovery and interrupt handling
+- Phase resume after crash

@@ -1,25 +1,26 @@
 # Doyaken
 
-> A standalone multi-project autonomous agent CLI that works with any AI coding agent.
+> A coding agent that delivers robust, working code through phased execution with verification loops.
 
 ## Vision
 
-Doyaken is a universal task runner for AI coding agents. Install once globally, use on any project. It manages the task lifecycle, coordinates parallel agents, and provides self-healing execution - regardless of which underlying AI agent (Claude, Cursor, Codex, Gemini, Copilot, OpenCode) you choose to use.
+Doyaken is a single-shot execution engine for AI coding agents. Give it a prompt, and it runs the work through an 8-phase pipeline with built-in verification gates that retry until the code actually builds, lints, and passes tests. It works with any AI agent (Claude, Cursor, Codex, Gemini, Copilot, OpenCode) and installs once globally for all your projects.
 
 ## Goals
 
-1. **Agent Agnostic**: Support multiple AI coding agents with a consistent interface
-2. **Multi-Project**: Global installation manages multiple projects via registry
-3. **Autonomous Operation**: 8-phase execution with self-healing and automatic retries
-4. **Parallel Execution**: Multiple agents can work simultaneously with lock coordination
+1. **Robust output**: Code that builds, passes linting, and passes tests -- verified automatically
+2. **Agent agnostic**: Support multiple AI coding agents with a consistent interface
+3. **Single-shot execution**: One prompt in, working code out. No task queue, no project management.
+4. **Self-healing**: Automatic retries, model fallback, crash recovery, verification loops
 
 ## Non-Goals
 
 Things explicitly out of scope:
 
-- Not a replacement for any specific AI agent - it's a wrapper/orchestrator
-- Won't implement AI capabilities itself - relies on underlying agents
-- Not trying to be an IDE extension or GUI tool - CLI only
+- Not a task manager or project manager -- use external tools for that
+- Not a replacement for any specific AI agent -- it's an orchestrator
+- Won't implement AI capabilities itself -- relies on underlying agents
+- Not trying to be an IDE extension or GUI tool -- CLI only
 - Won't manage API keys or billing for agents
 
 ## Tech Stack
@@ -27,7 +28,6 @@ Things explicitly out of scope:
 - **Language**: Bash 4.0+
 - **Package Manager**: npm (for global distribution)
 - **Config Format**: YAML (manifest, registry, global config)
-- **Task Format**: Markdown
 - **Supported Agents**: Claude Code, Cursor, OpenAI Codex, Google Gemini, GitHub Copilot, OpenCode
 
 ## Getting Started
@@ -40,11 +40,8 @@ npm install -g @doyaken/doyaken
 cd /path/to/project
 dk init
 
-# Create a task
-dk tasks new "Add user authentication"
-
 # Run the agent
-dk run 1
+dk run "Add user authentication with JWT"
 
 # Check status
 dk doctor
@@ -55,8 +52,9 @@ dk doctor
 1. **Bash over Node/Python**: Minimal dependencies, runs anywhere with a shell
 2. **YAML for config**: Human-readable, easy to edit, good tooling support
 3. **Global + Local split**: Core logic global, project data local (`.doyaken/`)
-4. **8-phase execution**: Expand → Triage → Plan → Implement → Test → Docs → Review → Verify
-5. **Lock-based coordination**: File locks for parallel agent safety
+4. **8-phase execution**: EXPAND -> TRIAGE -> PLAN -> IMPLEMENT -> TEST -> DOCS -> REVIEW -> VERIFY
+5. **Verification gates**: Quality commands run after key phases, retrying with error context on failure
+6. **Single-shot, no task queue**: One prompt per invocation. Do one thing well.
 
 ## Agent Notes
 
