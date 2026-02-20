@@ -1,22 +1,6 @@
 # Phase 6: REVIEW
 
-You are performing final review for task **{{TASK_ID}}**.
-
-## Context from Previous Phases
-
-**Read the task file's Work Log first** for the full history of this task across all phases.
-
-Files changed on this branch:
-```
-{{CHANGED_FILES}}
-```
-
-Commits for this task:
-```
-{{TASK_COMMITS}}
-```
-
-Review these specific files and commits. Do not waste time re-discovering what changed.
+You are performing final review of the implementation.
 
 ## Methodology
 
@@ -26,73 +10,54 @@ Review these specific files and commits. Do not waste time re-discovering what c
 
 ## Phase Instructions
 
-1. **Build findings ledger** - Track all issues by severity
-2. **Multi-pass review** - Correctness → Design → Security → Performance → Tests
-3. **Fix blockers/high** - Address immediately
-4. **Create follow-ups** - For medium/low improvements
-5. **Complete task** - Only if ALL acceptance criteria are met
+1. **Sweep for loose ends** - Check for cruft before declaring complete
+2. **Build findings ledger** - Track all issues by severity
+3. **Multi-pass review** - Correctness → Design → Security → Performance → Tests
+4. **Fix blockers/high** - Address immediately
+5. **Note follow-ups** - For medium/low improvements
 
-## Task Completion
+## Loose Ends Sweep
 
-**Only if ALL criteria met:**
-- Check all acceptance criteria boxes
-- Update status to `done`
-- Set completed timestamp
-- Move task file to `.doyaken/tasks/4.done/`
+Before declaring complete, check for cruft in changed files:
 
-**For out-of-scope improvements:**
-- Create tasks in `.doyaken/tasks/2.todo/`
-- Reference this task in context
+```bash
+git diff --name-only HEAD~3 | xargs grep -n "TODO\|FIXME\|console.log\|debugger" 2>/dev/null
+```
+
+### Code Hygiene
+- [ ] No unused imports added
+- [ ] No console.log/print/debugger statements left
+- [ ] No commented-out code (unless intentional with explanation)
+
+### TODOs
+- [ ] Any TODOs created during this task are addressed or have issue references
+- [ ] No "TODO: fix later" without a plan
+
+### References
+- [ ] No broken imports from refactoring
+- [ ] No stale comments referring to old code
+- [ ] Variable/function renames updated everywhere
+
+### Error Handling
+- [ ] New error paths handled appropriately
+- [ ] No silent failures (catch blocks that swallow errors)
+
+**Fix loose ends before proceeding to findings review.**
 
 ## Output
 
-Add to Work Log:
-
-```markdown
-### {{TIMESTAMP}} - Review Complete
-
-Findings:
-- Blockers: [count] - fixed
-- High: [count] - fixed
-- Medium: [count] - [fixed/deferred]
-- Low: [count] - [fixed/deferred]
-
-Review passes:
-- Correctness: [pass/issues]
-- Design: [pass/issues]
-- Security: [pass/issues]
-- Performance: [pass/issues]
-- Tests: [pass/issues]
-
-All criteria met: [yes/no]
-Follow-up tasks: [list or none]
-
-Status: [COMPLETE/INCOMPLETE - reason]
-```
-
-## Completion Signal
-
-When you are done with this phase, include a structured status block in your output:
-
-```
-DOYAKEN_STATUS:
-  PHASE_COMPLETE: true/false
-  FILES_MODIFIED: <count>
-  TESTS_STATUS: pass/fail/skip/unknown
-  CONFIDENCE: high/medium/low
-  REMAINING_WORK: <brief description or "none">
-```
+Summarize:
+- Loose ends found and fixed
+- Findings by severity (blocker/high/medium/low) and what was done
+- Review pass results (correctness, design, security, performance, tests)
+- All acceptance criteria met: yes/no
+- Follow-up items for out-of-scope improvements
 
 ## Rules
 
+- **SWEEP for loose ends first** - don't let cruft slip through
 - Fix blockers and high severity immediately
-- Create tasks for medium/low (don't scope creep)
+- Note medium/low as follow-ups (don't scope creep)
 - Be honest about what's done vs remaining
-- If incomplete, leave in `3.doing/`
 
-{{VERIFICATION_CONTEXT}}
-
-{{ACCUMULATED_CONTEXT}}
-
-Task prompt: {{TASK_PROMPT}}
 Recent commits: {{RECENT_COMMITS}}

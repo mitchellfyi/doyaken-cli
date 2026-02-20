@@ -39,6 +39,10 @@ source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/upgrade.sh"
 source "$SCRIPT_DIR/review-tracker.sh"
 source "$SCRIPT_DIR/interactive.sh"
+source "$SCRIPT_DIR/errors.sh"
+source "$SCRIPT_DIR/security.sh"
+source "$SCRIPT_DIR/audit.sh"
+source "$SCRIPT_DIR/generate.sh"
 
 # ============================================================================
 # Commands
@@ -244,25 +248,13 @@ init_directories() {
   local target_dir="$1"
   local ai_agent_dir="$target_dir/.doyaken"
 
-  mkdir -p "$ai_agent_dir/tasks/1.blocked"
-  mkdir -p "$ai_agent_dir/tasks/2.todo"
-  mkdir -p "$ai_agent_dir/tasks/3.doing"
-  mkdir -p "$ai_agent_dir/tasks/4.done"
-  mkdir -p "$ai_agent_dir/tasks/_templates"
   mkdir -p "$ai_agent_dir/logs"
   chmod 700 "$ai_agent_dir/logs"
   mkdir -p "$ai_agent_dir/state"
   chmod 700 "$ai_agent_dir/state"
-  mkdir -p "$ai_agent_dir/locks"
-  chmod 700 "$ai_agent_dir/locks"
 
-  touch "$ai_agent_dir/tasks/1.blocked/.gitkeep"
-  touch "$ai_agent_dir/tasks/2.todo/.gitkeep"
-  touch "$ai_agent_dir/tasks/3.doing/.gitkeep"
-  touch "$ai_agent_dir/tasks/4.done/.gitkeep"
   touch "$ai_agent_dir/logs/.gitkeep"
   touch "$ai_agent_dir/state/.gitkeep"
-  touch "$ai_agent_dir/locks/.gitkeep"
 }
 
 # Create manifest.yaml with project configuration
@@ -308,101 +300,6 @@ EOF
   log_success "Created manifest.yaml"
 }
 
-# Copy or create task template
-# Usage: init_task_template "target_dir"
-init_task_template() {
-  local target_dir="$1"
-  local ai_agent_dir="$target_dir/.doyaken"
-  local template_src="$DOYAKEN_HOME/templates/TASK.md"
-
-  if [ -f "$template_src" ]; then
-    cp "$template_src" "$ai_agent_dir/tasks/_templates/TASK.md"
-  else
-    cat > "$ai_agent_dir/tasks/_templates/TASK.md" << 'EOF'
-# Task: [TITLE]
-
-## Metadata
-
-| Field       | Value                                                  |
-| ----------- | ------------------------------------------------------ |
-| ID          | `PPP-SSS-slug`                                         |
-| Status      | `todo` / `doing` / `done`                              |
-| Priority    | `001` Critical / `002` High / `003` Medium / `004` Low |
-| Created     | `YYYY-MM-DD HH:MM`                                     |
-| Started     |                                                        |
-| Completed   |                                                        |
-| Blocked By  |                                                        |
-| Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
-
----
-
-## Context
-
-Why does this task exist?
-
----
-
-## Acceptance Criteria
-
-- [ ] Criterion 1
-- [ ] Tests written and passing
-- [ ] Quality gates pass
-- [ ] Changes committed with task reference
-
----
-
-## Specification
-
-### User Stories
-
-(To be filled in during EXPAND phase)
-
-### Acceptance Scenarios
-
-(To be filled in during EXPAND phase)
-
-### Success Metrics
-
-(To be filled in during EXPAND phase)
-
-### Scope
-
-(To be filled in during EXPAND phase)
-
-### Dependencies
-
-(To be filled in during EXPAND phase)
-
----
-
-## Plan
-
-1. Step 1
-2. Step 2
-
----
-
-## Work Log
-
-### YYYY-MM-DD HH:MM - Started
-
-- Initial notes
-
----
-
-## Notes
-
----
-
-## Links
-
-EOF
-  fi
-  log_success "Created task template"
-}
-
 # Copy doyaken README to project
 # Usage: init_readme "target_dir"
 init_readme() {
@@ -444,8 +341,8 @@ show_init_success() {
   echo ""
   echo "Next steps:"
   echo "  1. Edit .doyaken/manifest.yaml to configure your project"
-  echo "  2. Create a task: doyaken tasks new \"My first task\""
-  echo "  3. Run the agent: doyaken run 1"
+  echo "  2. Run the agent: dk run \"your prompt here\""
+  echo "  3. Or start a chat: dk chat"
   echo ""
   echo "Slash commands available:"
   echo "  /workflow    - Run 8-phase workflow"
@@ -491,7 +388,6 @@ cmd_init() {
   # Run init steps
   init_directories "$target_dir"
   init_manifest "$target_dir" "$project_name" "$git_remote" "$git_branch"
-  init_task_template "$target_dir"
   init_readme "$target_dir"
   init_agent_files "$target_dir"
   generate_slash_commands "$target_dir"
@@ -587,7 +483,30 @@ cmd_cleanup() {
 }
 
 cmd_list() {
-  list_projects
+  local recent_limit=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --recent)
+        recent_limit="${2:-5}"
+        if [[ "$recent_limit" =~ ^[0-9]+$ ]]; then
+          shift 2
+        else
+          recent_limit=5
+          shift
+        fi
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  if [ -n "$recent_limit" ]; then
+    list_projects_recent "$recent_limit"
+  else
+    list_projects
+  fi
 }
 
 cmd_status() {
@@ -716,32 +635,10 @@ cmd_doctor() {
   if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
     log_success "Project found: $project"
 
-    # Check project structure (supports both old and new folder naming)
+    # Check project structure
     local ai_agent_dir="$project/.doyaken"
-    # Check for numbered folders first, fall back to old naming
-    if [ -d "$ai_agent_dir/tasks/1.blocked" ] || [ -d "$ai_agent_dir/tasks/blocked" ]; then
-      log_success "  tasks/blocked exists"
-    else
-      log_warn "  tasks/blocked missing (optional)"
-    fi
-    if [ -d "$ai_agent_dir/tasks/2.todo" ] || [ -d "$ai_agent_dir/tasks/todo" ]; then
-      log_success "  tasks/todo exists"
-    else
-      log_error "  tasks/todo missing"
-      ((++issues))
-    fi
-    if [ -d "$ai_agent_dir/tasks/3.doing" ] || [ -d "$ai_agent_dir/tasks/doing" ]; then
-      log_success "  tasks/doing exists"
-    else
-      log_error "  tasks/doing missing"
-      ((++issues))
-    fi
-    if [ -d "$ai_agent_dir/tasks/4.done" ] || [ -d "$ai_agent_dir/tasks/done" ]; then
-      log_success "  tasks/done exists"
-    else
-      log_error "  tasks/done missing"
-      ((++issues))
-    fi
+    [ -d "$ai_agent_dir/logs" ] && log_success "  logs/ exists" || log_warn "  logs/ missing"
+    [ -d "$ai_agent_dir/state" ] && log_success "  state/ exists" || log_warn "  state/ missing"
     [ -f "$ai_agent_dir/manifest.yaml" ] && log_success "  manifest.yaml exists" || log_warn "  manifest.yaml missing"
     [ -f "$project/AGENT.md" ] && log_success "  AGENT.md exists" || log_warn "  AGENT.md missing"
   elif [[ "$project" == LEGACY:* ]]; then
@@ -777,7 +674,208 @@ cmd_version() {
   echo "doyaken version $DOYAKEN_VERSION"
 }
 
+cmd_validate() {
+  local project
+  project=$(require_project)
+  local doyaken_dir="$project/.doyaken"
+  local manifest="$doyaken_dir/manifest.yaml"
+
+  echo ""
+  echo -e "${BOLD}Validating project configuration${NC}"
+  echo "================================="
+  echo ""
+
+  error_init
+
+  # Check manifest exists
+  if [ ! -f "$manifest" ]; then
+    error_add "manifest.yaml not found" "Run 'dk init' to create one"
+    error_report_and_exit
+  fi
+
+  # Check YAML is parseable
+  if command -v yq &>/dev/null; then
+    if ! yq '.' "$manifest" &>/dev/null; then
+      error_add "manifest.yaml has invalid YAML syntax" "Run 'yq .' .doyaken/manifest.yaml to see the parse error"
+      error_report_and_exit
+    fi
+    log_success "manifest.yaml is valid YAML"
+
+    # Check required fields
+    local project_name
+    project_name=$(yq -r '.project.name // ""' "$manifest" 2>/dev/null)
+    if [ -z "$project_name" ] || [ "$project_name" = '""' ]; then
+      error_add "project.name is missing or empty" "Add 'project.name' to .doyaken/manifest.yaml"
+    else
+      log_success "project.name: $project_name"
+    fi
+
+    # Check quality gate commands resolve
+    local cmd_fields=("test_command" "lint_command" "format_command" "build_command")
+    for field in "${cmd_fields[@]}"; do
+      local cmd_value
+      cmd_value=$(yq -r ".quality.$field // \"\"" "$manifest" 2>/dev/null)
+      if [ -n "$cmd_value" ] && [ "$cmd_value" != '""' ]; then
+        local base_cmd
+        base_cmd=$(echo "$cmd_value" | awk '{print $1}')
+        if command -v "$base_cmd" &>/dev/null; then
+          log_success "quality.$field: $cmd_value"
+        else
+          error_add "quality.$field command not found: $base_cmd" "Install '$base_cmd' or update the command in manifest.yaml"
+        fi
+      fi
+    done
+
+    # Check enabled integrations have server YAML files
+    local integrations
+    integrations=$(yq -e '.integrations | to_entries | .[] | select(.value.enabled == true) | .key' "$manifest" 2>/dev/null || true)
+    if [ -n "$integrations" ]; then
+      while IFS= read -r integration; do
+        [ -z "$integration" ] && continue
+        local server_file="$DOYAKEN_HOME/config/mcp/servers/${integration}.yaml"
+        if [ -f "$server_file" ]; then
+          log_success "integration: $integration (server config exists)"
+          # Check env vars
+          local envs
+          envs=$(yq -r '.conditions.env[]? // empty' "$server_file" 2>/dev/null)
+          while IFS= read -r var; do
+            [ -z "$var" ] && continue
+            if [ -z "${!var:-}" ]; then
+              error_add "Integration '$integration' requires env var: $var" "export $var=<value> or run 'dk mcp setup $integration'"
+            fi
+          done <<< "$envs"
+        else
+          error_add "Integration '$integration' enabled but no server config found" "Check config/mcp/servers/ for available servers"
+        fi
+      done <<< "$integrations"
+    fi
+
+    # Check skills referenced in manifest exist
+    local skill_hooks
+    skill_hooks=$(yq -r '.skills.hooks | to_entries[]? | .value[]?' "$manifest" 2>/dev/null || true)
+    if [ -n "$skill_hooks" ]; then
+      while IFS= read -r skill_name; do
+        [ -z "$skill_name" ] && continue
+        if ! find_skill "$skill_name" &>/dev/null; then
+          error_add "Skill hook '$skill_name' not found" "Create skills/$skill_name.md or remove from manifest hooks"
+        fi
+      done <<< "$skill_hooks"
+    fi
+  else
+    error_add "yq not installed (required for full validation)" "Install: brew install yq (macOS) or snap install yq (Ubuntu)"
+  fi
+
+  # Check prompt templates exist
+  if [ -d "$doyaken_dir/prompts/phases" ]; then
+    log_success "Phase prompts directory exists"
+  fi
+
+  error_report_and_exit
+  log_success "Validation passed!"
+}
+
+cmd_stats() {
+  local project
+  project=$(detect_project 2>/dev/null) || project=""
+
+  echo ""
+  echo -e "${BOLD}Doyaken Statistics${NC}"
+  echo "==================="
+  echo ""
+
+  # Project count
+  local project_count=0
+  project_count=$(get_project_count 2>/dev/null) || project_count=0
+  echo "  Registered projects: $project_count"
+
+  # Current project info
+  if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+    local doyaken_dir="$project/.doyaken"
+    echo ""
+    echo -e "  ${BOLD}Current project:${NC} $(basename "$project")"
+
+    # Git branch
+    if [ -d "$project/.git" ]; then
+      local branch
+      branch=$(git -C "$project" branch --show-current 2>/dev/null || echo "unknown")
+      echo "  Git branch: $branch"
+    fi
+
+    # Session count
+    local session_count=0
+    if [ -d "$doyaken_dir/sessions" ]; then
+      session_count=$(find "$doyaken_dir/sessions" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    echo "  Sessions: $session_count"
+
+    # Skill count
+    local skill_count=0
+    if [ -d "$doyaken_dir/skills" ]; then
+      skill_count=$(find "$doyaken_dir/skills" -maxdepth 1 -name "*.md" ! -name "README.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    local global_skill_count=0
+    if [ -d "$DOYAKEN_HOME/skills" ]; then
+      global_skill_count=$(find "$DOYAKEN_HOME/skills" -maxdepth 1 -name "*.md" ! -name "README.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    echo "  Skills: $skill_count project + $global_skill_count global"
+
+    # Integration count
+    local integration_count=0
+    if [ -f "$doyaken_dir/manifest.yaml" ] && command -v yq &>/dev/null; then
+      integration_count=$(yq -e '.integrations | to_entries | .[] | select(.value.enabled == true) | .key' "$doyaken_dir/manifest.yaml" 2>/dev/null | wc -l | tr -d ' ') || integration_count=0
+    fi
+    echo "  Enabled integrations: $integration_count"
+
+    # Audit log
+    local audit_entries=0
+    if [ -f "$doyaken_dir/audit.log" ]; then
+      audit_entries=$(wc -l < "$doyaken_dir/audit.log" 2>/dev/null | tr -d ' ')
+    fi
+    echo "  Audit log entries: $audit_entries"
+  else
+    echo ""
+    echo "  Not in a project directory"
+  fi
+
+  echo ""
+}
+
+cmd_audit() {
+  # Detect project (optional)
+  local project
+  project=$(detect_project 2>/dev/null) || project=""
+  if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
+    export DOYAKEN_PROJECT="$project"
+    AUDIT_LOG="$project/.doyaken/audit.log"
+  fi
+
+  audit_show "$@"
+}
+
+cmd_generate() {
+  # Detect project
+  local project
+  project=$(require_project)
+  export DOYAKEN_PROJECT="$project"
+
+  generate_all
+}
+
 cmd_skills() {
+  local show_domains=false
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --domains)
+        show_domains=true
+        shift
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
   echo ""
   echo -e "${BOLD}Available Skills${NC}"
   echo "================"
@@ -801,9 +899,30 @@ cmd_skills() {
     echo "    - .doyaken/skills/ (project-specific)"
   fi
 
+  # Show domain packs
+  if [ "$show_domains" = true ]; then
+    echo ""
+    echo -e "${BOLD}Domain Skill Packs${NC}"
+    echo "==================="
+    echo ""
+
+    local packs_found=false
+    while IFS= read -r pack_dir; do
+      [ -z "$pack_dir" ] && continue
+      packs_found=true
+      echo -e "  ${CYAN}$(list_domain_pack "$pack_dir")${NC}"
+    done < <(get_domain_packs)
+
+    if [ "$packs_found" = false ]; then
+      echo "  No domain packs found."
+      echo "  Create packs in skills/domains/<name>/ with a _pack.yaml manifest."
+    fi
+  fi
+
   echo ""
   echo "Run a skill: ${CYAN}doyaken skill <name> [--arg=value]${NC}"
   echo "Skill info:  ${CYAN}doyaken skill <name> --info${NC}"
+  [ "$show_domains" = false ] && echo "Domain packs: ${CYAN}doyaken skills --domains${NC}"
 }
 
 cmd_skill() {
@@ -1073,9 +1192,23 @@ cmd_mcp() {
       fi
       mcp_doctor
       ;;
+    setup)
+      local server_name="${1:-}"
+      if [ -z "$server_name" ]; then
+        log_error "Server name required"
+        echo "Usage: doyaken mcp setup <server_name>"
+        echo ""
+        echo "Available servers:"
+        for f in "$DOYAKEN_HOME/config/mcp/servers"/*.yaml; do
+          [ -f "$f" ] && echo "  - $(basename "$f" .yaml)"
+        done
+        exit 1
+      fi
+      mcp_setup "$server_name"
+      ;;
     *)
       log_error "Unknown mcp subcommand: $subcmd"
-      echo "Usage: doyaken mcp [status|configure|doctor]"
+      echo "Usage: doyaken mcp [status|configure|doctor|setup]"
       exit 1
       ;;
   esac
@@ -1131,7 +1264,7 @@ cmd_commands() {
   local commands_dir="$project/.claude/commands"
   if [ -d "$commands_dir" ]; then
     local count
-    count=$(count_task_files "$commands_dir")
+    count=$(count_md_files "$commands_dir")
     log_success "Generated $count slash commands"
     echo ""
     echo "Available commands:"
@@ -1315,7 +1448,19 @@ main() {
       cmd_cleanup
       ;;
     list)
-      cmd_list
+      cmd_list "${args[@]+"${args[@]}"}"
+      ;;
+    validate)
+      cmd_validate
+      ;;
+    stats)
+      cmd_stats
+      ;;
+    audit)
+      cmd_audit "${args[@]+"${args[@]}"}"
+      ;;
+    generate)
+      cmd_generate
       ;;
     status)
       cmd_status
@@ -1327,7 +1472,7 @@ main() {
       cmd_doctor
       ;;
     skills)
-      cmd_skills
+      cmd_skills "${args[@]+"${args[@]}"}"
       ;;
     skill)
       cmd_skill "${args[@]+"${args[@]}"}"

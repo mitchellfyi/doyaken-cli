@@ -10,5 +10,11 @@ args:
   - "${DOYAKEN_PROJECT:-.}"
 env: {}
 
-# This server provides access to files within the project directory
-# Useful for agents that need direct file manipulation
+conditions:
+  commands:
+    - npx
+
+setup:
+  install: "npm install -g @modelcontextprotocol/server-filesystem"
+  docs: "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem"
+  notes: "Provides file system access within the project directory"

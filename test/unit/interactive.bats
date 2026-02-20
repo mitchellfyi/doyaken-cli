@@ -12,10 +12,6 @@ setup() {
 
   # Create a mock project
   export DOYAKEN_PROJECT="$TEST_TEMP_DIR/project"
-  mkdir -p "$DOYAKEN_PROJECT/.doyaken/tasks/1.blocked"
-  mkdir -p "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo"
-  mkdir -p "$DOYAKEN_PROJECT/.doyaken/tasks/3.doing"
-  mkdir -p "$DOYAKEN_PROJECT/.doyaken/tasks/4.done"
   mkdir -p "$DOYAKEN_PROJECT/.doyaken/sessions"
   mkdir -p "$DOYAKEN_PROJECT/.doyaken/logs"
   mkdir -p "$DOYAKEN_PROJECT/.git"
@@ -135,42 +131,6 @@ teardown() {
   [ "$CHAT_SHOULD_EXIT" -eq 1 ]
 }
 
-@test "dispatch_command handles /tasks" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/task1.md"
-  run dispatch_command "/tasks"
-  assert_success
-  assert_output_contains "TODO"
-  assert_output_contains "task1"
-}
-
-@test "dispatch_command handles /task with pattern" {
-  cat > "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-001-test.md" << 'EOF'
-# Task: Test task
-## Metadata
-| Field | Value |
-| ID | `003-001-test` |
-EOF
-  run dispatch_command "/task 003-001"
-  assert_success
-  assert_output_contains "Test task"
-}
-
-@test "dispatch_command handles /task without args" {
-  run dispatch_command "/task"
-  assert_failure
-  assert_output_contains "Usage:"
-}
-
-@test "dispatch_command handles /pick" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-002-pick-me.md"
-  run dispatch_command "/pick pick-me"
-  assert_success
-  assert_output_contains "Picked up"
-  # Verify file was moved
-  [ ! -f "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-002-pick-me.md" ]
-  [ -f "$DOYAKEN_PROJECT/.doyaken/tasks/3.doing/003-002-pick-me.md" ]
-}
-
 @test "dispatch_command handles /model without args (show current)" {
   export DOYAKEN_AGENT="claude"
   export DOYAKEN_MODEL="opus"
@@ -250,11 +210,10 @@ EOF
   assert_success
 }
 
-@test "dispatch_command handles /run without task" {
-  unset CHAT_CURRENT_TASK
+@test "dispatch_command handles /run without args" {
   run dispatch_command "/run"
   assert_failure
-  assert_output_contains "No task picked"
+  assert_output_contains "Usage:"
 }
 
 @test "dispatch_command suggests fuzzy match for typos" {
@@ -284,12 +243,6 @@ EOF
   run fuzzy_match_slash_command "sta"
   assert_success
   assert_output_contains "status"
-}
-
-@test "fuzzy_match_slash_command: prefix match ta -> tasks" {
-  run fuzzy_match_slash_command "ta"
-  assert_success
-  assert_output_contains "task"
 }
 
 @test "fuzzy_match_slash_command: typo hlep -> help" {
@@ -327,7 +280,7 @@ EOF
   assert_output_contains "/status"
   assert_output_contains "/clear"
   assert_output_contains "/quit"
-  assert_output_contains "/tasks"
+  assert_output_contains "/run"
   assert_output_contains "/model"
   assert_output_contains "/diff"
 }
@@ -341,9 +294,9 @@ EOF
 }
 
 @test "chat_cmd_help filters by keyword" {
-  run chat_cmd_help "task"
+  run chat_cmd_help "run"
   assert_success
-  assert_output_contains "/task"
+  assert_output_contains "/run"
 }
 
 @test "chat_cmd_help shows skill commands with tag" {
@@ -381,110 +334,12 @@ EOF
   assert_output_contains "test-session-123"
 }
 
-@test "chat_cmd_status shows task counts" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/task1.md"
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/task2.md"
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/3.doing/task3.md"
-
-  run chat_cmd_status
-  assert_success
-  assert_output_contains "Todo:"
-  assert_output_contains "Doing:"
-}
-
 @test "chat_cmd_status works without project" {
   unset DOYAKEN_PROJECT
   run chat_cmd_status
   assert_success
   assert_output_contains "Project:"
   assert_output_contains "(none)"
-}
-
-# ============================================================================
-# Tasks command tests
-# ============================================================================
-
-@test "chat_cmd_tasks lists tasks by state" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/todo-task.md"
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/3.doing/doing-task.md"
-  run chat_cmd_tasks
-  assert_success
-  assert_output_contains "TODO"
-  assert_output_contains "DOING"
-  assert_output_contains "todo-task"
-  assert_output_contains "doing-task"
-}
-
-@test "chat_cmd_tasks filters by pattern" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/alpha.md"
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/beta.md"
-  run chat_cmd_tasks "alpha"
-  assert_success
-  assert_output_contains "alpha"
-  # beta should not appear in filtered output
-  local beta_count
-  beta_count=$(echo "$output" | grep -c "beta" || true)
-  [ "$beta_count" -eq 0 ]
-}
-
-@test "chat_cmd_tasks fails without project" {
-  unset DOYAKEN_PROJECT
-  run chat_cmd_tasks
-  assert_failure
-  assert_output_contains "Not in a project"
-}
-
-# ============================================================================
-# Task detail command tests
-# ============================================================================
-
-@test "chat_cmd_task shows task content" {
-  cat > "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-001-test.md" << 'EOF'
-# Task: Show this content
-Test body
-EOF
-  run chat_cmd_task "003-001"
-  assert_success
-  assert_output_contains "Show this content"
-}
-
-@test "chat_cmd_task searches all states" {
-  cat > "$DOYAKEN_PROJECT/.doyaken/tasks/4.done/003-002-done.md" << 'EOF'
-# Task: Done task
-EOF
-  run chat_cmd_task "003-002"
-  assert_success
-  assert_output_contains "Done task"
-}
-
-@test "chat_cmd_task fails for non-existent task" {
-  run chat_cmd_task "nonexistent"
-  assert_failure
-  assert_output_contains "No task found"
-}
-
-# ============================================================================
-# Pick command tests
-# ============================================================================
-
-@test "chat_cmd_pick moves task to doing" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-003-move-me.md"
-  run chat_cmd_pick "move-me"
-  assert_success
-  [ ! -f "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-003-move-me.md" ]
-  [ -f "$DOYAKEN_PROJECT/.doyaken/tasks/3.doing/003-003-move-me.md" ]
-}
-
-@test "chat_cmd_pick sets CHAT_CURRENT_TASK" {
-  touch "$DOYAKEN_PROJECT/.doyaken/tasks/2.todo/003-004-pickable.md"
-  chat_cmd_pick "pickable"
-  [ "$CHAT_CURRENT_TASK" = "003-004-pickable" ]
-}
-
-@test "chat_cmd_pick fails for non-existent task" {
-  run chat_cmd_pick "nonexistent"
-  assert_failure
-  assert_output_contains "No todo task found"
 }
 
 # ============================================================================
@@ -649,7 +504,7 @@ EOF
   content=$(cat "$comp_file")
   [[ "$content" == *"/help"* ]]
   [[ "$content" == *"/quit"* ]]
-  [[ "$content" == *"/tasks"* ]]
+  [[ "$content" == *"/run"* ]]
 }
 
 @test "generate_completions_file includes skill commands" {

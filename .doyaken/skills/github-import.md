@@ -1,6 +1,6 @@
 ---
 name: github-import
-description: Import GitHub issues as local doyaken tasks
+description: Import GitHub issues as prompts for dk run
 requires:
   - github
 args:
@@ -16,7 +16,7 @@ args:
 
 # GitHub Issue Import
 
-You are importing GitHub issues as local doyaken tasks.
+You are importing GitHub issues as prompts that can be executed with `dk run`.
 
 ## Context
 
@@ -34,34 +34,23 @@ Limit: {{ARGS.limit}} issues
    - Filter by labels: {{ARGS.labels}} (if specified)
    - Limit to {{ARGS.limit}} most recent issues
 
-2. **Check Existing Tasks**
-   Look in `.doyaken/tasks/` (all folders) for existing tasks that reference GitHub issues.
-   Skip any issues that already have a corresponding task.
+2. **Generate Prompts**
+   For each issue, generate a `dk run` prompt that captures the issue intent:
 
-3. **Create Task Files**
-   For each new issue, create a task file in `.doyaken/tasks/2.todo/`:
+   - Summarize the issue title and body into a clear, actionable prompt
+   - Include the GitHub issue reference (e.g., `Fixes #123`)
+   - Prioritize based on labels:
+     - `bug`, `critical`, `security` → High priority
+     - `important`, `priority` → Medium priority
+     - `enhancement`, `feature` → Normal priority
 
-   File naming: `PPP-SSS-slug.md` where:
-   - PPP = Priority based on labels:
-     - `bug`, `critical`, `security` → 001 (Critical)
-     - `important`, `priority` → 002 (High)
-     - `enhancement`, `feature` → 003 (Medium)
-     - others → 003 (Medium)
-   - SSS = Sequence (001, 002, etc.)
-   - slug = Issue title (kebab-case, max 50 chars)
-
-   Include in the task file:
-   - Title from issue title
-   - Context from issue body
-   - External Ref: `github:owner/repo#issue_number`
-   - Link to the GitHub issue
-
-4. **Report Summary**
+3. **Report Summary**
    After importing, report:
    - Total issues found
-   - Issues imported (new tasks created)
-   - Issues skipped (already tracked)
+   - Prompts generated
    - Any errors encountered
+
+   For each issue, output the ready-to-use `dk run` command.
 
 ## Output Format
 
@@ -72,16 +61,20 @@ Repository: owner/repo
 Filter: open issues
 
 Found: N issues
-Imported: N new tasks
-  - 003-001-fix-login-bug.md (from #123)
-  - 003-002-add-dark-mode.md (from #456)
-Skipped: N already tracked
+
+Ready-to-run prompts:
+  1. #123 - Fix login bug
+     dk run "Fix the login bug where users get a 500 error on invalid email. Fixes #123"
+
+  2. #456 - Add dark mode
+     dk run "Add dark mode support to the UI. Fixes #456"
+
 Errors: N (list if any)
 ```
 
 ## Rules
 
-- Do NOT modify existing task files
-- Do NOT create duplicate tasks for the same issue
-- Include the GitHub issue URL in the Links section
-- Use the issue body as the initial Context (truncate if very long)
+- Include the GitHub issue URL in the prompt context
+- Use the issue body to craft a clear, actionable prompt
+- Prompts should be self-contained (include enough context from the issue)
+- Prioritize bugs and security issues first in the output list

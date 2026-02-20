@@ -10,5 +10,11 @@ args:
 env:
   LINEAR_API_KEY: "${LINEAR_API_KEY}"
 
-# Get your API key from:
-#   Linear Settings > API > Personal API keys
+conditions:
+  env:
+    - LINEAR_API_KEY
+
+setup:
+  install: "npx -y @anthropic/mcp-server-linear"
+  docs: "https://github.com/anthropics/mcp-server-linear"
+  notes: "Get your API key from Linear Settings > API > Personal API keys"

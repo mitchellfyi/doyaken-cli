@@ -1,5 +1,5 @@
 ---
-description: Sync completed doyaken tasks back to GitHub issues
+description: Sync completed work back to GitHub issues
 ---
 
 Run the doyaken skill: github-sync
@@ -14,7 +14,7 @@ If doyaken is not available, apply this methodology:
 
 # GitHub Issue Sync
 
-You are syncing completed doyaken tasks back to their linked GitHub issues.
+You are syncing completed work back to linked GitHub issues.
 
 ## Context
 
@@ -25,35 +25,23 @@ Add comments: {{ARGS.add-comment}}
 
 ## Instructions
 
-1. **Find Completed Tasks with GitHub References**
-   Look in `.doyaken/tasks/4.done/` for task files that have:
-   - External Ref field containing `github:` reference
-   - Status = `done`
-   - A Completed timestamp
+1. **Find Completed Work with GitHub References**
+   Search recent git history for commits that reference GitHub issues (e.g., `#123`, `fixes #123`, `closes #123`).
 
-2. **For Each Linked Task**
-   Parse the External Ref to get the issue number, then:
+2. **For Each Referenced Issue**
+   Check the issue status on GitHub, then:
 
    a) **Add Comment** (if enabled):
       Post a comment on the GitHub issue summarizing:
-      - That the task was completed via doyaken
-      - Key commits (from the Work Log if available)
+      - Key commits that address the issue
       - Link to any PR created
 
    b) **Close Issue** (if enabled):
       Close the GitHub issue with a closing comment
 
-3. **Track Synced Tasks**
-   To avoid re-syncing, add a note to the task's Work Log:
-   ```
-   ### YYYY-MM-DD HH:MM - GitHub Synced
-   - Issue #N updated
-   - Status: [closed/commented]
-   ```
-
-4. **Report Summary**
+3. **Report Summary**
    After syncing, report:
-   - Tasks checked
+   - Commits checked
    - Issues updated
    - Issues closed
    - Any errors
@@ -65,17 +53,16 @@ GitHub Sync Summary
 ===================
 Repository: owner/repo
 
-Tasks checked: N
+Commits checked: N
 Issues updated: N
   - #123: Closed with comment
   - #456: Comment added
-Already synced: N
+Already closed: N
 Errors: N (list if any)
 ```
 
 ## Rules
 
-- Do NOT sync tasks that don't have a GitHub reference
-- Do NOT re-sync tasks that already have "GitHub Synced" in Work Log
+- Do NOT update issues that are already closed (unless adding a comment)
 - Be cautious about closing issues - only close if explicitly enabled
 - Include relevant commit hashes in comments when available

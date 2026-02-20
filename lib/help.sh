@@ -42,6 +42,10 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
+  ${CYAN}validate${NC}            Validate project configuration
+  ${CYAN}stats${NC}               Show project statistics
+  ${CYAN}audit${NC}               View audit log
+  ${CYAN}generate${NC}            Generate/sync tool configs
   ${CYAN}cleanup${NC}             Clean logs, state, and registry
   ${CYAN}version${NC}             Show version
   ${CYAN}help${NC} [command]      Show help
@@ -159,14 +163,21 @@ ${BOLD}USAGE:${NC}
 ${BOLD}DESCRIPTION:${NC}
   Enters an interactive REPL where you can have a conversation with the
   AI agent. Send messages, use slash commands, and see streaming output.
+  Conversation context is automatically carried across messages.
 
 ${BOLD}OPTIONS:${NC}
   --resume          Resume the most recent session
   --resume <id>     Resume a specific session by ID (partial match OK)
 
+${BOLD}SPECIAL SYNTAX:${NC}
+  @path/to/file     Attach file contents to your message
+  !command          Run a shell command (e.g., !git status)
+
 ${BOLD}SLASH COMMANDS:${NC}
   /help             Show available commands
   /status           Show project and session status
+  /compact [N]      Trim conversation history (keep last N messages, default 6)
+  /commit [-m ""]   Commit changes (generates message via agent, or -m for manual)
   /sessions         List recent sessions
   /session save     Save current session (optionally with a tag)
   /session resume   Resume a saved session
@@ -178,6 +189,7 @@ ${BOLD}SLASH COMMANDS:${NC}
   /checkpoint       Show checkpoint history
   /checkpoint save  Create a manual checkpoint
   /restore <n>      Restore to checkpoint number
+  /diff             Show git diff of changes
   /clear            Clear the screen
   /quit             Exit interactive mode (also: /exit, Ctrl+D)
 
@@ -186,11 +198,18 @@ ${BOLD}KEYBOARD:${NC}
   Ctrl+D      Exit interactive mode
   Up/Down     Navigate input history
 
+${BOLD}CONTEXT:${NC}
+  Conversation history (last 20 messages) is automatically included
+  in each agent call. Use /compact to trim if context grows too large.
+  Set DOYAKEN_CHAT_CONTEXT_SIZE to change the default window.
+
 ${BOLD}EXAMPLES:${NC}
   doyaken chat                        # Start interactive session
   dk chat --resume                    # Resume last session
   dk chat --resume 20260210           # Resume session by partial ID
   dk --agent codex chat               # Chat with Codex agent
+  @lib/core.sh what does this file do? # Attach file for context
+  !npm test                           # Run shell command inline
 
 EOF
       ;;
@@ -208,6 +227,125 @@ ${BOLD}DESCRIPTION:${NC}
 ${BOLD}EXAMPLES:${NC}
   doyaken sessions              # List recent sessions
   dk sessions 50                # List up to 50 sessions
+
+EOF
+      ;;
+    validate)
+      cat << EOF
+${BOLD}doyaken validate${NC} - Validate project configuration
+
+${BOLD}USAGE:${NC}
+  doyaken validate
+
+${BOLD}DESCRIPTION:${NC}
+  Checks your project configuration for errors:
+  - manifest.yaml exists and is valid YAML
+  - Required fields are present (project.name)
+  - Quality gate commands resolve (command -v)
+  - Enabled integrations have server configs and env vars
+  - Skills referenced in hooks exist on disk
+
+EOF
+      ;;
+    stats)
+      cat << EOF
+${BOLD}doyaken stats${NC} - Show project statistics
+
+${BOLD}USAGE:${NC}
+  doyaken stats
+
+${BOLD}DESCRIPTION:${NC}
+  Displays summary statistics for your project:
+  - Registered project count
+  - Current project info (name, branch)
+  - Session, skill, and integration counts
+  - Audit log entry count
+
+EOF
+      ;;
+    audit)
+      cat << EOF
+${BOLD}doyaken audit${NC} - View audit log
+
+${BOLD}USAGE:${NC}
+  doyaken audit [--last N]
+
+${BOLD}DESCRIPTION:${NC}
+  Shows recent entries from the project's audit log.
+  The audit log records phase executions, gate results,
+  and session events as JSON lines.
+
+${BOLD}OPTIONS:${NC}
+  --last N    Show last N entries (default: 20)
+
+EOF
+      ;;
+    generate)
+      cat << EOF
+${BOLD}doyaken generate${NC} - Generate/sync tool configs
+
+${BOLD}USAGE:${NC}
+  doyaken generate
+
+${BOLD}DESCRIPTION:${NC}
+  Generates config files for other tools (eslint, prettier, tsconfig, etc.)
+  using templates with managed content markers. User customizations outside
+  the managed section are preserved.
+
+  Configure in .doyaken/manifest.yaml:
+    generate:
+      configs:
+        - template: config/generators/eslint.yaml
+          target: .eslintrc.js
+          style: slash
+
+EOF
+      ;;
+    list)
+      cat << EOF
+${BOLD}doyaken list${NC} - List registered projects
+
+${BOLD}USAGE:${NC}
+  doyaken list [--recent [N]]
+
+${BOLD}OPTIONS:${NC}
+  --recent [N]    Show N most recently active projects (default: 5)
+
+EOF
+      ;;
+    skills)
+      cat << EOF
+${BOLD}doyaken skills${NC} - List available skills
+
+${BOLD}USAGE:${NC}
+  doyaken skills [--domains]
+
+${BOLD}OPTIONS:${NC}
+  --domains    Also show domain skill packs
+
+${BOLD}DESCRIPTION:${NC}
+  Lists all available skills from project and global directories.
+  Use --domains to see domain skill packs (grouped skill collections).
+
+EOF
+      ;;
+    mcp)
+      cat << EOF
+${BOLD}doyaken mcp${NC} - MCP integration management
+
+${BOLD}USAGE:${NC}
+  doyaken mcp [status|configure|doctor|setup]
+
+${BOLD}COMMANDS:${NC}
+  status            Show MCP integration status
+  configure         Generate MCP configs for enabled integrations
+  doctor            Health check for MCP servers
+  setup <name>      Show setup instructions for an MCP server
+
+${BOLD}EXAMPLES:${NC}
+  doyaken mcp status
+  doyaken mcp setup github
+  doyaken mcp configure --agent claude
 
 EOF
       ;;

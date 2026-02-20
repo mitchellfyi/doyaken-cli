@@ -82,15 +82,65 @@ log_message() {
 # Agent Communication
 # ============================================================================
 
+# ============================================================================
+# Conversation Context
+# ============================================================================
+
+# Build a context prompt from recent conversation history
+# Reads last N messages from messages.jsonl and formats as XML block
+# Returns context string on stdout (empty if no history)
+build_context_prompt() {
+  local messages_file="${CHAT_MESSAGES_FILE:-}"
+  local max_messages="${DOYAKEN_CHAT_CONTEXT_SIZE:-20}"
+  local max_bytes=51200  # 50KB cap
+
+  [ -z "$messages_file" ] || [ ! -f "$messages_file" ] && return 0
+
+  local line_count
+  line_count=$(wc -l < "$messages_file" 2>/dev/null | tr -d ' ')
+  [ "${line_count:-0}" -eq 0 ] && return 0
+
+  local history
+  history=$(tail -n "$max_messages" "$messages_file" 2>/dev/null) || return 0
+  [ -z "$history" ] && return 0
+
+  # Cap at max_bytes
+  local size=${#history}
+  if [ "$size" -gt "$max_bytes" ]; then
+    history="${history: -$max_bytes}"
+    # Trim to first complete line
+    history="${history#*$'\n'}"
+  fi
+
+  printf '<conversation_history>\n%s\n</conversation_history>\n\n' "$history"
+}
+
+# ============================================================================
+# Agent Communication
+# ============================================================================
+
 # Send a message to the configured agent and stream output to terminal
+# Usage: send_to_agent "message" ["original_message_for_log"]
 # Returns 0 on success, non-zero on error (interruptions are treated as success)
 send_to_agent() {
   local message="$1"
+  local log_message_text="${2:-$message}"
   local agent="${DOYAKEN_AGENT:-claude}"
   local model="${DOYAKEN_MODEL:-}"
 
-  # Log user message
-  log_message "user" "$message"
+  # Log user message (original, not expanded)
+  log_message "user" "$log_message_text"
+
+  # Inject conversation context
+  local context
+  context=$(build_context_prompt)
+  if [ -n "$context" ]; then
+    message="${context}${message}"
+  fi
+
+  # Temp file to capture agent response
+  local response_file
+  response_file=$(mktemp "${TMPDIR:-/tmp}/doyaken-response.XXXXXX")
 
   local exit_code=0
 
@@ -105,7 +155,7 @@ send_to_agent() {
       agent_args+=("-p" "$message")
 
       # Run in background so Ctrl+C can kill it without exiting REPL
-      claude "${agent_args[@]}" 2>&1 &
+      claude "${agent_args[@]}" 2>&1 | tee "$response_file" &
       CHAT_AGENT_PID=$!
       wait "$CHAT_AGENT_PID" 2>/dev/null || exit_code=$?
       CHAT_AGENT_PID=""
@@ -119,7 +169,7 @@ send_to_agent() {
       [ -n "$model" ] && agent_args+=("-m" "$model")
       agent_args+=("$message")
 
-      codex "${agent_args[@]}" 2>&1 &
+      codex "${agent_args[@]}" 2>&1 | tee "$response_file" &
       CHAT_AGENT_PID=$!
       wait "$CHAT_AGENT_PID" 2>/dev/null || exit_code=$?
       CHAT_AGENT_PID=""
@@ -133,7 +183,7 @@ send_to_agent() {
       [ -n "$model" ] && agent_args+=("-m" "$model")
       agent_args+=("-p" "$message")
 
-      gemini "${agent_args[@]}" 2>&1 &
+      gemini "${agent_args[@]}" 2>&1 | tee "$response_file" &
       CHAT_AGENT_PID=$!
       wait "$CHAT_AGENT_PID" 2>/dev/null || exit_code=$?
       CHAT_AGENT_PID=""
@@ -150,20 +200,30 @@ send_to_agent() {
 
         if [ -n "$prompt_flag" ]; then
           # shellcheck disable=SC2086
-          $cmd $auto_args $model_args $prompt_flag "$message" 2>&1 &
+          $cmd $auto_args $model_args $prompt_flag "$message" 2>&1 | tee "$response_file" &
         else
           # shellcheck disable=SC2086
-          $cmd $auto_args $model_args "$message" 2>&1 &
+          $cmd $auto_args $model_args "$message" 2>&1 | tee "$response_file" &
         fi
         CHAT_AGENT_PID=$!
         wait "$CHAT_AGENT_PID" 2>/dev/null || exit_code=$?
         CHAT_AGENT_PID=""
       else
         log_error "Agent '$agent' not supported in chat mode"
+        rm -f "$response_file"
         return 1
       fi
       ;;
   esac
+
+  # Capture assistant response for context continuity
+  if [ -f "$response_file" ] && [ -s "$response_file" ]; then
+    local response
+    # Truncate to last 10000 chars
+    response=$(tail -c 10000 "$response_file" 2>/dev/null)
+    log_message "assistant" "$response"
+  fi
+  rm -f "$response_file"
 
   # Handle interruption gracefully
   if [ "$exit_code" -eq 130 ] || [ "$exit_code" -eq 137 ]; then
@@ -173,6 +233,52 @@ send_to_agent() {
   fi
 
   return "$exit_code"
+}
+
+# Send a message to the agent silently (capture output, no streaming)
+# Usage: query_agent_silent "prompt"
+# Returns agent output on stdout
+query_agent_silent() {
+  local message="$1"
+  local agent="${DOYAKEN_AGENT:-claude}"
+  local model="${DOYAKEN_MODEL:-}"
+
+  case "$agent" in
+    claude)
+      local agent_args=()
+      [ -n "$model" ] && agent_args+=("--model" "$model")
+      agent_args+=("--print" "--output-format" "text")
+      agent_args+=("-p" "$message")
+      claude "${agent_args[@]}" 2>/dev/null
+      ;;
+    codex)
+      local agent_args=("exec")
+      [ -n "$model" ] && agent_args+=("-m" "$model")
+      agent_args+=("$message")
+      codex "${agent_args[@]}" 2>/dev/null
+      ;;
+    gemini)
+      local agent_args=()
+      [ -n "$model" ] && agent_args+=("-m" "$model")
+      agent_args+=("-p" "$message")
+      gemini "${agent_args[@]}" 2>/dev/null
+      ;;
+    *)
+      if declare -f agent_exec_command &>/dev/null; then
+        local cmd model_args prompt_flag
+        cmd=$(agent_exec_command "$agent")
+        model_args=$(agent_model_args "$agent" "$model")
+        prompt_flag=$(agent_prompt_args "$agent")
+        if [ -n "$prompt_flag" ]; then
+          # shellcheck disable=SC2086
+          $cmd $model_args $prompt_flag "$message" 2>/dev/null
+        else
+          # shellcheck disable=SC2086
+          $cmd $model_args "$message" 2>/dev/null
+        fi
+      fi
+      ;;
+  esac
 }
 
 # ============================================================================
@@ -193,6 +299,117 @@ handle_chat_interrupt() {
     CHAT_AGENT_PID=""
     echo ""
     echo -e "${DIM}Type /quit to exit${NC}"
+  fi
+}
+
+# ============================================================================
+# Shell Command Execution
+# ============================================================================
+
+# Run a shell command from the REPL (! prefix)
+# Usage: run_shell_command "git status"
+run_shell_command() {
+  local cmd="$1"
+
+  if [ -z "${cmd// /}" ]; then
+    echo "Usage: !<command>"
+    return 0
+  fi
+
+  local project="${DOYAKEN_PROJECT:-$(pwd)}"
+
+  # Run in background for Ctrl+C support (same pattern as send_to_agent)
+  local exit_code=0
+  bash -c "cd $(printf '%q' "$project") && $cmd" 2>&1 &
+  local pid=$!
+  CHAT_AGENT_PID=$pid
+  wait "$pid" 2>/dev/null || exit_code=$?
+  CHAT_AGENT_PID=""
+
+  # Handle interruption gracefully
+  if [ "$exit_code" -eq 130 ] || [ "$exit_code" -eq 137 ]; then
+    echo ""
+    echo -e "${YELLOW}[interrupted]${NC}"
+    return 0
+  fi
+
+  if [ "$exit_code" -ne 0 ]; then
+    echo -e "${DIM}[exit code: $exit_code]${NC}"
+  fi
+
+  return 0
+}
+
+# ============================================================================
+# File Reference Expansion
+# ============================================================================
+
+# Expand @file references in user input
+# Appends file contents as <file path="..."> blocks
+# Usage: expand_file_references "check @lib/core.sh for bugs"
+# Returns expanded text on stdout
+expand_file_references() {
+  local input="$1"
+  local project="${DOYAKEN_PROJECT:-$(pwd)}"
+  local result="$input"
+  local file_blocks=""
+
+  # Match @path patterns (at start or preceded by whitespace, not emails)
+  # Extract all @references
+  local refs=()
+  local word
+  for word in $input; do
+    if [[ "$word" == @* ]] && [[ "$word" != *@*.* ]] ; then
+      # Strip the @ prefix
+      refs+=("${word#@}")
+    fi
+  done
+
+  # Also match @path at start of input
+  if [[ "$input" == @* ]] && [ ${#refs[@]} -eq 0 ]; then
+    local first_word="${input%% *}"
+    refs+=("${first_word#@}")
+  fi
+
+  for ref in "${refs[@]}"; do
+    # Resolve path relative to project or pwd
+    local filepath=""
+    if [ -f "$project/$ref" ]; then
+      filepath="$project/$ref"
+    elif [ -f "$ref" ]; then
+      filepath="$ref"
+    else
+      echo -e "${YELLOW}Warning: file not found: $ref${NC}" >&2
+      continue
+    fi
+
+    # Skip large files (>50KB)
+    local size
+    size=$(wc -c < "$filepath" 2>/dev/null | tr -d ' ')
+    if [ "${size:-0}" -gt 51200 ]; then
+      echo -e "${YELLOW}Warning: $ref skipped (>50KB)${NC}" >&2
+      continue
+    fi
+
+    # Skip binary files
+    if file "$filepath" 2>/dev/null | grep -q 'binary\|executable\|image\|archive'; then
+      echo -e "${YELLOW}Warning: $ref skipped (binary file)${NC}" >&2
+      continue
+    fi
+
+    local content
+    content=$(cat "$filepath" 2>/dev/null) || continue
+    file_blocks="${file_blocks}
+
+<file path=\"$ref\">
+$content
+</file>"
+  done
+
+  if [ -n "$file_blocks" ]; then
+    echo "${result}${file_blocks}"
+  else
+    echo "$result"
   fi
 }
 
@@ -293,15 +510,24 @@ run_repl() {
     # Add to history
     history -s "$input" 2>/dev/null || true
 
-    # Dispatch: slash command or agent message
-    if is_command "$input"; then
+    # Dispatch: shell command, slash command, or agent message
+    if [[ "$input" == !* ]]; then
+      run_shell_command "${input#!}"
+    elif is_command "$input"; then
       dispatch_command "$input"
     else
       # Create checkpoint before agent action
       if declare -f checkpoint_create &>/dev/null; then
         checkpoint_create "before: ${input:0:60}" 2>/dev/null || true
       fi
-      send_to_agent "$input"
+
+      # Expand @file references (log original, send expanded)
+      local expanded_input="$input"
+      if [[ "$input" == *@* ]]; then
+        expanded_input=$(expand_file_references "$input")
+      fi
+
+      send_to_agent "$expanded_input" "$input"
       # Clear redo stack after new agent action
       if declare -f undo_clear_redo &>/dev/null; then
         undo_clear_redo

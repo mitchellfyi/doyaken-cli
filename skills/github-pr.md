@@ -33,15 +33,13 @@ Draft: {{ARGS.draft}}
    - List commits that differ from base branch
 
 2. **Gather Context**
-   - Look for related task files in `.doyaken/tasks/3.doing/` or recently moved to `4.done/`
-   - Check commit messages for task references `[task-id]`
-   - Read the task file(s) for context
+   - Check commit messages for issue references (e.g., `Fixes #N`)
+   - Read the commit log to understand the scope of changes
 
 3. **Generate PR Content**
 
    **Title** (if not provided):
-   - Use task title if single task
-   - Summarize changes if multiple tasks
+   - Summarize changes from commit messages
    - Keep under 72 characters
 
    **Body**:
@@ -55,9 +53,9 @@ Draft: {{ARGS.draft}}
    - [Change 1]
    - [Change 2]
 
-   ## Related Tasks
+   ## Related Issues
 
-   - [task-id]: [task title]
+   - Fixes #N: [issue title]
 
    ## Testing
 
@@ -73,15 +71,9 @@ Draft: {{ARGS.draft}}
    Use GitHub MCP to create the pull request:
    - Set base branch: {{ARGS.base}}
    - Set draft status: {{ARGS.draft}}
-   - Add labels if task had labels/priority
+   - Add labels based on commit content if appropriate
 
-5. **Update Task Files**
-   For each related task, add to Links section:
-   ```
-   - PR: #NNN
-   ```
-
-6. **Report Result**
+5. **Report Result**
    Output the PR URL and number
 
 ## Output Format
@@ -94,13 +86,11 @@ PR: #123
 URL: https://github.com/owner/repo/pull/123
 Status: [ready|draft]
 
-Related tasks updated:
-- 003-001-add-feature.md
+Related issues: #123, #456
 ```
 
 ## Rules
 
 - Do NOT create PR if on main/master branch
 - Do NOT create PR if there are uncommitted changes (warn first)
-- Include task references in PR body
-- Link PR back to task files
+- Include issue references in PR body when available

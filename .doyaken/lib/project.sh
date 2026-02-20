@@ -1,100 +1,41 @@
 #!/usr/bin/env bash
 #
-# project.sh - Project detection and task helpers for doyaken CLI
+# project.sh - Project detection and utility helpers for doyaken CLI
 #
-# Provides: detect_project, require_project, get_task_folder, create_task_file
+# Provides: detect_project, require_project,
+#           count_files, count_task_files, count_files_excluding_gitkeep
 #
 
 # ============================================================================
-# Task Folder Helpers
+# File Counting Utilities
 # ============================================================================
 
-# Get the actual folder path, supporting both old and new naming
-get_task_folder() {
-  local base_dir="$1"
-  local state="$2"
-  # Check for new numbered naming first
-  case "$state" in
-    blocked) [ -d "$base_dir/tasks/1.blocked" ] && echo "$base_dir/tasks/1.blocked" && return ;;
-    todo)    [ -d "$base_dir/tasks/2.todo" ] && echo "$base_dir/tasks/2.todo" && return ;;
-    doing)   [ -d "$base_dir/tasks/3.doing" ] && echo "$base_dir/tasks/3.doing" && return ;;
-    done)    [ -d "$base_dir/tasks/4.done" ] && echo "$base_dir/tasks/4.done" && return ;;
-  esac
-  # Fall back to old naming
-  echo "$base_dir/tasks/$state"
+# Count files in a directory with optional pattern
+# Args: dir, [pattern]
+# Returns: count (0 if dir missing or empty)
+count_files() {
+  local dir="$1"
+  local pattern="${2:-*}"
+  find "$dir" -maxdepth 1 -name "$pattern" -type f 2>/dev/null | wc -l | tr -d ' '
 }
 
-# Create a task file with standard format
-# Args: task_id, title, priority, priority_label, todo_dir, [context]
-create_task_file() {
-  local task_id="$1"
-  local title="$2"
-  local priority="$3"
-  local priority_label="$4"
-  local todo_dir="$5"
-  local context="${6:-Why does this task exist?}"
-  local task_file="$todo_dir/${task_id}.md"
-  local timestamp
-  timestamp=$(date '+%Y-%m-%d %H:%M')
+# Count markdown files (*.md) in a directory
+# Args: dir
+# Returns: count (0 if dir missing or empty)
+count_md_files() {
+  local dir="$1"
+  count_files "$dir" "*.md"
+}
 
-  cat > "$task_file" << EOF
-# Task: $title
+# Legacy alias
+count_task_files() { count_md_files "$@"; }
 
-## Metadata
-
-| Field       | Value                                                  |
-| ----------- | ------------------------------------------------------ |
-| ID          | \`$task_id\`                                           |
-| Status      | \`todo\`                                               |
-| Priority    | \`$priority\` $priority_label                          |
-| Created     | \`$timestamp\`                                         |
-| Started     |                                                        |
-| Completed   |                                                        |
-| Blocked By  |                                                        |
-| Blocks      |                                                        |
-| Assigned To |                                                        |
-| Assigned At |                                                        |
-
----
-
-## Context
-
-$context
-
----
-
-## Acceptance Criteria
-
-- [ ] Complete the requested work
-- [ ] Tests written and passing (if applicable)
-- [ ] Quality gates pass
-- [ ] Changes committed with task reference
-
----
-
-## Plan
-
-(To be filled in during planning phase)
-
----
-
-## Work Log
-
-### $timestamp - Created
-
-- Task created via CLI
-
----
-
-## Notes
-
----
-
-## Links
-
-EOF
-
-  echo "$task_file"
+# Count files excluding .gitkeep (for cleanup operations)
+# Args: dir
+# Returns: count (0 if dir missing or empty)
+count_files_excluding_gitkeep() {
+  local dir="$1"
+  find "$dir" -maxdepth 1 -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' '
 }
 
 # ============================================================================
@@ -125,12 +66,6 @@ detect_project() {
     fi
   fi
 
-  # Check for legacy .claude/ directory (must have tasks/todo to be a doyaken project, not Claude Code's global config)
-  if [ -d "$search_dir/.claude/tasks/todo" ] || [ -d "$search_dir/.claude/tasks/2.todo" ]; then
-    echo "LEGACY:$search_dir"
-    return 0
-  fi
-
   # Walk up the directory tree
   local parent="$search_dir"
   while [ "$parent" != "/" ]; do
@@ -140,11 +75,6 @@ detect_project() {
         echo "$parent"
         return 0
       fi
-    fi
-    # Check for legacy .claude/ with tasks/todo subfolder (to distinguish from Claude Code's global config)
-    if [ -d "$parent/.claude/tasks/todo" ] || [ -d "$parent/.claude/tasks/2.todo" ]; then
-      echo "LEGACY:$parent"
-      return 0
     fi
     parent=$(dirname "$parent")
   done

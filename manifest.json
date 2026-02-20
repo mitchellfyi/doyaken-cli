@@ -67,11 +67,6 @@
       "sha256": "ef1bda399c40ce9d5b910a2899fa5d1552c383fd182acafddadab143a7dda701",
       "size": 14439
     },
-    "lib/taskboard.sh": {
-      "category": "overwrite",
-      "sha256": "018fa1ce7651d0702252ce052ebc2189f4fbbcedce92010678f8c2a927cbfe76",
-      "size": 6631
-    },
     "lib/upgrade.sh": {
       "category": "overwrite",
       "sha256": "a1844f4e5f6595c054d5baad93c193caa25e8a7d960f682561f6c4e24d9d1da0",
@@ -912,11 +907,6 @@
       "sha256": "4534dc24351f4ed06bf6b7d7cca9b9c99ea24c97a6a854d8ee06bf5db6e9688b",
       "size": 1805
     },
-    "hooks/task-context.sh": {
-      "category": "overwrite",
-      "sha256": "dedc6f83b0adb269d12d45abaa3ec03714c5b75db972e4926a304aae08a7230b",
-      "size": 2147
-    },
     "scripts/sync-agent-files.sh": {
       "category": "overwrite",
       "sha256": "a4cbede1357e3a44c05afc20222c9f2a48654eadef7c0d7fb3da601f611f83f8",
@@ -941,11 +931,6 @@
       "category": "template",
       "sha256": "56cbb10e68bf98d53358c188a514c1207579ff23d5c21b048b2cadf8451677e1",
       "size": 1825
-    },
-    "templates/TASK.md": {
-      "category": "template",
-      "sha256": "35d4f1f6593df22b581e094c2b797e03070ec40a3a9690faaf35f440d8f2dbae",
-      "size": 2296
     },
     "templates/agents/.cursorrules": {
       "category": "template",

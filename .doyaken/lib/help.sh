@@ -11,30 +11,28 @@
 
 show_help() {
   cat << EOF
-${BOLD}doyaken${NC} - Autonomous AI agent for software development
+${BOLD}doyaken${NC} - A coding agent that delivers robust, working code
 
 ${BOLD}USAGE:${NC}
-  doyaken [command] [options]
+  doyaken run "<prompt>" [options]
 
 ${BOLD}COMMANDS:${NC}
-  ${CYAN}(none)${NC}              Run 5 tasks in auto-detected project
-  ${CYAN}run${NC} [N]             Run N tasks (default: 5)
+  ${CYAN}run${NC} "<prompt>"     Execute a prompt through the 8-phase pipeline
+  ${CYAN}chat${NC}                Interactive chat/REPL mode
+  ${CYAN}chat${NC} --resume [id]   Resume a previous session
+  ${CYAN}sessions${NC}             List chat sessions
   ${CYAN}init${NC} [path]         Initialize a new project
   ${CYAN}register${NC}            Register current project in global registry
   ${CYAN}unregister${NC}          Remove current project from registry
   ${CYAN}list${NC}                List all registered projects
-  ${CYAN}tasks${NC}               Show taskboard
-  ${CYAN}tasks new${NC} <title>   Create new task interactively
-  ${CYAN}task${NC} "<prompt>"     Create and immediately run a single task
-  ${CYAN}add${NC} "<title>"       Alias for 'tasks new'
   ${CYAN}skills${NC}              List available skills
   ${CYAN}skill${NC} <name>        Run a skill
   ${CYAN}config${NC}              Show effective configuration
   ${CYAN}config${NC} edit         Edit global or project config
   ${CYAN}upgrade${NC}             Upgrade doyaken to latest version
   ${CYAN}upgrade${NC} --check     Check if upgrade is available
-  ${CYAN}review${NC}              Run periodic codebase review
-  ${CYAN}review${NC} --status     Show review status and counter
+  ${CYAN}review${NC}              Run codebase review
+  ${CYAN}review${NC} --status     Show review status
   ${CYAN}mcp${NC} status          Show MCP integration status
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
@@ -44,7 +42,11 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
-  ${CYAN}cleanup${NC}             Clean locks, logs, state, done tasks, stale doing, registry
+  ${CYAN}validate${NC}            Validate project configuration
+  ${CYAN}stats${NC}               Show project statistics
+  ${CYAN}audit${NC}               View audit log
+  ${CYAN}generate${NC}            Generate/sync tool configs
+  ${CYAN}cleanup${NC}             Clean logs, state, and registry
   ${CYAN}version${NC}             Show version
   ${CYAN}help${NC} [command]      Show help
 
@@ -55,6 +57,11 @@ ${BOLD}OPTIONS:${NC}
   --dry-run           Preview without executing
   --verbose           Show detailed output
   --quiet             Minimal output
+  --safe-mode         Disable autonomous mode (agents will prompt for confirmation)
+  --supervised        Pause between phases for human review
+  --plan-only         Stop after plan phase for approval
+  --approval <level>  Set approval level (full-auto, supervised, plan-only)
+  --no-status-line    Disable persistent status line during execution
   -- <args>           Pass additional arguments to the underlying agent CLI
 
 ${BOLD}AGENTS & MODELS:${NC}
@@ -72,24 +79,17 @@ ${BOLD}AUTONOMOUS MODE FLAGS (automatically applied):${NC}
   opencode: --auto-approve
 
 ${BOLD}EXAMPLES:${NC}
-  doyaken                              # Run 5 tasks in current project
-  doyaken run 3                        # Run 3 tasks
-  doyaken --agent codex run 1          # Run with OpenAI Codex
-  doyaken --agent gemini --model gemini-2.5-flash run 2
-  doyaken --project ~/app run 1        # Run 1 task in specific project
-  doyaken init                         # Initialize current directory
-  doyaken tasks new "Add feature X"    # Create new task
-  doyaken add "Fix the bug"            # Shortcut to create task
-  doyaken task "Fix the login bug"     # Create and run task immediately
-  doyaken run 1 -- --sandbox read-only # Pass extra args to agent
+  doyaken run "Add user authentication with JWT"
+  doyaken --agent codex run "Fix the login bug"
+  doyaken --agent gemini --model gemini-2.5-flash run "Optimize database queries"
+  doyaken --project ~/app run "Add health check endpoint"
+  doyaken run "Refactor error handling" -- --sandbox read-only
 
 ${BOLD}ENVIRONMENT:${NC}
   DOYAKEN_HOME         Global installation directory (default: ~/.doyaken)
   DOYAKEN_PROJECT      Override project detection
   DOYAKEN_AGENT        Default agent (claude, codex, gemini, copilot, opencode)
   DOYAKEN_MODEL        Default model for the agent
-  DOYAKEN_AUTO_TIMEOUT Auto-select menu options after N seconds (default: 60)
-                       Set to 0 to disable and wait for user input
 
 EOF
 }
@@ -114,82 +114,238 @@ ${BOLD}DESCRIPTION:${NC}
 
 ${BOLD}WHAT IT CREATES:${NC}
   .doyaken/
-    manifest.yaml       Project metadata
-    tasks/1.blocked/    Blocked tasks (waiting on something)
-    tasks/2.todo/       Ready-to-start tasks
-    tasks/3.doing/      In-progress tasks
-    tasks/4.done/       Completed tasks
-    tasks/_templates/   Task templates
-    logs/               Execution logs
-    state/              Session state
-    locks/              Lock files
-  AGENT.md              Operating manual (if not exists)
+    manifest.yaml       Project configuration (quality gates, retry budgets)
+    prompts/library/     Methodology prompts
+    prompts/phases/      8-phase workflow prompts
+    skills/              Project-specific skills
+    logs/                Execution logs
+    state/               Session state
+  AGENTS.md              AI agent instructions
 
 EOF
       ;;
     run)
       cat << EOF
-${BOLD}doyaken run${NC} - Run tasks with AI agent
+${BOLD}doyaken run${NC} - Execute a prompt through the 8-phase pipeline
 
 ${BOLD}USAGE:${NC}
-  doyaken run [N]
+  doyaken run "<prompt>"
 
 ${BOLD}ARGUMENTS:${NC}
-  N    Number of tasks to run (default: 5)
+  prompt    The task to execute (required)
 
 ${BOLD}OPTIONS:${NC}
   --agent <name>    Use specific agent (claude, codex, gemini, copilot, opencode)
   --model <name>    Use specific model
   --dry-run         Preview without executing
 
+${BOLD}PIPELINE:${NC}
+  EXPAND -> TRIAGE -> PLAN -> IMPLEMENT -> TEST -> DOCS -> REVIEW -> VERIFY
+
+  After each phase, verification gates run your quality commands.
+  If gates fail and the phase has retries remaining, it re-runs
+  with error context so the agent can fix the issue.
+
 ${BOLD}EXAMPLES:${NC}
-  doyaken run           # Run 5 tasks
-  doyaken run 1         # Run 1 task
-  doyaken run 10        # Run 10 tasks
+  doyaken run "Add user authentication with JWT"
+  doyaken run "Fix the login bug in src/auth.ts"
+  doyaken --agent codex run "Optimize database queries"
 
 EOF
       ;;
-    tasks)
+    chat)
       cat << EOF
-${BOLD}doyaken tasks${NC} - Task management
+${BOLD}doyaken chat${NC} - Interactive chat/REPL mode
 
 ${BOLD}USAGE:${NC}
-  doyaken tasks              Show taskboard
-  doyaken tasks new <title>  Create new task
-
-${BOLD}EXAMPLES:${NC}
-  doyaken tasks                        # Show taskboard
-  doyaken tasks new "Add login page"   # Create new task
-
-EOF
-      ;;
-    task)
-      cat << EOF
-${BOLD}doyaken task${NC} - Create and run a task immediately
-
-${BOLD}USAGE:${NC}
-  doyaken task "<prompt>"
+  doyaken chat [--resume [id]]
 
 ${BOLD}DESCRIPTION:${NC}
-  Creates a high-priority task and immediately runs the AI agent on it.
-  Use this for quick one-off tasks without managing the backlog.
+  Enters an interactive REPL where you can have a conversation with the
+  AI agent. Send messages, use slash commands, and see streaming output.
+  Conversation context is automatically carried across messages.
+
+${BOLD}OPTIONS:${NC}
+  --resume          Resume the most recent session
+  --resume <id>     Resume a specific session by ID (partial match OK)
+
+${BOLD}SPECIAL SYNTAX:${NC}
+  @path/to/file     Attach file contents to your message
+  !command          Run a shell command (e.g., !git status)
+
+${BOLD}SLASH COMMANDS:${NC}
+  /help             Show available commands
+  /status           Show project and session status
+  /compact [N]      Trim conversation history (keep last N messages, default 6)
+  /commit [-m ""]   Commit changes (generates message via agent, or -m for manual)
+  /sessions         List recent sessions
+  /session save     Save current session (optionally with a tag)
+  /session resume   Resume a saved session
+  /session fork     Fork a session into a new branch
+  /session export   Export session as markdown
+  /session delete   Delete a session
+  /undo             Revert last agent change
+  /redo             Re-apply last undone change
+  /checkpoint       Show checkpoint history
+  /checkpoint save  Create a manual checkpoint
+  /restore <n>      Restore to checkpoint number
+  /diff             Show git diff of changes
+  /clear            Clear the screen
+  /quit             Exit interactive mode (also: /exit, Ctrl+D)
+
+${BOLD}KEYBOARD:${NC}
+  Ctrl+C      Cancel running agent operation
+  Ctrl+D      Exit interactive mode
+  Up/Down     Navigate input history
+
+${BOLD}CONTEXT:${NC}
+  Conversation history (last 20 messages) is automatically included
+  in each agent call. Use /compact to trim if context grows too large.
+  Set DOYAKEN_CHAT_CONTEXT_SIZE to change the default window.
 
 ${BOLD}EXAMPLES:${NC}
-  doyaken task "Fix the login bug"
-  doyaken task "Add error handling to the API"
+  doyaken chat                        # Start interactive session
+  dk chat --resume                    # Resume last session
+  dk chat --resume 20260210           # Resume session by partial ID
+  dk --agent codex chat               # Chat with Codex agent
+  @lib/core.sh what does this file do? # Attach file for context
+  !npm test                           # Run shell command inline
 
 EOF
       ;;
-    add)
+    sessions)
       cat << EOF
-${BOLD}doyaken add${NC} - Create a new task (alias for 'tasks new')
+${BOLD}doyaken sessions${NC} - List chat sessions
 
 ${BOLD}USAGE:${NC}
-  doyaken add "<title>"
+  doyaken sessions [limit]
+
+${BOLD}DESCRIPTION:${NC}
+  Lists recent chat sessions with their status, message count, and task info.
+  Default limit is 20 sessions.
 
 ${BOLD}EXAMPLES:${NC}
-  doyaken add "Implement user authentication"
-  doyaken add "Fix database connection issue"
+  doyaken sessions              # List recent sessions
+  dk sessions 50                # List up to 50 sessions
+
+EOF
+      ;;
+    validate)
+      cat << EOF
+${BOLD}doyaken validate${NC} - Validate project configuration
+
+${BOLD}USAGE:${NC}
+  doyaken validate
+
+${BOLD}DESCRIPTION:${NC}
+  Checks your project configuration for errors:
+  - manifest.yaml exists and is valid YAML
+  - Required fields are present (project.name)
+  - Quality gate commands resolve (command -v)
+  - Enabled integrations have server configs and env vars
+  - Skills referenced in hooks exist on disk
+
+EOF
+      ;;
+    stats)
+      cat << EOF
+${BOLD}doyaken stats${NC} - Show project statistics
+
+${BOLD}USAGE:${NC}
+  doyaken stats
+
+${BOLD}DESCRIPTION:${NC}
+  Displays summary statistics for your project:
+  - Registered project count
+  - Current project info (name, branch)
+  - Session, skill, and integration counts
+  - Audit log entry count
+
+EOF
+      ;;
+    audit)
+      cat << EOF
+${BOLD}doyaken audit${NC} - View audit log
+
+${BOLD}USAGE:${NC}
+  doyaken audit [--last N]
+
+${BOLD}DESCRIPTION:${NC}
+  Shows recent entries from the project's audit log.
+  The audit log records phase executions, gate results,
+  and session events as JSON lines.
+
+${BOLD}OPTIONS:${NC}
+  --last N    Show last N entries (default: 20)
+
+EOF
+      ;;
+    generate)
+      cat << EOF
+${BOLD}doyaken generate${NC} - Generate/sync tool configs
+
+${BOLD}USAGE:${NC}
+  doyaken generate
+
+${BOLD}DESCRIPTION:${NC}
+  Generates config files for other tools (eslint, prettier, tsconfig, etc.)
+  using templates with managed content markers. User customizations outside
+  the managed section are preserved.
+
+  Configure in .doyaken/manifest.yaml:
+    generate:
+      configs:
+        - template: config/generators/eslint.yaml
+          target: .eslintrc.js
+          style: slash
+
+EOF
+      ;;
+    list)
+      cat << EOF
+${BOLD}doyaken list${NC} - List registered projects
+
+${BOLD}USAGE:${NC}
+  doyaken list [--recent [N]]
+
+${BOLD}OPTIONS:${NC}
+  --recent [N]    Show N most recently active projects (default: 5)
+
+EOF
+      ;;
+    skills)
+      cat << EOF
+${BOLD}doyaken skills${NC} - List available skills
+
+${BOLD}USAGE:${NC}
+  doyaken skills [--domains]
+
+${BOLD}OPTIONS:${NC}
+  --domains    Also show domain skill packs
+
+${BOLD}DESCRIPTION:${NC}
+  Lists all available skills from project and global directories.
+  Use --domains to see domain skill packs (grouped skill collections).
+
+EOF
+      ;;
+    mcp)
+      cat << EOF
+${BOLD}doyaken mcp${NC} - MCP integration management
+
+${BOLD}USAGE:${NC}
+  doyaken mcp [status|configure|doctor|setup]
+
+${BOLD}COMMANDS:${NC}
+  status            Show MCP integration status
+  configure         Generate MCP configs for enabled integrations
+  doctor            Health check for MCP servers
+  setup <name>      Show setup instructions for an MCP server
+
+${BOLD}EXAMPLES:${NC}
+  doyaken mcp status
+  doyaken mcp setup github
+  doyaken mcp configure --agent claude
 
 EOF
       ;;

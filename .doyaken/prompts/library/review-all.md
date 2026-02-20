@@ -8,7 +8,7 @@ This is a comprehensive codebase review that runs after completing a threshold o
 
 **Every finding MUST result in action:**
 1. **Auto-fix**: If the issue can be fixed automatically (formatting, simple refactors, obvious bugs), fix it immediately
-2. **Create task**: If the issue requires manual intervention or more analysis, create a task in `.doyaken/tasks/2.todo/`
+2. **Create task**: If the issue requires manual intervention or more analysis, document it as a follow-up
 
 No passive reporting. Every issue must be either fixed or tracked.
 
@@ -121,34 +121,14 @@ Create a task if:
 - Security issue needs careful remediation
 - Performance fix needs benchmarking
 
-### Task Format
+### Follow-Up Format
 
-Create in `.doyaken/tasks/2.todo/` with format: `003-XXX-review-[category]-[slug].md`
+Document issues that need separate work:
 
-```markdown
-# [Title]
-
-## Category
-Periodic Review Finding - [category]
-
-## Severity
-[blocker/high/medium/low]
-
-## Description
-[Detailed description of the issue]
-
-## Location
-[file:line or component/module]
-
-## Recommended Fix
-[Step-by-step remediation plan]
-
-## Impact
-[What happens if not fixed]
-
-## Acceptance Criteria
-- [ ] [Specific criteria 1]
-- [ ] [Specific criteria 2]
+```
+[FOLLOW-UP] [severity] [category]: [description]
+  Location: [file:line]
+  Fix: [recommended approach]
 ```
 
 ## Output Summary
@@ -178,9 +158,9 @@ At the end of the review, provide:
 1. [Brief description of fix 1]
 2. [Brief description of fix 2]
 
-### Tasks Created
-1. `003-XXX-review-[slug].md` - [Brief description]
-2. `003-XXX-review-[slug].md` - [Brief description]
+### Follow-Ups
+1. [severity] [category]: [Brief description]
+2. [severity] [category]: [Brief description]
 
 ### Blockers (Require Immediate Attention)
 [List any blocker-severity items]

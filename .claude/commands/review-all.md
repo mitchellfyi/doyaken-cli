@@ -6,15 +6,15 @@ description: Apply review-all methodology
 
 ## Purpose
 
-This is a comprehensive codebase review that runs after completing a threshold of tasks. The goal is to catch issues early, maintain code quality, and ensure technical debt doesn't accumulate.
+This is a comprehensive codebase review. The goal is to catch issues early, maintain code quality, and ensure technical debt doesn't accumulate.
 
 ## Critical Requirements
 
 **Every finding MUST result in action:**
 1. **Auto-fix**: If the issue can be fixed automatically (formatting, simple refactors, obvious bugs), fix it immediately
-2. **Create task**: If the issue requires manual intervention or more analysis, create a task in `.doyaken/tasks/2.todo/`
+2. **Log finding**: If the issue requires manual intervention or more analysis, document it in the findings ledger
 
-No passive reporting. Every issue must be either fixed or tracked.
+No passive reporting. Every issue must be either fixed or documented.
 
 ## Review Sequence
 
@@ -92,7 +92,7 @@ Track all findings in a structured format:
 
 | ID | Severity | Category | Location | Issue | Action |
 |----|----------|----------|----------|-------|--------|
-| 1 | [severity] | [category] | file:line | [description] | [fixed/task-XXX] |
+| 1 | [severity] | [category] | file:line | [description] | [fixed/noted] |
 
 **Severity Levels:**
 - **blocker**: Critical issues that must be fixed immediately
@@ -115,45 +115,15 @@ Fix immediately if:
 - Missing error handling that follows established patterns
 - Dependency updates with no breaking changes
 
-### Task Creation Criteria
+### Document for Follow-Up
 
-Create a task if:
+Document in the findings ledger if:
 - Fix requires design decisions
 - Multiple files need coordinated changes
 - Tests need to be written
 - Breaking changes involved
 - Security issue needs careful remediation
 - Performance fix needs benchmarking
-
-### Task Format
-
-Create in `.doyaken/tasks/2.todo/` with format: `003-XXX-review-[category]-[slug].md`
-
-```markdown
-# [Title]
-
-## Category
-Periodic Review Finding - [category]
-
-## Severity
-[blocker/high/medium/low]
-
-## Description
-[Detailed description of the issue]
-
-## Location
-[file:line or component/module]
-
-## Recommended Fix
-[Step-by-step remediation plan]
-
-## Impact
-[What happens if not fixed]
-
-## Acceptance Criteria
-- [ ] [Specific criteria 1]
-- [ ] [Specific criteria 2]
-```
 
 ## Output Summary
 
@@ -165,12 +135,12 @@ At the end of the review, provide:
 ### Stats
 - Total findings: [N]
 - Auto-fixed: [X]
-- Tasks created: [Y]
+- Documented for follow-up: [Y]
 - Remaining: [Z] (should be 0)
 
 ### By Category
-| Category | Findings | Fixed | Tasks |
-|----------|----------|-------|-------|
+| Category | Findings | Fixed | Follow-Up |
+|----------|----------|-------|-----------|
 | Security | N | X | Y |
 | Quality | N | X | Y |
 | Performance | N | X | Y |
@@ -182,9 +152,9 @@ At the end of the review, provide:
 1. [Brief description of fix 1]
 2. [Brief description of fix 2]
 
-### Tasks Created
-1. `003-XXX-review-[slug].md` - [Brief description]
-2. `003-XXX-review-[slug].md` - [Brief description]
+### Items for Follow-Up
+1. [Brief description of item 1]
+2. [Brief description of item 2]
 
 ### Blockers (Require Immediate Attention)
 [List any blocker-severity items]

@@ -82,10 +82,10 @@ Create a test report with:
 - Issues found (with severity)
 - Improvement suggestions
 
-### 5. Create Tasks (Optional)
+### 5. Generate Follow-Up Prompts (Optional)
 
 For significant issues found:
-- Create doyaken tasks for fixes
+- Generate `dk run` prompts for fixes
 - Include reproduction steps
 - Prioritize by user impact
 

@@ -368,9 +368,11 @@ Create a new `skills/` file when:
 |----------|---------|-------------|
 | `{{DOYAKEN_PROJECT}}` | Skills | Project directory path |
 | `{{ARGS.name}}` | Skills | Skill argument value |
-| `{{TASK_ID}}` | Phases | Current task ID |
-| `{{TASK_FILE}}` | Phases | Path to task file |
+| `{{TASK_PROMPT}}` | Phases | The original prompt text |
+| `{{ACCUMULATED_CONTEXT}}` | Phases | Context from prior phases |
+| `{{VERIFICATION_CONTEXT}}` | Phases | Gate failure output for retries |
 | `{{TIMESTAMP}}` | Phases | Current timestamp |
+| `{{RECENT_COMMITS}}` | Phase 6 | Recent git commit log |
 | `{{include:path}}` | Any | Include another prompt |
 
 ## Checklist for New Contributions

@@ -249,17 +249,10 @@ else
   mkdir -p "$DOYAKEN_HOME/skills"
   mkdir -p "$DOYAKEN_HOME/hooks"
   mkdir -p "$DOYAKEN_HOME/scripts"
-  mkdir -p "$DOYAKEN_HOME/tasks/1.blocked"
-  mkdir -p "$DOYAKEN_HOME/tasks/2.todo"
-  mkdir -p "$DOYAKEN_HOME/tasks/3.doing"
-  mkdir -p "$DOYAKEN_HOME/tasks/4.done"
-  mkdir -p "$DOYAKEN_HOME/tasks/_templates"
   mkdir -p "$DOYAKEN_HOME/logs"
   chmod 700 "$DOYAKEN_HOME/logs"
   mkdir -p "$DOYAKEN_HOME/state"
   chmod 700 "$DOYAKEN_HOME/state"
-  mkdir -p "$DOYAKEN_HOME/locks"
-  chmod 700 "$DOYAKEN_HOME/locks"
 
   # Copy core files
   /bin/cp -f "$SOURCE_DIR/lib"/*.sh "$DOYAKEN_HOME/lib/"
@@ -353,19 +346,9 @@ WRAPPER
     log_success "Created project wrappers at $PROJECT_BIN/{doyaken,dk}"
   fi
 
-  # Copy task template
-  if [ -f "$DOYAKEN_HOME/templates/TASK.md" ]; then
-    /bin/cp -f "$DOYAKEN_HOME/templates/TASK.md" "$DOYAKEN_HOME/tasks/_templates/"
-  fi
-
   # Create .gitkeep files
-  touch "$DOYAKEN_HOME/tasks/1.blocked/.gitkeep"
-  touch "$DOYAKEN_HOME/tasks/2.todo/.gitkeep"
-  touch "$DOYAKEN_HOME/tasks/3.doing/.gitkeep"
-  touch "$DOYAKEN_HOME/tasks/4.done/.gitkeep"
   touch "$DOYAKEN_HOME/logs/.gitkeep"
   touch "$DOYAKEN_HOME/state/.gitkeep"
-  touch "$DOYAKEN_HOME/locks/.gitkeep"
 
   # Create manifest
   git_remote=""
@@ -444,17 +427,17 @@ if [[ "$INSTALL_TYPE" == "user" ]]; then
   echo "Quick start:"
   echo "  cd /path/to/your/project"
   echo "  dk init                    # Initialize project"
-  echo "  dk tasks new \"My task\"     # Create a task"
-  echo "  dk run 1                   # Run 1 task"
+  echo "  dk run \"your prompt\"       # Run the agent"
+  echo "  dk chat                    # Start a chat session"
   echo ""
   echo "Upgrade:"
   echo "  dk upgrade --check         # Check for updates"
   echo "  dk upgrade                 # Apply upgrade"
 else
   echo "Quick start (from project root):"
-  echo "  ./bin/dk tasks new \"My task\"   # Create a task"
-  echo "  ./bin/dk run 1                  # Run 1 task"
-  echo "  ./bin/dk status                 # Show status"
+  echo "  ./bin/dk run \"your prompt\"       # Run the agent"
+  echo "  ./bin/dk chat                    # Start a chat session"
+  echo "  ./bin/dk status                  # Show status"
 fi
 
 echo ""

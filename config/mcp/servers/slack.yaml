@@ -11,8 +11,12 @@ env:
   SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
   SLACK_TEAM_ID: "${SLACK_TEAM_ID}"
 
-# Required scopes for the Slack bot token:
-#   - channels:read
-#   - channels:history
-#   - chat:write
-#   - users:read
+conditions:
+  env:
+    - SLACK_BOT_TOKEN
+    - SLACK_TEAM_ID
+
+setup:
+  install: "npm install -g slack-mcp-server"
+  docs: "https://github.com/anthropics/slack-mcp-server"
+  notes: "Requires Slack bot token with channels:read, channels:history, chat:write, users:read scopes"

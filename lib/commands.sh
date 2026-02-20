@@ -3,7 +3,7 @@
 # commands.sh - Extensible slash command system for doyaken interactive mode
 #
 # Provides:
-#   - Built-in commands (/help, /quit, /tasks, /model, /diff, etc.)
+#   - Built-in commands (/help, /quit, /model, /diff, etc.)
 #   - Fuzzy/partial matching for command names
 #   - Auto-registration of skills as slash commands
 #   - Tab completion for command names (when rlwrap or bash 4+ available)
@@ -42,7 +42,7 @@ is_command() {
 }
 
 # Dispatch a slash command
-# Usage: dispatch_command "/help" or dispatch_command "/tasks new"
+# Usage: dispatch_command "/help" or dispatch_command "/phase implement"
 dispatch_command() {
   local input="$1"
   local cmd="${input%% *}"   # First word
@@ -56,9 +56,6 @@ dispatch_command() {
     quit|exit|q)  chat_cmd_quit ;;
     clear)        chat_cmd_clear ;;
     status)       chat_cmd_status ;;
-    tasks)        chat_cmd_tasks "$args" ;;
-    task)         chat_cmd_task "$args" ;;
-    pick)         chat_cmd_pick "$args" ;;
     run)          chat_cmd_run "$args" ;;
     phase)        chat_cmd_phase "$args" ;;
     skip)         chat_cmd_skip "$args" ;;
@@ -74,6 +71,8 @@ dispatch_command() {
     approval)     chat_cmd_approval "$args" ;;
     checkpoint)   chat_cmd_checkpoint "$args" ;;
     restore)      chat_cmd_restore "$args" ;;
+    compact)      chat_cmd_compact "$args" ;;
+    commit)       chat_cmd_commit "$args" ;;
     *)
       # Try skill command
       if _try_skill_command "$cmd" "$args"; then
@@ -110,7 +109,7 @@ fuzzy_match_slash_command() {
   (( input_len < 2 )) && return 0
 
   # Collect all known command names
-  local all_cmds="help quit exit clear status tasks task pick run phase skip model agent config log diff sessions session undo redo checkpoint restore approval"
+  local all_cmds="help quit exit clear status run phase skip model agent config log diff sessions session undo redo checkpoint restore approval compact commit"
 
   # Add registered skill commands
   local i
@@ -249,7 +248,7 @@ _try_skill_command() {
 # Usage: generate_completions_file "/path/to/file"
 generate_completions_file() {
   local file="$1"
-  local cmds="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore /approval"
+  local cmds="/help /quit /exit /clear /status /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore /approval /compact /commit"
 
   # Add skill commands
   local i
@@ -265,7 +264,7 @@ generate_completions_file() {
 # Set up tab completion for the REPL (bash 4+ only)
 setup_tab_completion() {
   # Build list of completions
-  local completions="/help /quit /exit /clear /status /tasks /task /pick /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore /approval"
+  local completions="/help /quit /exit /clear /status /run /phase /skip /model /agent /config /log /diff /sessions /session /undo /redo /checkpoint /restore /approval /compact /commit"
 
   local i
   for (( i=0; i < ${#REGISTERED_CMD_NAMES[@]}; i++ )); do
@@ -317,10 +316,7 @@ register_builtin_commands() {
   register_command "exit"   "Exit interactive mode"
   register_command "clear"  "Clear the screen"
   register_command "status" "Show project and session status"
-  register_command "tasks"  "List tasks (todo/doing/done)"
-  register_command "task"   "Show task details: /task <id>"
-  register_command "pick"   "Pick up a task: /pick <id>"
-  register_command "run"    "Run phases on current task"
+  register_command "run"    "Run prompt: /run <prompt>"
   register_command "phase"  "Run a specific phase: /phase <name>"
   register_command "skip"   "Skip a phase: /skip <name>"
   register_command "model"  "Show or change model: /model [name]"
@@ -335,6 +331,8 @@ register_builtin_commands() {
   register_command "redo"       "Re-apply last undone change"
   register_command "checkpoint" "Show or create checkpoints"
   register_command "restore"    "Restore to a checkpoint: /restore <num>"
+  register_command "compact"    "Trim conversation history: /compact [N]"
+  register_command "commit"     "Commit changes: /commit [-m \"msg\"]"
 }
 
 # ============================================================================
@@ -394,15 +392,12 @@ chat_cmd_status() {
     local doyaken_dir="$DOYAKEN_PROJECT/.doyaken"
     echo -e "${BOLD}Project:${NC}  $(basename "$DOYAKEN_PROJECT")"
 
-    if declare -f get_task_folder &>/dev/null && declare -f count_task_files &>/dev/null; then
-      local todo_dir doing_dir done_dir
-      todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-      doing_dir=$(get_task_folder "$doyaken_dir" "doing")
-      done_dir=$(get_task_folder "$doyaken_dir" "done")
-      echo -e "${BOLD}Todo:${NC}     $(count_task_files "$todo_dir")"
-      echo -e "${BOLD}Doing:${NC}    $(count_task_files "$doing_dir")"
-      echo -e "${BOLD}Done:${NC}     $(count_task_files "$done_dir")"
+    # Show session count
+    local session_count=0
+    if [ -d "$doyaken_dir/sessions" ]; then
+      session_count=$(find "$doyaken_dir/sessions" -maxdepth 1 -name "*.session" 2>/dev/null | wc -l | tr -d ' ')
     fi
+    echo -e "${BOLD}Sessions:${NC} $session_count"
   else
     echo -e "${BOLD}Project:${NC}  (none)"
   fi
@@ -414,134 +409,18 @@ chat_cmd_status() {
   echo ""
 }
 
-chat_cmd_tasks() {
-  local filter="$1"
-
-  if [ -z "${DOYAKEN_PROJECT:-}" ] || [ ! -d "${DOYAKEN_PROJECT}/.doyaken" ]; then
-    echo "Not in a project"
-    return 1
-  fi
-
-  local doyaken_dir="$DOYAKEN_PROJECT/.doyaken"
-  echo ""
-
-  if declare -f get_task_folder &>/dev/null; then
-    local dir state
-    for state in doing todo blocked done; do
-      dir=$(get_task_folder "$doyaken_dir" "$state")
-      local label
-      case "$state" in
-        doing)   label="${YELLOW}DOING${NC}" ;;
-        todo)    label="${CYAN}TODO${NC}" ;;
-        blocked) label="${RED}BLOCKED${NC}" ;;
-        done)    label="${GREEN}DONE${NC}" ;;
-      esac
-
-      local count=0
-      local files=()
-      if [ -d "$dir" ]; then
-        while IFS= read -r f; do
-          [ -z "$f" ] && continue
-          local basename_f
-          basename_f=$(basename "$f" .md)
-          if [ -z "$filter" ] || [[ "$basename_f" == *"$filter"* ]]; then
-            files+=("$basename_f")
-            count=$((count + 1))
-          fi
-        done < <(find "$dir" -maxdepth 1 -name "*.md" -type f 2>/dev/null | sort)
-      fi
-
-      echo -e "  $label ($count)"
-      for f in "${files[@]}"; do
-        echo "    $f"
-      done
-      [ "$state" = "done" ] && [ "$count" -gt 5 ] && echo "    ... (showing first entries)"
-    done
-  fi
-
-  echo ""
-}
-
-chat_cmd_task() {
-  local task_pattern="$1"
-
-  if [ -z "$task_pattern" ]; then
-    echo "Usage: /task <id-pattern>"
-    return 1
-  fi
-
-  if [ -z "${DOYAKEN_PROJECT:-}" ]; then
-    echo "Not in a project"
-    return 1
-  fi
-
-  local doyaken_dir="$DOYAKEN_PROJECT/.doyaken"
-
-  if declare -f get_task_folder &>/dev/null; then
-    local dir state
-    for state in doing todo blocked done; do
-      dir=$(get_task_folder "$doyaken_dir" "$state")
-      local found
-      found=$(find "$dir" -maxdepth 1 -name "*${task_pattern}*.md" 2>/dev/null | head -1)
-      if [ -n "$found" ]; then
-        echo ""
-        cat "$found"
-        return 0
-      fi
-    done
-  fi
-
-  echo "No task found matching: $task_pattern"
-  return 1
-}
-
-chat_cmd_pick() {
-  local task_pattern="$1"
-
-  if [ -z "$task_pattern" ]; then
-    echo "Usage: /pick <task-id-pattern>"
-    return 1
-  fi
-
-  if [ -z "${DOYAKEN_PROJECT:-}" ]; then
-    echo "Not in a project"
-    return 1
-  fi
-
-  local doyaken_dir="$DOYAKEN_PROJECT/.doyaken"
-
-  if declare -f get_task_folder &>/dev/null; then
-    local todo_dir doing_dir
-    todo_dir=$(get_task_folder "$doyaken_dir" "todo")
-    doing_dir=$(get_task_folder "$doyaken_dir" "doing")
-
-    local found
-    found=$(find "$todo_dir" -maxdepth 1 -name "*${task_pattern}*.md" 2>/dev/null | head -1)
-    if [ -n "$found" ]; then
-      mv "$found" "$doing_dir/"
-      local task_name
-      task_name=$(basename "$found" .md)
-      CHAT_CURRENT_TASK="$task_name"
-      echo -e "${GREEN}Picked up:${NC} $task_name"
-      return 0
-    fi
-  fi
-
-  echo "No todo task found matching: $task_pattern"
-  return 1
-}
-
 chat_cmd_run() {
   local args="$1"
 
-  if [ -z "${CHAT_CURRENT_TASK:-}" ]; then
-    echo "No task picked. Use /pick <task-id> first, or /tasks to see available tasks."
+  if [ -z "$args" ]; then
+    echo "Usage: /run <prompt>"
+    echo "Example: /run Fix the login bug in auth.js"
     return 1
   fi
 
-  echo -e "${DIM}Sending task to agent...${NC}"
+  echo -e "${DIM}Sending to agent...${NC}"
   if declare -f send_to_agent &>/dev/null; then
-    send_to_agent "Work on the current task: ${CHAT_CURRENT_TASK}. Read the task file and execute all phases: expand, triage, plan, implement, test, docs, review, verify. ${args}"
+    send_to_agent "$args"
   else
     echo "Agent not available"
     return 1
@@ -567,10 +446,9 @@ chat_cmd_phase() {
       ;;
   esac
 
-  local task="${CHAT_CURRENT_TASK:-}"
   echo -e "${DIM}Running $phase_name phase...${NC}"
   if declare -f send_to_agent &>/dev/null; then
-    send_to_agent "Run the $phase_name phase${task:+ on task $task}. Follow the methodology for this phase."
+    send_to_agent "Run the $phase_name phase. Follow the methodology for this phase."
   else
     echo "Agent not available"
     return 1
@@ -980,5 +858,180 @@ chat_cmd_approval() {
   else
     export DOYAKEN_APPROVAL="$level"
     echo -e "${GREEN}Approval level set to:${NC} $level"
+  fi
+}
+
+# ============================================================================
+# Compact & Commit Command Handlers
+# ============================================================================
+
+chat_cmd_compact() {
+  local keep="${1:-6}"
+
+  if ! [[ "$keep" =~ ^[0-9]+$ ]]; then
+    echo "Usage: /compact [N]  (keep last N messages, default 6)"
+    return 1
+  fi
+
+  local messages_file="${CHAT_MESSAGES_FILE:-}"
+  if [ -z "$messages_file" ] || [ ! -f "$messages_file" ]; then
+    echo "No messages to compact"
+    return 0
+  fi
+
+  local total
+  total=$(wc -l < "$messages_file" 2>/dev/null | tr -d ' ')
+
+  if [ "${total:-0}" -le "$keep" ]; then
+    echo "Nothing to compact ($total messages, keeping $keep)"
+    return 0
+  fi
+
+  local removed=$((total - keep))
+
+  # Atomic replacement via tmp file + mv
+  local tmp_file
+  tmp_file=$(mktemp "${messages_file}.XXXXXX")
+  tail -n "$keep" "$messages_file" > "$tmp_file"
+  mv "$tmp_file" "$messages_file"
+
+  echo -e "${GREEN}Compacted:${NC} removed $removed messages, kept $keep"
+}
+
+chat_cmd_commit() {
+  local args="$1"
+
+  if [ -z "${DOYAKEN_PROJECT:-}" ]; then
+    echo "Not in a project"
+    return 1
+  fi
+
+  if [ ! -d "$DOYAKEN_PROJECT/.git" ]; then
+    echo "Not a git repository"
+    return 1
+  fi
+
+  local project="$DOYAKEN_PROJECT"
+
+  # Check for staged or unstaged changes
+  local has_changes
+  has_changes=$(git -C "$project" status --porcelain 2>/dev/null)
+  if [ -z "$has_changes" ]; then
+    echo "No changes to commit"
+    return 0
+  fi
+
+  local commit_msg=""
+
+  # Parse -m flag for user-supplied message
+  if [[ "$args" == -m\ * ]] || [[ "$args" == -m\"* ]] || [[ "$args" == -m\'* ]]; then
+    commit_msg="${args#-m }"
+    commit_msg="${commit_msg#-m}"
+    # Strip surrounding quotes
+    commit_msg="${commit_msg#\"}"
+    commit_msg="${commit_msg%\"}"
+    commit_msg="${commit_msg#\'}"
+    commit_msg="${commit_msg%\'}"
+  fi
+
+  if [ -z "$commit_msg" ]; then
+    # Generate message via agent
+    echo -e "${DIM}Generating commit message...${NC}"
+
+    local diff_stat diff_content
+    diff_stat=$(git -C "$project" diff --stat HEAD 2>/dev/null)
+    diff_content=$(git -C "$project" diff HEAD 2>/dev/null | head -200)
+
+    if [ -z "$diff_stat" ]; then
+      # Try staged changes
+      diff_stat=$(git -C "$project" diff --stat --cached 2>/dev/null)
+      diff_content=$(git -C "$project" diff --cached 2>/dev/null | head -200)
+    fi
+
+    if [ -z "$diff_stat" ]; then
+      echo "No diff to generate message from"
+      return 1
+    fi
+
+    local prompt="Generate a concise git commit message (1-2 lines, no quotes) for these changes. Just output the message, nothing else.
+
+Diff stat:
+$diff_stat
+
+Diff (truncated):
+$diff_content"
+
+    if declare -f query_agent_silent &>/dev/null; then
+      commit_msg=$(query_agent_silent "$prompt")
+    else
+      echo "Agent query not available. Use: /commit -m \"your message\""
+      return 1
+    fi
+
+    if [ -z "$commit_msg" ]; then
+      echo "Failed to generate commit message"
+      return 1
+    fi
+  fi
+
+  # Show proposed message and ask for confirmation
+  echo ""
+  echo -e "${BOLD}Commit message:${NC}"
+  echo "  $commit_msg"
+  echo ""
+
+  local confirm=""
+  read -rp "[Y/n/e] " confirm
+  case "$confirm" in
+    n|N)
+      echo "Commit cancelled"
+      return 0
+      ;;
+    e|E)
+      read -rp "Enter commit message: " commit_msg
+      if [ -z "$commit_msg" ]; then
+        echo "Commit cancelled"
+        return 0
+      fi
+      ;;
+    *)
+      # Y or empty — proceed
+      ;;
+  esac
+
+  # Stage all changes
+  git -C "$project" add -A 2>/dev/null
+
+  # Scan staged files for secrets before committing
+  if declare -f scan_staged_files &>/dev/null; then
+    local scan_result=""
+    scan_result=$(cd "$project" && scan_staged_files 2>/dev/null) || true
+    if [ -n "$scan_result" ]; then
+      echo ""
+      echo -e "${YELLOW}Warning: Potential secrets detected in staged files${NC}"
+      echo "$scan_result"
+      echo ""
+      local secret_confirm=""
+      read -rp "Commit anyway? [y/N] " secret_confirm
+      case "$secret_confirm" in
+        y|Y) ;;
+        *)
+          echo "Commit cancelled. Remove secrets and try again."
+          return 1
+          ;;
+      esac
+    fi
+  fi
+
+  if git -C "$project" commit -m "$commit_msg" 2>/dev/null; then
+    echo -e "${GREEN}Committed${NC}"
+
+    # Create checkpoint after successful commit
+    if declare -f checkpoint_create &>/dev/null; then
+      checkpoint_create "after commit: ${commit_msg:0:50}" 2>/dev/null || true
+    fi
+  else
+    echo -e "${RED}Commit failed${NC}"
+    return 1
   fi
 }

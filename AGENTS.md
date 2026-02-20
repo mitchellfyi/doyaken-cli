@@ -2,11 +2,21 @@
 
 This file is the source of truth for all AI coding agents working on this project.
 
+## Project Context
+
+Doyaken is a single-shot execution engine for AI coding agents. One prompt in, verified code out. It runs work through an 8-phase pipeline with verification gates that retry until the code builds, lints, and passes tests.
+
+**Goals**: Robust output (code that actually works), agent agnostic (Claude/Cursor/Codex/Gemini/Copilot/OpenCode), single-shot execution (no task queue), self-healing (retries, fallback, crash recovery).
+
+**Non-goals**: Not a task/project manager, not a replacement for any agent (it's an orchestrator), not an IDE extension — CLI only.
+
+**Tech stack**: Bash 4.0+, npm for distribution, YAML config. Bash 3.x compat required (no associative array init syntax). All scripts must pass shellcheck (`npm run lint`). Run `npm run test` before committing.
+
 ## Quick Start
 
-1. Read `PROJECT.md` for project goals and tech stack
-2. Follow the guidelines in `.doyaken/prompts/library/`
-3. Use the 8-phase workflow for non-trivial tasks
+1. Follow the guidelines in `.doyaken/prompts/library/`
+2. Use the 8-phase workflow for non-trivial tasks
+3. Run `npm run lint` and `npm test` before committing
 
 ## Using Doyaken Artifacts (Without the CLI)
 
@@ -68,10 +78,6 @@ You don't need to run all 8 phases for every change. Use your judgment — a typ
 
 If the project uses specific technologies, check `.doyaken/prompts/vendors/` for best practices (e.g., `nextjs/`, `react/`, `rails/`, `supabase/`). Read the relevant vendor prompts when working with those technologies.
 
-### Configuration
-
-Read `.doyaken/manifest.yaml` for project-specific settings including quality gate commands and retry budgets.
-
 ---
 
 ## Core Guidelines
@@ -90,8 +96,6 @@ All code must pass before commit:
 - Tests pass
 - Build succeeds
 
-Check `.doyaken/manifest.yaml` for project-specific commands.
-
 ## Commit Messages
 
 Format: `type(scope): description`
@@ -104,7 +108,6 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 ```
 .doyaken/
-  manifest.yaml       # Project settings (quality gates, retry budgets, agent config)
   prompts/
     library/          # Reusable prompt modules (source of truth)
     phases/           # 8-phase workflow prompts
@@ -157,11 +160,3 @@ On-demand skills in `.doyaken/skills/`:
 | [audit-debt](.doyaken/skills/audit-debt.md) | Technical debt assessment |
 | [audit-deps](.doyaken/skills/audit-deps.md) | Dependency security audit |
 
-## Configuration
-
-See `.doyaken/manifest.yaml` for:
-- Project metadata
-- Quality gate commands (build, lint, format, test)
-- Retry budgets for verification gates
-- Agent settings
-- Integration configuration

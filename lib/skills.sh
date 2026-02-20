@@ -37,6 +37,20 @@ get_skill_paths() {
     done
   fi
 
+  # Project domain pack skills
+  if [ -n "${DOYAKEN_PROJECT:-}" ] && [ -d "$DOYAKEN_PROJECT/.doyaken/skills/domains" ]; then
+    for domain_dir in "$DOYAKEN_PROJECT/.doyaken/skills/domains"/*/; do
+      [ -d "$domain_dir" ] && paths+=("$domain_dir")
+    done
+  fi
+
+  # Global domain pack skills
+  if [ -d "$DOYAKEN_HOME/skills/domains" ]; then
+    for domain_dir in "$DOYAKEN_HOME/skills/domains"/*/; do
+      [ -d "$domain_dir" ] && paths+=("$domain_dir")
+    done
+  fi
+
   # Only print if array has elements (avoids unbound variable error with set -u)
   [ ${#paths[@]} -gt 0 ] && printf '%s\n' "${paths[@]}"
 }
@@ -257,6 +271,94 @@ list_skills_by_vendor() {
   list_skills | grep "|${vendor}$" || true
 }
 
+# Get skill includes list from frontmatter
+# Usage: get_skill_includes <skill_file>
+get_skill_includes() {
+  local skill_file="$1"
+  parse_skill_frontmatter "$skill_file" | awk '
+    /^includes:/ { in_includes = 1; next }
+    /^[a-z]/ && !/^[[:space:]]/ && in_includes { exit }
+    in_includes && /^[[:space:]]*-/ {
+      gsub(/^[[:space:]]*-[[:space:]]*/, "")
+      print
+    }
+  '
+}
+
+# Resolve skill includes recursively
+# Returns the combined body of all included skills (prepended before main skill body)
+# Usage: resolve_skill_includes <skill_file> [max_depth]
+resolve_skill_includes() {
+  local skill_file="$1"
+  local max_depth="${2:-3}"
+
+  [ "$max_depth" -le 0 ] && return 0
+
+  local includes
+  includes=$(get_skill_includes "$skill_file")
+  [ -z "$includes" ] && return 0
+
+  local combined=""
+  while IFS= read -r inc_name; do
+    [ -z "$inc_name" ] && continue
+    local inc_file
+    inc_file=$(find_skill "$inc_name") || {
+      echo "Warning: included skill '$inc_name' not found" >&2
+      continue
+    }
+    # Recurse for nested includes
+    local inc_resolved
+    inc_resolved=$(resolve_skill_includes "$inc_file" $((max_depth - 1)))
+    local inc_body
+    inc_body=$(get_skill_body "$inc_file")
+    combined+="${inc_resolved}${inc_body}
+
+"
+  done <<< "$includes"
+
+  echo "$combined"
+}
+
+# Get domain packs directories
+# Returns one directory path per line
+get_domain_packs() {
+  local packs=()
+
+  # Project domain packs
+  if [ -n "${DOYAKEN_PROJECT:-}" ] && [ -d "$DOYAKEN_PROJECT/.doyaken/skills/domains" ]; then
+    for d in "$DOYAKEN_PROJECT/.doyaken/skills/domains"/*/; do
+      [ -f "${d}_pack.yaml" ] && packs+=("$d")
+    done
+  fi
+
+  # Global domain packs
+  if [ -d "$DOYAKEN_HOME/skills/domains" ]; then
+    for d in "$DOYAKEN_HOME/skills/domains"/*/; do
+      [ -f "${d}_pack.yaml" ] && packs+=("$d")
+    done
+  fi
+
+  [ ${#packs[@]} -gt 0 ] && printf '%s\n' "${packs[@]}"
+}
+
+# List skills in a domain pack
+# Usage: list_domain_pack <pack_dir>
+list_domain_pack() {
+  local pack_dir="$1"
+  local pack_file="${pack_dir}_pack.yaml"
+
+  [ -f "$pack_file" ] || return 1
+
+  local name desc
+  name=$(yq -r '.name' "$pack_file" 2>/dev/null)
+  desc=$(yq -r '.description // ""' "$pack_file" 2>/dev/null)
+  echo "$name - $desc"
+
+  yq -r '.skills[]' "$pack_file" 2>/dev/null | while IFS= read -r skill; do
+    echo "  - $skill"
+  done
+}
+
 # Show skill info
 # Usage: skill_info <name>
 skill_info() {
@@ -282,6 +384,18 @@ skill_info() {
   if [ -n "$requires" ]; then
     echo "$requires" | while read -r req; do
       echo "  - $req (MCP server)"
+    done
+  else
+    echo "  (none)"
+  fi
+  echo ""
+
+  echo "Includes:"
+  local includes
+  includes=$(get_skill_includes "$skill_file")
+  if [ -n "$includes" ]; then
+    echo "$includes" | while IFS= read -r inc; do
+      echo "  - $inc"
     done
   else
     echo "  (none)"
@@ -469,11 +583,14 @@ run_skill() {
   # Parse arguments
   parse_skill_cli_args "$skill_file" "$@" || return 1
 
-  # Build prompt
+  # Build prompt (resolve includes first)
+  local includes_content=""
+  includes_content=$(resolve_skill_includes "$skill_file") || true
   local body
   body=$(get_skill_body "$skill_file")
+  local full_body="${includes_content}${body}"
   local prompt
-  prompt=$(substitute_skill_vars "$body")
+  prompt=$(substitute_skill_vars "$full_body")
 
   # Include base prompt if available
   local base_prompt=""

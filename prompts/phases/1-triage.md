@@ -1,13 +1,13 @@
 # Phase 1: TRIAGE
 
-You are validating task **{{TASK_ID}}** before work begins.
+You are validating the task before work begins.
 
 ## Phase Instructions
 
 1. **Clarify scope** - Can you state the goal in one sentence? What's OUT of scope?
 2. **Validate assumptions** - List what you're assuming. Verify key assumptions before proceeding.
 3. **Discover quality gates** - Check CI, lint/format/test/build commands
-4. **Validate task file** - Context clear? Criteria testable? Scope defined?
+4. **Validate specification** - Context clear? Criteria testable? Scope defined?
 5. **Check dependencies** - Are blockers resolved?
 6. **Assess complexity** - Files affected, risk level, test coverage needed
 
@@ -34,49 +34,21 @@ List key assumptions about this task:
 
 ## Output
 
-Add to Work Log:
+Produce a triage summary:
 
-```markdown
-### {{TIMESTAMP}} - Triage Complete
-
-Scope:
-- Goal: [one sentence]
-- Done when: [verifiable criteria]
-- Out of scope: [explicit exclusions]
-
-Assumptions validated:
-- [assumption]: [verified/wrong]
-
-Quality gates:
-- Lint: [command or "missing"]
-- Types: [command or "missing"]
-- Tests: [command or "missing"]
-- Build: [command or "missing"]
-
-Task validation:
-- Context: [clear/unclear]
-- Criteria: [specific/vague]
-- Dependencies: [none/satisfied/blocked by X]
-
-Complexity:
-- Files: [few/some/many]
-- Risk: [low/medium/high]
-
-Ready: [yes/no - reason]
-```
-
-If ready, update task metadata:
-- Status: `doing`
-- Started: `{{TIMESTAMP}}`
-- Assigned To: `{{AGENT_ID}}`
+- **Goal**: One sentence
+- **Done when**: Verifiable criteria
+- **Out of scope**: Explicit exclusions
+- **Assumptions**: Each validated or flagged as wrong
+- **Quality gates**: Lint, types, tests, build commands (or "missing")
+- **Complexity**: Files (few/some/many), risk (low/medium/high)
+- **Ready**: Yes or No with reason
 
 ## Rules
 
-- Do NOT write code - only update the task file
+- Do NOT write code - only validate readiness
 - Do NOT proceed with vague scope - clarify first
 - Do NOT build on unverified assumptions - check them
-- If task is not ready, explain why and STOP
+- If not ready, explain why and STOP
 - If blocked, report the blocker and do not proceed
 - If quality gates are missing, flag as risk
-
-Task file: {{TASK_FILE}}

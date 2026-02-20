@@ -10,8 +10,13 @@ args:
 env:
   GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
 
-# Required permissions for the GitHub token:
-#   - repo (for private repos)
-#   - read:org (for org repos)
-#   - read:user
-#   - user:email
+conditions:
+  commands:
+    - gh
+  env:
+    - GITHUB_TOKEN
+
+setup:
+  install: "brew install gh && gh auth login"
+  docs: "https://github.com/modelcontextprotocol/servers/tree/main/src/github"
+  notes: "Requires a GitHub personal access token with repo scope"

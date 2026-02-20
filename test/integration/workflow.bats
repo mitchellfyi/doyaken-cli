@@ -41,7 +41,7 @@ teardown() {
   run "$PROJECT_ROOT/bin/doyaken" init
   [ "$status" -eq 0 ]
   [ -d ".doyaken" ]
-  [ -d ".doyaken/tasks/2.todo" ]
+  [ -d ".doyaken/logs" ]
   [ -f ".doyaken/manifest.yaml" ]
 }
 
@@ -51,31 +51,6 @@ teardown() {
   "$PROJECT_ROOT/bin/doyaken" init
   [ -f "AGENTS.md" ]
   [ -f "CLAUDE.md" ]
-}
-
-# ============================================================================
-# Task workflow
-# ============================================================================
-
-@test "workflow: create task" {
-  cd "$TEST_TEMP_DIR"
-  "$PROJECT_ROOT/bin/doyaken" init
-
-  run "$PROJECT_ROOT/bin/doyaken" tasks new "Test task"
-  [ "$status" -eq 0 ]
-
-  # Verify task was created
-  [ "$(find .doyaken/tasks/2.todo -name '*.md' | wc -l | tr -d ' ')" -gt 0 ]
-}
-
-@test "workflow: list tasks" {
-  cd "$TEST_TEMP_DIR"
-  "$PROJECT_ROOT/bin/doyaken" init
-  "$PROJECT_ROOT/bin/doyaken" tasks new "Test task"
-
-  run "$PROJECT_ROOT/bin/doyaken" tasks
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Test task"* ]] || [[ "$output" == *"test-task"* ]]
 }
 
 # ============================================================================

@@ -21,8 +21,6 @@ You are performing a comprehensive review of the codebase.
 Project: {{DOYAKEN_PROJECT}}
 Review scope: {{ARGS.scope}}
 Path: {{ARGS.path}}
-Create follow-up tasks: {{ARGS.create-tasks}}
-
 ## Review Methodology
 
 {{include:library/review.md}}
@@ -95,19 +93,13 @@ Use the findings ledger format:
 Severity: blocker, high, medium, low, nit
 Category: correctness, security, performance, maintainability, architecture, docs
 
-### 4. Create Follow-Up Tasks
+### 4. Document Follow-Up Items
 
-{{#if create-tasks == "true"}}
-For each high or blocker severity finding, create a task in `.doyaken/tasks/2.todo/`:
-
-Task file format: `003-XXX-fix-[slug].md`
-
-Include:
+For each high or blocker severity finding, document it in the findings ledger with:
 - Clear description of the issue
 - Location (file:line)
 - Recommended fix
 - Priority based on severity
-{{/if}}
 
 ## Output
 
@@ -144,6 +136,6 @@ Provide a structured report:
 ### Recommendations
 [Prioritized list of improvements]
 
-### Tasks Created
-[List of task files created, if any]
+### Follow-Up Items
+[List of items requiring further attention]
 ```

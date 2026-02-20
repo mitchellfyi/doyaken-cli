@@ -356,6 +356,93 @@ mcp_validate_integration() {
   return 0
 }
 
+# Check if conditions for a server are met
+# Usage: mcp_check_conditions "server_file"
+# Returns: 0 if all conditions met, 1 if not
+mcp_check_conditions() {
+  local server_file="$1"
+
+  # Check required commands exist
+  local cmds
+  cmds=$(yq -r '.conditions.commands[]? // empty' "$server_file" 2>/dev/null)
+  while IFS= read -r cmd; do
+    [ -z "$cmd" ] && continue
+    if ! command -v "$cmd" &>/dev/null; then
+      return 1
+    fi
+  done <<< "$cmds"
+
+  # Check required env vars are set
+  local envs
+  envs=$(yq -r '.conditions.env[]? // empty' "$server_file" 2>/dev/null)
+  while IFS= read -r var; do
+    [ -z "$var" ] && continue
+    if [ -z "${!var:-}" ]; then
+      return 1
+    fi
+  done <<< "$envs"
+
+  return 0
+}
+
+# Show setup instructions for an MCP server
+# Usage: mcp_setup "server_name"
+mcp_setup() {
+  local name="$1"
+  local server_file="$MCP_SERVERS_DIR/${name}.yaml"
+
+  if [ ! -f "$server_file" ]; then
+    echo "Unknown server: $name" >&2
+    echo "Available servers:" >&2
+    for f in "$MCP_SERVERS_DIR"/*.yaml; do
+      [ -f "$f" ] && echo "  - $(basename "$f" .yaml)" >&2
+    done
+    return 1
+  fi
+
+  local desc install docs notes
+  desc=$(yq -r '.description // "No description"' "$server_file" 2>/dev/null)
+  install=$(yq -r '.setup.install // empty' "$server_file" 2>/dev/null)
+  docs=$(yq -r '.setup.docs // empty' "$server_file" 2>/dev/null)
+  notes=$(yq -r '.setup.notes // empty' "$server_file" 2>/dev/null)
+
+  echo ""
+  echo -e "${BOLD:-}Setup: $name${NC:-}"
+  echo "  $desc"
+  echo ""
+  [ -n "$install" ] && echo "  Install:  $install"
+  [ -n "$docs" ]    && echo "  Docs:     $docs"
+  [ -n "$notes" ]   && echo "  Notes:    $notes"
+
+  # Check current conditions
+  echo ""
+  if mcp_check_conditions "$server_file"; then
+    echo -e "  Status: ${GREEN:-}Ready${NC:-} (all conditions met)"
+  else
+    echo -e "  Status: ${RED:-}Not ready${NC:-}"
+    local cmds envs
+    cmds=$(yq -r '.conditions.commands[]? // empty' "$server_file" 2>/dev/null)
+    while IFS= read -r cmd; do
+      [ -z "$cmd" ] && continue
+      if command -v "$cmd" &>/dev/null; then
+        echo -e "    ${GREEN:-}[ok]${NC:-} command: $cmd"
+      else
+        echo -e "    ${RED:-}[!!]${NC:-} command: $cmd (not found)"
+      fi
+    done <<< "$cmds"
+    envs=$(yq -r '.conditions.env[]? // empty' "$server_file" 2>/dev/null)
+    while IFS= read -r var; do
+      [ -z "$var" ] && continue
+      if [ -n "${!var:-}" ]; then
+        echo -e "    ${GREEN:-}[ok]${NC:-} env: $var"
+      else
+        echo -e "    ${RED:-}[!!]${NC:-} env: $var (not set)"
+      fi
+    done <<< "$envs"
+  fi
+  echo ""
+}
+
 # Generate MCP config for specified agent
 # Usage: mcp_configure [--agent <agent>]
 mcp_configure() {
@@ -542,6 +629,16 @@ mcp_doctor() {
         has_issues=true
       fi
 
+      # Check conditions
+      if ! mcp_check_conditions "$server_file"; then
+        echo "  [!!] $integration: Conditions not met"
+        local setup_install
+        setup_install=$(yq -r '.setup.install // empty' "$server_file" 2>/dev/null)
+        [ -n "$setup_install" ] && echo "       Setup: $setup_install"
+        has_issues=true
+        all_ok=false
+      fi
+
       # Check required env vars using the validation function
       if ! mcp_validate_env_vars "$integration"; then
         echo "  [!!] $integration: Missing env vars: $MCP_MISSING_VARS"
@@ -564,6 +661,7 @@ mcp_doctor() {
     return 0
   else
     echo "Some issues found. Fix them before using MCP tools."
+    echo "Run 'dk mcp setup <name>' for setup instructions."
     return 1
   fi
 }

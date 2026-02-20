@@ -1,6 +1,6 @@
 # Phase 5: DOCS
 
-You are synchronizing documentation for task **{{TASK_ID}}**.
+You are synchronizing documentation with the implementation.
 
 ## Methodology
 
@@ -11,7 +11,6 @@ You are synchronizing documentation for task **{{TASK_ID}}**.
 1. **Identify** what needs documentation based on changes made
 2. **Update** docs in priority order: API → README → Architecture → Inline
 3. **Verify consistency** - Code and docs tell the same story
-4. **Update task file** - Add notes, observations, trade-offs
 
 ## What to Document
 
@@ -24,19 +23,10 @@ You are synchronizing documentation for task **{{TASK_ID}}**.
 
 ## Output
 
-Add to Work Log:
-
-```markdown
-### {{TIMESTAMP}} - Documentation Sync
-
-Docs updated:
-- `path/to/doc` - [change]
-
-Inline comments:
-- `path/to/file:line` - [what]
-
-Consistency: [verified/issues found]
-```
+Summarize:
+- Docs updated (file and what changed)
+- Inline comments added (file:line and what)
+- Consistency check result
 
 ## Rules
 
@@ -45,5 +35,3 @@ Consistency: [verified/issues found]
 - ONLY update documentation and comments
 - Keep docs concise - don't over-document
 - Remove outdated content
-
-Task file: {{TASK_FILE}}

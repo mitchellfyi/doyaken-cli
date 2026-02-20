@@ -1,6 +1,6 @@
 # Phase 7: VERIFY
 
-You are verifying task **{{TASK_ID}}** is complete and CI passes.
+You are verifying the task is complete and CI passes.
 
 ## Methodology
 
@@ -9,12 +9,10 @@ You are verifying task **{{TASK_ID}}** is complete and CI passes.
 ## Phase Instructions
 
 1. **Prove completion** - Each criterion needs concrete evidence, not just claims
-2. **Verify work log** - All phases documented
-3. **Run final quality check** - All gates must pass
-4. **Push and verify CI** - Task is NOT complete until CI passes
-5. **Capture learnings** - Document what failed and what worked
-6. **Improve knowledge** - Update AGENTS.md with project discoveries; optionally improve prompts
-7. **Finalize task state** - Move to done only if everything passes
+2. **Run final quality check** - All gates must pass
+3. **Push and verify CI** - Task is NOT complete until CI passes
+4. **Capture learnings** - Document what failed and what worked
+5. **Improve knowledge** - Update AGENTS.md with project discoveries; optionally improve prompts
 
 ## Prove It
 
@@ -34,12 +32,6 @@ For each criterion, provide concrete evidence:
 - File reference: "See line 45 of `config.ts`"
 - Manual verification: "Ran locally, saw expected behavior"
 
-**Verification commands run:**
-```bash
-# Actually run these and record output
-[command] → [actual result]
-```
-
 **NO criterion marked complete without evidence.**
 
 If you can't verify something, say so: "UNABLE TO VERIFY: [reason]"
@@ -47,10 +39,8 @@ If you can't verify something, say so: "UNABLE TO VERIFY: [reason]"
 ## CI Verification
 
 ```bash
-# Push and watch CI
 git push && gh run watch
-
-# If CI fails - get details and fix
+# If CI fails:
 gh run view --log-failed
 ```
 
@@ -88,21 +78,6 @@ If you discovered something important about this codebase that future agents sho
 - **Conventions:** "Use kebab-case for file names"
 - **Dead ends:** "Don't use X library, it conflicts with Y"
 
-**Add to AGENTS.md** in the appropriate section:
-
-```markdown
-## Project Knowledge
-
-### Patterns
-- [Pattern discovered]: [Where/how it's used]
-
-### Gotchas
-- [Thing that's surprising]: [Why it matters]
-
-### Don't Do
-- [Approach that doesn't work]: [Why it fails]
-```
-
 ### Update Prompts (Reusable Patterns)
 
 If you discovered a pattern that would help across ALL projects (not just this one):
@@ -111,59 +86,16 @@ If you discovered a pattern that would help across ALL projects (not just this o
 2. **If universal** - Consider updating `.doyaken/prompts/library/` or phase prompts
 3. **If project-specific** - Add to AGENTS.md instead
 
-**Prompt improvement examples:**
-- A verification step that caught a common bug
-- A planning pattern that prevented rework
-- A debugging technique that was effective
-
-**To update prompts:**
-```bash
-# Edit the relevant prompt
-edit .doyaken/prompts/[library|phases]/[file].md
-
-# Commit the improvement
-git commit -m "Improve [prompt]: [what was learned]"
-```
-
 **Be conservative:** Only update prompts for patterns you've seen work multiple times.
 
 ## Output
 
-Add to Work Log:
-
-```markdown
-### {{TIMESTAMP}} - Verification Complete
-
-Evidence of completion:
-| Criterion | Proof |
-|-----------|-------|
-| [criterion] | [evidence] |
-
-Verification commands:
-- `[command]` → [result]
-
-Quality gates: [all pass / failures]
-CI: [pass/fail - run link]
-
-Retrospective:
-- Failed approaches: [count or "none"]
-- Key insight: [what was learned]
-- Would do differently: [lesson]
-
-Knowledge updates:
-- AGENTS.md: [updated with X / no updates needed]
-- Prompts: [updated X / no updates needed]
-
-Task location: [3.doing → 4.done / kept in 3.doing]
-Reason: [complete / incomplete - what remains]
-```
-
-If complete:
-- Status: `done`
-- Completed: `{{TIMESTAMP}}`
-- Clear Assigned To/At
-- Move to `.doyaken/tasks/4.done/`
-- Commit: `chore: Complete task {{TASK_ID}}`
+Summarize:
+- Evidence of completion (criterion + proof for each)
+- Quality gates result
+- CI status (pass/fail with link)
+- Retrospective (failed approaches, key insight, lessons)
+- Knowledge updates made (AGENTS.md and/or prompts, or "none needed")
 
 ## Rules
 
@@ -174,6 +106,3 @@ If complete:
 - **BE CONSERVATIVE with prompt updates** - only for proven patterns
 - Do NOT mark complete if CI fails
 - "Almost done" is not done - be honest
-- Incomplete tasks stay in `3.doing/`
-
-Task file: {{TASK_FILE}}

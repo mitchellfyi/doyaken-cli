@@ -19,13 +19,16 @@ count_files() {
   find "$dir" -maxdepth 1 -name "$pattern" -type f 2>/dev/null | wc -l | tr -d ' '
 }
 
-# Count task files (*.md) in a directory
+# Count markdown files (*.md) in a directory
 # Args: dir
 # Returns: count (0 if dir missing or empty)
-count_task_files() {
+count_md_files() {
   local dir="$1"
   count_files "$dir" "*.md"
 }
+
+# Legacy alias
+count_task_files() { count_md_files "$@"; }
 
 # Count files excluding .gitkeep (for cleanup operations)
 # Args: dir
@@ -63,12 +66,6 @@ detect_project() {
     fi
   fi
 
-  # Check for legacy .claude/ directory (must have tasks/todo to be a doyaken project, not Claude Code's global config)
-  if [ -d "$search_dir/.claude/tasks/todo" ] || [ -d "$search_dir/.claude/tasks/2.todo" ]; then
-    echo "LEGACY:$search_dir"
-    return 0
-  fi
-
   # Walk up the directory tree
   local parent="$search_dir"
   while [ "$parent" != "/" ]; do
@@ -78,11 +75,6 @@ detect_project() {
         echo "$parent"
         return 0
       fi
-    fi
-    # Check for legacy .claude/ with tasks/todo subfolder (to distinguish from Claude Code's global config)
-    if [ -d "$parent/.claude/tasks/todo" ] || [ -d "$parent/.claude/tasks/2.todo" ]; then
-      echo "LEGACY:$parent"
-      return 0
     fi
     parent=$(dirname "$parent")
   done

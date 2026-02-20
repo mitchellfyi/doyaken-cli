@@ -1,6 +1,6 @@
 # Phase 2: PLAN
 
-You are planning the implementation for task **{{TASK_ID}}**.
+You are planning the implementation.
 
 ## Methodology
 
@@ -43,50 +43,14 @@ If total >30 minutes, set explicit checkpoint(s).
 
 ## Output
 
-Update the task file's Plan section:
+Produce a plan with these sections:
 
-```markdown
-## Plan
-
-### Gap Analysis
-| Criterion | Status | Gap |
-|-----------|--------|-----|
-| [criterion] | partial/none | [what's missing] |
-
-### Pre-Mortem
-If this fails, it's probably because:
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| [risk] | HIGH/MED/LOW | [impact] | [mitigation] |
-
-### Estimate
-~[X-Y] minutes | Checkpoint at: [step N]
-
-### Steps (ordered by risk)
-1. **[Description]** (addresses: [risk if applicable])
-   - File: `path/to/file`
-   - Change: [specific change]
-   - Verify: [how to check]
-
-### Test Plan
-- [ ] Unit: [description]
-- [ ] Integration: [description]
-
-### Docs to Update
-- [ ] `path/to/doc` - [change]
-```
-
-Add to Work Log:
-
-```markdown
-### {{TIMESTAMP}} - Planning Complete
-
-- Steps: [count]
-- Risks: [HIGH: X, MED: Y, LOW: Z]
-- Estimate: ~[range] minutes
-- Checkpoint: [when]
-```
+- **Gap Analysis**: Criterion / status (full/partial/none) / what's missing
+- **Pre-Mortem**: Risk table with likelihood, impact, mitigation
+- **Estimate**: Total time range, checkpoint if >30 min
+- **Steps** (ordered by risk): Each with file, specific change, verification
+- **Test Plan**: Unit and integration tests needed
+- **Docs to Update**: Files and changes needed
 
 ## Rules
 
@@ -95,5 +59,3 @@ Add to Work Log:
 - Be SPECIFIC - "security issues" is useless, "missing auth check on endpoint X" is actionable
 - If something already exists and is complete, note it and move on
 - Include rollback strategy for risky changes
-
-Task file: {{TASK_FILE}}

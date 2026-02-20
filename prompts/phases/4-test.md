@@ -1,6 +1,6 @@
 # Phase 4: TEST
 
-You are testing the implementation for task **{{TASK_ID}}**.
+You are testing the implementation.
 
 ## Methodology
 
@@ -23,22 +23,10 @@ You are testing the implementation for task **{{TASK_ID}}**.
 
 ## Output
 
-Add to Work Log:
-
-```markdown
-### {{TIMESTAMP}} - Testing Complete
-
-Tests written:
-- `path/to/test` - N tests (unit/integration)
-
-Quality gates:
-- Lint: [pass/fail]
-- Types: [pass/fail]
-- Tests: [pass/fail] (X total, Y new)
-- Build: [pass/fail]
-
-CI ready: [yes/no]
-```
+Summarize:
+- Tests written (file, count, type)
+- Quality gate results (lint, types, tests, build - pass/fail)
+- CI readiness (yes/no with issues)
 
 ## Rules
 
@@ -47,5 +35,3 @@ CI ready: [yes/no]
 - Fix bugs found, but don't expand scope
 - Every new public function needs a test
 - If a test is flaky, fix the root cause
-
-Task file: {{TASK_FILE}}

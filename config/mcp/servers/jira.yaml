@@ -12,5 +12,13 @@ env:
   JIRA_USER_EMAIL: "${JIRA_USER_EMAIL}"
   JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
 
-# Get your API token from:
-#   https://id.atlassian.com/manage-profile/security/api-tokens
+conditions:
+  env:
+    - JIRA_BASE_URL
+    - JIRA_USER_EMAIL
+    - JIRA_API_TOKEN
+
+setup:
+  install: "npx -y @anthropic/mcp-server-jira"
+  docs: "https://github.com/anthropics/mcp-server-jira"
+  notes: "Get your API token from https://id.atlassian.com/manage-profile/security/api-tokens"

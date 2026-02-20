@@ -3,10 +3,10 @@ name: periodic-review
 description: Comprehensive periodic review of the codebase (quality, security, performance, debt, UX, docs)
 args:
   - name: fix
-    description: Auto-fix issues where possible (disable with fix=false to only create tasks)
+    description: Auto-fix issues where possible (disable with fix=false to only report)
     default: "true"
-  - name: create-tasks
-    description: Create follow-up tasks for issues that require manual intervention
+  - name: create-prompts
+    description: Generate dk run prompts for issues that require manual intervention
     default: "true"
   - name: scope
     description: Review scope (all, quality, security, performance, debt, ux, docs)
@@ -15,13 +15,13 @@ args:
 
 # Periodic Codebase Review
 
-You are performing a periodic review of the codebase. This review runs automatically after completing a threshold of tasks to ensure code quality and catch issues early.
+You are performing a periodic review of the codebase to ensure code quality and catch issues early.
 
 ## Context
 
 Project: {{DOYAKEN_PROJECT}}
 Auto-fix enabled: {{ARGS.fix}}
-Create tasks: {{ARGS.create-tasks}}
+Create prompts: {{ARGS.create-prompts}}
 Scope: {{ARGS.scope}}
 
 ## Review Methodology
@@ -40,20 +40,19 @@ You MUST automatically fix issues where possible:
 - Add missing error handling
 - Update simple dependencies
 
-For issues you cannot auto-fix, create tasks.
+For issues you cannot auto-fix, generate `dk run` prompts to address them.
 {{/if}}
 
 {{#if fix == "false"}}
 ### Review-Only Mode
 
-Document all findings but create tasks instead of making changes.
-Each finding should result in a task in `.doyaken/tasks/2.todo/`.
+Document all findings and generate `dk run` prompts instead of making changes.
 {{/if}}
 
-{{#if create-tasks == "false"}}
-### No Task Creation
+{{#if create-prompts == "false"}}
+### No Prompt Generation
 
-Do not create task files. Only report findings in the summary output.
+Do not generate follow-up prompts. Only report findings in the summary output.
 {{/if}}
 
 ## Scope-Specific Instructions
@@ -97,17 +96,17 @@ Focus only on documentation:
 1. **Explore** - Understand current codebase state
 2. **Analyze** - Apply review methodology for scope
 3. **Fix** - Auto-fix where possible (if enabled)
-4. **Document** - Create tasks for remaining issues
+4. **Document** - Generate dk run prompts for remaining issues
 5. **Report** - Provide summary with stats
 
 ## Output
 
 Provide the summary in the format specified in the methodology, including:
-- Stats (total findings, fixed, tasks created)
+- Stats (total findings, fixed, prompts generated)
 - Breakdown by category
 - List of fixes applied
-- List of tasks created
+- List of dk run prompts for remaining issues
 - Any blockers requiring immediate attention
 - Recommendations for follow-up
 
-Remember: Every finding must result in either a fix or a task. No passive reporting.
+Remember: Every finding must result in either a fix or a dk run prompt. No passive reporting.

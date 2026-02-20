@@ -12,12 +12,11 @@ args:
 env:
   FIGMA_API_KEY: "${FIGMA_API_KEY}"
 
-# Get your Figma API key:
-#   1. Go to Figma > Settings > Account
-#   2. Scroll to "Personal access tokens"
-#   3. Create a token with read access
-#
-# Set the token:
-#   export FIGMA_API_KEY="your-token"
-#
-# Or add to .env file in project root
+conditions:
+  env:
+    - FIGMA_API_KEY
+
+setup:
+  install: "npm install -g figma-developer-mcp"
+  docs: "https://www.npmjs.com/package/figma-developer-mcp"
+  notes: "Get your API key from Figma > Settings > Account > Personal access tokens"

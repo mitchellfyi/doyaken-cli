@@ -8,8 +8,8 @@ args:
   - name: path
     description: Path to review (for scope=path)
     default: "."
-  - name: create-tasks
-    description: Create follow-up tasks for findings
+  - name: create-prompts
+    description: Generate dk run prompts for findings
     default: "true"
 ---
 
@@ -22,7 +22,7 @@ You are performing a comprehensive review of the codebase.
 Project: {{DOYAKEN_PROJECT}}
 Review scope: {{ARGS.scope}}
 Path: {{ARGS.path}}
-Create follow-up tasks: {{ARGS.create-tasks}}
+Generate follow-up prompts: {{ARGS.create-prompts}}
 
 ## Review Methodology
 
@@ -96,14 +96,12 @@ Use the findings ledger format:
 Severity: blocker, high, medium, low, nit
 Category: correctness, security, performance, maintainability, architecture, docs
 
-### 4. Create Follow-Up Tasks
+### 4. Generate Follow-Up Prompts
 
-{{#if create-tasks == "true"}}
-For each high or blocker severity finding, create a task in `.doyaken/tasks/2.todo/`:
+{{#if create-prompts == "true"}}
+For each high or blocker severity finding, generate a `dk run` prompt:
 
-Task file format: `003-XXX-fix-[slug].md`
-
-Include:
+Include in each prompt:
 - Clear description of the issue
 - Location (file:line)
 - Recommended fix
@@ -145,6 +143,6 @@ Provide a structured report:
 ### Recommendations
 [Prioritized list of improvements]
 
-### Tasks Created
-[List of task files created, if any]
+### Follow-Up Prompts
+[List of dk run prompts for remaining issues, if any]
 ```

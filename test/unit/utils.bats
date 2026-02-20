@@ -58,19 +58,19 @@ teardown() {
 }
 
 @test "fuzzy_match_command: exact prefix match for 3+ chars" {
-  run fuzzy_match_command "tas"
-  [ "$status" -eq 0 ]
-  [ "$output" = "tasks" ]
-
   run fuzzy_match_command "sta"
   [ "$status" -eq 0 ]
-  [ "$output" = "status" ]
+  [ "$output" = "stats" ] || [ "$output" = "status" ]
+
+  run fuzzy_match_command "val"
+  [ "$status" -eq 0 ]
+  [ "$output" = "validate" ]
 }
 
 @test "fuzzy_match_command: handles missing character" {
-  run fuzzy_match_command "taks"
+  run fuzzy_match_command "vaidate"
   [ "$status" -eq 0 ]
-  [ "$output" = "tasks" ]
+  [ "$output" = "validate" ]
 
   run fuzzy_match_command "statu"
   [ "$status" -eq 0 ]
@@ -78,9 +78,9 @@ teardown() {
 }
 
 @test "fuzzy_match_command: handles extra character" {
-  run fuzzy_match_command "taskss"
+  run fuzzy_match_command "statss"
   [ "$status" -eq 0 ]
-  [ "$output" = "tasks" ]
+  [ "$output" = "stats" ]
 
   run fuzzy_match_command "statuss"
   [ "$status" -eq 0 ]
@@ -88,9 +88,9 @@ teardown() {
 }
 
 @test "fuzzy_match_command: handles adjacent character swap" {
-  run fuzzy_match_command "tsaks"
+  run fuzzy_match_command "satts"
   [ "$status" -eq 0 ]
-  [ "$output" = "tasks" ]
+  [ "$output" = "stats" ]
 
   run fuzzy_match_command "stauts"
   [ "$status" -eq 0 ]

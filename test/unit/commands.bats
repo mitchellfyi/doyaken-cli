@@ -166,14 +166,14 @@ teardown() {
 }
 
 @test "dispatch_command: handles command with multiple spaces" {
-  chat_cmd_tasks() {
-    echo "tasks called with: '$1'"
+  chat_cmd_phase() {
+    echo "phase called with: '$1'"
   }
 
-  run dispatch_command "/tasks   list   all"
+  run dispatch_command "/phase   implement   now"
   [ "$status" -eq 0 ]
   # Args should preserve spacing after first space (${input#* } removes first word and one space)
-  [[ "$output" == "tasks called with: '  list   all'" ]]
+  [[ "$output" == "phase called with: '  implement   now'" ]]
 }
 
 @test "register_command: handles empty description" {

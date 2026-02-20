@@ -27,12 +27,11 @@ Phases compose reusable methodology from the library using `{{include:library/..
 
 | Variable | Available In | Description |
 |----------|--------------|-------------|
-| `{{TASK_ID}}` | All phases | Generated ID from the prompt |
 | `{{TASK_PROMPT}}` | All phases | The original prompt text |
 | `{{ACCUMULATED_CONTEXT}}` | All phases | Context from prior phases and retries |
 | `{{VERIFICATION_CONTEXT}}` | All phases | Gate failure output for retries |
 | `{{TIMESTAMP}}` | All phases | Current timestamp |
-| `{{AGENT_ID}}` | All phases | Worker agent ID |
+| `{{RECENT_COMMITS}}` | Phase 6 | Recent git commit log |
 
 ## Customization
 

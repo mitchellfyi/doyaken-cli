@@ -1,11 +1,11 @@
 ---
 name: github-sync
-description: Sync completed doyaken tasks back to GitHub issues
+description: Sync dk run results back to GitHub issues
 requires:
   - github
 args:
   - name: close-issues
-    description: Whether to close GitHub issues when tasks complete
+    description: Whether to close GitHub issues when work is complete
     default: "true"
   - name: add-comment
     description: Whether to add a comment when updating issues
@@ -14,7 +14,7 @@ args:
 
 # GitHub Issue Sync
 
-You are syncing completed doyaken tasks back to their linked GitHub issues.
+You are syncing dk run results back to their linked GitHub issues.
 
 ## Context
 
@@ -25,35 +25,27 @@ Add comments: {{ARGS.add-comment}}
 
 ## Instructions
 
-1. **Find Completed Tasks with GitHub References**
-   Look in `.doyaken/tasks/4.done/` for task files that have:
-   - External Ref field containing `github:` reference
-   - Status = `done`
-   - A Completed timestamp
+1. **Find Recent Commits with GitHub References**
+   Look at recent git commits for messages containing:
+   - `Fixes #N` or `Closes #N` patterns
+   - `github:owner/repo#N` references
+   - Any `#N` issue references
 
-2. **For Each Linked Task**
-   Parse the External Ref to get the issue number, then:
+2. **For Each Referenced Issue**
+   Parse the issue number, then:
 
    a) **Add Comment** (if enabled):
       Post a comment on the GitHub issue summarizing:
-      - That the task was completed via doyaken
-      - Key commits (from the Work Log if available)
+      - That the work was completed via doyaken
+      - Key commits that address the issue
       - Link to any PR created
 
    b) **Close Issue** (if enabled):
       Close the GitHub issue with a closing comment
 
-3. **Track Synced Tasks**
-   To avoid re-syncing, add a note to the task's Work Log:
-   ```
-   ### YYYY-MM-DD HH:MM - GitHub Synced
-   - Issue #N updated
-   - Status: [closed/commented]
-   ```
-
-4. **Report Summary**
+3. **Report Summary**
    After syncing, report:
-   - Tasks checked
+   - Commits checked
    - Issues updated
    - Issues closed
    - Any errors
@@ -65,17 +57,16 @@ GitHub Sync Summary
 ===================
 Repository: owner/repo
 
-Tasks checked: N
+Commits checked: N
 Issues updated: N
   - #123: Closed with comment
   - #456: Comment added
-Already synced: N
+Already closed: N
 Errors: N (list if any)
 ```
 
 ## Rules
 
-- Do NOT sync tasks that don't have a GitHub reference
-- Do NOT re-sync tasks that already have "GitHub Synced" in Work Log
+- Do NOT re-close issues that are already closed
 - Be cautious about closing issues - only close if explicitly enabled
 - Include relevant commit hashes in comments when available

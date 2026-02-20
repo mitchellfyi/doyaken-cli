@@ -6,8 +6,6 @@ See AGENTS.md for complete project instructions.
 
 - `AGENTS.md` - Full AI agent instructions
 - `PROJECT.md` - Project goals and tech stack
-- `.doyaken/manifest.yaml` - Project configuration
-- `.doyaken/tasks/` - Task management
 
 ## Quick Reference
 

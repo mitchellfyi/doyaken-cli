@@ -209,17 +209,6 @@ EOF
   [[ "$score" -ge 10 ]]
 }
 
-@test "ed_calculate_confidence scores task in done (+20)" {
-  local log="$TEST_TEMP_DIR/phase.log"
-  echo "Done" > "$log"
-  echo "task" > "$TASKS_DIR/4.done/test-task-001.md"
-
-  local score
-  score=$(ed_calculate_confidence "$log" "test-task-001" "" "$TASKS_DIR")
-  # keywords (+10) + task_in_done (+20) = 30
-  [[ "$score" -ge 20 ]]
-}
-
 @test "ed_calculate_confidence scores git changes (+15)" {
   # Set up a git repo with changes
   cd "$PROJECT_DIR"
@@ -250,9 +239,6 @@ EOF
   git commit -q -m "init"
   echo "changed" >> file.txt
 
-  # Create task in done
-  echo "task" > "$TASKS_DIR/4.done/full-test-001.md"
-
   # Create log with status block and keywords
   local log="$TEST_TEMP_DIR/phase.log"
   cat > "$log" << 'EOF'
@@ -266,9 +252,9 @@ DOYAKEN_STATUS:
 EOF
 
   local score
-  score=$(ed_calculate_confidence "$log" "full-test-001" "$PROJECT_DIR" "$TASKS_DIR")
-  # 30 (block) + 20 (phase_complete) + 5 (tests) + 15 (git) + 20 (done) + 10 (keywords) = 100
-  [[ "$score" -eq 100 ]]
+  score=$(ed_calculate_confidence "$log" "" "$PROJECT_DIR")
+  # 30 (block) + 20 (phase_complete) + 5 (tests) + 15 (git) + 10 (keywords) = 80
+  [[ "$score" -eq 80 ]]
 }
 
 @test "ED_SCORE_REASONS populated" {
@@ -338,12 +324,12 @@ DOYAKEN_STATUS:
   PHASE_COMPLETE: true
 EOF
 
-  ed_evaluate_completion "$log" "test-task" "" ""
+  ed_evaluate_completion "$log" "" ""
 
   [[ -f "$RUN_LOG_DIR/confidence.log" ]]
   local content
   content=$(cat "$RUN_LOG_DIR/confidence.log")
-  [[ "$content" == *"test-task"* ]]
+  [[ "$content" == *"score="* ]]
 }
 
 # ============================================================================

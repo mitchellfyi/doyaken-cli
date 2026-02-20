@@ -27,6 +27,11 @@ else
   log_error() { echo -e "${RED}[registry]${NC} $1" >&2; }
 fi
 
+# Source project utilities
+if [[ -f "$_REGISTRY_SCRIPT_DIR/project.sh" ]]; then
+  source "$_REGISTRY_SCRIPT_DIR/project.sh"
+fi
+
 # ============================================================================
 # Registry Management
 # ============================================================================
@@ -168,32 +173,9 @@ list_projects() {
 
   if command -v yq &>/dev/null; then
     yq -r '.projects[] | [.path, .git_remote // "-", .name] | @tsv' "$REGISTRY_FILE" 2>/dev/null | while IFS=$'\t' read -r path remote name; do
-      # Get task status
       local status=""
-      local ai_agent_dir=""
-
-      if [ -d "$path/.doyaken/tasks" ]; then
-        ai_agent_dir="$path/.doyaken"
-      elif [ -d "$path/.claude/tasks" ]; then
-        ai_agent_dir="$path/.claude"
-      fi
-
-      if [ -n "$ai_agent_dir" ]; then
-        local todo doing todo_dir doing_dir
-        # Support both numbered (2.todo) and legacy (todo) folder naming
-        if [ -d "$ai_agent_dir/tasks/2.todo" ]; then
-          todo_dir="$ai_agent_dir/tasks/2.todo"
-        else
-          todo_dir="$ai_agent_dir/tasks/todo"
-        fi
-        if [ -d "$ai_agent_dir/tasks/3.doing" ]; then
-          doing_dir="$ai_agent_dir/tasks/3.doing"
-        else
-          doing_dir="$ai_agent_dir/tasks/doing"
-        fi
-        todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-        doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-        status="${todo} todo, ${doing} doing"
+      if [ -d "$path/.doyaken" ]; then
+        status="${name:-initialized}"
       else
         status="(not found)"
       fi
@@ -222,28 +204,8 @@ list_projects() {
       elif [[ "$in_project" == 1 && "$line" =~ ^[[:space:]]*registered_at: ]]; then
         # End of this project entry
         local status=""
-        local todo_dir="" doing_dir=""
-        if [ -d "$path/.doyaken/tasks" ]; then
-          # Support both numbered and legacy folder naming
-          if [ -d "$path/.doyaken/tasks/2.todo" ]; then
-            todo_dir="$path/.doyaken/tasks/2.todo"
-          else
-            todo_dir="$path/.doyaken/tasks/todo"
-          fi
-          if [ -d "$path/.doyaken/tasks/3.doing" ]; then
-            doing_dir="$path/.doyaken/tasks/3.doing"
-          else
-            doing_dir="$path/.doyaken/tasks/doing"
-          fi
-          local todo doing
-          todo=$(find "$todo_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          doing=$(find "$doing_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          status="${todo} todo, ${doing} doing"
-        elif [ -d "$path/.claude/tasks" ]; then
-          local todo doing
-          todo=$(find "$path/.claude/tasks/todo" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          doing=$(find "$path/.claude/tasks/doing" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-          status="${todo} todo, ${doing} doing (legacy)"
+        if [ -d "$path/.doyaken" ]; then
+          status="${name:-initialized}"
         else
           status="(not found)"
         fi
@@ -290,6 +252,30 @@ prune_registry() {
   done <<< "$paths"
 
   echo "$pruned"
+}
+
+# List recently active projects sorted by last_active descending
+# Usage: list_projects_recent [limit]
+list_projects_recent() {
+  local limit="${1:-5}"
+  ensure_registry
+
+  if ! command -v yq &>/dev/null; then
+    log_warn "yq required for recent projects listing"
+    return 1
+  fi
+
+  echo ""
+  printf "%-50s %-22s %s\n" "PATH" "LAST ACTIVE" "NAME"
+  printf "%-50s %-22s %s\n" "----" "-----------" "----"
+
+  yq -r '.projects | sort_by(.last_active) | reverse | .[] | [.path, .last_active // "-", .name] | @tsv' "$REGISTRY_FILE" 2>/dev/null | head -n "$limit" | while IFS=$'\t' read -r path last_active name; do
+    local display_path="${path:0:48}"
+    [ ${#path} -gt 48 ] && display_path="${display_path}.."
+    printf "%-50s %-22s %s\n" "$display_path" "${last_active:-unknown}" "${name:-}"
+  done || true
+
+  echo ""
 }
 
 # Export functions for use in other scripts

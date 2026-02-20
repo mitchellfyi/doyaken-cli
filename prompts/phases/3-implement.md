@@ -1,6 +1,6 @@
 # Phase 3: IMPLEMENT
 
-You are implementing task **{{TASK_ID}}** according to the plan.
+You are implementing the task according to the plan.
 
 ## Methodology
 
@@ -38,14 +38,9 @@ Complete the requested work. Suggest improvements separately.
 
 Before modifying shared code (utils, types, configs, core modules):
 
-```bash
-# Find all callers
-grep -r "import.*from.*[file]" --include="*.ts" --include="*.py"
-```
-
-| File | Usage | Breaking Change? |
-|------|-------|------------------|
-| [caller] | [how it's used] | YES / NO |
+1. **Find all callers**: `grep -r "import.*from.*[file]"`
+2. **List affected files** and how they use the code
+3. **Check for breaking changes**
 
 Do NOT modify shared code without understanding who uses it.
 
@@ -72,27 +67,11 @@ If checks fail: **STOP → FIX → VERIFY → CONTINUE**
 
 ## Output
 
-Add to Work Log for each step:
-
-```markdown
-### {{TIMESTAMP}} - Implementation Progress
-
-Step [N]: [description]
-- Scope check: [in scope / deviation noted]
-- Files modified: [list]
-- Verification: [pass/fail]
-- Commit: [hash]
-
-[If deviation]:
-- Deviation: [what changed from plan]
-- Reason: [why necessary]
-
-[If approach failed]:
-- Approach: [what was tried]
-- Attempts: [count]
-- Why it failed: [specific reason]
-- Next approach: [what to try instead]
-```
+For each step, summarize:
+- What was done, which files were modified
+- Scope check result (in scope / deviation with reason)
+- Verification result (pass/fail)
+- Any failed approaches and why
 
 ## Rules
 
@@ -104,5 +83,3 @@ Step [N]: [description]
 - Do NOT write tests (next phase)
 - Do NOT update documentation (later phase)
 - FOCUS only on implementation code
-
-Task file: {{TASK_FILE}}

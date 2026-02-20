@@ -8,7 +8,9 @@ You are validating task **{{TASK_ID}}** before work begins.
 2. **Validate task file** - Context clear? Criteria testable? Scope defined?
 3. **Validate spec completeness** - Check the Specification section:
    - Are acceptance scenarios present for each user story (or "N/A" for trivial tasks)?
+   - Do AC IDs trace to user stories (AC-N maps to US-N where applicable)?
    - Are success metrics measurable (not vague like "works correctly")?
+   - Does every out-of-scope item have an exclusion reason?
    - Are there any `[NEEDS CLARIFICATION]` markers? If so, flag them and STOP.
 4. **Check dependencies** - Are blockers resolved?
 5. **Assess complexity** - Files affected, risk level, test coverage needed
@@ -34,8 +36,10 @@ Task validation:
 - Dependencies: [none/satisfied/blocked by X]
 
 Spec validation:
+- AC traceability: [ACs map to user stories/N/A for trivial task]
 - Acceptance scenarios: [present/missing/N/A for trivial task]
 - Success metrics: [measurable/vague/missing]
+- Out-of-scope reasons: [all have reasons/missing reasons/N/A]
 - Clarification needed: [none/list of [NEEDS CLARIFICATION] items]
 
 Complexity:

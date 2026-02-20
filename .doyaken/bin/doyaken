@@ -50,7 +50,6 @@ fi
 # Make sure scripts are executable
 chmod +x "$CLI_SCRIPT" 2>/dev/null || true
 chmod +x "$DOYAKEN_HOME/lib/core.sh" 2>/dev/null || true
-chmod +x "$DOYAKEN_HOME/lib/taskboard.sh" 2>/dev/null || true
 
 # Execute the CLI
 exec "$CLI_SCRIPT" "$@"

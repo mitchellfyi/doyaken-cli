@@ -1,5 +1,5 @@
 ---
-description: Import GitHub issues as local doyaken tasks
+description: List and summarize GitHub issues for the repository
 ---
 
 Run the doyaken skill: github-import
@@ -12,9 +12,9 @@ If doyaken is not available, apply this methodology:
 
 ---
 
-# GitHub Issue Import
+# GitHub Issue Review
 
-You are importing GitHub issues as local doyaken tasks.
+You are reviewing GitHub issues for the repository to understand open work.
 
 ## Context
 
@@ -27,59 +27,57 @@ Limit: {{ARGS.limit}} issues
 ## Instructions
 
 1. **List GitHub Issues**
-   Use the GitHub MCP tools to list issues from the repository:
+   Use `gh` CLI to list issues from the repository:
    - Filter by state: {{ARGS.filter}}
    - Filter by labels: {{ARGS.labels}} (if specified)
    - Limit to {{ARGS.limit}} most recent issues
 
-2. **Check Existing Tasks**
-   Look in `.doyaken/tasks/` (all folders) for existing tasks that reference GitHub issues.
-   Skip any issues that already have a corresponding task.
-
-3. **Create Task Files**
-   For each new issue, create a task file in `.doyaken/tasks/2.todo/`:
-
-   File naming: `PPP-SSS-slug.md` where:
-   - PPP = Priority based on labels:
-     - `bug`, `critical`, `security` → 001 (Critical)
-     - `important`, `priority` → 002 (High)
-     - `enhancement`, `feature` → 003 (Medium)
-     - others → 003 (Medium)
-   - SSS = Sequence (001, 002, etc.)
-   - slug = Issue title (kebab-case, max 50 chars)
-
-   Include in the task file:
-   - Title from issue title
-   - Context from issue body
-   - External Ref: `github:owner/repo#issue_number`
+2. **Summarize Issues**
+   For each issue, provide:
+   - Issue number and title
+   - Labels and priority indicators
+   - Brief summary of the issue body
    - Link to the GitHub issue
 
+3. **Categorize by Priority**
+   Group issues by priority based on labels:
+   - **Critical**: `bug`, `critical`, `security`
+   - **High**: `important`, `priority`
+   - **Medium**: `enhancement`, `feature`
+   - **Low**: others
+
 4. **Report Summary**
-   After importing, report:
+   After reviewing, report:
    - Total issues found
-   - Issues imported (new tasks created)
-   - Issues skipped (already tracked)
-   - Any errors encountered
+   - Breakdown by priority
+   - Any issues that need immediate attention
 
 ## Output Format
 
 ```
-GitHub Issue Import Summary
-===========================
+GitHub Issue Summary
+====================
 Repository: owner/repo
 Filter: open issues
 
 Found: N issues
-Imported: N new tasks
-  - 003-001-fix-login-bug.md (from #123)
-  - 003-002-add-dark-mode.md (from #456)
-Skipped: N already tracked
-Errors: N (list if any)
+
+Critical:
+  - #123: Fix login bug (bug, security)
+  - #789: Data corruption on save (critical)
+
+High:
+  - #234: Improve auth flow (priority)
+
+Medium:
+  - #456: Add dark mode (enhancement)
+
+Low:
+  - #567: Update README links
 ```
 
 ## Rules
 
-- Do NOT modify existing task files
-- Do NOT create duplicate tasks for the same issue
-- Include the GitHub issue URL in the Links section
-- Use the issue body as the initial Context (truncate if very long)
+- Present issues clearly with their GitHub URLs
+- Highlight any issues that seem urgent or blocking
+- Note any issues that reference each other (dependencies)

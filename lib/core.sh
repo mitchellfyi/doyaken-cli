@@ -65,6 +65,9 @@ source "$SCRIPT_DIR/rate_limiter.sh"
 # Source exit detection
 source "$SCRIPT_DIR/exit_detection.sh"
 
+# Source audit logging
+source "$SCRIPT_DIR/audit.sh"
+
 # Project directory (set by CLI or auto-detected)
 PROJECT_DIR="${DOYAKEN_PROJECT:-$(pwd)}"
 
@@ -1183,6 +1186,9 @@ run_phase_once() {
     phase_label="[$phase_idx/$total_phases] $phase_name"
   fi
 
+  local start_time
+  start_time=$(date +%s)
+
   log_phase "Starting $phase_label phase (attempt $attempt)"
   echo "  Agent: $CURRENT_AGENT"
   echo "  Model: $CURRENT_MODEL"
@@ -1378,24 +1384,33 @@ run_phase_once() {
   echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
+  # Calculate phase duration
+  local phase_end_time
+  phase_end_time=$(date +%s)
+  local phase_duration=$(( phase_end_time - start_time ))
+
   case $exit_code in
     0)
       log_phase "$phase_name completed successfully"
+      audit_phase "$phase_name" "pass" "$phase_duration"
       return 0
       ;;
     124)
       log_error "$phase_name timed out after ${timeout}s"
+      audit_phase "$phase_name" "timeout" "$phase_duration"
       return 124
       ;;
     *)
       if grep -qiE "rate.?limit|overloaded|429|502|503|504|capacity|quota" "$phase_log" 2>/dev/null; then
         log_heal "Rate limit detected in $phase_name"
+        audit_phase "$phase_name" "rate_limit" "$phase_duration"
         if fallback_to_sonnet; then
           log_heal "Will retry $phase_name with fallback model"
         fi
         return 2
       fi
       log_error "$phase_name failed with exit code $exit_code"
+      audit_phase "$phase_name" "fail" "$phase_duration"
       return 1
       ;;
   esac
@@ -1778,9 +1793,11 @@ _run_gate() {
 
   if [ "$exit_code" -eq 0 ]; then
     log_success "Gate $gate_name: PASS"
+    audit_gate "$gate_name" "pass"
     return 0
   else
     log_warn "Gate $gate_name: FAIL (exit $exit_code)"
+    audit_gate "$gate_name" "fail"
     return 1
   fi
 }
@@ -2078,6 +2095,10 @@ main() {
 
   # Save session as running
   save_session "$SESSION_ID" "running"
+
+  # Audit: session start
+  AUDIT_LOG="$DATA_DIR/audit.log"
+  audit_init "${SESSION_ID:-$task_id}"
 
   # Single-shot execution: run all phases for the prompt
   local run_result=0

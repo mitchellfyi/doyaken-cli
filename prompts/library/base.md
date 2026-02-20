@@ -51,7 +51,7 @@ Complete requested work. Suggest improvements as follow-ups.
 
 ## When Stuck
 
-1. **Document the blocker** in the task Work Log
+1. **Document the blocker** clearly in your output
 2. **Identify the type**: missing info, technical limitation, scope creep, external dependency
 3. **Track approaches**: what you tried, why it failed
 4. **HARD LIMIT: 3 attempts per approach** - after 3 failures:

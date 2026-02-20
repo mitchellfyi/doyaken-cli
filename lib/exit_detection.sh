@@ -6,7 +6,6 @@
 # Uses a confidence scoring system (0-100) based on:
 #   - DOYAKEN_STATUS structured block presence and values
 #   - Git file changes
-#   - Task file movement to done/
 #   - Completion keywords in output
 #
 # Dual-condition gate: requires BOTH completion indicators AND structured
@@ -111,17 +110,15 @@ ed_has_completion_keywords() {
 # Calculate completion confidence score (0-100)
 # Args:
 #   $1 = log_file (phase log to analyze)
-#   $2 = task_id
+#   $2 = (unused, kept for backward compat)
 #   $3 = project_dir (for git diff check)
-#   $4 = tasks_dir (to check done/ for task file)
 #
 # Outputs: score (integer 0-100)
 # Also sets ED_SCORE_REASONS (array of reason strings)
 ed_calculate_confidence() {
   local log_file="${1:-}"
-  local task_id="${2:-}"
+  local _unused="${2:-}"
   local project_dir="${3:-${PROJECT_DIR:-.}}"
-  local tasks_dir="${4:-}"
 
   local score=0
   ED_SCORE_REASONS=()
@@ -137,28 +134,20 @@ ed_calculate_confidence() {
       ED_SCORE_REASONS+=("phase_complete:+20")
     fi
 
-    # 6. TESTS_STATUS: pass (+5)
+    # 3. TESTS_STATUS: pass (+5)
     if [ "$ED_TESTS_STATUS" = "pass" ]; then
       score=$((score + 5))
       ED_SCORE_REASONS+=("tests_pass:+5")
     fi
   fi
 
-  # 3. Files actually modified via git diff (+15)
+  # 4. Files actually modified via git diff (+15)
   if [ -n "$project_dir" ] && command -v git &>/dev/null; then
     local diff_stat
     diff_stat=$(git -C "$project_dir" diff --stat HEAD 2>/dev/null || echo "")
     if [ -n "$diff_stat" ]; then
       score=$((score + 15))
       ED_SCORE_REASONS+=("files_modified:+15")
-    fi
-  fi
-
-  # 4. Task file in done/ (+20)
-  if [ -n "$task_id" ] && [ -n "$tasks_dir" ]; then
-    if ls "$tasks_dir/4.done/"*"$task_id"* &>/dev/null 2>&1; then
-      score=$((score + 20))
-      ED_SCORE_REASONS+=("task_in_done:+20")
     fi
   fi
 
@@ -178,9 +167,8 @@ ed_calculate_confidence() {
 # Evaluate whether an iteration is truly complete
 # Args:
 #   $1 = log_file
-#   $2 = task_id
+#   $2 = (unused, kept for backward compat)
 #   $3 = project_dir
-#   $4 = tasks_dir
 #
 # Returns:
 #   0 = high confidence completion (score >= threshold)
@@ -188,12 +176,11 @@ ed_calculate_confidence() {
 #   2 = repeated low-confidence warnings (manual review needed)
 ed_evaluate_completion() {
   local log_file="${1:-}"
-  local task_id="${2:-}"
+  local _unused="${2:-}"
   local project_dir="${3:-${PROJECT_DIR:-.}}"
-  local tasks_dir="${4:-}"
 
   local score
-  score=$(ed_calculate_confidence "$log_file" "$task_id" "$project_dir" "$tasks_dir")
+  score=$(ed_calculate_confidence "$log_file" "" "$project_dir")
 
   # Log the score
   if declare -f log_info &>/dev/null; then
@@ -206,7 +193,7 @@ ed_evaluate_completion() {
 
   # Write to confidence log if available
   if [ -n "${RUN_LOG_DIR:-}" ] && [ -d "${RUN_LOG_DIR:-}" ]; then
-    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) task=$task_id score=$score reasons=${ED_SCORE_REASONS[*]}" >> "$RUN_LOG_DIR/confidence.log" 2>/dev/null || true
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) score=$score reasons=${ED_SCORE_REASONS[*]}" >> "$RUN_LOG_DIR/confidence.log" 2>/dev/null || true
   fi
 
   if [ "$score" -ge "$ED_CONFIDENCE_THRESHOLD" ]; then
