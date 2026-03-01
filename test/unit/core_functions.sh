@@ -24,6 +24,7 @@ log_error()   { [[ "${VERBOSE_TEST:-}" == "1" ]] && echo "[ERROR] $1" || true; }
 log_heal()    { [[ "${VERBOSE_TEST:-}" == "1" ]] && echo "[HEAL] $1" || true; }
 log_model()   { [[ "${VERBOSE_TEST:-}" == "1" ]] && echo "[MODEL] $1" || true; }
 log_step()    { [[ "${VERBOSE_TEST:-}" == "1" ]] && echo "[STEP] $1" || true; }
+log_ok()      { [[ "${VERBOSE_TEST:-}" == "1" ]] && echo "[OK] $1" || true; }
 
 # ============================================================================
 # Model Fallback Functions
@@ -153,6 +154,52 @@ get_consecutive_failures() {
   else
     echo "0"
   fi
+}
+
+# ============================================================================
+# Phase Progress Functions
+# ============================================================================
+
+PHASES=("PLAN|a|1|0" "IMPLEMENT|b|2|0" "TEST|c|3|0" "VERIFY|d|4|0")
+AGENT_NO_RESUME="${AGENT_NO_RESUME:-0}"
+
+save_phase_progress() {
+  local task_id="$1"
+  local phase_idx="$2"
+  local phase_name="$3"
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+
+  cat > "$progress_file" << EOF
+TASK_ID="$task_id"
+LAST_COMPLETED_PHASE="$phase_idx"
+LAST_COMPLETED_NAME="$phase_name"
+TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
+EOF
+}
+
+load_phase_progress() {
+  local task_id="$1"
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+
+  if [ -f "$progress_file" ] && [ "$AGENT_NO_RESUME" != "1" ]; then
+    local saved_task_id saved_phase_idx saved_phase_name
+    saved_task_id=$(grep '^TASK_ID=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    saved_phase_idx=$(grep '^LAST_COMPLETED_PHASE=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    saved_phase_name=$(grep '^LAST_COMPLETED_NAME=' "$progress_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+
+    if [ "$saved_task_id" = "$task_id" ] && [ -n "$saved_phase_idx" ]; then
+      log_heal "Found phase progress for $task_id: completed through $saved_phase_name ($saved_phase_idx/${#PHASES[@]})"
+      echo "$saved_phase_idx"
+      return 0
+    fi
+  fi
+  echo "0"
+  return 1
+}
+
+clear_phase_progress() {
+  local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
+  rm -f "$progress_file"
 }
 
 # ============================================================================

@@ -799,6 +799,10 @@ log_monitor_warn() {
   printf '%s\n' "${YELLOW}[$AGENT_ID MONITOR]${NC} $1"
 }
 
+log_ok() {
+  printf '%s\n' "${GREEN}[$AGENT_ID OK]${NC} $1"
+}
+
 log_model() {
   printf '%s\n' "${MAGENTA}[$AGENT_ID MODEL]${NC} $1"
 }
@@ -897,9 +901,13 @@ progress_filter() {
           if [ "$subtype" = "success" ]; then
             local duration_s=""
             [ -n "$duration_ms" ] && duration_s="$(( duration_ms / 1000 ))s"
-            show_status "✅ Done (${num_turns:-?} turns, ${duration_s:-?}, \$${cost_usd:-?})"
+            local cost_display=""
+            [ -n "$cost_usd" ] && cost_display=", \$$cost_usd"
+            show_status "✅ Done (${num_turns:-?} turns, ${duration_s:-?}${cost_display})"
           else
-            show_status "❌ Failed: $subtype (\$${cost_usd:-?})"
+            local cost_display=""
+            [ -n "$cost_usd" ] && cost_display=" (\$$cost_usd)"
+            show_status "❌ Failed: $subtype${cost_display}"
           fi
           ;;
         "system")
@@ -1014,10 +1022,13 @@ start_phase_monitor() {
         fi
       fi
 
-      # Warn when approaching timeout
+      # Warn when approaching timeout (threshold: 20% of total, clamped to 30-300s)
       local remaining=$(( timeout - elapsed ))
-      if [ "$remaining" -le 120 ] && [ "$remaining" -gt 0 ]; then
-        printf '%s\n' "${RED}[$AGENT_ID MONITOR]${NC} ${phase_name} │ ⚠ TIMEOUT in ${remaining}s!"
+      local warn_threshold=$(( timeout / 5 ))
+      [ "$warn_threshold" -lt 30 ] && warn_threshold=30
+      [ "$warn_threshold" -gt 300 ] && warn_threshold=300
+      if [ "$remaining" -le "$warn_threshold" ] && [ "$remaining" -gt 0 ]; then
+        printf '%s\n' "${RED}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ TIMEOUT in ${remaining}s!"
       fi
     done
   ) &

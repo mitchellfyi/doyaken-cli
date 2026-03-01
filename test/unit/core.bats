@@ -440,6 +440,51 @@ _setup_core_test() {
   [[ "$output" == *"leaf"* ]]
 }
 
+@test "log_ok: is defined and callable" {
+  _setup_core_test
+  run log_ok "test message"
+  [ "$status" -eq 0 ]
+}
+
+@test "log_ok: outputs message when VERBOSE_TEST=1" {
+  _setup_core_test
+  VERBOSE_TEST=1
+  run log_ok "success message"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"success message"* ]]
+}
+
+@test "save_phase_progress: creates progress file" {
+  _setup_core_test
+  save_phase_progress "test-task" "2" "IMPLEMENT"
+  [ -f "$STATE_DIR/phase-progress-test-worker" ]
+  grep -q 'TASK_ID="test-task"' "$STATE_DIR/phase-progress-test-worker"
+  grep -q 'LAST_COMPLETED_PHASE="2"' "$STATE_DIR/phase-progress-test-worker"
+}
+
+@test "load_phase_progress: returns saved phase index" {
+  _setup_core_test
+  save_phase_progress "test-task" "3" "TEST"
+  run load_phase_progress "test-task"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"3"* ]]
+}
+
+@test "load_phase_progress: returns 0 for different task" {
+  _setup_core_test
+  save_phase_progress "task-a" "2" "IMPLEMENT"
+  run load_phase_progress "task-b"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"0"* ]]
+}
+
+@test "clear_phase_progress: removes progress file" {
+  _setup_core_test
+  save_phase_progress "test-task" "1" "PLAN"
+  clear_phase_progress
+  [ ! -f "$STATE_DIR/phase-progress-test-worker" ]
+}
+
 @test "process_includes: respects max_depth parameter" {
   _setup_core_test
 
