@@ -154,13 +154,22 @@ git log --oneline -10  # What commits might be relevant?
 
 ## When You're Stuck
 
-- Take a break (seriously, it helps)
-- Explain it to someone else
-- Sleep on it
-- Question your assumptions
+- **If stuck after 3 attempts, step back and reassess the approach entirely** — the design may be wrong, not just the implementation
+- If debugging has failed 3+ times on the same issue, start a fresh session — long debugging sessions create bias toward repeating the same mistakes
+- Question your assumptions — the thing you're most sure about may be wrong
+- Explain the problem to someone else (or rubber duck)
 - Read the documentation again
 - Search for similar issues (GitHub, Stack Overflow)
-- Ask for help with clear problem statement
+- Take a break (seriously, it helps)
+
+## Scope Discipline
+
+When fixing bugs, avoid overfocusing on the specific failing case and breaking broader functionality:
+
+- Understand the root cause before changing code — don't patch symptoms
+- After making a fix, verify that related functionality still works, not just the specific reported case
+- If a fix requires changing a shared utility or interface, trace all callers to assess impact
+- Keep fixes minimal and targeted — don't refactor adjacent code in the same change as a bug fix
 
 ## Debugging Checklist
 
@@ -170,5 +179,6 @@ git log --oneline -10  # What commits might be relevant?
 - [ ] Tested hypotheses systematically
 - [ ] Found root cause (not just symptom)
 - [ ] Fix verified to resolve issue
-- [ ] No regressions introduced
+- [ ] No regressions introduced (related functionality still works)
 - [ ] Test added to prevent recurrence
+- [ ] Fix is minimal and targeted

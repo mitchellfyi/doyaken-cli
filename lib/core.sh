@@ -1929,7 +1929,7 @@ run_ai_review() {
 
   local prompt_path
   prompt_path=$(get_prompt_file "$review_prompt_file") || {
-    log_warn "AI review prompt not found: $review_prompt_file"
+    log_warn "AI review skipped: prompt not found ($review_prompt_file)"
     return 0
   }
 
@@ -1969,8 +1969,9 @@ Look for anything remaining. Is the output truly ready to move on?"
 
   prompt=$(process_includes "$prompt" 2>/dev/null || echo "$prompt")
 
-  local review_log
+  local review_log stderr_log
   review_log=$(mktemp "${TMPDIR:-/tmp}/doyaken-ai-review.XXXXXX")
+  stderr_log=$(mktemp "${TMPDIR:-/tmp}/doyaken-ai-review-stderr.XXXXXX")
   local exit_code=0
 
   local agent_bin="" agent_args=()
@@ -2006,8 +2007,8 @@ Look for anything remaining. Is the output truly ready to move on?"
       agent_args+=("$prompt")
       ;;
     *)
-      log_warn "AI review: unsupported agent $CURRENT_AGENT, skipping"
-      rm -f "$review_log"
+      log_warn "AI review skipped: unsupported agent ($CURRENT_AGENT)"
+      rm -f "$review_log" "$stderr_log"
       return 0
       ;;
   esac
@@ -2022,25 +2023,49 @@ Look for anything remaining. Is the output truly ready to move on?"
   log_info "AI review pass $pass_number/$total_passes for $phase_name..."
 
   if [ -n "$timeout_cmd" ]; then
-    $timeout_cmd "${TIMEOUT_AI_REVIEW}s" "$agent_bin" "${agent_args[@]}" 2>/dev/null > "$review_log" || exit_code=$?
+    $timeout_cmd "${TIMEOUT_AI_REVIEW}s" "$agent_bin" "${agent_args[@]}" > "$review_log" 2> "$stderr_log" || exit_code=$?
   else
-    "$agent_bin" "${agent_args[@]}" 2>/dev/null > "$review_log" || exit_code=$?
+    "$agent_bin" "${agent_args[@]}" > "$review_log" 2> "$stderr_log" || exit_code=$?
   fi
 
   if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 130 ]; then
     AI_REVIEW_FEEDBACK="AI review timed out or was interrupted"
-    rm -f "$review_log"
+    if [ -s "$stderr_log" ] 2>/dev/null; then
+      AI_REVIEW_FEEDBACK="${AI_REVIEW_FEEDBACK}
+
+Agent stderr (last 20 lines):
+$(tail -20 "$stderr_log" 2>/dev/null)"
+    fi
+    rm -f "$review_log" "$stderr_log"
+    return 1
+  fi
+
+  if [ "$exit_code" -ne 0 ]; then
+    AI_REVIEW_FEEDBACK="AI review agent exited with code $exit_code"
+    if [ -s "$stderr_log" ] 2>/dev/null; then
+      AI_REVIEW_FEEDBACK="${AI_REVIEW_FEEDBACK}
+
+Agent stderr (last 20 lines):
+$(tail -20 "$stderr_log" 2>/dev/null)"
+    fi
+    rm -f "$review_log" "$stderr_log"
     return 1
   fi
 
   if grep -q "REVIEW_RESULT: FAIL" "$review_log" 2>/dev/null; then
     AI_REVIEW_FEEDBACK=$(sed -n '/REVIEW_RESULT: FAIL/,/^$/p' "$review_log" | tail -n +2 | sed '/^$/d' | head -50)
     [ -z "$AI_REVIEW_FEEDBACK" ] && AI_REVIEW_FEEDBACK="Review failed (no details)"
-    rm -f "$review_log"
+    if [ -s "$stderr_log" ] 2>/dev/null; then
+      AI_REVIEW_FEEDBACK="${AI_REVIEW_FEEDBACK}
+
+Agent stderr (last 20 lines):
+$(tail -20 "$stderr_log" 2>/dev/null)"
+    fi
+    rm -f "$review_log" "$stderr_log"
     return 1
   fi
 
-  rm -f "$review_log"
+  rm -f "$review_log" "$stderr_log"
   return 0
 }
 
@@ -2050,6 +2075,9 @@ Look for anything remaining. Is the output truly ready to move on?"
 # Writes: STATE_DIR/quality-gates-discovered, exports QUALITY_*_CMD
 parse_and_save_quality_gates_from_plan() {
   local task_id="$1"
+  [ -n "${STATE_DIR:-}" ] && [ -d "$STATE_DIR" ] || return 1
+  [ -n "${RUN_LOG_DIR:-}" ] && [ -d "$RUN_LOG_DIR" ] || return 1
+
   local plan_log=""
   for f in "$RUN_LOG_DIR"/phase-plan-*.log "$RUN_LOG_DIR"/phase-1-plan-*.log; do
     [ -f "$f" ] || continue
@@ -2092,6 +2120,7 @@ parse_and_save_quality_gates_from_plan() {
 # Load discovered quality gates from session state (from PLAN phase)
 # Returns 0 if loaded, 1 if not found
 load_discovered_quality_gates() {
+  [ -n "${STATE_DIR:-}" ] && [ -d "$STATE_DIR" ] || return 1
   local gates_file="$STATE_DIR/quality-gates-discovered"
   [ -f "$gates_file" ] || return 1
 

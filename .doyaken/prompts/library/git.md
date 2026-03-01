@@ -11,9 +11,9 @@ Each commit should be:
 ### Commit Message Format
 
 ```
-<type>: <short description>
+<type>(<scope>): <short description>
 
-[optional body]
+[optional body explaining WHAT changed and WHY]
 ```
 
 **Types:**
@@ -23,6 +23,8 @@ Each commit should be:
 - `docs`: Documentation only
 - `test`: Adding/updating tests
 - `chore`: Maintenance tasks
+
+Each commit message describes **WHAT** changed and **WHY** — the diff shows HOW.
 
 ### Commit Frequency
 - Commit early and often
@@ -64,11 +66,14 @@ hotfix/security-patch
 - Large binary files
 - Build artifacts
 - IDE-specific files
+- Commented-out code (version control is the history)
+- Debug code (console.log, print statements, debugger)
 
 ## Pre-Push Checklist
 
 - [ ] All tests pass locally
 - [ ] No debug code
 - [ ] No hardcoded values
+- [ ] No commented-out code
 - [ ] Commit messages are clear
 - [ ] No unintended files included
