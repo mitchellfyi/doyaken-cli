@@ -249,6 +249,66 @@ _setup_integration_test() {
   export AGENT_ID="integration-test"
 }
 
+# ============================================================================
+# Consistency checks
+# ============================================================================
+
+@test "consistency: VERSION file matches package.json" {
+  local version_file
+  version_file=$(cat "$PROJECT_ROOT/VERSION")
+
+  local package_version
+  package_version=$(grep '"version"' "$PROJECT_ROOT/package.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+
+  [ "$version_file" = "$package_version" ]
+}
+
+@test "consistency: dk version outputs correct version" {
+  local expected_version
+  expected_version=$(cat "$PROJECT_ROOT/VERSION")
+
+  run "$PROJECT_ROOT/bin/doyaken" version
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$expected_version"* ]]
+}
+
+@test "consistency: dk help lists all dispatched commands" {
+  # Extract command names from the main dispatch case statement in cli.sh
+  # The dispatch block starts after 'case "$cmd" in' near the end of the file
+  local dispatch_commands
+  dispatch_commands=$(sed -n '/# Dispatch command/,/^[[:space:]]*esac/p' "$PROJECT_ROOT/lib/cli.sh" \
+    | grep -E '^\s+[a-z]+(\|[a-z]+)?\)' \
+    | sed 's/[[:space:]]*\([a-z|]*\)).*/\1/' \
+    | tr '|' '\n' \
+    | grep -v '^$' \
+    | sort -u)
+
+  # Get help output, strip ANSI escape codes for reliable matching
+  run "$PROJECT_ROOT/bin/doyaken" help
+  [ "$status" -eq 0 ]
+  local clean_output
+  clean_output=$(echo "$output" | sed $'s/\033\\[[0-9;]*m//g')
+
+  # Every command from dispatch should appear in help (except aliases like 'clean')
+  local missing=""
+  while IFS= read -r cmd; do
+    # 'clean' is an alias for 'cleanup' — skip it
+    [ "$cmd" = "clean" ] && continue
+    if ! echo "$clean_output" | grep -qw "$cmd"; then
+      missing="$missing $cmd"
+    fi
+  done <<< "$dispatch_commands"
+
+  if [ -n "$missing" ]; then
+    echo "Commands missing from help:$missing"
+    return 1
+  fi
+}
+
+# ============================================================================
+# Core Function Integration Tests
+# ============================================================================
+
 @test "error: model fallback triggers on rate limit detection" {
   _setup_integration_test
 
