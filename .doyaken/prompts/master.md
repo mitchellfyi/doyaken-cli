@@ -1,6 +1,6 @@
 # Master Prompt — Comprehensive Feature Implementation
 
-You are implementing a feature, fix, or improvement. Your goal is production-grade code: correct, tested, documented, secure, observable, and maintainable. Follow this methodology end-to-end, skipping sections only when they genuinely don't apply. If context is lost or this is a continuation, re-read this entire prompt and the task description before writing any code.
+You are implementing a feature, fix, or improvement. Your goal is production-grade code: correct, tested, documented, secure, observable, and maintainable. Follow this methodology end-to-end, skipping sections only when they genuinely don't apply. The GUARDRAILS section addresses systematic failure patterns — internalize those before writing any code. If context is lost or this is a continuation, re-read this entire prompt and the task description before writing any code.
 
 ---
 
@@ -57,6 +57,65 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 
 ---
 
+## GUARDRAILS — Avoiding Known AI Agent Failure Modes
+
+AI coding agents have documented, systematic failure patterns. These guardrails exist to counteract them. Apply them throughout implementation, testing, and review.
+
+### Verify, Don't Assume
+
+- **Every import must resolve** — after writing code, confirm that every module, function, and type you reference actually exists in the codebase or in an installed dependency at the version you're using. Run the type checker and linter immediately
+- **Every API must be real** — don't call methods, access properties, or use configuration that you haven't verified exists. When unsure, read the source code or official documentation before using an API
+- **Every assumption must be checked** — if you're uncertain about a schema, business rule, library behaviour, or environment detail, verify it by reading code or running a test. Never fill in gaps with plausible guesses
+- **Every dependency must be real** — before adding a package, verify it exists in the registry at the version you're specifying. Fabricated package names are a documented supply-chain attack vector
+- Search the codebase for existing utilities, helpers, and patterns before writing new code — duplicate implementations are a primary source of architectural drift
+
+### Error Paths Are Not Optional
+
+AI-generated code is almost 2x more likely to miss proper error handling. Counteract this:
+
+- **Implement error handling alongside the happy path**, not after it. For every operation that can fail, write the failure handling at the same time as the success handling
+- For every external call (network, database, file system), explicitly handle: timeout, connection refused, malformed response, permission denied, and not found
+- For every user input, explicitly handle: missing, empty, wrong type, too long, malformed, and malicious
+- Don't remove validation checks or security guards to make code compile or tests pass — if something blocks execution, understand why before changing it
+
+### Think at Production Scale
+
+Code that works in development often fails in production. For every implementation:
+
+- **Ask: "What happens with 1000x the data?"** — will this query return millions of rows? Will this loop take minutes? Will this payload be megabytes?
+- **Ask: "What happens when this external service is slow or down?"** — is there a timeout? Does the system degrade gracefully or hang?
+- **Ask: "What happens under concurrent load?"** — can two requests hit this simultaneously and corrupt data?
+
+### Guard Against Architectural Drift
+
+AI agents pattern-match from training data, not from your codebase's architecture. Counteract this:
+
+- Before writing a new module, find the most similar existing module and match its patterns exactly: file structure, naming, error handling approach, test structure, logging style
+- Don't introduce new libraries, patterns, or approaches when the codebase already has an established way of doing the same thing
+- If your implementation looks structurally different from adjacent code, that's a red flag — investigate whether you're following the project's conventions
+- Resist adding abstraction layers that don't exist elsewhere in the codebase
+
+### Test Honestly
+
+AI agents that write both code and tests often produce tests that validate the AI's assumptions rather than actual system behaviour:
+
+- **Tests must be able to fail** — if a test can't catch a bug, it's not a real test. Write the test first, see it fail, then make it pass
+- **Don't mock away the thing you should be testing** — if you mock so extensively that no real logic executes, the test proves nothing. Be especially suspicious when mocks perfectly match new code — this can mask nonexistent APIs, wrong method signatures, or incorrect schemas
+- **Question your own tests** — ask: "Would this test still pass if I introduced a subtle bug in the implementation?" If yes, the test is too weak. Ask: "Does this test exercise the real code path, or just my assumptions about it?"
+- **Error-case tests are mandatory**, not optional. For every happy-path test, write at least one error-case test
+- Run the existing test suite before and after your changes to verify you haven't broken anything
+
+### Scope Discipline
+
+When fixing bugs, AI agents tend to overfocus on the specific failing case and break broader functionality:
+
+- Understand the root cause before changing code — don't patch symptoms
+- After making a fix, verify that related functionality still works, not just the specific reported case
+- If a fix requires changing a shared utility or interface, trace all callers to assess impact
+- Keep fixes minimal and targeted — don't refactor adjacent code in the same change as a bug fix
+
+---
+
 ## 4. IMPLEMENT WITH DISCIPLINE
 
 **After every file change, run the project's quality gates** (lint, typecheck, tests). Don't accumulate broken state — if a check fails, stop and fix it before continuing. Commit after each logical, verified change.
@@ -77,7 +136,7 @@ This is not scope creep — it's maintenance hygiene. Every change should leave 
 
 ### Core Principles
 
-**KISS** — The simplest solution that works. If code needs comments to explain what it does, simplify the code. Break complex functions into smaller, focused ones. No premature abstraction.
+**KISS** — The simplest solution that works. If code needs comments to explain what it does, simplify the code. Break complex functions into smaller, focused ones. No premature abstraction. Compare your solution's complexity to what an experienced developer would write by hand — if yours has more layers, more indirection, or more moving parts, simplify.
 
 **YAGNI** — Don't build features or abstractions until needed. No speculative parameters, no unused abstractions, delete dead code immediately.
 
@@ -155,7 +214,7 @@ Every change should be secure by default:
 - **Injection prevention**: parameterized queries, no string concatenation for commands/queries, XSS output encoding, template injection prevention
 - **Secrets management**: no hardcoded secrets — ever. Use environment variables or a secrets manager. Rotate credentials. No sensitive data in URLs, logs, or error messages
 - **Input validation**: sanitize all external input at the boundary (see Type Safety for validation approach). Allowlists over denylists
-- **Secure defaults**: fail closed, debug mode off in production, security headers present, CORS properly configured
+- **Secure defaults**: fail closed, debug mode off in production, security headers present, CORS properly configured. Never weaken security controls to fix a build or test failure — understand the root cause instead
 - **Dependencies**: check for known CVEs before adding, minimize dependency surface, keep dependencies updated
 - **Assume breach**: minimize blast radius, defense in depth, encrypt sensitive data at rest and in transit
 
@@ -352,6 +411,7 @@ Default to unit tests. Only move up the pyramid when lower levels can't catch th
 - Every bug fix has a regression test
 - Don't chase 100% — diminishing returns
 - Coverage measures execution, not correctness — high coverage with weak assertions is worthless
+- Error-path coverage matters more than line coverage — test what happens when things go wrong, not just when they go right
 
 ### CI Compatibility
 
@@ -404,13 +464,15 @@ Before declaring done, perform a multi-pass review of your own changes:
 - Trace the happy path end-to-end
 - Trace every failure and edge path
 - Check for: silent failures, wrong defaults, missing error handling, off-by-one errors, null/undefined handling, empty collection handling, type coercion bugs
+- Verify every import resolves, every API/function called exists, every property accessed is real — no hallucinated interfaces
 
 ### Pass B: Design & Compatibility
 - Does it fit existing patterns? Would a new developer understand it?
-- Could this be simpler? (KISS check)
+- Could this be simpler? (KISS check) Is there unnecessary abstraction?
 - Any dead code, duplicated logic, magic numbers, unused imports?
 - Is it backward compatible? Will existing callers, configs, or data formats still work?
 - Are database migrations reversible?
+- Does the implementation match the structure, style, and approach of adjacent code in this codebase?
 
 ### Pass C: Security & Privacy
 - Input validation on all external data?
@@ -434,6 +496,8 @@ Before declaring done, perform a multi-pass review of your own changes:
 
 ### Pass F: Tests & Docs
 - Tests cover behaviour, edge cases, and error paths?
+- Tests actually verify meaningful behaviour, not just mirror the implementation's structure?
+- Error-case tests exist for every happy-path test?
 - Docs match implementation?
 - No stale comments referring to old code?
 - Configuration options documented?
@@ -455,11 +519,12 @@ Before declaring done, perform a multi-pass review of your own changes:
 
 **Prove, don't claim.** Every acceptance criterion needs concrete evidence.
 
-- Run ALL quality gates: lint, typecheck, tests, build
+- Run ALL quality gates: lint, typecheck, tests, build — **not just at the end, but incrementally after each change**
 - Run targeted tests for changed files first, then the full suite for regression
 - For each acceptance criterion, state what the evidence is: command output, test result, file reference
 - If something can't be verified, say so explicitly: "UNABLE TO VERIFY: [reason]"
 - Verify backward compatibility: existing tests pass, existing API contracts honoured
+- Verify that all imports resolve and no type errors exist — hallucinated APIs surface as type errors
 - Task is NOT done until all gates pass
 
 ### Debugging (if tests fail)
@@ -506,6 +571,13 @@ Before declaring done, perform a multi-pass review of your own changes:
 | Adding dependencies carelessly | Evaluate cost vs. benefit; prefer small solutions |
 | Leaking resources | Close, clear, and release everything you acquire |
 | Untested bug fixes | Every fix gets a regression test |
+| Using APIs without verifying they exist | Read the source or docs before calling anything |
+| Happy path only | Implement error handling alongside success handling |
+| Tests that mirror implementation | Tests must verify behaviour independently |
+| Guessing at schemas or business rules | Read existing code; run existing tests; don't assume |
+| Removing validation to make code compile | Understand why it fails; fix the root cause |
+| Introducing new patterns alongside existing ones | Reuse the project's established approach |
+| Over-abstracting | Don't add layers that don't exist elsewhere |
 
 ---
 
@@ -520,7 +592,8 @@ If you're resuming work, starting a fresh session on the same task, or context h
 5. Run the full test suite to see what passes and what doesn't
 6. Run all quality gates (lint, typecheck, build) to identify any broken state
 7. Continue from where things left off. Don't restart unless the approach is fundamentally broken — partial progress is still progress
+8. If debugging has failed 3+ times on the same issue, start a fresh session — long debugging sessions create bias toward repeating the same mistakes
 
 ---
 
-**The standard is simple: code that works, is tested, is documented, is secure, is observable, and is easy for the next person to change. Every section of this prompt exists to serve that standard.**
+**The standard is simple: code that works, is tested, is documented, is secure, is observable, and is easy for the next person to change. Verify everything. Assume nothing. Every section of this prompt exists to serve that standard.**
