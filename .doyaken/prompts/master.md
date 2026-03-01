@@ -1,6 +1,6 @@
 # Master Prompt — Comprehensive Feature Implementation
 
-You are implementing a feature, fix, or improvement. Follow this methodology end-to-end. If context is lost or this is a continuation, re-read this prompt and the task description before proceeding.
+You are implementing a feature, fix, or improvement to a production-grade standard. Follow this methodology end-to-end. If context is lost or this is a continuation, re-read this prompt and the task description before proceeding.
 
 ---
 
@@ -8,18 +8,20 @@ You are implementing a feature, fix, or improvement. Follow this methodology end
 
 **Read first, code second.** Before making any change:
 
-- Read AGENTS.md, README.md, CONTRIBUTING.md — understand the project's rules
+- Read AGENTS.md, README.md, CONTRIBUTING.md — understand the project's rules and conventions
 - Check CI workflows, lint/format/test/build configs — know what "passing" means
 - Trace related code paths and find ALL files in the domain you'll touch
-- Note existing patterns, naming conventions, error handling approaches, and test structure
-- Check git status — know what's already changed
+- Note existing patterns: naming conventions, error handling, logging, test structure, config approach
+- Check git status and recent history — know what's already changed
 - Understand existing test coverage for the area you'll modify
+- Identify the tech stack, frameworks, and their idiomatic patterns
 
 **Context questions to answer before writing a single line:**
 - What does the system currently do in this area?
 - What patterns does the codebase already use for similar problems?
 - What could break? What are the edge cases?
 - What's the simplest change that solves this correctly?
+- Are there existing abstractions, utilities, or components to reuse?
 
 ---
 
@@ -28,9 +30,10 @@ You are implementing a feature, fix, or improvement. Follow this methodology end
 Turn the request into precise, testable requirements:
 
 - **Classify intent**: BUILD (new), FIX (broken), IMPROVE (better), REVIEW (assess)
-- **Write acceptance criteria** that are specific and measurable — ban vague terms like "works correctly", "is fast", "handles properly" unless accompanied by a threshold
-- **Identify edge cases**: empty inputs, nulls, boundary values, concurrent access, large datasets, malformed data, missing permissions
+- **Write acceptance criteria** that are specific and measurable — ban vague terms like "works correctly", "is fast", "handles properly" unless accompanied by a measurable threshold
+- **Identify edge cases**: empty inputs, nulls, boundary values, concurrent access, large datasets, malformed data, missing permissions, network failures, partial failures
 - **Define scope boundaries**: what's in, what's explicitly out and why
+- **Identify backward compatibility requirements**: will this break existing callers, APIs, configs, or data formats?
 - **List the 3-5 key files** you'll modify or reference, noting the patterns they follow
 
 ---
@@ -42,9 +45,11 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 **Risk assessment:**
 - What existing functionality could this break?
 - What edge cases need special handling?
-- Are there security implications?
-- Are there performance implications?
-- Hidden dependencies?
+- Are there security or data privacy implications?
+- Are there performance implications at expected scale?
+- Hidden dependencies or ordering constraints?
+- Are database/schema migrations needed? Are they reversible?
+- Does this require backward-compatible deployment (old and new code running simultaneously)?
 
 **Plan atomic steps** — each step should produce a working, verifiable state. Order by dependency. Be specific: exact file, exact change, how to verify.
 
@@ -54,90 +59,208 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 
 ## 4. IMPLEMENT WITH DISCIPLINE
 
-### Code Quality Principles
+### Core Principles
 
-**KISS** — The simplest solution that works. If code needs comments to explain, it's too complex. Break complex functions into smaller, focused ones. No premature abstraction.
+**KISS** — The simplest solution that works. If code needs comments to explain what it does, simplify the code. Break complex functions into smaller, focused ones. No premature abstraction.
 
 **YAGNI** — Don't build features or abstractions until needed. No speculative parameters, no unused abstractions, delete dead code immediately.
 
-**DRY** — Single authoritative source for each piece of knowledge. Extract repeated logic, use constants for magic values, centralize configuration. But don't over-DRY — some duplication is fine if it keeps code simple.
+**DRY** — Single authoritative source for each piece of knowledge. Extract repeated logic, use constants for magic values, centralize configuration. But don't over-DRY — some duplication is acceptable if it keeps code simpler and more readable.
 
 **SOLID:**
-- Single Responsibility — each function/class does one thing
-- Open/Closed — extend without modifying existing code
-- Liskov Substitution — derived classes honour base contracts
+- Single Responsibility — each function/module does one thing
+- Open/Closed — extend behaviour without modifying existing code
+- Liskov Substitution — subtypes honour base contracts
 - Interface Segregation — small, focused interfaces
-- Dependency Inversion — depend on abstractions, not details
+- Dependency Inversion — depend on abstractions, not concrete implementations
 
-### Code Standards
+### Naming & Readability
 
-- Names clearly describe intent; functions are verbs, data is nouns
-- Functions < 20 lines ideal, nesting depth ≤ 3 levels
-- No hardcoded values, no magic numbers
-- Consistent formatting matching the project's style
+- Names describe intent: functions are verbs (`calculateTotal`, `validateInput`), data is nouns (`userList`, `orderCount`)
+- Booleans read as questions: `isValid`, `hasPermission`, `canRetry` — not `valid`, `flag`, `check`
+- Collections indicate plurality: `users` not `userList`, `orderIds` not `orderIdArray`
+- Use domain language consistently — if the business calls it an "enrollment", don't call it a "registration" in code
+- Functions < 20 lines ideal, cognitive complexity < 15 per function, nesting depth ≤ 3 levels
+- No hardcoded values, no magic numbers — use named constants
 - Early returns over deep nesting; guard clauses for preconditions
-- No debug output, console.logs, commented-out code, or TODO-without-a-plan in commits
-- Follow existing patterns in the codebase — match the architecture, don't invent new conventions
+- Consistent formatting matching the project's existing style
+
+### Type Safety & Data Validation
+
+- Use the language's type system to its full potential — prefer strict types, avoid `any`/`unknown`/`object` escape hatches
+- Validate data at system boundaries: API inputs, file reads, environment variables, database results, third-party responses
+- Use schema validation libraries (Zod, Joi, JSON Schema, etc.) for runtime validation of external data
+- Parse, don't validate — transform untyped data into typed structures at the boundary, then use types internally
+- Prefer immutable data structures; avoid mutating function arguments or shared state
+- Make invalid states unrepresentable through the type system where possible
 
 ### Error Handling
 
 - **Fail fast** — detect and report errors as early as possible
 - **Fail loudly** — never swallow errors silently
-- **Fail gracefully** — degrade functionality rather than crash
+- **Fail gracefully** — degrade functionality rather than crash the entire system
 - **Provide context** — include what operation was attempted, what input was being processed, where in the flow it failed
-- Use custom error types for different categories (validation, auth, not found, external failure)
-- Wrap errors with context when re-throwing
-- Validate inputs defensively at boundaries
-- Set timeouts on all external calls
-- Retry only transient failures, with exponential backoff
-- Never expose stack traces, internal details, or sensitive data in user-facing errors
-- Include correlation/request IDs for debugging
-- Log errors with full context internally; send safe messages externally
+- Use custom error types for different categories (validation, auth, not found, conflict, external failure)
+- Wrap errors with context when re-throwing — preserve the original cause
+- Validate inputs defensively at boundaries; trust typed data internally
+- Set timeouts on ALL external calls — network, database, file system, third-party APIs
+- Retry only transient failures (network timeouts, 503s), with exponential backoff and jitter, capped retries
+- Never expose stack traces, internal paths, or sensitive data in user-facing errors
+- Include correlation/request IDs for tracing errors across systems
+- Log errors with full context internally; send safe, actionable messages externally
 
-### Security (OWASP Awareness)
+### Resilience
+
+- **Circuit breaker** for external dependencies — stop calling a failing service, allow periodic probes, recover automatically
+- **Graceful degradation** — if a non-critical dependency fails, continue with reduced functionality rather than failing entirely
+- **Fallback strategies** — cached data, default values, or simplified responses when primary path fails
+- **Idempotency** — operations that may be retried (API endpoints, message handlers, jobs) must produce the same result on repeat calls
+- **Health checks** — expose health/readiness endpoints that verify actual dependency connectivity, not just "process is running"
+- **Timeouts at every layer** — don't let a slow dependency hang your entire system
+
+### Security
 
 Every change should be secure by default:
 
-- **Access control**: authorization on all sensitive operations, least privilege, IDOR checks
-- **Injection prevention**: parameterized queries, no string concatenation for commands/queries, XSS output encoding
-- **No hardcoded secrets** — ever. No sensitive data in URLs or logs
-- **Input validation**: validate and sanitize all external input
-- **Secure defaults**: fail closed, debug mode off in production, security headers present
-- **Dependencies**: check for known CVEs, minimize dependency surface
-- **Assume breach**: minimize blast radius, defense in depth
+- **Access control**: authorization on ALL sensitive operations, least privilege, IDOR checks, deny by default
+- **Injection prevention**: parameterized queries, no string concatenation for commands/queries, XSS output encoding, template injection prevention
+- **Secrets management**: no hardcoded secrets — ever. Use environment variables or a secrets manager. Rotate credentials. No sensitive data in URLs, logs, or error messages
+- **Input validation**: validate and sanitize all external input at the boundary. Allowlists over denylists
+- **Secure defaults**: fail closed, debug mode off in production, security headers present, CORS properly configured
+- **Dependencies**: check for known CVEs before adding, minimize dependency surface, keep dependencies updated
+- **Assume breach**: minimize blast radius, defense in depth, encrypt sensitive data at rest and in transit
 
-### Performance Awareness
+### Data Privacy
+
+- Identify and tag PII (personally identifiable information) in your data model
+- **Data minimization** — only collect and store what's necessary
+- Never log PII (emails, names, IPs, tokens) unless explicitly required and documented
+- Anonymize or pseudonymize data in non-production environments
+- Consider data retention — don't store data indefinitely without a reason
+- Respect user consent and deletion requests (right to be forgotten)
+
+### Performance
 
 Don't prematurely optimize, but don't write obviously slow code:
 
 - Avoid N+1 queries and O(n²) loops where O(n) or O(n log n) solutions exist
-- Use pagination for list endpoints
-- Set timeouts on external calls
-- Use connection pooling for databases
-- Consider caching for hot paths (with TTL or event-based invalidation)
-- Lazy-load expensive resources
+- Use pagination for list endpoints — never return unbounded result sets
+- Set timeouts on all external calls
+- Use connection pooling for databases and HTTP clients
+- Cache hot paths with appropriate invalidation (TTL, event-based, or versioned keys)
+- Lazy-load expensive resources — don't compute or fetch until needed
 - Prefer async/non-blocking I/O for external calls
-- If you introduce a performance-sensitive path, document the expected characteristics
+- Minimize payload sizes — select only needed fields, compress responses
+- If you introduce a performance-sensitive path, document the expected characteristics and consider adding a benchmark
+
+### Concurrency & State Management
+
+- **Avoid shared mutable state** — it's the root cause of most concurrency bugs
+- Prefer immutable data and pure functions; isolate side effects at the edges
+- When shared state is necessary, use proper synchronization (locks, mutexes, atomic operations, transactions)
+- Watch for race conditions: check-then-act patterns, read-modify-write without locking, concurrent access to collections
+- Database operations that must be atomic should use transactions with appropriate isolation levels
+- Design for idempotency — assume any operation might be executed more than once
+- Use optimistic concurrency (version fields, ETags) rather than pessimistic locking where possible
+- Be aware of deadlock potential when acquiring multiple locks
+
+### Observability & Logging
+
+Code that can't be observed in production can't be debugged in production:
+
+- **Structured logging** — use key-value pairs or JSON, not unstructured strings. Include: timestamp, level, correlation ID, operation, relevant context
+- **Log levels matter**: ERROR (requires attention), WARN (unexpected but handled), INFO (significant business events), DEBUG (diagnostic detail, off in production)
+- **What to log**: request/response at boundaries, state transitions, errors with context, security events (auth failures, permission denials), slow operations
+- **What NOT to log**: sensitive data (passwords, tokens, PII, secrets), high-frequency noise, successful health checks
+- **Correlation IDs**: propagate a request/trace ID through the entire call chain — across functions, services, and async boundaries
+- **Metrics**: expose counters and gauges for key operations (request count, error rate, latency percentiles, queue depth) where the project supports it
+- **Alertable conditions**: design error handling so that genuinely unexpected failures are distinguishable from expected ones (4xx vs 5xx, transient vs permanent)
+
+### Configuration & Environments
+
+- **Externalize configuration** — never hardcode values that differ between environments (URLs, credentials, feature flags, thresholds)
+- Store config in environment variables, config files, or a config service — not in code
+- **Secrets are not config** — use a secrets manager or encrypted env vars; never commit secrets, never pass them as CLI arguments (visible in process lists)
+- Validate configuration at startup — fail fast with clear messages if required config is missing or invalid
+- Document every configuration option with its purpose, type, default value, and valid range
+- **Feature flags**: use them to decouple deployment from release for risky changes. Clean up flags within 30 days of full rollout
+- Support different environments (dev, staging, production) without code changes — only config changes
+
+### API Design (when building APIs)
+
+- **Resource-oriented URLs**: nouns not verbs (`/users/123` not `/getUser`)
+- **Correct HTTP methods**: GET (read), POST (create), PUT (replace), PATCH (partial update), DELETE (remove)
+- **Correct status codes**: 200 (ok), 201 (created), 204 (no content), 400 (bad request), 401 (unauthorized), 403 (forbidden), 404 (not found), 409 (conflict), 422 (unprocessable), 429 (rate limited), 500 (server error)
+- **Consistent error format**: machine-readable code, human-readable message, field-level details for validation errors, request ID
+- **Pagination** for all list endpoints — cursor-based for large/real-time datasets, offset-based when random access is needed
+- **Versioning strategy** if the API has external consumers
+- **Rate limiting** with appropriate headers (`X-RateLimit-Remaining`, `Retry-After`)
+- **Request/response examples** in documentation for every endpoint
+
+### Backward Compatibility
+
+- **Classify every change** as breaking or non-breaking before shipping
+- **Breaking changes**: removing/renaming fields, changing types, tightening validation, changing semantics, removing endpoints
+- **Non-breaking changes**: adding endpoints, adding optional fields with defaults, adding new enum values, loosening validation
+- **Additive-only by default** — add new fields/endpoints rather than modifying existing ones
+- For database migrations: make them reversible where possible, deploy in phases (add column → backfill → migrate code → remove old column)
+- If breaking changes are unavoidable: version the API, provide migration guides, deprecate with clear timelines
+- Run existing integration tests and contract tests to catch unintended breakage
+
+### Accessibility (for web/UI changes)
+
+Target WCAG 2.1 AA as the baseline:
+
+- **Semantic HTML**: use correct elements (`button` not `div` with click handler, `nav`, `main`, `article`, headings in order)
+- **Keyboard navigation**: every interactive element reachable and operable via keyboard. Logical tab order. Visible focus indicators
+- **Focus management**: move focus appropriately after dynamic content changes (modals, route changes, inline edits)
+- **ARIA**: use ARIA attributes only when semantic HTML is insufficient. Label all interactive elements. Announce dynamic changes with live regions
+- **Color contrast**: minimum 4.5:1 for normal text, 3:1 for large text. Don't convey information through color alone
+- **Text alternatives**: alt text for images, captions for video, transcripts for audio
+- **Responsive**: works across screen sizes. Touch targets ≥ 44×44px on mobile
+- **Test with keyboard-only navigation and a screen reader** before declaring done
 
 ### UX Considerations
 
 For user-facing changes (CLI, API, UI):
 
-- **Feedback**: confirm actions, show progress for long operations, give clear error messages with suggested fixes
-- **Discoverability**: help text should be comprehensive, commands/API should be guessable
+- **Feedback**: confirm actions, show progress for long operations, give clear error messages with suggested next steps
+- **Discoverability**: help text should be comprehensive, commands/API should be guessable, suggest corrections for typos
 - **Safety**: confirm destructive operations, provide dry-run where possible, include undo information
-- **Efficiency**: sensible defaults (zero-config start), short flags for common options
-- **Accessibility**: semantic HTML, ARIA labels, keyboard navigation, screen reader support, sufficient contrast (for web UIs)
-- **Error messages**: human-readable, suggest what to do next, include relevant context, hide stack traces
+- **Efficiency**: sensible defaults (zero-config start), short flags for common options, batch operations
+- **Loading states**: never show a blank screen while loading. Use skeletons, spinners, or optimistic UI
+- **Error recovery**: let users retry failed operations without losing their input or progress
+- **Consistency**: similar actions should behave similarly throughout the application
+
+### Internationalization (if applicable)
+
+If the project serves or will serve multiple locales:
+
+- Externalize all user-facing strings — no hardcoded text in components or templates
+- Use established i18n libraries, not custom solutions
+- Handle pluralization, date/time formatting, number formatting, and currency through locale-aware APIs
+- Design layouts for text expansion (German can be 30-40% longer than English)
+- Support RTL (right-to-left) layouts if relevant
+- Never concatenate strings to build sentences — use interpolation templates
 
 ### Architecture
 
-- Clear separation of concerns — don't put business logic in controllers/handlers
+- Clear separation of concerns — business logic belongs in services/domain layer, not in controllers, handlers, or UI components
 - Dependencies flow in one direction; no circular dependencies
-- Modules can be changed and tested independently
-- External dependencies are abstracted behind interfaces
+- Modules can be changed and tested independently (loose coupling)
 - Related code is grouped together (high cohesion)
-- Modules communicate through stable, minimal interfaces (low coupling)
+- External dependencies (databases, APIs, file system) are abstracted behind interfaces — code depends on the interface, not the implementation
+- New modules should follow existing architectural patterns unless there's a documented reason to diverge
+
+### Dependency Management
+
+- **Evaluate before adding**: does this dependency solve a problem worth the maintenance cost? Could it be done in 20 lines of code instead?
+- **Minimize surface area**: fewer dependencies = fewer security vulnerabilities, fewer breaking upgrades, smaller bundles
+- Pin versions explicitly — avoid floating ranges in production dependencies
+- Audit dependencies for known CVEs regularly (`npm audit`, `pip audit`, `cargo audit`, etc.)
+- Check license compatibility before adding any dependency
+- Prefer well-maintained dependencies with active communities over abandoned ones
+- Update dependencies regularly — small, frequent updates are safer than large, infrequent ones
 
 ---
 
@@ -157,9 +280,11 @@ Write tests alongside implementation. For each new public function or changed be
 
 **Always test:**
 - Happy path (normal inputs → expected outputs)
-- Edge cases (empty, null, zero, boundary values, maximum lengths)
-- Error cases (invalid input, missing resources, permission denied, external failures)
+- Edge cases (empty, null, zero, boundary values, maximum lengths, Unicode, special characters)
+- Error cases (invalid input, missing resources, permission denied, external failures, timeouts)
 - State transitions (if stateful)
+- Backward compatibility (existing callers still work after changes)
+- Concurrency scenarios (if the code handles concurrent access)
 
 **Skip testing:**
 - Framework/library internals
@@ -168,22 +293,30 @@ Write tests alongside implementation. For each new public function or changed be
 
 ### Test Quality
 
-- **One assertion per concept** — each test proves one thing
-- **Fast and deterministic** — no flaky tests, no real I/O in unit tests
+- **One assertion per concept** — each test proves one thing clearly
+- **Fast and deterministic** — no flaky tests, no real I/O in unit tests, no timing dependencies
 - **Readable as documentation** — test names describe the behaviour: `should return empty array when input is empty`
-- **AAA pattern**: Arrange (set up), Act (call), Assert (verify)
-- **Isolated** — each test runs independently, no shared mutable state
+- **AAA pattern**: Arrange (set up data), Act (call the function), Assert (verify the result)
+- **Isolated** — each test runs independently, no shared mutable state between tests, order-independent
 - Mock external dependencies (APIs, databases, file system), not the thing you're testing
-- Prefer fakes over mocks where possible
-- Reset mocks between tests
+- Prefer fakes (in-memory implementations) over mocks where practical
+- Reset mocks and state between tests
 
 ### Test Pyramid
 
 Default to unit tests. Only move up the pyramid when lower levels can't catch the bug:
 
-- **Unit** (fast, ms) — pure logic, algorithms, individual functions
-- **Integration** (medium, seconds) — multiple units with real dependencies
-- **E2E** (slow, 10s+) — critical user journeys only
+- **Unit** (fast, ms) — pure logic, algorithms, individual functions, data transformations
+- **Integration** (medium, seconds) — multiple units with real dependencies, API handlers with database, service interactions
+- **E2E** (slow, 10s+) — critical user journeys only, happy path through the full system
+
+### Specialised Testing (when applicable)
+
+- **Contract tests**: verify that API producers satisfy consumer expectations, especially across service boundaries
+- **Property-based tests**: for algorithms or data transformations, generate random inputs and verify invariants hold
+- **Snapshot tests**: sparingly, for complex serialisation output where manual assertion is impractical
+- **Accessibility tests**: automated checks for WCAG violations in UI components (axe-core, jest-axe)
+- **Performance/load tests**: for performance-sensitive paths, assert that operations complete within acceptable thresholds
 
 ### Coverage
 
@@ -191,12 +324,14 @@ Default to unit tests. Only move up the pyramid when lower levels can't catch th
 - Every new public function has tests
 - Every bug fix has a regression test
 - Don't chase 100% — diminishing returns
+- Coverage measures execution, not correctness — high coverage with weak assertions is worthless
 
 ### CI Compatibility
 
-- Scripts are executable, no OS-specific commands
+- Scripts are executable, no OS-specific commands (BSD vs GNU differences)
 - No hardcoded paths, no flaky timing dependencies
-- Tests don't require unavailable secrets or services
+- Tests don't require unavailable secrets, services, or network access
+- Tests clean up after themselves (temp files, test databases, ports)
 
 ---
 
@@ -204,30 +339,33 @@ Default to unit tests. Only move up the pyramid when lower levels can't catch th
 
 Documentation is updated in the same commit as the code change, not later.
 
-**Priority order:** API docs → README → Architecture → Inline comments
+**Priority order:** API docs → README → Architecture/config docs → Inline comments → Changelog
 
 ### What to Document
 
-- New public APIs and their usage
-- Changed behaviour
-- Configuration options
-- Non-obvious business logic or security considerations
-- Breaking changes
+- New public APIs and their usage (with examples)
+- Changed behaviour (especially breaking changes)
+- Configuration options (purpose, type, default, valid range)
+- Environment variables and their expected values
+- Non-obvious business logic, security considerations, or architectural decisions
+- Migration steps for breaking changes
 
 ### Documentation Quality
 
-- **Show, don't tell** — examples over descriptions
-- **Write for the reader** — not for yourself
-- **Keep it current** — outdated docs are worse than no docs
-- **Progressive disclosure** — start simple, add detail as needed
+- **Show, don't tell** — working examples over prose descriptions
+- **Write for the reader** — not for yourself or the code
+- **Keep it current** — outdated docs actively mislead; they're worse than no docs
+- **Progressive disclosure** — start with the simplest use case, then cover advanced scenarios
 - Comments explain WHY, not WHAT — if the code needs a comment explaining what it does, simplify the code
-- Verify docs match the actual implementation
+- Verify docs match the actual implementation by testing examples
+- Delete stale documentation — don't leave outdated instructions around
 
 ### Don't Document
 
 - Self-explanatory code
-- Implementation details likely to change
+- Implementation details that will change
 - Every line of code
+- Anything the type system or test names already communicate
 
 ---
 
@@ -238,38 +376,48 @@ Before declaring done, perform a multi-pass review of your own changes:
 ### Pass A: Correctness
 - Trace the happy path end-to-end
 - Trace every failure and edge path
-- Check for: silent failures, wrong defaults, missing error handling, off-by-one errors, null/undefined handling, empty collection handling
+- Check for: silent failures, wrong defaults, missing error handling, off-by-one errors, null/undefined handling, empty collection handling, type coercion bugs
 
-### Pass B: Design
-- Does it fit existing patterns?
+### Pass B: Design & Compatibility
+- Does it fit existing patterns? Would a new developer understand it?
 - Could this be simpler? (KISS check)
-- Can a new developer understand it?
-- Any dead code, duplicated logic, magic numbers?
+- Any dead code, duplicated logic, magic numbers, unused imports?
+- Is it backward compatible? Will existing callers, configs, or data formats still work?
+- Are database migrations reversible?
 
-### Pass C: Security
-- Input validation on all external data
-- Authorization on sensitive operations
-- No hardcoded secrets, no sensitive data in logs
-- Proper error messages (no internal details exposed)
+### Pass C: Security & Privacy
+- Input validation on all external data?
+- Authorization on sensitive operations?
+- No hardcoded secrets, no sensitive data in logs or error messages?
+- PII handled correctly (minimized, not logged, encrypted if stored)?
 
-### Pass D: Performance
+### Pass D: Performance & Resilience
 - N+1 queries or expensive loops?
-- Timeouts on external calls?
-- Missing pagination on lists?
+- Timeouts on all external calls?
+- Missing pagination on list endpoints?
 - Race conditions in concurrent scenarios?
+- Graceful degradation if dependencies fail?
 
-### Pass E: Tests & Docs
-- Tests cover behaviour and edge cases?
+### Pass E: Observability
+- Errors logged with sufficient context to diagnose?
+- Correlation IDs propagated?
+- Appropriate log levels used?
+- No sensitive data in logs?
+
+### Pass F: Tests & Docs
+- Tests cover behaviour, edge cases, and error paths?
 - Docs match implementation?
 - No stale comments referring to old code?
+- Configuration options documented?
 
 ### Loose Ends Sweep
-- No unused imports
+- No unused imports or variables
 - No console.log/print/debugger statements
 - No commented-out code
 - No broken imports from refactoring
 - No TODOs without issue references
 - All error paths handled, no silent catches
+- All new files have appropriate file structure and naming
 
 ---
 
@@ -278,9 +426,10 @@ Before declaring done, perform a multi-pass review of your own changes:
 **Prove, don't claim.** Every acceptance criterion needs concrete evidence.
 
 - Run ALL quality gates: lint, typecheck, tests, build
-- Run targeted tests for changed files first, then the full suite
-- For each criterion, state what the evidence is: command output, test result, file reference
-- If something can't be verified, say so explicitly
+- Run targeted tests for changed files first, then the full suite for regression
+- For each acceptance criterion, state what the evidence is: command output, test result, file reference
+- If something can't be verified, say so explicitly: "UNABLE TO VERIFY: [reason]"
+- Verify backward compatibility: existing tests pass, existing API contracts honoured
 - Task is NOT done until all gates pass
 
 ### Debugging (if tests fail)
@@ -289,18 +438,20 @@ Before declaring done, perform a multi-pass review of your own changes:
 - **One change at a time** — otherwise you won't know what fixed it
 - **Trust nothing** — verify assumptions with evidence
 - Form a hypothesis, predict what you'd see if it's true, test the prediction
+- Check the most recently changed code first — that's the most likely source
 - Fix the root cause, not the symptom
 - Add a regression test for every bug you fix
-- If stuck after 3 attempts, step back and reassess the approach entirely
+- If stuck after 3 attempts, step back and reassess the approach entirely — the design may be wrong
 
 ---
 
 ## Commit Discipline
 
-- Atomic commits: one logical change per commit, doesn't leave code broken
+- Atomic commits: one logical change per commit, doesn't leave code broken, can be reverted independently
 - Format: `type(scope): description` — types: feat, fix, refactor, test, docs, chore
 - Commit when tests pass, not before
-- Never commit secrets, debug code, build artifacts, or IDE files
+- Never commit: secrets, debug code, build artifacts, IDE files, commented-out code
+- Each commit message describes WHAT changed and WHY — the diff shows HOW
 
 ---
 
@@ -309,16 +460,20 @@ Before declaring done, perform a multi-pass review of your own changes:
 | Anti-Pattern | Do This Instead |
 |---|---|
 | God object / function | Split into focused, single-responsibility units |
-| Copy-paste code | Extract shared logic |
-| Premature optimization | Make it work, measure, then optimize |
-| Gold plating | Stick to requirements |
-| Big-bang changes | Small, verifiable steps |
-| Swallowing errors | Log and handle or rethrow with context |
+| Copy-paste code | Extract shared logic into functions or modules |
+| Premature optimization | Make it work, measure, then optimize the bottleneck |
+| Gold plating / scope creep | Stick to requirements; note improvements for follow-up |
+| Big-bang changes | Small, verifiable, atomic steps |
+| Swallowing errors | Log and handle, or rethrow with added context |
 | Fixing symptoms | Find and fix root cause |
 | Testing without assertions | Every test proves something specific |
 | Vague commit messages | Describe what changed and why |
 | Refactoring without tests | Add tests first, then refactor |
 | Debugging by random changes | Systematic hypothesis testing |
+| Stringly-typed code | Use enums, constants, or typed objects |
+| Shared mutable state | Prefer immutable data; isolate mutation |
+| Ignoring existing patterns | Match the codebase's conventions |
+| Adding dependencies carelessly | Evaluate cost vs. benefit; prefer small solutions |
 
 ---
 
@@ -326,9 +481,10 @@ Before declaring done, perform a multi-pass review of your own changes:
 
 If you're resuming work or context has been lost:
 
-1. Re-read this prompt
+1. Re-read this prompt in full
 2. Re-read the task/feature description
 3. Check git log and git diff to see what's already been done
 4. Read the changed files to understand current state
 5. Run the test suite to see what passes and what doesn't
-6. Continue from where things left off — don't start over unless the approach is fundamentally broken
+6. Check for any failing quality gates (lint, typecheck, build)
+7. Continue from where things left off — don't restart unless the approach is fundamentally broken
