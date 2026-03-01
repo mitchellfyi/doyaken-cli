@@ -17,7 +17,7 @@ ${BOLD}USAGE:${NC}
   doyaken run "<prompt>" [options]
 
 ${BOLD}COMMANDS:${NC}
-  ${CYAN}run${NC} "<prompt>"     Execute a prompt through the 8-phase pipeline
+  ${CYAN}run${NC} "<prompt>"     Execute a prompt through the 4-phase pipeline
   ${CYAN}resume${NC}              Resume the last interrupted run
   ${CYAN}chat${NC}                Interactive chat/REPL mode
   ${CYAN}chat${NC} --resume [id]   Resume a previous session
@@ -62,6 +62,7 @@ ${BOLD}OPTIONS:${NC}
   --plan-only         Stop after plan phase for approval
   --approval <level>  Set approval level (full-auto, supervised, plan-only)
   --no-commit         Skip auto-commit after each phase
+  --no-ai-review      Disable AI review gate (3 passes per phase)
   --auto-push         Push to origin after each phase commit
   --no-status-line    Disable persistent status line during execution
   -- <args>           Pass additional arguments to the underlying agent CLI
@@ -92,8 +93,10 @@ ${BOLD}ENVIRONMENT:${NC}
   DOYAKEN_PROJECT      Override project detection
   DOYAKEN_AGENT        Default agent (claude, codex, gemini, copilot, opencode)
   DOYAKEN_MODEL        Default model for the agent
-  DOYAKEN_AUTO_COMMIT  Auto-commit after phases (default: 1, set 0 to disable)
-  DOYAKEN_AUTO_PUSH    Auto-push after phase commits (default: 0)
+  DOYAKEN_AUTO_COMMIT      Auto-commit after phases (default: 1, set 0 to disable)
+  DOYAKEN_AUTO_PUSH        Auto-push after phase commits (default: 0)
+  DOYAKEN_AI_REVIEW        AI review gate (default: 1, set 0 or --no-ai-review to disable)
+  DOYAKEN_AI_REVIEW_PASSES Number of AI review passes per phase (default: 3)
 
 EOF
 }
@@ -120,7 +123,7 @@ ${BOLD}WHAT IT CREATES:${NC}
   .doyaken/
     manifest.yaml       Project configuration (quality gates, retry budgets)
     prompts/library/     Methodology prompts
-    prompts/phases/      8-phase workflow prompts
+    prompts/phases/      4-phase workflow prompts
     skills/              Project-specific skills
     logs/                Execution logs
     state/               Session state
@@ -130,7 +133,7 @@ EOF
       ;;
     run)
       cat << EOF
-${BOLD}doyaken run${NC} - Execute a prompt through the 8-phase pipeline
+${BOLD}doyaken run${NC} - Execute a prompt through the 4-phase pipeline
 
 ${BOLD}USAGE:${NC}
   doyaken run "<prompt>"
@@ -144,7 +147,7 @@ ${BOLD}OPTIONS:${NC}
   --dry-run         Preview without executing
 
 ${BOLD}PIPELINE:${NC}
-  EXPAND -> TRIAGE -> PLAN -> IMPLEMENT -> TEST -> DOCS -> REVIEW -> VERIFY
+  PLAN -> IMPLEMENT -> TEST -> VERIFY
 
   After each phase, verification gates run your quality commands.
   If gates fail and the phase has retries remaining, it re-runs

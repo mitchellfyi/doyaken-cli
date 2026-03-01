@@ -3,17 +3,13 @@
 # AI Agent - Core Logic
 #
 # This is the core agent implementation for the doyaken CLI.
-# It executes tasks through an 8-phase workflow with self-healing capabilities.
+# It executes tasks through a 4-phase workflow with self-healing capabilities.
 #
-# PHASES:
-#   0. EXPAND    - Expand brief prompt into full task specification (2min)
-#   1. TRIAGE    - Validate task, check dependencies (2min)
-#   2. PLAN      - Gap analysis, detailed planning (5min)
-#   3. IMPLEMENT - Execute the plan, write code (30min)
-#   4. TEST      - Run tests, add coverage (10min)
-#   5. DOCS      - Sync documentation (5min)
-#   6. REVIEW    - Code review, create follow-ups (10min)
-#   7. VERIFY    - Verify task management, commit task files (3min)
+# PHASES (4-phase consolidated workflow):
+#   1. PLAN      - Expand, triage, plan, discover quality gates (20min)
+#   2. IMPLEMENT - Execute the plan, write code (2hr)
+#   3. TEST      - Tests and documentation (1hr)
+#   4. VERIFY    - Review, verify, CI, ship (30min)
 #
 # FEATURES:
 #   - Modular phase-based execution (fresh context per phase)
@@ -110,6 +106,11 @@ get_prompt_file() {
   fi
 
   return 1
+}
+
+# Check if a prompt file exists (project or global)
+prompt_file_exists() {
+  get_prompt_file "$1" >/dev/null 2>&1
 }
 
 # For backward compatibility, set PROMPTS_DIR to global location
@@ -582,7 +583,7 @@ load_manifest() {
   fi
 
   # Load skill hooks for all phases
-  local phases="expand triage plan implement test docs review verify"
+  local phases="plan implement test verify"
   local hook_types="before after"
   if [ "$use_json_cache" = "1" ]; then
     # Optimized: extract all hooks in single jq call, iterate in bash
@@ -707,34 +708,24 @@ AGENT_NO_FALLBACK="${AGENT_NO_FALLBACK:-0}"
 # See: config/global.yaml and .doyaken/manifest.yaml for configuration
 
 # Ensure defaults if not loaded from config (fallback for edge cases)
-SKIP_EXPAND="${SKIP_EXPAND:-0}"
-SKIP_TRIAGE="${SKIP_TRIAGE:-0}"
+# 4-phase consolidated workflow
 SKIP_PLAN="${SKIP_PLAN:-0}"
 SKIP_IMPLEMENT="${SKIP_IMPLEMENT:-0}"
 SKIP_TEST="${SKIP_TEST:-0}"
-SKIP_DOCS="${SKIP_DOCS:-0}"
-SKIP_REVIEW="${SKIP_REVIEW:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
 
-TIMEOUT_EXPAND="${TIMEOUT_EXPAND:-900}"
-TIMEOUT_TRIAGE="${TIMEOUT_TRIAGE:-540}"
-TIMEOUT_PLAN="${TIMEOUT_PLAN:-900}"
+TIMEOUT_PLAN="${TIMEOUT_PLAN:-1200}"
 TIMEOUT_IMPLEMENT="${TIMEOUT_IMPLEMENT:-7200}"
 TIMEOUT_TEST="${TIMEOUT_TEST:-3600}"
-TIMEOUT_DOCS="${TIMEOUT_DOCS:-900}"
-TIMEOUT_REVIEW="${TIMEOUT_REVIEW:-1800}"
 TIMEOUT_VERIFY="${TIMEOUT_VERIFY:-1800}"
+TIMEOUT_AI_REVIEW="${TIMEOUT_AI_REVIEW:-180}"
 
 # Phase definitions: name|prompt_file|timeout|skip_var
 PHASES=(
-  "EXPAND|phases/0-expand.md|$TIMEOUT_EXPAND|$SKIP_EXPAND"
-  "TRIAGE|phases/1-triage.md|$TIMEOUT_TRIAGE|$SKIP_TRIAGE"
-  "PLAN|phases/2-plan.md|$TIMEOUT_PLAN|$SKIP_PLAN"
-  "IMPLEMENT|phases/3-implement.md|$TIMEOUT_IMPLEMENT|$SKIP_IMPLEMENT"
-  "TEST|phases/4-test.md|$TIMEOUT_TEST|$SKIP_TEST"
-  "DOCS|phases/5-docs.md|$TIMEOUT_DOCS|$SKIP_DOCS"
-  "REVIEW|phases/6-review.md|$TIMEOUT_REVIEW|$SKIP_REVIEW"
-  "VERIFY|phases/7-verify.md|$TIMEOUT_VERIFY|$SKIP_VERIFY"
+  "PLAN|phases/1-plan.md|$TIMEOUT_PLAN|$SKIP_PLAN"
+  "IMPLEMENT|phases/2-implement.md|$TIMEOUT_IMPLEMENT|$SKIP_IMPLEMENT"
+  "TEST|phases/3-test.md|$TIMEOUT_TEST|$SKIP_TEST"
+  "VERIFY|phases/4-verify.md|$TIMEOUT_VERIFY|$SKIP_VERIFY"
 )
 
 # Model state (for fallback)
@@ -1921,6 +1912,200 @@ _run_gate() {
   fi
 }
 
+# Run a single AI review pass
+# Args: phase_name, review_prompt_file, task_id, task_prompt, pass_number, prior_findings
+# Returns: 0=PASS, 1=FAIL
+# Sets: AI_REVIEW_FEEDBACK (on FAIL)
+run_ai_review() {
+  local phase_name="$1"
+  local review_prompt_file="$2"
+  local task_id="$3"
+  local task_prompt="$4"
+  local pass_number="$5"
+  local prior_findings="${6:-}"
+  local total_passes="${DOYAKEN_AI_REVIEW_PASSES:-3}"
+
+  AI_REVIEW_FEEDBACK=""
+
+  local prompt_path
+  prompt_path=$(get_prompt_file "$review_prompt_file") || {
+    log_warn "AI review prompt not found: $review_prompt_file"
+    return 0
+  }
+
+  local template
+  template=$(cat "$prompt_path")
+
+  # Build pass-specific context
+  local review_pass_context=""
+  if [ "$pass_number" = "1" ]; then
+    review_pass_context="This is the FIRST pass. Review the phase output comprehensively from scratch.
+Examine correctness, completeness, quality, and adherence to requirements."
+  elif [ "$pass_number" = "2" ]; then
+    review_pass_context="Previous review passes found the following issues:
+---
+${prior_findings}
+---
+These issues may or may not have been fixed. Your job is to:
+1. Verify whether prior issues were actually addressed
+2. Look for issues the prior passes MISSED — different angles, edge cases, subtle bugs
+3. Do NOT just repeat prior findings — focus on what is NEW"
+  else
+    review_pass_context="This is the FINAL review pass. Prior passes found:
+---
+${prior_findings}
+---
+This is the last check before the phase is approved. Be thorough.
+Look for anything remaining. Is the output truly ready to move on?"
+  fi
+
+  local prompt="$template"
+  prompt="${prompt//\{\{TASK_ID\}\}/$task_id}"
+  prompt="${prompt//\{\{TASK_PROMPT\}\}/$task_prompt}"
+  prompt="${prompt//\{\{PASS_NUMBER\}\}/$pass_number}"
+  prompt="${prompt//\{\{TOTAL_PASSES\}\}/$total_passes}"
+  prompt="${prompt//\{\{REVIEW_PASS_CONTEXT\}\}/$review_pass_context}"
+  prompt="${prompt//\{\{PRIOR_FINDINGS\}\}/$prior_findings}"
+
+  prompt=$(process_includes "$prompt" 2>/dev/null || echo "$prompt")
+
+  local review_log
+  review_log=$(mktemp "${TMPDIR:-/tmp}/doyaken-ai-review.XXXXXX")
+  local exit_code=0
+
+  local agent_bin="" agent_args=()
+  case "$CURRENT_AGENT" in
+    claude)
+      agent_bin="claude"
+      agent_args+=("--dangerously-skip-permissions" "--permission-mode" "bypassPermissions")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("--model" "$CURRENT_MODEL")
+      agent_args+=("-p" "$prompt")
+      ;;
+    codex)
+      agent_bin="codex"
+      agent_args+=("exec" "--dangerously-bypass-approvals-and-sandbox")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
+      agent_args+=("$prompt")
+      ;;
+    gemini)
+      agent_bin="gemini"
+      agent_args+=("--yolo")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
+      agent_args+=("-p" "$prompt")
+      ;;
+    copilot)
+      agent_bin="copilot"
+      agent_args+=("--allow-all-tools" "--allow-all-paths")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
+      agent_args+=("-p" "$prompt")
+      ;;
+    opencode)
+      agent_bin="opencode"
+      agent_args+=("run" "--auto-approve")
+      [ -n "$CURRENT_MODEL" ] && agent_args+=("--model" "$CURRENT_MODEL")
+      agent_args+=("$prompt")
+      ;;
+    *)
+      log_warn "AI review: unsupported agent $CURRENT_AGENT, skipping"
+      rm -f "$review_log"
+      return 0
+      ;;
+  esac
+
+  local timeout_cmd=""
+  if command -v gtimeout &>/dev/null; then
+    timeout_cmd="gtimeout --foreground"
+  elif command -v timeout &>/dev/null; then
+    timeout_cmd="timeout --foreground"
+  fi
+
+  log_info "AI review pass $pass_number/$total_passes for $phase_name..."
+
+  if [ -n "$timeout_cmd" ]; then
+    $timeout_cmd "${TIMEOUT_AI_REVIEW}s" "$agent_bin" "${agent_args[@]}" 2>/dev/null > "$review_log" || exit_code=$?
+  else
+    "$agent_bin" "${agent_args[@]}" 2>/dev/null > "$review_log" || exit_code=$?
+  fi
+
+  if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 130 ]; then
+    AI_REVIEW_FEEDBACK="AI review timed out or was interrupted"
+    rm -f "$review_log"
+    return 1
+  fi
+
+  if grep -q "REVIEW_RESULT: FAIL" "$review_log" 2>/dev/null; then
+    AI_REVIEW_FEEDBACK=$(sed -n '/REVIEW_RESULT: FAIL/,/^$/p' "$review_log" | tail -n +2 | sed '/^$/d' | head -50)
+    [ -z "$AI_REVIEW_FEEDBACK" ] && AI_REVIEW_FEEDBACK="Review failed (no details)"
+    rm -f "$review_log"
+    return 1
+  fi
+
+  rm -f "$review_log"
+  return 0
+}
+
+# Parse QUALITY_GATES from plan phase log and save for run_verification_gates
+# Args: task_id
+# Reads: most recent phase-plan-*.log or phase-1-plan-*.log in RUN_LOG_DIR
+# Writes: STATE_DIR/quality-gates-discovered, exports QUALITY_*_CMD
+parse_and_save_quality_gates_from_plan() {
+  local task_id="$1"
+  local plan_log=""
+  for f in "$RUN_LOG_DIR"/phase-plan-*.log "$RUN_LOG_DIR"/phase-1-plan-*.log; do
+    [ -f "$f" ] || continue
+    if [ -z "$plan_log" ] || [ "$f" -nt "$plan_log" ]; then
+      plan_log="$f"
+    fi
+  done
+  [ -n "$plan_log" ] && [ -f "$plan_log" ] || return 1
+
+  local block
+  block=$(sed -n '/^QUALITY_GATES:$/,/^[a-zA-Z_]/p' "$plan_log" 2>/dev/null | head -10)
+  [ -n "$block" ] || return 1
+
+  local lint_cmd="" format_cmd="" test_cmd="" build_cmd=""
+  while IFS= read -r line; do
+    case "$line" in
+      lint:*)  lint_cmd="${line#lint:}"  ;;
+      format:*) format_cmd="${line#format:}" ;;
+      test:*)  test_cmd="${line#test:}"  ;;
+      build:*) build_cmd="${line#build:}" ;;
+    esac
+  done <<< "$block"
+
+  local gates_file="$STATE_DIR/quality-gates-discovered"
+  {
+    echo "lint:$lint_cmd"
+    echo "format:$format_cmd"
+    echo "test:$test_cmd"
+    echo "build:$build_cmd"
+  } > "$gates_file"
+
+  export QUALITY_LINT_CMD="$lint_cmd"
+  export QUALITY_FORMAT_CMD="$format_cmd"
+  export QUALITY_TEST_CMD="$test_cmd"
+  export QUALITY_BUILD_CMD="$build_cmd"
+  log_info "Quality gates discovered from plan: lint=$([ -n "$lint_cmd" ] && echo "yes" || echo "no"), format=$([ -n "$format_cmd" ] && echo "yes" || echo "no"), test=$([ -n "$test_cmd" ] && echo "yes" || echo "no"), build=$([ -n "$build_cmd" ] && echo "yes" || echo "no")"
+  return 0
+}
+
+# Load discovered quality gates from session state (from PLAN phase)
+# Returns 0 if loaded, 1 if not found
+load_discovered_quality_gates() {
+  local gates_file="$STATE_DIR/quality-gates-discovered"
+  [ -f "$gates_file" ] || return 1
+
+  while IFS= read -r line; do
+    case "$line" in
+      lint:*)  export QUALITY_LINT_CMD="${line#lint:}"  ;;
+      format:*) export QUALITY_FORMAT_CMD="${line#format:}" ;;
+      test:*)  export QUALITY_TEST_CMD="${line#test:}"  ;;
+      build:*) export QUALITY_BUILD_CMD="${line#build:}" ;;
+    esac
+  done < "$gates_file"
+  return 0
+}
+
 # Run verification gates for a phase
 # Args: phase_name
 # Returns: 0=all pass (or all skipped), 1=at least one failed
@@ -1930,6 +2115,9 @@ run_verification_gates() {
   local any_failed=0
   local any_configured=0
   GATE_ERRORS=""
+
+  # Use discovered quality gates from PLAN phase if available; else manifest
+  load_discovered_quality_gates 2>/dev/null || true
 
   # All phases run all configured quality gates.
   # Gates with empty commands are automatically skipped.
@@ -2029,39 +2217,94 @@ run_phase_with_verification() {
       return "$phase_result"
     fi
 
+    # Parse quality gates from plan output if this was PLAN phase
+    if [ "$phase_name" = "PLAN" ]; then
+      parse_and_save_quality_gates_from_plan "$task_id" 2>/dev/null || true
+    fi
+
     # Phase succeeded - now run verification gates
     local gate_result=0
     run_verification_gates "$phase_name" || gate_result=$?
 
-    if [ "$gate_result" -eq 0 ]; then
-      # All gates passed
-      log_success "$phase_name verification gates passed"
-      return 0
-    fi
-
-    # Gates failed - prepare context for retry
-    if [ "$verification_attempt" -lt "$max_verification_attempts" ]; then
-      log_warn "$phase_name verification failed (attempt $verification_attempt/$max_verification_attempts) - retrying with error context"
-
-      # Build verification context for next attempt
-      PHASE_VERIFICATION_CONTEXT="VERIFICATION FAILURE (attempt $verification_attempt/$max_verification_attempts):
+    if [ "$gate_result" -ne 0 ]; then
+      # Gates failed - prepare context for retry
+      if [ "$verification_attempt" -lt "$max_verification_attempts" ]; then
+        log_warn "$phase_name verification failed (attempt $verification_attempt/$max_verification_attempts) - retrying with error context"
+        PHASE_VERIFICATION_CONTEXT="VERIFICATION FAILURE (attempt $verification_attempt/$max_verification_attempts):
 The previous $phase_name attempt completed but quality gates FAILED.
 Fix these errors before proceeding:
 
 $(echo -e "$GATE_ERRORS")"
-
-      # Append to accumulated context
-      append_phase_context "$task_id" "$phase_name" "$verification_attempt" \
-        "Gate failures:\n$(echo -e "$GATE_ERRORS" | head -30)"
+        append_phase_context "$task_id" "$phase_name" "$verification_attempt" \
+          "Gate failures:\n$(echo -e "$GATE_ERRORS" | head -30)"
+      fi
+      ((++verification_attempt))
+      continue
     fi
 
-    ((++verification_attempt))
+    # Deterministic gates passed - run AI review (triple pass) if enabled
+    if [ "${DOYAKEN_AI_REVIEW:-1}" = "1" ]; then
+      local phase_lower
+      phase_lower=$(echo "$phase_name" | tr '[:upper:]' '[:lower:]')
+      local review_prompt_file="phases/reviews/review-${phase_lower}.md"
+      if prompt_file_exists "$review_prompt_file"; then
+        local ai_review_failed=0
+        local all_review_feedback=""
+        local ai_pass total_ai_passes
+        total_ai_passes="${DOYAKEN_AI_REVIEW_PASSES:-3}"
+
+        local ai_pass_num=1
+        while [ "$ai_pass_num" -le "$total_ai_passes" ]; do
+          local review_result=0
+          run_ai_review "$phase_name" "$review_prompt_file" "$task_id" \
+            "$task_prompt" "$ai_pass_num" "$all_review_feedback" || review_result=$?
+
+          if [ "$review_result" -ne 0 ]; then
+            ai_review_failed=1
+            all_review_feedback="${all_review_feedback}
+
+--- AI Review Pass ${ai_pass_num}/${total_ai_passes} ---
+${AI_REVIEW_FEEDBACK}"
+          else
+            log_ok "AI review pass ${ai_pass_num}/${total_ai_passes}: PASS"
+          fi
+          ai_pass_num=$((ai_pass_num + 1))
+        done
+
+        if [ "$ai_review_failed" -eq 1 ]; then
+          if [ "$verification_attempt" -lt "$max_verification_attempts" ]; then
+            log_warn "$phase_name AI review failed (attempt $verification_attempt/$max_verification_attempts) - retrying with feedback"
+            PHASE_VERIFICATION_CONTEXT="AI REVIEW FAILURE:
+The $phase_name phase output was reviewed (${total_ai_passes} passes) and issues were found:
+
+$all_review_feedback
+
+Fix ALL of these issues in your next attempt."
+            append_phase_context "$task_id" "$phase_name" "$verification_attempt" \
+              "AI review findings:\n$all_review_feedback"
+          else
+            log_error "$phase_name AI review failed after $max_verification_attempts attempts"
+            PHASE_VERIFICATION_CONTEXT="AI REVIEW FAILURE:
+The $phase_name phase output was reviewed and issues were found:
+
+$all_review_feedback"
+            return 3
+          fi
+          ((++verification_attempt))
+          continue
+        fi
+      fi
+    fi
+
+    # All gates and AI review passed
+    log_success "$phase_name verification passed"
+    return 0
   done
 
-  # All verification attempts exhausted
+  # All verification attempts exhausted (gates failed)
   log_error "$phase_name failed verification after $max_verification_attempts attempts"
   log_info "Check logs: $RUN_LOG_DIR"
-  return 3  # Needs human input
+  return 3
 }
 
 # ============================================================================
@@ -2185,14 +2428,10 @@ main() {
   fi
   echo ""
   echo "  Phases:"
-  echo "    0. EXPAND    ${TIMEOUT_EXPAND}s  $([ "$SKIP_EXPAND" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    1. TRIAGE    ${TIMEOUT_TRIAGE}s  $([ "$SKIP_TRIAGE" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    2. PLAN      ${TIMEOUT_PLAN}s  $([ "$SKIP_PLAN" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    3. IMPLEMENT ${TIMEOUT_IMPLEMENT}s  $([ "$SKIP_IMPLEMENT" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    4. TEST      ${TIMEOUT_TEST}s  $([ "$SKIP_TEST" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    5. DOCS      ${TIMEOUT_DOCS}s  $([ "$SKIP_DOCS" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    6. REVIEW    ${TIMEOUT_REVIEW}s  $([ "$SKIP_REVIEW" = "1" ] && echo "[SKIP]" || echo "")"
-  echo "    7. VERIFY    ${TIMEOUT_VERIFY}s  $([ "$SKIP_VERIFY" = "1" ] && echo "[SKIP]" || echo "")"
+  echo "    1. PLAN      ${TIMEOUT_PLAN}s  $([ "$SKIP_PLAN" = "1" ] && echo "[SKIP]" || echo "")"
+  echo "    2. IMPLEMENT ${TIMEOUT_IMPLEMENT}s  $([ "$SKIP_IMPLEMENT" = "1" ] && echo "[SKIP]" || echo "")"
+  echo "    3. TEST      ${TIMEOUT_TEST}s  $([ "$SKIP_TEST" = "1" ] && echo "[SKIP]" || echo "")"
+  echo "    4. VERIFY    ${TIMEOUT_VERIFY}s  $([ "$SKIP_VERIFY" = "1" ] && echo "[SKIP]" || echo "")"
   echo ""
   echo "  Log dir: $RUN_LOG_DIR"
   if [ "$AGENT_DRY_RUN" = "1" ]; then

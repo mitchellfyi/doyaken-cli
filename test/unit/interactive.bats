@@ -156,8 +156,8 @@ teardown() {
 }
 
 @test "dispatch_command handles /skip with valid phase" {
-  dispatch_command "/skip docs"
-  [ "$SKIP_DOCS" = "1" ]
+  dispatch_command "/skip test"
+  [ "$SKIP_TEST" = "1" ]
 }
 
 @test "dispatch_command handles /skip with invalid phase" {
@@ -1272,7 +1272,7 @@ _setup_git_repo() {
 @test "progress_init_phases initializes tracking arrays" {
   # Simulate PHASES array from core.sh
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|0"
     "PLAN|phases/2-plan.md|900|0"
     "IMPLEMENT|phases/3-implement.md|5400|0"
@@ -1281,7 +1281,7 @@ _setup_git_repo() {
   progress_init_phases "test-task" "opus"
 
   [[ "${#PROGRESS_PHASE_NAMES[@]}" -eq 4 ]]
-  [[ "${PROGRESS_PHASE_NAMES[0]}" == "EXPAND" ]]
+  [[ "${PROGRESS_PHASE_NAMES[0]}" == "PLAN" ]]
   [[ "${PROGRESS_PHASE_NAMES[3]}" == "IMPLEMENT" ]]
   [[ "${PROGRESS_PHASE_STATUSES[0]}" == "pending" ]]
   [[ "$PROGRESS_TASK_ID" == "test-task" ]]
@@ -1290,7 +1290,7 @@ _setup_git_repo() {
 
 @test "progress_init_phases marks skipped phases" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|1"
     "PLAN|phases/2-plan.md|900|0"
   )
@@ -1304,37 +1304,37 @@ _setup_git_repo() {
 
 @test "progress_phase_start marks phase as running" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|0"
   )
   DISPLAY_PHASE_PROGRESS=0  # disable rendering for test
 
   progress_init_phases "test-task" "opus"
-  progress_phase_start "EXPAND"
+  progress_phase_start "PLAN"
 
   [[ "${PROGRESS_PHASE_STATUSES[0]}" == "running" ]]
-  [[ "$PROGRESS_CURRENT_PHASE" == "EXPAND" ]]
+  [[ "$PROGRESS_CURRENT_PHASE" == "PLAN" ]]
   [[ "$PROGRESS_CURRENT_PHASE_IDX" -eq 0 ]]
   [[ "$PROGRESS_PHASE_START" -gt 0 ]]
 }
 
 @test "progress_phase_done marks phase as done" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|0"
   )
   DISPLAY_PHASE_PROGRESS=0
 
   progress_init_phases "test-task" "opus"
-  progress_phase_start "EXPAND"
-  progress_phase_done "EXPAND"
+  progress_phase_start "PLAN"
+  progress_phase_done "PLAN"
 
   [[ "${PROGRESS_PHASE_STATUSES[0]}" == "done" ]]
 }
 
 @test "progress_phase_skip marks phase as skipped" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|0"
   )
   DISPLAY_PHASE_PROGRESS=0
@@ -1347,14 +1347,14 @@ _setup_git_repo() {
 
 @test "_phase_progress_short returns phase counter" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|0"
     "PLAN|phases/2-plan.md|900|0"
   )
   DISPLAY_PHASE_PROGRESS=0
 
   progress_init_phases "test-task" "opus"
-  progress_phase_done "EXPAND"
+  progress_phase_done "PLAN"
   progress_phase_start "TRIAGE"
 
   local short
@@ -1365,18 +1365,18 @@ _setup_git_repo() {
 
 @test "_render_phase_pipeline shows phase indicators" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
+    "PLAN|phases/1-plan.md|1200|0"
     "TRIAGE|phases/1-triage.md|540|0"
     "PLAN|phases/2-plan.md|900|0"
   )
   DISPLAY_PHASE_PROGRESS=0
 
   progress_init_phases "test-task" "opus"
-  progress_phase_done "EXPAND"
+  progress_phase_done "PLAN"
   progress_phase_start "TRIAGE"
 
   run _render_phase_pipeline
-  assert_output_contains "EXPAND"
+  assert_output_contains "PLAN"
   assert_output_contains "TRIAGE"
   assert_output_contains "PLAN"
 }
@@ -1445,31 +1445,31 @@ _setup_git_repo() {
 
 @test "full phase lifecycle tracking" {
   PHASES=(
-    "EXPAND|phases/0-expand.md|900|0"
-    "TRIAGE|phases/1-triage.md|540|1"
-    "PLAN|phases/2-plan.md|900|0"
-    "IMPLEMENT|phases/3-implement.md|5400|0"
+    "PLAN|phases/1-plan.md|1200|0"
+    "IMPLEMENT|phases/2-implement.md|7200|0"
+    "TEST|phases/3-test.md|3600|0"
+    "VERIFY|phases/4-verify.md|1800|0"
   )
   DISPLAY_PHASE_PROGRESS=0
 
   progress_init_phases "task-123" "sonnet"
 
-  # EXPAND runs and completes
-  progress_phase_start "EXPAND"
-  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "running" ]]
-  progress_phase_done "EXPAND"
-  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "done" ]]
-
-  # TRIAGE was pre-skipped
-  [[ "${PROGRESS_PHASE_STATUSES[1]}" == "skipped" ]]
-
   # PLAN runs and completes
   progress_phase_start "PLAN"
-  [[ "${PROGRESS_PHASE_STATUSES[2]}" == "running" ]]
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "running" ]]
   progress_phase_done "PLAN"
-  [[ "${PROGRESS_PHASE_STATUSES[2]}" == "done" ]]
+  [[ "${PROGRESS_PHASE_STATUSES[0]}" == "done" ]]
 
-  # IMPLEMENT still pending
+  # IMPLEMENT runs and completes
+  progress_phase_start "IMPLEMENT"
+  [[ "${PROGRESS_PHASE_STATUSES[1]}" == "running" ]]
+  progress_phase_done "IMPLEMENT"
+  [[ "${PROGRESS_PHASE_STATUSES[1]}" == "done" ]]
+
+  # TEST still pending
+  [[ "${PROGRESS_PHASE_STATUSES[2]}" == "pending" ]]
+
+  # VERIFY still pending
   [[ "${PROGRESS_PHASE_STATUSES[3]}" == "pending" ]]
 
   # Check counter

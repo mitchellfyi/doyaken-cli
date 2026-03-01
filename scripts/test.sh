@@ -59,12 +59,20 @@ for script in cli.sh core.sh registry.sh hooks.sh agents.sh skills.sh mcp.sh; do
   fi
 done
 
-# Test 5: All phase prompts exist
-for prompt in 0-expand.md 1-triage.md 2-plan.md 3-implement.md 4-test.md 5-docs.md 6-review.md 7-verify.md; do
+# Test 5: All phase prompts exist (4-phase workflow)
+for prompt in 1-plan.md 2-implement.md 3-test.md 4-verify.md; do
   if [ -f "$ROOT_DIR/prompts/phases/$prompt" ]; then
     pass "prompts/phases/$prompt exists"
   else
     fail "prompts/phases/$prompt missing"
+  fi
+done
+# Test 5b: AI review prompts exist
+for review in review-plan.md review-implement.md review-test.md review-verify.md; do
+  if [ -f "$ROOT_DIR/prompts/phases/reviews/$review" ]; then
+    pass "prompts/phases/reviews/$review exists"
+  else
+    fail "prompts/phases/reviews/$review missing"
   fi
 done
 

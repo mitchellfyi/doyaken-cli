@@ -158,14 +158,11 @@ load_global_config() {
 load_timeout_config() {
   local manifest_file="${1:-}"
 
-  _load_config "TIMEOUT_EXPAND"    "timeouts.expand"    "900"  "$manifest_file"
-  _load_config "TIMEOUT_TRIAGE"    "timeouts.triage"    "540"  "$manifest_file"
-  _load_config "TIMEOUT_PLAN"      "timeouts.plan"      "900"  "$manifest_file"
+  _load_config "TIMEOUT_PLAN"      "timeouts.plan"      "1200" "$manifest_file"
   _load_config "TIMEOUT_IMPLEMENT" "timeouts.implement" "7200" "$manifest_file"
   _load_config "TIMEOUT_TEST"      "timeouts.test"      "3600" "$manifest_file"
-  _load_config "TIMEOUT_DOCS"      "timeouts.docs"      "900"  "$manifest_file"
-  _load_config "TIMEOUT_REVIEW"    "timeouts.review"    "1800" "$manifest_file"
   _load_config "TIMEOUT_VERIFY"    "timeouts.verify"    "1800" "$manifest_file"
+  _load_config "TIMEOUT_AI_REVIEW" "timeouts.ai_review" "180"  "$manifest_file"
 }
 
 # ============================================================================
@@ -177,13 +174,9 @@ load_timeout_config() {
 load_skip_phases_config() {
   local manifest_file="${1:-}"
 
-  _load_config_bool "SKIP_EXPAND"    "skip_phases.expand"    "false" "$manifest_file"
-  _load_config_bool "SKIP_TRIAGE"    "skip_phases.triage"    "false" "$manifest_file"
   _load_config_bool "SKIP_PLAN"      "skip_phases.plan"      "false" "$manifest_file"
   _load_config_bool "SKIP_IMPLEMENT" "skip_phases.implement" "false" "$manifest_file"
   _load_config_bool "SKIP_TEST"      "skip_phases.test"      "false" "$manifest_file"
-  _load_config_bool "SKIP_DOCS"      "skip_phases.docs"      "false" "$manifest_file"
-  _load_config_bool "SKIP_REVIEW"    "skip_phases.review"    "false" "$manifest_file"
   _load_config_bool "SKIP_VERIFY"    "skip_phases.verify"    "false" "$manifest_file"
 }
 
@@ -256,13 +249,9 @@ load_output_config() {
 load_retry_budget_config() {
   local manifest_file="${1:-}"
 
-  _load_config "RETRY_BUDGET_EXPAND"    "retry_budget.expand"    "1" "$manifest_file"
-  _load_config "RETRY_BUDGET_TRIAGE"    "retry_budget.triage"    "1" "$manifest_file"
   _load_config "RETRY_BUDGET_PLAN"      "retry_budget.plan"      "1" "$manifest_file"
   _load_config "RETRY_BUDGET_IMPLEMENT" "retry_budget.implement" "5" "$manifest_file"
   _load_config "RETRY_BUDGET_TEST"      "retry_budget.test"      "3" "$manifest_file"
-  _load_config "RETRY_BUDGET_DOCS"      "retry_budget.docs"      "1" "$manifest_file"
-  _load_config "RETRY_BUDGET_REVIEW"    "retry_budget.review"    "3" "$manifest_file"
   _load_config "RETRY_BUDGET_VERIFY"    "retry_budget.verify"    "1" "$manifest_file"
 }
 

@@ -432,16 +432,16 @@ chat_cmd_phase() {
 
   if [ -z "$phase_name" ]; then
     echo "Usage: /phase <name>"
-    echo "Phases: expand, triage, plan, implement, test, docs, review, verify"
+    echo "Phases: plan, implement, test, verify"
     return 1
   fi
 
   # Validate phase name
   case "$phase_name" in
-    expand|triage|plan|implement|test|docs|review|verify) ;;
+    plan|implement|test|verify) ;;
     *)
       echo "Unknown phase: $phase_name"
-      echo "Valid phases: expand, triage, plan, implement, test, docs, review, verify"
+      echo "Valid phases: plan, implement, test, verify"
       return 1
       ;;
   esac
@@ -460,19 +460,15 @@ chat_cmd_skip() {
 
   if [ -z "$phase_name" ]; then
     echo "Usage: /skip <phase>"
-    echo "Phases: expand, triage, plan, implement, test, docs, review, verify"
+    echo "Phases: plan, implement, test, verify"
     return 1
   fi
 
   local var_name
   case "$phase_name" in
-    expand)    var_name="SKIP_EXPAND" ;;
-    triage)    var_name="SKIP_TRIAGE" ;;
     plan)      var_name="SKIP_PLAN" ;;
     implement) var_name="SKIP_IMPLEMENT" ;;
     test)      var_name="SKIP_TEST" ;;
-    docs)      var_name="SKIP_DOCS" ;;
-    review)    var_name="SKIP_REVIEW" ;;
     verify)    var_name="SKIP_VERIFY" ;;
     *)
       echo "Unknown phase: $phase_name"

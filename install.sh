@@ -266,6 +266,10 @@ else
   if [ -d "$SOURCE_DIR/prompts/phases" ]; then
     mkdir -p "$DOYAKEN_HOME/prompts/phases"
     /bin/cp -f "$SOURCE_DIR/prompts/phases"/*.md "$DOYAKEN_HOME/prompts/phases/" 2>/dev/null || true
+    if [ -d "$SOURCE_DIR/prompts/phases/reviews" ]; then
+      mkdir -p "$DOYAKEN_HOME/prompts/phases/reviews"
+      /bin/cp -f "$SOURCE_DIR/prompts/phases/reviews"/*.md "$DOYAKEN_HOME/prompts/phases/reviews/" 2>/dev/null || true
+    fi
   fi
   if [ -d "$SOURCE_DIR/prompts/vendors" ]; then
     cp -r "$SOURCE_DIR/prompts/vendors" "$DOYAKEN_HOME/prompts/"

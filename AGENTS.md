@@ -4,7 +4,7 @@ This file is the source of truth for all AI coding agents working on this projec
 
 ## Project Context
 
-Doyaken is a single-shot execution engine for AI coding agents. One prompt in, verified code out. It runs work through an 8-phase pipeline with verification gates that retry until the code builds, lints, and passes tests.
+Doyaken is a single-shot execution engine for AI coding agents. One prompt in, verified code out. It runs work through a 4-phase pipeline with verification gates (deterministic + AI review) that retry until the code builds, lints, and passes tests.
 
 **Goals**: Robust output (code that actually works), agent agnostic (Claude/Cursor/Codex/Gemini/Copilot/OpenCode), single-shot execution (no task queue), self-healing (retries, fallback, crash recovery).
 
@@ -15,7 +15,7 @@ Doyaken is a single-shot execution engine for AI coding agents. One prompt in, v
 ## Quick Start
 
 1. Follow the guidelines in `.doyaken/prompts/library/`
-2. Use the 8-phase workflow for non-trivial tasks
+2. Use the 4-phase workflow for non-trivial tasks
 3. Run `npm run lint` and `npm test` before committing
 
 ## Using Doyaken Artifacts (Without the CLI)
@@ -59,20 +59,16 @@ The `.doyaken/hooks/` directory contains shell scripts for quality enforcement. 
 
 ### Phases — Structured Execution Workflow
 
-For non-trivial work, follow the 8-phase workflow in `.doyaken/prompts/phases/`. Each phase has a dedicated prompt:
+For non-trivial work, follow the 4-phase workflow in `.doyaken/prompts/phases/`. Each phase has a dedicated prompt:
 
-0. **Expand** (`0-expand.md`) — Turn a brief into a full spec
-1. **Triage** (`1-triage.md`) — Validate feasibility, check dependencies
-2. **Plan** (`2-plan.md`) — Gap analysis and implementation planning
-3. **Implement** (`3-implement.md`) — Write the code
-4. **Test** (`4-test.md`) — Add tests
-5. **Docs** (`5-docs.md`) — Update documentation
-6. **Review** (`6-review.md`) — Self-review the changes
-7. **Verify** (`7-verify.md`) — Final verification and commit
+1. **Plan** (`1-plan.md`) — Expand, triage, discover quality gates, gap analysis, implementation planning
+2. **Implement** (`2-implement.md`) — Write the code
+3. **Test** (`3-test.md`) — Add tests and update docs
+4. **Verify** (`4-verify.md`) — Review, prove completion, CI
 
-When running through the doyaken CLI, verification gates (build, lint, format, test) run automatically after every phase. Each phase has a configurable retry budget — if gates fail and retries remain, the phase re-runs with the error output in context.
+When running through the doyaken CLI, each phase runs deterministic quality gates (build, lint, format, test — discovered from the repo or manifest) followed by three AI review passes. If gates or AI review fail, the phase re-runs with accumulated feedback.
 
-You don't need to run all 8 phases for every change. Use your judgment — a typo fix doesn't need phase 0, but a new feature should go through most phases.
+Legacy 8-phase prompts remain in `.doyaken/prompts/phases/legacy/` for backward compatibility.
 
 ### Vendor Prompts — Technology-Specific Guidance
 
@@ -110,7 +106,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 .doyaken/
   prompts/
     library/          # Reusable prompt modules (source of truth)
-    phases/           # 8-phase workflow prompts
+    phases/           # 4-phase workflow prompts
   skills/             # On-demand skills
   logs/               # Execution logs
   state/              # Session recovery
@@ -137,16 +133,12 @@ For structured execution, use phases in `.doyaken/prompts/phases/`:
 
 | Phase | File | Purpose |
 |-------|------|---------|
-| 0 | [0-expand.md](.doyaken/prompts/phases/0-expand.md) | Expand brief into full spec |
-| 1 | [1-triage.md](.doyaken/prompts/phases/1-triage.md) | Validate feasibility, check deps |
-| 2 | [2-plan.md](.doyaken/prompts/phases/2-plan.md) | Gap analysis, planning |
-| 3 | [3-implement.md](.doyaken/prompts/phases/3-implement.md) | Write code |
-| 4 | [4-test.md](.doyaken/prompts/phases/4-test.md) | Add tests |
-| 5 | [5-docs.md](.doyaken/prompts/phases/5-docs.md) | Update documentation |
-| 6 | [6-review.md](.doyaken/prompts/phases/6-review.md) | Code review |
-| 7 | [7-verify.md](.doyaken/prompts/phases/7-verify.md) | Final verification |
+| 1 | [1-plan.md](.doyaken/prompts/phases/1-plan.md) | Expand, triage, plan, discover quality gates |
+| 2 | [2-implement.md](.doyaken/prompts/phases/2-implement.md) | Write code |
+| 3 | [3-test.md](.doyaken/prompts/phases/3-test.md) | Add tests and docs |
+| 4 | [4-verify.md](.doyaken/prompts/phases/4-verify.md) | Review, prove completion, CI |
 
-All phases run verification gates after completion. Retry budgets are configurable per phase.
+Each phase runs deterministic quality gates followed by 3 AI review passes. Retry budgets are configurable per phase.
 
 ## Skills
 

@@ -1507,6 +1507,10 @@ main() {
         export DOYAKEN_AUTO_COMMIT=0
         shift
         ;;
+      --no-ai-review)
+        export DOYAKEN_AI_REVIEW=0
+        shift
+        ;;
       --auto-push)
         export DOYAKEN_AUTO_PUSH=1
         shift
