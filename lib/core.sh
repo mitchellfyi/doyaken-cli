@@ -2286,7 +2286,11 @@ main() {
 # ============================================================================
 # Entry Point
 # ============================================================================
-
-cd "$PROJECT_DIR"
-
-main "$@"
+# Wrapped in { } so bash reads the entire block before executing. This prevents
+# "syntax error near unexpected token" if the agent modifies this file mid-run
+# (bash tracks position by byte offset in the open fd; file changes shift content).
+{
+  cd "$PROJECT_DIR"
+  main "$@"
+  exit $?
+}
