@@ -53,6 +53,49 @@ teardown() {
   [ -f "CLAUDE.md" ]
 }
 
+@test "workflow: re-init repairs missing logs and state directories" {
+  cd "$TEST_TEMP_DIR"
+
+  # First init creates full structure
+  "$PROJECT_ROOT/bin/doyaken" init
+  [ -d ".doyaken/logs" ]
+  [ -d ".doyaken/state" ]
+
+  # Simulate incomplete directory structure
+  rm -rf ".doyaken/logs" ".doyaken/state"
+  [ ! -d ".doyaken/logs" ]
+  [ ! -d ".doyaken/state" ]
+
+  # Re-init should repair missing directories
+  run "$PROJECT_ROOT/bin/doyaken" init
+  [ "$status" -eq 0 ]
+  [ -d ".doyaken/logs" ]
+  [ -d ".doyaken/state" ]
+  [ -f ".doyaken/logs/.gitkeep" ]
+  [ -f ".doyaken/state/.gitkeep" ]
+
+  # Verify permissions (700 = rwx------)
+  local logs_perms state_perms
+  logs_perms=$(stat -f '%Lp' ".doyaken/logs" 2>/dev/null || stat -c '%a' ".doyaken/logs" 2>/dev/null)
+  state_perms=$(stat -f '%Lp' ".doyaken/state" 2>/dev/null || stat -c '%a' ".doyaken/state" 2>/dev/null)
+  [ "$logs_perms" = "700" ]
+  [ "$state_perms" = "700" ]
+}
+
+@test "workflow: re-init on complete project does not error" {
+  cd "$TEST_TEMP_DIR"
+
+  "$PROJECT_ROOT/bin/doyaken" init
+
+  # Re-init should succeed without error
+  run "$PROJECT_ROOT/bin/doyaken" init
+  [ "$status" -eq 0 ]
+  # Should still have all directories intact
+  [ -d ".doyaken/logs" ]
+  [ -d ".doyaken/state" ]
+  [ -f ".doyaken/manifest.yaml" ]
+}
+
 # ============================================================================
 # Status workflow
 # ============================================================================
