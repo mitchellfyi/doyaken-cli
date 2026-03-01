@@ -452,8 +452,8 @@ load_manifest() {
   fi
 
   if ! command -v yq &>/dev/null; then
-    echo -e "${YELLOW}[WARN]${NC} yq not installed - manifest.yaml settings will be ignored"
-    echo -e "${YELLOW}[WARN]${NC} Install: brew install yq (macOS) or apt install yq (Linux)"
+    printf '%s\n' "${YELLOW}[WARN]${NC} yq not installed - manifest.yaml settings will be ignored"
+    printf '%s\n' "${YELLOW}[WARN]${NC} Install: brew install yq (macOS) or apt install yq (Linux)"
     return 0
   fi
 
@@ -763,7 +763,7 @@ INTERRUPTED=0
 source "$SCRIPT_DIR/logging.sh"
 
 # Additional color for core
-MAGENTA='\033[0;35m'
+MAGENTA=$'\033[0;35m'
 
 # ============================================================================
 # Logging (agent-specific with AGENT_ID prefix)
@@ -774,51 +774,51 @@ RUN_LOG_DIR="$LOGS_DIR/$RUN_TIMESTAMP-$AGENT_ID"
 
 # Core uses AGENT_ID in prefix for multi-agent distinction
 log_info() {
-  echo -e "${BLUE}[$AGENT_ID]${NC} $1"
+  printf '%s\n' "${BLUE}[$AGENT_ID]${NC} $1"
 }
 
 log_success() {
-  echo -e "${GREEN}[$AGENT_ID OK]${NC} $1"
+  printf '%s\n' "${GREEN}[$AGENT_ID OK]${NC} $1"
 }
 
 log_warn() {
-  echo -e "${YELLOW}[$AGENT_ID WARN]${NC} $1"
+  printf '%s\n' "${YELLOW}[$AGENT_ID WARN]${NC} $1"
 }
 
 log_error() {
-  echo -e "${RED}[$AGENT_ID ERROR]${NC} $1"
+  printf '%s\n' "${RED}[$AGENT_ID ERROR]${NC} $1"
 }
 
 log_step() {
-  echo -e "${CYAN}[$AGENT_ID STEP]${NC} $1"
+  printf '%s\n' "${CYAN}[$AGENT_ID STEP]${NC} $1"
 }
 
 log_heal() {
-  echo -e "${MAGENTA}[$AGENT_ID HEAL]${NC} $1"
+  printf '%s\n' "${MAGENTA}[$AGENT_ID HEAL]${NC} $1"
 }
 
 log_monitor() {
-  echo -e "${DIM}[$AGENT_ID MONITOR]${NC} $1"
+  printf '%s\n' "${DIM}[$AGENT_ID MONITOR]${NC} $1"
 }
 
 log_monitor_warn() {
-  echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} $1"
+  printf '%s\n' "${YELLOW}[$AGENT_ID MONITOR]${NC} $1"
 }
 
 log_model() {
-  echo -e "${MAGENTA}[$AGENT_ID MODEL]${NC} $1"
+  printf '%s\n' "${MAGENTA}[$AGENT_ID MODEL]${NC} $1"
 }
 
 log_phase() {
-  echo -e "${BOLD}${CYAN}[$AGENT_ID PHASE]${NC} $1"
+  printf '%s\n' "${BOLD}${CYAN}[$AGENT_ID PHASE]${NC} $1"
 }
 
 log_header() {
   echo ""
-  echo -e "${BOLD}════════════════════════════════════════════════════════════${NC}"
-  echo -e "${BOLD} $1${NC}"
-  echo -e "${BOLD} Agent: $AGENT_ID${NC}"
-  echo -e "${BOLD}════════════════════════════════════════════════════════════${NC}"
+  printf '%s\n' "${BOLD}════════════════════════════════════════════════════════════${NC}"
+  printf '%s\n' "${BOLD} $1${NC}"
+  printf '%s\n' "${BOLD} Agent: $AGENT_ID${NC}"
+  printf '%s\n' "${BOLD}════════════════════════════════════════════════════════════${NC}"
 }
 
 # ============================================================================
@@ -963,7 +963,7 @@ start_phase_monitor() {
     start_time=$(date +%s)
     local stall_warned=0
 
-    echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} 00:00 │ ⋯ waiting for agent response..."
+    printf '%s\n' "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} 00:00 │ ⋯ waiting for agent response..."
 
     while true; do
       sleep "$PHASE_MONITOR_INTERVAL" &
@@ -998,7 +998,7 @@ start_phase_monitor() {
           size_display="${current_size}B"
         fi
 
-        echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ✓ active (+${new_bytes}B, ${size_display} total)"
+        printf '%s\n' "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ✓ active (+${new_bytes}B, ${size_display} total)"
         last_size=$current_size
       else
         local stall_time=$(( now - last_activity_time ))
@@ -1008,23 +1008,22 @@ start_phase_monitor() {
           local stall_secs=$(( stall_time % 60 ))
 
           if [ "$stall_warned" -eq 0 ]; then
-            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ NO OUTPUT for ${stall_mins}m${stall_secs}s (log: ${current_size} bytes)"
-            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC}   Agent may be stuck, thinking, or waiting for API response"
-            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC}   Log: $phase_log"
+            printf '%s\n' "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ NO OUTPUT for ${stall_mins}m${stall_secs}s (log: ${current_size} bytes)"
+            printf '%s\n' "${YELLOW}[$AGENT_ID MONITOR]${NC}   Agent may be stuck, thinking, or waiting for API response"
+            printf '%s\n' "${YELLOW}[$AGENT_ID MONITOR]${NC}   Log: $phase_log"
             stall_warned=1
           else
-            # Repeat warning every stall_threshold interval
-            echo -e "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ STILL NO OUTPUT (${stall_mins}m${stall_secs}s silent)"
+            printf '%s\n' "${YELLOW}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⚠ STILL NO OUTPUT (${stall_mins}m${stall_secs}s silent)"
           fi
         else
-          echo -e "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⋯ waiting (${stall_time}s since last output)"
+          printf '%s\n' "${DIM}[$AGENT_ID MONITOR]${NC} ${phase_name} $(printf '%02d:%02d' "$mins" "$secs") │ ⋯ waiting (${stall_time}s since last output)"
         fi
       fi
 
       # Warn when approaching timeout
       local remaining=$(( timeout - elapsed ))
       if [ "$remaining" -le 120 ] && [ "$remaining" -gt 0 ]; then
-        echo -e "${RED}[$AGENT_ID MONITOR]${NC} ${phase_name} │ ⚠ TIMEOUT in ${remaining}s!"
+        printf '%s\n' "${RED}[$AGENT_ID MONITOR]${NC} ${phase_name} │ ⚠ TIMEOUT in ${remaining}s!"
       fi
     done
   ) &
@@ -1222,9 +1221,9 @@ run_phase_once() {
   fi
 
   echo ""
-  echo -e "${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
-  echo -e "${CYAN}│${NC} ${BOLD}PHASE: $phase_label (attempt $attempt) [$CURRENT_AGENT]${NC}"
-  echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
+  printf '%s\n' "${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
+  printf '%s\n' "${CYAN}│${NC} ${BOLD}PHASE: $phase_label (attempt $attempt) [$CURRENT_AGENT]${NC}"
+  printf '%s\n' "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
   # Start phase monitor (checks for stuck agents)
@@ -1246,7 +1245,7 @@ run_phase_once() {
     rate_limit_record
   fi
 
-  echo -e "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent for $phase_label..."
+  printf '%s\n' "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent for $phase_label..."
 
   # Build agent command using abstraction functions
   # Each agent uses its correct autonomous mode flags
@@ -1381,7 +1380,7 @@ run_phase_once() {
   fi
 
   echo ""
-  echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
+  printf '%s\n' "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
   echo ""
 
   # Calculate phase duration
@@ -1653,12 +1652,13 @@ load_session() {
 
   if [ -f "$session_file" ] && [ "$AGENT_NO_RESUME" != "1" ]; then
     # Parse session file safely instead of sourcing (prevents code injection)
-    SESSION_ID=$(grep '^SESSION_ID=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
-    STATUS=$(grep '^STATUS=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    local prev_session_id prev_status
+    prev_session_id=$(grep '^SESSION_ID=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+    prev_status=$(grep '^STATUS=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
     LOG_DIR=$(grep '^LOG_DIR=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
 
-    if [ -n "${SESSION_ID:-}" ] && [ "${STATUS:-}" = "running" ]; then
-      log_heal "Found interrupted session: $SESSION_ID"
+    if [ -n "${prev_session_id:-}" ] && [ "${prev_status:-}" = "running" ]; then
+      log_heal "Found interrupted session: $prev_session_id (reusing log dir)"
       return 0
     fi
   fi
@@ -2062,7 +2062,16 @@ main() {
   echo "    7. VERIFY    ${TIMEOUT_VERIFY}s  $([ "$SKIP_VERIFY" = "1" ] && echo "[SKIP]" || echo "")"
   echo ""
   echo "  Log dir: $RUN_LOG_DIR"
+  if [ "$AGENT_DRY_RUN" = "1" ]; then
+    echo "  Mode: DRY RUN (no agent will be invoked)"
+  fi
   echo ""
+
+  # Dry run: show configuration and exit
+  if [ "$AGENT_DRY_RUN" = "1" ]; then
+    log_info "Dry run complete - no phases executed"
+    exit 0
+  fi
 
   # Check first-run warning (skip if safe mode or already acknowledged)
   if [ "${DOYAKEN_SAFE_MODE:-0}" != "1" ]; then
@@ -2075,6 +2084,9 @@ main() {
     log_error "Health check failed - aborting"
     exit 1
   fi
+
+  # Generate session ID (used for state tracking)
+  SESSION_ID="${task_id}-${RUN_TIMESTAMP}"
 
   # Resume from interrupted session if available
   if load_session; then

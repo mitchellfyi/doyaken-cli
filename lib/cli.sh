@@ -154,7 +154,7 @@ cmd_sessions() {
   source "$SCRIPT_DIR/sessions.sh"
 
   echo ""
-  echo -e "${BOLD}Sessions${NC}"
+  printf '%s\n' "${BOLD}Sessions${NC}"
   echo ""
   session_list "${1:-20}"
   echo ""
@@ -515,13 +515,13 @@ cmd_status() {
   local doyaken_dir="$project/.doyaken"
 
   echo ""
-  echo -e "${BOLD}Project Status${NC}"
+  printf '%s\n' "${BOLD}Project Status${NC}"
   echo "=============="
   echo ""
   echo "Path: $project"
   echo "Data: $doyaken_dir"
 
-  echo -e "Format: ${GREEN}Current (.doyaken/)${NC}"
+  printf '%s\n' "Format: ${GREEN}Current (.doyaken/)${NC}"
 
   # Git info
   if [ -d "$project/.git" ]; then
@@ -572,7 +572,7 @@ cmd_doctor() {
   project=$(detect_project 2>/dev/null) || project=""
 
   echo ""
-  echo -e "${BOLD}Doyaken Health Check${NC}"
+  printf '%s\n' "${BOLD}Doyaken Health Check${NC}"
   echo "===================="
   echo ""
 
@@ -596,7 +596,7 @@ cmd_doctor() {
         agent_install_instructions "$agent"
         ((++issues))
       else
-        echo -e "  ${YELLOW}○${NC} $agent ($cmd) - not installed"
+        printf '%s\n' "  ${YELLOW}○${NC} $agent ($cmd) - not installed"
       fi
     fi
   done
@@ -670,6 +670,93 @@ cmd_doctor() {
   fi
 }
 
+cmd_health() {
+  local quiet=false
+
+  # Check global --quiet flag
+  [[ "${AGENT_QUIET:-0}" == "1" ]] && quiet=true
+
+  # Parse command-specific flags
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --quiet|-q) quiet=true; shift ;;
+      *) shift ;;
+    esac
+  done
+
+  local checks_passed=0
+  local checks_total=0
+  local status="healthy"
+
+  # Check 1: Agent available
+  local current_agent="${DOYAKEN_AGENT:-claude}"
+  local agent_cmd
+  agent_cmd=$(_get_agent_cmd "$current_agent")
+  local agent_available=false
+  ((++checks_total))
+  if command -v "$agent_cmd" &>/dev/null; then
+    agent_available=true
+    ((++checks_passed))
+  else
+    status="unhealthy"
+  fi
+
+  # Check 2: Timeout command available
+  local timeout_available=false
+  ((++checks_total))
+  if command -v gtimeout &>/dev/null || command -v timeout &>/dev/null; then
+    timeout_available=true
+    ((++checks_passed))
+  else
+    [[ "$status" != "unhealthy" ]] && status="degraded"
+  fi
+
+  # Check 3: yq available
+  local yq_available=false
+  ((++checks_total))
+  if command -v yq &>/dev/null; then
+    yq_available=true
+    ((++checks_passed))
+  else
+    [[ "$status" != "unhealthy" ]] && status="degraded"
+  fi
+
+  # Check 4: Project detected
+  local project_path="null"
+  ((++checks_total))
+  local detected
+  detected=$(detect_project 2>/dev/null) || detected=""
+  if [[ -n "$detected" ]] && [[ "$detected" != LEGACY:* ]]; then
+    project_path="\"$detected\""
+    ((++checks_passed))
+  else
+    [[ "$status" != "unhealthy" ]] && status="degraded"
+  fi
+
+  # Determine exit code
+  local exit_code=0
+  case "$status" in
+    unhealthy) exit_code=1 ;;
+    degraded)  exit_code=2 ;;
+  esac
+
+  # Output JSON unless --quiet
+  if [[ "$quiet" == false ]]; then
+    printf '{"status":"%s","version":"%s","agent":"%s","agent_available":%s,"timeout_available":%s,"yq_available":%s,"project":%s,"checks_passed":%d,"checks_total":%d}\n' \
+      "$status" \
+      "$DOYAKEN_VERSION" \
+      "$current_agent" \
+      "$agent_available" \
+      "$timeout_available" \
+      "$yq_available" \
+      "$project_path" \
+      "$checks_passed" \
+      "$checks_total"
+  fi
+
+  return "$exit_code"
+}
+
 cmd_version() {
   echo "doyaken version $DOYAKEN_VERSION"
 }
@@ -681,7 +768,7 @@ cmd_validate() {
   local manifest="$doyaken_dir/manifest.yaml"
 
   echo ""
-  echo -e "${BOLD}Validating project configuration${NC}"
+  printf '%s\n' "${BOLD}Validating project configuration${NC}"
   echo "================================="
   echo ""
 
@@ -779,7 +866,7 @@ cmd_stats() {
   project=$(detect_project 2>/dev/null) || project=""
 
   echo ""
-  echo -e "${BOLD}Doyaken Statistics${NC}"
+  printf '%s\n' "${BOLD}Doyaken Statistics${NC}"
   echo "==================="
   echo ""
 
@@ -792,7 +879,7 @@ cmd_stats() {
   if [ -n "$project" ] && [[ "$project" != LEGACY:* ]]; then
     local doyaken_dir="$project/.doyaken"
     echo ""
-    echo -e "  ${BOLD}Current project:${NC} $(basename "$project")"
+    printf '%s\n' "  ${BOLD}Current project:${NC} $(basename "$project")"
 
     # Git branch
     if [ -d "$project/.git" ]; then
@@ -877,7 +964,7 @@ cmd_skills() {
   done
 
   echo ""
-  echo -e "${BOLD}Available Skills${NC}"
+  printf '%s\n' "${BOLD}Available Skills${NC}"
   echo "================"
   echo ""
 
@@ -887,7 +974,7 @@ cmd_skills() {
     found=true
     local loc_tag=""
     [ "$location" = "project" ] && loc_tag=" ${CYAN}[project]${NC}"
-    echo -e "  ${GREEN}$name${NC}$loc_tag"
+    printf '%s\n' "  ${GREEN}$name${NC}$loc_tag"
     echo "    $desc"
   done < <(list_skills)
 
@@ -902,7 +989,7 @@ cmd_skills() {
   # Show domain packs
   if [ "$show_domains" = true ]; then
     echo ""
-    echo -e "${BOLD}Domain Skill Packs${NC}"
+    printf '%s\n' "${BOLD}Domain Skill Packs${NC}"
     echo "==================="
     echo ""
 
@@ -910,7 +997,7 @@ cmd_skills() {
     while IFS= read -r pack_dir; do
       [ -z "$pack_dir" ] && continue
       packs_found=true
-      echo -e "  ${CYAN}$(list_domain_pack "$pack_dir")${NC}"
+      printf '%s\n' "  ${CYAN}$(list_domain_pack "$pack_dir")${NC}"
     done < <(get_domain_packs)
 
     if [ "$packs_found" = false ]; then
@@ -920,9 +1007,9 @@ cmd_skills() {
   fi
 
   echo ""
-  echo "Run a skill: ${CYAN}doyaken skill <name> [--arg=value]${NC}"
-  echo "Skill info:  ${CYAN}doyaken skill <name> --info${NC}"
-  [ "$show_domains" = false ] && echo "Domain packs: ${CYAN}doyaken skills --domains${NC}"
+  printf '%s\n' "Run a skill: ${CYAN}doyaken skill <name> [--arg=value]${NC}"
+  printf '%s\n' "Skill info:  ${CYAN}doyaken skill <name> --info${NC}"
+  [ "$show_domains" = false ] && printf '%s\n' "Domain packs: ${CYAN}doyaken skills --domains${NC}"
 }
 
 cmd_skill() {
@@ -1158,11 +1245,6 @@ cmd_upgrade() {
       ;;
   esac
 }
-
-# ============================================================================
-# Review Command
-# ============================================================================
-
 
 cmd_mcp() {
   local subcmd="${1:-status}"
@@ -1471,6 +1553,9 @@ main() {
     doctor)
       cmd_doctor
       ;;
+    health)
+      cmd_health "${args[@]+"${args[@]}"}"
+      ;;
     skills)
       cmd_skills "${args[@]+"${args[@]}"}"
       ;;
@@ -1513,7 +1598,7 @@ main() {
       suggestion=$(fuzzy_match_command "$cmd")
       if [ -n "$suggestion" ]; then
         echo ""
-        echo -e "  Did you mean ${BOLD}dk $suggestion${NC}?"
+        printf '%s\n' "  Did you mean ${BOLD}dk $suggestion${NC}?"
       else
         echo ""
         echo "Common commands:"

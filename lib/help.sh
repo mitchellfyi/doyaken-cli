@@ -31,8 +31,6 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}config${NC} edit         Edit global or project config
   ${CYAN}upgrade${NC}             Upgrade doyaken to latest version
   ${CYAN}upgrade${NC} --check     Check if upgrade is available
-  ${CYAN}review${NC}              Run codebase review
-  ${CYAN}review${NC} --status     Show review status
   ${CYAN}mcp${NC} status          Show MCP integration status
   ${CYAN}mcp${NC} configure       Generate MCP configs for enabled integrations
   ${CYAN}hooks${NC}               List available CLI agent hooks
@@ -42,6 +40,7 @@ ${BOLD}COMMANDS:${NC}
   ${CYAN}status${NC}              Show project status
   ${CYAN}manifest${NC}            Show project manifest
   ${CYAN}doctor${NC}              Health check and diagnostics
+  ${CYAN}health${NC}              Quick health check (JSON output, scriptable)
   ${CYAN}validate${NC}            Validate project configuration
   ${CYAN}stats${NC}               Show project statistics
   ${CYAN}audit${NC}               View audit log
@@ -346,6 +345,41 @@ ${BOLD}EXAMPLES:${NC}
   doyaken mcp status
   doyaken mcp setup github
   doyaken mcp configure --agent claude
+
+EOF
+      ;;
+    health)
+      cat << EOF
+${BOLD}doyaken health${NC} - Quick health check with machine-readable output
+
+${BOLD}USAGE:${NC}
+  doyaken health [--quiet]
+
+${BOLD}DESCRIPTION:${NC}
+  Runs a quick health check and outputs JSON. Designed for scripting,
+  CI/CD pipelines, Docker HEALTHCHECK, and monitoring.
+
+  Complements 'dk doctor' which provides verbose human-readable output.
+
+${BOLD}OPTIONS:${NC}
+  --quiet, -q    Exit code only, no output
+
+${BOLD}EXIT CODES:${NC}
+  0    Healthy - all checks passed
+  1    Unhealthy - critical issues (agent not available)
+  2    Degraded - non-critical issues (missing timeout, yq, or project)
+
+${BOLD}CHECKS:${NC}
+  - Agent command available (critical)
+  - Timeout command available (gtimeout/timeout)
+  - YAML parser available (yq)
+  - Project detected in current directory
+
+${BOLD}EXAMPLES:${NC}
+  doyaken health                    # JSON output
+  doyaken health --quiet            # Exit code only
+  doyaken health | jq .status       # Parse with jq
+  dk health && dk run "fix bug"     # Guard execution
 
 EOF
       ;;

@@ -22,14 +22,13 @@ UPGRADE_BACKUP_COUNT="${UPGRADE_BACKUP_COUNT:-5}"
 _UPGRADE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$_UPGRADE_SCRIPT_DIR/logging.sh" ]]; then
   source "$_UPGRADE_SCRIPT_DIR/logging.sh"
-  set_log_prefix "upgrade"
 else
   # Fallback if logging.sh not available (during install)
-  RED='\033[0;31m'
-  GREEN='\033[0;32m'
-  YELLOW='\033[0;33m'
-  BLUE='\033[0;34m'
-  NC='\033[0m'
+  RED=$'\033[0;31m'
+  GREEN=$'\033[0;32m'
+  YELLOW=$'\033[0;33m'
+  BLUE=$'\033[0;34m'
+  NC=$'\033[0m'
 fi
 
 # Source project utilities

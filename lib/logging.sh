@@ -22,15 +22,17 @@ _DOYAKEN_LOGGING_LOADED=1
 # ============================================================================
 
 # Only set colors if terminal supports them
+# Use $'...' (ANSI-C quoting) so variables contain actual escape characters.
+# This makes colors work everywhere: echo, echo -e, printf, cat heredocs.
 if [[ -t 1 ]] && [[ "${TERM:-}" != "dumb" ]]; then
-  RED='\033[0;31m'
-  GREEN='\033[0;32m'
-  YELLOW='\033[0;33m'
-  BLUE='\033[0;34m'
-  CYAN='\033[0;36m'
-  BOLD='\033[1m'
-  DIM='\033[2m'
-  NC='\033[0m'  # No Color
+  RED=$'\033[0;31m'
+  GREEN=$'\033[0;32m'
+  YELLOW=$'\033[0;33m'
+  BLUE=$'\033[0;34m'
+  CYAN=$'\033[0;36m'
+  BOLD=$'\033[1m'
+  DIM=$'\033[2m'
+  NC=$'\033[0m'
 else
   RED=''
   GREEN=''
@@ -54,37 +56,37 @@ DOYAKEN_LOG_PREFIX="${DOYAKEN_LOG_PREFIX:-doyaken}"
 
 # Info message (blue)
 log_info() {
-  echo -e "${BLUE}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
+  printf '%s\n' "${BLUE}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
 }
 
 # Success message (green)
 log_success() {
-  echo -e "${GREEN}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
+  printf '%s\n' "${GREEN}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
 }
 
 # Warning message (yellow)
 log_warn() {
-  echo -e "${YELLOW}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
+  printf '%s\n' "${YELLOW}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
 }
 
 # Error message (red, to stderr)
 log_error() {
-  echo -e "${RED}[${DOYAKEN_LOG_PREFIX}]${NC} $1" >&2
+  printf '%s\n' "${RED}[${DOYAKEN_LOG_PREFIX}]${NC} $1" >&2
 }
 
 # Step/phase message (cyan, for workflow phases)
 log_step() {
-  echo -e "${CYAN}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
+  printf '%s\n' "${CYAN}[${DOYAKEN_LOG_PREFIX}]${NC} $1"
 }
 
 # Phase header (bold cyan, for major sections)
 log_phase() {
-  echo -e "${CYAN}${BOLD}[${DOYAKEN_LOG_PREFIX}]${NC} ${BOLD}$1${NC}"
+  printf '%s\n' "${CYAN}${BOLD}[${DOYAKEN_LOG_PREFIX}]${NC} ${BOLD}$1${NC}"
 }
 
 # Debug message (only if DOYAKEN_DEBUG is set)
 log_debug() {
-  [[ -n "${DOYAKEN_DEBUG:-}" ]] && echo -e "${BLUE}[debug]${NC} $1" >&2
+  [[ -n "${DOYAKEN_DEBUG:-}" ]] && printf '%s\n' "${BLUE}[debug]${NC} $1" >&2
 }
 
 # ============================================================================

@@ -13,18 +13,17 @@ REGISTRY_FILE="$DOYAKEN_HOME/projects/registry.yaml"
 _REGISTRY_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$_REGISTRY_SCRIPT_DIR/logging.sh" ]]; then
   source "$_REGISTRY_SCRIPT_DIR/logging.sh"
-  set_log_prefix "registry"
 else
   # Fallback colors
-  RED='\033[0;31m'
-  GREEN='\033[0;32m'
-  YELLOW='\033[0;33m'
-  BLUE='\033[0;34m'
-  NC='\033[0m'
-  log_info() { echo -e "${BLUE}[registry]${NC} $1"; }
-  log_success() { echo -e "${GREEN}[registry]${NC} $1"; }
-  log_warn() { echo -e "${YELLOW}[registry]${NC} $1"; }
-  log_error() { echo -e "${RED}[registry]${NC} $1" >&2; }
+  RED=$'\033[0;31m'
+  GREEN=$'\033[0;32m'
+  YELLOW=$'\033[0;33m'
+  BLUE=$'\033[0;34m'
+  NC=$'\033[0m'
+  log_info() { printf '%s\n' "${BLUE}[registry]${NC} $1"; }
+  log_success() { printf '%s\n' "${GREEN}[registry]${NC} $1"; }
+  log_warn() { printf '%s\n' "${YELLOW}[registry]${NC} $1"; }
+  log_error() { printf '%s\n' "${RED}[registry]${NC} $1" >&2; }
 fi
 
 # Source project utilities
