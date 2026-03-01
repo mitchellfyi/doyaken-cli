@@ -9,6 +9,10 @@
 #
 set -euo pipefail
 
+# Ensure Ctrl+C exits cleanly (child commands may override with their own traps)
+trap 'echo ""; exit 130' INT
+trap 'exit "${?:-1}"' TERM
+
 # ============================================================================
 # Global Configuration
 # ============================================================================

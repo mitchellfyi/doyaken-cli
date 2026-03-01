@@ -208,8 +208,8 @@ _rl_wait_countdown() {
       printf "\r  ⏳ Waiting for rate limit slot: %02d:%02d remaining " "$mins" "$secs"
     fi
 
-    # Interruptible sleep
-    sleep 1 &
+    # Interruptible sleep (close extra FDs to avoid leaking into test harnesses)
+    sleep 1 3>&- 4>&- 5>&- 6>&- 7>&- &
     wait $! 2>/dev/null || return 1
   done
 }

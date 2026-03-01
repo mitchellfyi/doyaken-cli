@@ -1031,9 +1031,16 @@ start_phase_monitor() {
 }
 
 stop_phase_monitor() {
-  if [ -n "$PHASE_MONITOR_PID" ] && kill -0 "$PHASE_MONITOR_PID" 2>/dev/null; then
+  if [ -n "${PHASE_MONITOR_PID:-}" ] && kill -0 "$PHASE_MONITOR_PID" 2>/dev/null; then
     kill "$PHASE_MONITOR_PID" 2>/dev/null || true
-    wait "$PHASE_MONITOR_PID" 2>/dev/null || true
+    # Brief wait; don't block shutdown if monitor doesn't exit quickly
+    local i=0
+    while [ $i -lt 10 ] && kill -0 "$PHASE_MONITOR_PID" 2>/dev/null; do
+      sleep 0.1 2>/dev/null || sleep 1
+      i=$(( i + 1 ))
+    done
+    # Force kill if still alive
+    kill -9 "$PHASE_MONITOR_PID" 2>/dev/null || true
   fi
   PHASE_MONITOR_PID=""
 }
@@ -2001,6 +2008,8 @@ cleanup() {
 }
 
 handle_interrupt() {
+  # Prevent re-entrancy (second Ctrl+C during shutdown)
+  trap '' INT TERM
   echo ""
   log_warn "Ctrl+C received - shutting down..."
   INTERRUPTED=1
@@ -2008,8 +2017,11 @@ handle_interrupt() {
   # Kill background monitors immediately (they now have signal handlers)
   stop_phase_monitor
 
-  # Kill all remaining child processes (agent pipeline, tee, etc.)
+  # Kill all child processes (agent pipeline, tee, etc.)
   pkill -P $$ 2>/dev/null || true
+  # Brief grace period, then force-kill any survivors
+  sleep 0.2 2>/dev/null || true
+  pkill -9 -P $$ 2>/dev/null || true
 
   exit 130
 }

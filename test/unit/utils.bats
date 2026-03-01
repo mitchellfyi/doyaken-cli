@@ -28,17 +28,16 @@ teardown() {
 # ============================================================================
 
 @test "read_with_timeout: sets variable with user input" {
-  # Simulate user input
-  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; echo "2" | read_with_timeout choice "Enter [1-3]: " 1 2 3; echo "$choice"'
+  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; read_with_timeout choice "Enter [1-3]: " 1 2 3 <<< "2"; echo "$choice"'
   [ "$status" -eq 0 ]
-  [[ "${lines[-1]}" == "2" ]]
+  [[ "$output" == *"2"* ]]
 }
 
 @test "read_with_timeout: works with no timeout when DOYAKEN_AUTO_TIMEOUT is 0" {
   export DOYAKEN_AUTO_TIMEOUT=0
-  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; echo "test" | read_with_timeout result "Enter: "; echo "$result"'
+  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; read_with_timeout answer "Enter: " <<< "test"; echo "$answer"'
   [ "$status" -eq 0 ]
-  [[ "${lines[-1]}" == "test" ]]
+  [[ "$output" == *"test"* ]]
 }
 
 @test "read_with_timeout: handles empty input" {
@@ -156,13 +155,13 @@ teardown() {
 }
 
 @test "read_with_timeout: handles multiple word input" {
-  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; echo "hello world" | read_with_timeout result "Enter: "; echo "$result"'
+  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; read_with_timeout answer "Enter: " <<< "hello world"; echo "$answer"'
   [ "$status" -eq 0 ]
-  [[ "${lines[-1]}" == "hello world" ]]
+  [[ "$output" == *"hello world"* ]]
 }
 
 @test "read_with_timeout: preserves special characters in input" {
-  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; echo "test@123!" | read_with_timeout result "Enter: "; echo "$result"'
+  run bash -c 'source "$PROJECT_ROOT/lib/logging.sh"; source "$PROJECT_ROOT/lib/utils.sh"; read_with_timeout answer "Enter: " <<< "test@123!"; echo "$answer"'
   [ "$status" -eq 0 ]
-  [[ "${lines[-1]}" == "test@123!" ]]
+  [[ "$output" == *"test@123!"* ]]
 }

@@ -18,36 +18,31 @@ source "$SCRIPT_DIR_UTILS/logging.sh"
 # Returns: Sets the variable to user input or random choice on timeout
 # Example: read_with_timeout choice "Enter [1-3]: " 1 2 3
 read_with_timeout() {
-  local var_name="$1"
-  local prompt="$2"
+  local _rwt_var_name="$1"
+  local _rwt_prompt="$2"
   shift 2
-  local -a options=("$@")
-  local timeout="${DOYAKEN_AUTO_TIMEOUT:-60}"
-  local result=""
-  local num_options="${#options[@]}"
+  local -a _rwt_options=("$@")
+  local _rwt_timeout="${DOYAKEN_AUTO_TIMEOUT:-60}"
+  local _rwt_input=""
+  local _rwt_num_options="${#_rwt_options[@]}"
 
-  if [ "$timeout" -gt 0 ] && [ "$num_options" -gt 0 ]; then
-    # Show timeout indicator
-    echo -e "  ${YELLOW}(auto-select in ${timeout}s)${NC}"
+  if [ "$_rwt_timeout" -gt 0 ] && [ "$_rwt_num_options" -gt 0 ]; then
+    printf '%s\n' "  ${YELLOW}(auto-select in ${_rwt_timeout}s)${NC}"
     echo ""
 
-    # Read with timeout - use printf for prompt to avoid -p issues
-    printf "%s" "$prompt"
-    if read -r -t "$timeout" result 2>/dev/null; then
-      # User provided input - use printf -v for safe variable assignment
-      printf -v "$var_name" '%s' "$result"
+    printf "%s" "$_rwt_prompt"
+    if read -r -t "$_rwt_timeout" _rwt_input 2>/dev/null; then
+      printf -v "$_rwt_var_name" '%s' "$_rwt_input"
     else
-      # Timeout - pick random option
       echo ""
-      local random_idx=$((RANDOM % num_options))
-      result="${options[$random_idx]}"
-      log_info "Auto-selected option: $result"
-      printf -v "$var_name" '%s' "$result"
+      local _rwt_idx=$(( RANDOM % _rwt_num_options ))
+      _rwt_input="${_rwt_options[$_rwt_idx]}"
+      log_info "Auto-selected option: $_rwt_input"
+      printf -v "$_rwt_var_name" '%s' "$_rwt_input"
     fi
   else
-    # No timeout - normal read
-    read -rp "$prompt" result
-    printf -v "$var_name" '%s' "$result"
+    read -rp "$_rwt_prompt" _rwt_input
+    printf -v "$_rwt_var_name" '%s' "$_rwt_input"
   fi
 }
 

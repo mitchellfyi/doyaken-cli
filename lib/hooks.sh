@@ -40,8 +40,9 @@ get_hook_paths() {
     paths+=("$DOYAKEN_HOME/hooks")
   fi
 
-  # Only print if array has elements (avoids unbound variable error with set -u)
-  [ ${#paths[@]} -gt 0 ] && printf '%s\n' "${paths[@]}"
+  if [ ${#paths[@]} -gt 0 ]; then
+    printf '%s\n' "${paths[@]}"
+  fi
 }
 
 # Find a hook script by name

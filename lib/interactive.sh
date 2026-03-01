@@ -285,20 +285,39 @@ query_agent_silent() {
 # Signal Handling
 # ============================================================================
 
-# Handle Ctrl+C: kill running agent or show hint
+_CHAT_LAST_INT_TIME=0
+
+# Handle Ctrl+C: kill running agent, or exit on double-press
 handle_chat_interrupt() {
+  local now
+  now=$(date +%s)
+
   if [ -n "$CHAT_AGENT_PID" ] && kill -0 "$CHAT_AGENT_PID" 2>/dev/null; then
-    # Agent is running — kill it
+    # Agent is running — kill it (single Ctrl+C cancels agent)
     kill "$CHAT_AGENT_PID" 2>/dev/null || true
     wait "$CHAT_AGENT_PID" 2>/dev/null || true
     CHAT_AGENT_PID=""
+    _CHAT_LAST_INT_TIME=0
     echo ""
-    echo -e "${YELLOW}[interrupted]${NC}"
+    printf '%s\n' "${YELLOW}[interrupted]${NC}"
   else
-    # At prompt — show hint
+    # At prompt — double Ctrl+C within 2 seconds exits
+    local elapsed=$(( now - _CHAT_LAST_INT_TIME ))
+    if [ "$elapsed" -le 2 ]; then
+      echo ""
+      echo "Goodbye!"
+      CHAT_SHOULD_EXIT=1
+      # Force read to fail by closing stdin temporarily won't work;
+      # instead exit directly since CHAT_SHOULD_EXIT won't be checked
+      # until after read restarts. We must exit from the handler.
+      history -w "$CHAT_HISTORY_FILE" 2>/dev/null || true
+      trap - INT
+      exit 130
+    fi
+    _CHAT_LAST_INT_TIME=$now
     CHAT_AGENT_PID=""
     echo ""
-    echo -e "${DIM}Type /quit to exit${NC}"
+    printf '%s\n' "${DIM}Press Ctrl+C again to exit, or type /quit${NC}"
   fi
 }
 
@@ -462,20 +481,20 @@ run_repl() {
 
   # Welcome banner
   echo ""
-  echo -e "${BOLD}doyaken interactive mode${NC}"
-  echo -e "${DIM}Agent: $agent${model:+ (model: $model)}${NC}"
+  printf '%s\n' "${BOLD}doyaken interactive mode${NC}"
+  printf '%s\n' "${DIM}Agent: $agent${model:+ (model: $model)}${NC}"
   if [ "$resumed" = true ]; then
-    echo -e "${DIM}Session: $CHAT_SESSION_ID ${GREEN}(resumed)${NC}"
+    printf '%s\n' "${DIM}Session: $CHAT_SESSION_ID ${GREEN}(resumed)${NC}"
     local context
     context=$(session_get_resume_context 2>/dev/null)
     if [ -n "$context" ]; then
       echo ""
-      echo -e "${DIM}$context${NC}"
+      printf '%s\n' "${DIM}$context${NC}"
     fi
   else
-    echo -e "${DIM}Session: $CHAT_SESSION_ID${NC}"
+    printf '%s\n' "${DIM}Session: $CHAT_SESSION_ID${NC}"
   fi
-  echo -e "${DIM}Type /help for commands, /quit to exit${NC}"
+  printf '%s\n' "${DIM}Type /help for commands, Ctrl+C twice to exit${NC}"
   echo ""
 
   # Load input history
