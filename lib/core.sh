@@ -2116,6 +2116,11 @@ cleanup() {
     log_info "Cleaning up..."
   fi
 
+  # Clean up snapshot temp file if left behind
+  if [ -n "${_PHASE_SNAPSHOT_FILE:-}" ] && [ -f "$_PHASE_SNAPSHOT_FILE" ]; then
+    rm -f "$_PHASE_SNAPSHOT_FILE"
+  fi
+
   stop_phase_monitor
 }
 

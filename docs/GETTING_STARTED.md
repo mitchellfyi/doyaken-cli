@@ -35,6 +35,9 @@ This creates `.doyaken/` with:
 - `prompts/` — phase prompts (customizable)
 - `skills/` — project-specific skills
 - `logs/` — execution logs
+- `state/` — session recovery
+
+Running `dk init` on an already-initialized project is safe — it ensures any missing directories are repaired without modifying existing files.
 
 ## Run a Task
 
@@ -109,6 +112,7 @@ dk --agent gemini --model gemini-2.5-flash run "Optimize queries"
 ## Next Steps
 
 - Edit `.doyaken/manifest.yaml` to configure quality gates
-- Run `dk doctor` to check your setup
+- Run `dk health` for a quick JSON health check (scriptable)
+- Run `dk doctor` for detailed diagnostics
 - Run `dk help <command>` for detailed help on any command
 - Run `dk validate` to check your project configuration

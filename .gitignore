@@ -14,7 +14,16 @@ npm-debug.log*
 .doyaken/logs/
 .doyaken/state/
 .doyaken/locks/
+.doyaken/plans/
 state/
+
+# Doyaken local install artifacts (use repo source directly via ./bin/doyaken)
+.doyaken/bin/
+.doyaken/lib/
+.doyaken/scripts/
+.doyaken/templates/
+.doyaken/README.md
+.doyaken/VERSION
 
 # OS
 .DS_Store

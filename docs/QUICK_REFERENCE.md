@@ -9,6 +9,7 @@
 | `dk chat --resume` | Resume most recent session |
 | `dk init [path]` | Initialize a new project |
 | `dk status` | Show project status |
+| `dk health` | Quick health check (JSON, scriptable) |
 | `dk doctor` | Health check and diagnostics |
 | `dk validate` | Validate project configuration |
 | `dk stats` | Show project statistics |

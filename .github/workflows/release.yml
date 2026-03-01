@@ -103,9 +103,8 @@ jobs:
             ## Quick Start
 
             ```bash
-            dk init           # Initialize project
-            dk tasks new "Task"  # Create task
-            dk run 1          # Run 1 task
+            dk init                # Initialize project
+            dk run "Build feature" # Run a task
             ```
 
             See [README](https://github.com/mitchellfyi/doyaken-cli#readme) for full documentation.
@@ -237,9 +236,8 @@ jobs:
             ## Quick Start
 
             ```bash
-            dk init           # Initialize project
-            dk tasks new "Task"  # Create task
-            dk run 1          # Run 1 task
+            dk init                # Initialize project
+            dk run "Build feature" # Run a task
             ```
 
             See [README](https://github.com/mitchellfyi/doyaken-cli#readme) for full documentation.

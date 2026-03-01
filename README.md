@@ -79,7 +79,8 @@ dk doctor
 | `dk config` | Show/edit configuration |
 | `dk upgrade` | Upgrade doyaken to latest version |
 | `dk upgrade --check` | Check for available updates |
-| `dk doctor` | Health check |
+| `dk health` | Quick health check (JSON, scriptable) |
+| `dk doctor` | Health check and diagnostics |
 | `dk cleanup` | Clean logs, state, and registry |
 | `dk version` | Show version |
 | `dk help` | Show help |
@@ -473,7 +474,10 @@ agent:
 ## Troubleshooting
 
 ```bash
-# Health check
+# Quick health check (JSON, scriptable)
+dk health
+
+# Detailed diagnostics
 dk doctor
 
 # View logs (project-level)
