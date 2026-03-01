@@ -157,6 +157,54 @@ teardown() {
   [ "$status" -le 2 ]
 }
 
+@test "workflow: health -q short flag produces no output" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health -q
+  [ -z "$output" ]
+  [ "$status" -le 2 ]
+}
+
+@test "workflow: health outputs valid JSON" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health
+  # Parse with jq - will fail if output is not valid JSON
+  echo "$output" | jq . >/dev/null 2>&1
+  [ $? -eq 0 ]
+}
+
+@test "workflow: health checks_total is 4" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health
+  local total
+  total=$(echo "$output" | jq -r '.checks_total')
+  [ "$total" = "4" ]
+}
+
+@test "workflow: health exit code is 0, 1, or 2" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health
+  [ "$status" -le 2 ]
+}
+
+@test "workflow: health status matches exit code" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health
+  local health_status
+  health_status=$(echo "$output" | jq -r '.status')
+
+  case "$status" in
+    0) [ "$health_status" = "healthy" ] ;;
+    1) [ "$health_status" = "unhealthy" ] ;;
+    2) [ "$health_status" = "degraded" ] ;;
+    *) return 1 ;;
+  esac
+}
+
 @test "workflow: help health shows usage" {
   run "$PROJECT_ROOT/bin/doyaken" help health
   [ "$status" -eq 0 ]
