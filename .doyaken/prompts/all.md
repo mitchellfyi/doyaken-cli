@@ -136,7 +136,9 @@ This is not scope creep — it's maintenance hygiene. Every change should leave 
 
 ### Core Principles
 
-**KISS** — The simplest solution that works. If code needs comments to explain what it does, simplify the code. Break complex functions into smaller, focused ones. No premature abstraction. Compare your solution's complexity to what an experienced developer would write by hand — if yours has more layers, more indirection, or more moving parts, simplify.
+**Simplicity is the goal.** The best code is the code that's easiest to read, easiest to change, and easiest to delete. Elegance is not cleverness — it's clarity. When choosing between approaches, pick the one a new team member would understand fastest.
+
+**KISS** — The simplest solution that works. If code needs comments to explain what it does, simplify the code. No premature abstraction. Compare your solution's complexity to what an experienced developer would write by hand — if yours has more layers, more indirection, or more moving parts, simplify.
 
 **YAGNI** — Don't build features or abstractions until needed. No speculative parameters, no unused abstractions, delete dead code immediately.
 
@@ -149,6 +151,22 @@ This is not scope creep — it's maintenance hygiene. Every change should leave 
 - Interface Segregation — small, focused interfaces
 - Dependency Inversion — depend on abstractions, not concrete implementations
 
+### Decomposition & Testability
+
+Every unit of code — function, module, file, class — should have a **single, clear purpose that's obvious from its name**. If you can't name it clearly, it's doing too much.
+
+**Functions**: do one thing. If a function has "and" in its description, split it. Keep them short enough to read without scrolling. Prefer pure functions (input in, output out, no side effects) — they're trivially testable and easy to reason about.
+
+**Modules and files**: organize around a single responsibility or concept, not around a grab-bag of related utilities. When a module grows to handle multiple concerns, split it into focused pieces — each with its own tests. A well-decomposed codebase has many small files, not a few large ones.
+
+**Testability is a design signal.** If something is hard to test, it's probably too coupled, too complex, or doing too many things. Difficulty writing a unit test means the code needs redesigning, not that the test needs more mocks. Use this as continuous feedback: when you struggle to test something, simplify the code rather than complicating the test.
+
+**Decomposition checklist:**
+- Can each piece be understood in isolation, without reading the rest of the file?
+- Can each piece be tested with a simple setup (few mocks, minimal state)?
+- Does each piece have a name that fully describes what it does?
+- If a piece were deleted, would its absence be felt in exactly one place?
+
 ### Naming & Readability
 
 - Names describe intent: functions are verbs (`calculateTotal`, `validateInput`), data is nouns (`activeUser`, `orderCount`)
@@ -158,6 +176,7 @@ This is not scope creep — it's maintenance hygiene. Every change should leave 
 - Functions < 20 lines ideal, cognitive complexity < 15 per function, nesting depth ≤ 3 levels
 - No hardcoded values, no magic numbers — use named constants
 - Early returns over deep nesting; guard clauses for preconditions
+- Prefer flat, linear control flow — extract nested logic into well-named helper functions rather than adding depth
 - Consistent formatting matching the project's existing style
 
 ### Type Safety & Data Validation
@@ -334,9 +353,10 @@ If the project serves or will serve multiple locales:
 - Clear separation of concerns — business logic belongs in services/domain layer, not in controllers, handlers, or UI components
 - Dependencies flow in one direction; no circular dependencies
 - Modules can be changed and tested independently (loose coupling)
-- Related code is grouped together (high cohesion)
+- Related code is grouped together (high cohesion) — but a module that groups too many things becomes a dumping ground, not a cohesive unit
 - External dependencies (databases, APIs, file system) are abstracted behind interfaces — code depends on the interface, not the implementation
 - New modules should follow existing architectural patterns unless there's a documented reason to diverge
+- Prefer many focused files over few sprawling ones — a file should be about one thing, and you should be able to tell what that thing is from the filename alone
 
 ### Dependency Management
 
@@ -466,9 +486,11 @@ Before declaring done, perform a multi-pass review of your own changes:
 - Check for: silent failures, wrong defaults, missing error handling, off-by-one errors, null/undefined handling, empty collection handling, type coercion bugs
 - Verify every import resolves, every API/function called exists, every property accessed is real — no hallucinated interfaces
 
-### Pass B: Design & Compatibility
+### Pass B: Design & Simplicity
 - Does it fit existing patterns? Would a new developer understand it?
-- Could this be simpler? (KISS check) Is there unnecessary abstraction?
+- Could this be simpler? Is there unnecessary abstraction or indirection?
+- Is every function, module, and file focused on a single clear purpose?
+- Could any piece be split further to improve clarity or testability?
 - Any dead code, duplicated logic, magic numbers, unused imports?
 - Is it backward compatible? Will existing callers, configs, or data formats still work?
 - Are database migrations reversible?
@@ -578,6 +600,8 @@ Before declaring done, perform a multi-pass review of your own changes:
 | Removing validation to make code compile | Understand why it fails; fix the root cause |
 | Introducing new patterns alongside existing ones | Reuse the project's established approach |
 | Over-abstracting | Don't add layers that don't exist elsewhere |
+| Monolithic files doing many things | Split into focused, single-purpose modules |
+| Complexity without justification | Simpler is always better unless proven otherwise |
 
 ---
 
