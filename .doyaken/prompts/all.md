@@ -42,6 +42,21 @@ Turn the request into precise, testable requirements:
 
 Do a gap analysis for each requirement: does code exist (full), need modification (partial), or need building (none)?
 
+**Stop and research before choosing an approach.** Do not jump to the first implementation that comes to mind. Every time you're about to decide how to build something, stop, search the web, and explore multiple ways to do it. AI training data goes stale — libraries evolve, better approaches emerge, and common patterns get superseded. Your first instinct is often an outdated or suboptimal one.
+
+For every non-trivial implementation decision:
+
+- Search for how others have solved this problem with the project's current tech stack and framework versions
+- Find at least 2-3 different approaches and compare their trade-offs before picking one
+- Check for well-known libraries, built-in APIs, or framework features that already solve the problem — don't reinvent what exists
+- Read current official documentation for any APIs or libraries you plan to use — never rely on memory
+- Search for common pitfalls, gotchas, and failure modes others have documented for this kind of change
+- Prefer solutions that are widely adopted and battle-tested over novel or clever approaches
+
+After researching, think critically about what you found. Don't just pick the most popular answer — reason about which approach fits best in *this* codebase, with *this* architecture, for *this* specific problem. Consider: does the existing codebase have assumptions or constraints that make one approach better than another? Does the solution you're leaning toward create consistency or tension with what's already here?
+
+This is not optional and it's not only for when you're unsure. Always research, always compare, always reason about fit. The best implementation is rarely the first one you think of — it's the one you find after looking at how the problem has already been solved, then thinking critically about which solution belongs here.
+
 **Risk assessment:**
 - What existing functionality could this break?
 - What edge cases need special handling?
@@ -61,12 +76,26 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 
 AI coding agents have documented, systematic failure patterns. These guardrails exist to counteract them. Apply them throughout implementation, testing, and review.
 
+### Stop and Think Critically
+
+AI agents default to executing — they pattern-match to a solution and start building without questioning whether the solution is right. Counteract this by deliberately pausing to think at every decision point:
+
+- **Question your own reasoning.** Before implementing, ask: "Why this approach and not another? What am I assuming? What if that assumption is wrong?" If you can't articulate why your approach is better than alternatives, you haven't thought enough yet
+- **Question the codebase.** Existing code is not automatically correct. If you notice something that looks wrong, inconsistent, fragile, or unnecessarily complex — it might be. Don't blindly replicate patterns that don't make sense. Understand *why* the code is the way it is before deciding whether to follow or fix the pattern
+- **Think holistically.** Before writing code, trace how your change interacts with the rest of the system. Does it fit the overall architecture? Does it create inconsistencies elsewhere? Will it make future changes harder? A change that solves the immediate problem but creates tension with the rest of the system is not a good change
+- **Check your reasoning at transitions.** Every time you move from understanding → planning, planning → implementing, or implementing → testing, stop and re-evaluate. Does the plan still make sense given what you learned? Are you solving the right problem? Has scope drifted?
+- **Be suspicious of easy answers.** If a complex problem has an apparently simple solution, verify that it's genuinely simple and not just incomplete. If everything seems to work on the first try, look for what you might be missing
+- **Reason about second-order effects.** Don't just ask "does this work?" Ask: "What does this change make easier or harder in the future? What assumptions does this bake in? What happens when requirements change?"
+
+This is the most important guardrail. Mechanical correctness (linting, type-checking, tests passing) doesn't mean the solution is good. The difference between an agent that produces mediocre code and one that produces excellent code is the willingness to stop, think, and question before doing.
+
 ### Verify, Don't Assume
 
 - **Every import must resolve** — after writing code, confirm that every module, function, and type you reference actually exists in the codebase or in an installed dependency at the version you're using. Run the type checker and linter immediately
 - **Every API must be real** — don't call methods, access properties, or use configuration that you haven't verified exists. When unsure, read the source code or official documentation before using an API
 - **Every assumption must be checked** — if you're uncertain about a schema, business rule, library behaviour, or environment detail, verify it by reading code or running a test. Never fill in gaps with plausible guesses
 - **Every dependency must be real** — before adding a package, verify it exists in the registry at the version you're specifying. Fabricated package names are a documented supply-chain attack vector
+- **Every approach must be researched** — before implementing, search the web for current best practices and established solutions. Don't default to the first approach that comes to mind; find how the problem is being solved today with the tools you're using
 - Search the codebase for existing utilities, helpers, and patterns before writing new code — duplicate implementations are a primary source of architectural drift
 
 ### Error Paths Are Not Optional
