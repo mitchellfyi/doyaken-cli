@@ -10,13 +10,13 @@ A coding agent that delivers robust, working code. One prompt in, verified code 
 
 ## Why Doyaken?
 
-Most AI coding tools generate code and hope for the best. Doyaken runs your prompt through an 8-phase pipeline with built-in verification loops -- it implements, tests, reviews, and retries until the code actually works.
+Most AI coding tools generate code and hope for the best. Doyaken runs your prompt through a 4-phase pipeline with built-in verification loops -- it plans, implements, tests, and verifies until the code actually works.
 
 - **One prompt, working code** - `dk run "Add JWT authentication"` and walk away
 - **Verification gates** - Build, lint, and test checks run automatically after key phases. Failures trigger retries with error context.
 - **Any AI agent** - Claude, Codex, Gemini, Copilot, Cursor, or OpenCode
 - **One install, all projects** - Global installation works across all your repos
-- **Batteries included** - 40+ skills, 25+ prompts, 8-phase workflow out of the box
+- **Batteries included** - 40+ skills, 25+ prompts, 4-phase workflow out of the box
 
 ## How It Works
 
@@ -24,16 +24,16 @@ Most AI coding tools generate code and hope for the best. Doyaken runs your prom
 dk run "Add user authentication with JWT"
 ```
 
-Doyaken takes your prompt and runs it through an 8-phase pipeline:
+Doyaken takes your prompt and runs it through a 4-phase pipeline:
 
 ```
-EXPAND → TRIAGE → PLAN → IMPLEMENT → TEST → DOCS → REVIEW → VERIFY
-                              ↑            ↑             ↑
-                              └── gates ───┘── gates ────┘
-                              retry on failure with error context
+PLAN → IMPLEMENT → TEST → VERIFY
+          ↑          ↑       ↑
+          └── AI review gates ┘
+          retry on failure with feedback
 ```
 
-**Verification gates** run your project's quality commands (build, lint, format, test) after IMPLEMENT, TEST, and REVIEW. If a gate fails, the phase retries with the error output injected into the prompt -- so the agent sees exactly what broke and fixes it. Each phase has a configurable retry budget (default: 5 for implement, 3 for test/review).
+**AI review gates** run after each phase, performing multiple review passes (default: 3) to catch issues. If a review fails, the phase retries with feedback injected into the prompt -- so the agent sees exactly what needs fixing.
 
 **Accumulated context** flows between phases and retries, so later phases know what happened earlier. No work is lost.
 
@@ -59,52 +59,61 @@ dk doctor
 
 | Command | Description |
 |---------|-------------|
-| `dk run "<prompt>"` | Execute a prompt through the 8-phase pipeline |
+| `dk run "<prompt>"` | Execute a prompt through the 4-phase pipeline |
+| `dk resume` | Resume the last interrupted run |
+| `dk chat` | Interactive chat/REPL mode |
+| `dk chat --resume [id]` | Resume a previous chat session |
+| `dk sessions` | List chat sessions |
 | `dk init [path]` | Initialize a new project |
 | `dk register` | Register current project in global registry |
 | `dk unregister` | Remove current project from registry |
+| `dk list` | List all registered projects |
 | `dk skills` | List available skills |
 | `dk skill <name>` | Run a skill |
-| `dk sync` | Sync all agent configuration files |
-| `dk commands` | Regenerate slash commands |
-| `dk review` | Run periodic codebase review |
-| `dk review --status` | Show review status and counter |
+| `dk config` | Show effective configuration |
+| `dk config edit` | Edit global or project config |
+| `dk upgrade` | Upgrade doyaken to latest version |
+| `dk upgrade --check` | Check for available updates |
 | `dk mcp status` | Show MCP integration status |
 | `dk mcp configure` | Generate MCP configs |
 | `dk hooks` | List available CLI agent hooks |
 | `dk hooks install` | Install hooks to .claude/settings.json |
+| `dk sync` | Sync agent files, prompts, skills, and commands |
+| `dk commands` | Regenerate slash commands |
 | `dk status` | Show project status |
-| `dk list` | List all registered projects |
 | `dk manifest` | Show project manifest |
-| `dk config` | Show/edit configuration |
-| `dk upgrade` | Upgrade doyaken to latest version |
-| `dk upgrade --check` | Check for available updates |
-| `dk health` | Quick health check (JSON, scriptable) |
 | `dk doctor` | Health check and diagnostics |
+| `dk health` | Quick health check (JSON, scriptable) |
+| `dk validate` | Validate project configuration |
+| `dk stats` | Show project statistics |
+| `dk audit` | View audit log |
+| `dk generate` | Generate/sync tool configs |
 | `dk cleanup` | Clean logs, state, and registry |
 | `dk version` | Show version |
 | `dk help` | Show help |
 
 > **Note:** `doyaken` and `dk` are interchangeable.
 
-## 8-Phase Pipeline
+## 4-Phase Pipeline
 
 Each phase runs in a fresh agent context with dedicated prompts:
 
 | Phase | Timeout | Purpose |
 |-------|---------|---------|
-| **EXPAND** | 2min | Expand brief prompt into full specification |
-| **TRIAGE** | 2min | Validate feasibility, check dependencies |
-| **PLAN** | 5min | Gap analysis, detailed implementation plan |
-| **IMPLEMENT** | 30min | Write the code |
-| **TEST** | 10min | Run tests, add coverage |
-| **DOCS** | 5min | Sync documentation |
-| **REVIEW** | 10min | Code review, quality check |
-| **VERIFY** | 3min | Final verification, commit |
+| **PLAN** | 20min | Gap analysis, detailed implementation plan |
+| **IMPLEMENT** | 120min | Write the code |
+| **TEST** | 60min | Run tests, add coverage |
+| **VERIFY** | 30min | Final verification, commit |
 
 ### Verification Gates
 
 After every phase, doyaken runs your project's quality commands (build, lint, format, test). If any gate fails and the phase has retries remaining, it re-runs with the error output injected into the prompt.
+
+### AI Review Gates
+
+After verification gates pass, an AI review gate runs multiple review passes (default: 3) against the phase output. If the review finds issues, the phase retries with the feedback injected. Disable with `--no-ai-review` or `DOYAKEN_AI_REVIEW=0`.
+
+### Configuration
 
 Configure gates and per-phase retry budgets in `.doyaken/manifest.yaml`:
 
@@ -116,22 +125,18 @@ quality:
   test_command: "npm test"
 
 retry_budget:
-  expand: 1       # 1 = single pass (no retry)
-  triage: 1
-  plan: 1
-  implement: 5    # Up to 5 attempts for IMPLEMENT
+  plan: 3
+  implement: 3
   test: 3
-  docs: 1
-  review: 3
-  verify: 1
+  verify: 3
 ```
 
-When no quality commands are configured, gates are skipped and all phases run in single-pass mode.
+When no quality commands are configured, verification gates are skipped. AI review gates still run unless disabled.
 
 ### Self-Healing
 
 - **Model fallback**: If the primary model hits rate limits, automatically falls back to a cheaper model (e.g., opus -> sonnet)
-- **Crash recovery**: Interrupted runs can resume from the last completed phase
+- **Crash recovery**: Interrupted runs can resume from the last completed phase (`dk resume`)
 - **Rate limiting**: Automatic backoff and retry on API rate limits
 
 ## Multi-Agent Support
@@ -280,7 +285,7 @@ Skills can also use vendor namespacing (`vendor:skill`) for platform-specific fu
 | `review-codebase` | Comprehensive codebase review |
 | `research-features` | Discover next best feature to build |
 | `ci-fix` | Diagnose and fix CI/CD failures |
-| `workflow` | Run the 8-phase workflow |
+| `workflow` | Run the 4-phase workflow |
 | `sync-agents` | Sync agent config files to project |
 
 **Integrations** (require MCP servers):
@@ -383,7 +388,7 @@ your-project/
 │   ├── manifest.yaml        # Project configuration
 │   ├── prompts/
 │   │   ├── library/         # 25+ methodology prompts
-│   │   └── phases/          # 8-phase workflow prompts
+│   │   └── phases/          # 4-phase workflow prompts
 │   ├── skills/              # Project-specific skills
 │   ├── hooks/               # Claude Code hooks
 │   ├── logs/                # Execution logs
@@ -446,29 +451,27 @@ agent:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
+| `DOYAKEN_PROJECT` | auto-detect | Override project detection |
 | `DOYAKEN_AGENT` | `claude` | AI agent to use |
 | `DOYAKEN_MODEL` | agent-specific | Model for the selected agent |
+| `DOYAKEN_AUTO_COMMIT` | `1` | Auto-commit after phases (set `0` to disable) |
+| `DOYAKEN_AUTO_PUSH` | `0` | Auto-push after phase commits |
+| `DOYAKEN_AI_REVIEW` | `1` | AI review gate (set `0` or `--no-ai-review` to disable) |
+| `DOYAKEN_AI_REVIEW_PASSES` | `3` | Number of AI review passes per phase |
 | `AGENT_DRY_RUN` | `0` | Preview without executing |
 | `AGENT_VERBOSE` | `0` | Detailed output |
 | `AGENT_QUIET` | `0` | Minimal output |
 | `AGENT_MAX_RETRIES` | `2` | Retries per phase (rate limit retries) |
-| `RETRY_BUDGET_EXPAND` | `1` | Verification gate retries for EXPAND |
-| `RETRY_BUDGET_TRIAGE` | `1` | Verification gate retries for TRIAGE |
-| `RETRY_BUDGET_PLAN` | `1` | Verification gate retries for PLAN |
-| `RETRY_BUDGET_IMPLEMENT` | `5` | Verification gate retries for IMPLEMENT |
+| `RETRY_BUDGET_PLAN` | `3` | Verification gate retries for PLAN |
+| `RETRY_BUDGET_IMPLEMENT` | `3` | Verification gate retries for IMPLEMENT |
 | `RETRY_BUDGET_TEST` | `3` | Verification gate retries for TEST |
-| `RETRY_BUDGET_DOCS` | `1` | Verification gate retries for DOCS |
-| `RETRY_BUDGET_REVIEW` | `3` | Verification gate retries for REVIEW |
-| `RETRY_BUDGET_VERIFY` | `1` | Verification gate retries for VERIFY |
-| `TIMEOUT_EXPAND` | `300` | Expand phase timeout (seconds) |
-| `TIMEOUT_TRIAGE` | `180` | Triage phase timeout (seconds) |
-| `TIMEOUT_PLAN` | `300` | Plan phase timeout (seconds) |
-| `TIMEOUT_IMPLEMENT` | `1800` | Implement phase timeout (seconds) |
-| `TIMEOUT_TEST` | `600` | Test phase timeout (seconds) |
-| `TIMEOUT_DOCS` | `300` | Docs phase timeout (seconds) |
-| `TIMEOUT_REVIEW` | `600` | Review phase timeout (seconds) |
-| `TIMEOUT_VERIFY` | `300` | Verify phase timeout (seconds) |
-| `DOYAKEN_HOME` | `~/.doyaken` | Global installation directory |
+| `RETRY_BUDGET_VERIFY` | `3` | Verification gate retries for VERIFY |
+| `TIMEOUT_PLAN` | `1200` | Plan phase timeout (seconds) |
+| `TIMEOUT_IMPLEMENT` | `7200` | Implement phase timeout (seconds) |
+| `TIMEOUT_TEST` | `3600` | Test phase timeout (seconds) |
+| `TIMEOUT_VERIFY` | `1800` | Verify phase timeout (seconds) |
+| `TIMEOUT_AI_REVIEW` | `180` | AI review timeout (seconds) |
 | `DOYAKEN_MCP_STRICT` | `0` | Block unofficial MCP packages and missing env vars |
 
 ## Troubleshooting
