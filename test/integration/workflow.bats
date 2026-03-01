@@ -123,6 +123,48 @@ teardown() {
 }
 
 # ============================================================================
+# Health workflow
+# ============================================================================
+
+@test "workflow: health outputs JSON with required fields" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health
+  # Accept any exit code — environment may lack yq/timeout/claude
+  [[ "$output" == *'"status"'* ]]
+  [[ "$output" == *'"version"'* ]]
+  [[ "$output" == *'"agent"'* ]]
+  [[ "$output" == *'"agent_available"'* ]]
+  [[ "$output" == *'"checks_passed"'* ]]
+  [[ "$output" == *'"checks_total"'* ]]
+}
+
+@test "workflow: health reports correct version" {
+  cd "$TEST_TEMP_DIR"
+
+  local expected_version
+  expected_version=$(cat "$PROJECT_ROOT/VERSION")
+
+  run "$PROJECT_ROOT/bin/doyaken" health
+  [[ "$output" == *"\"version\":\"$expected_version\""* ]]
+}
+
+@test "workflow: health --quiet produces no output" {
+  cd "$TEST_TEMP_DIR"
+
+  run "$PROJECT_ROOT/bin/doyaken" health --quiet
+  [ -z "$output" ]
+  [ "$status" -le 2 ]
+}
+
+@test "workflow: help health shows usage" {
+  run "$PROJECT_ROOT/bin/doyaken" help health
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"doyaken health"* ]]
+  [[ "$output" == *"USAGE"* ]]
+}
+
+# ============================================================================
 # Version workflow
 # ============================================================================
 
