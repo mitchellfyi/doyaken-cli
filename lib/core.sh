@@ -1504,6 +1504,9 @@ run_all_phases() {
       progress_phase_start "$name"
     fi
 
+    # Snapshot git state before the phase so we can isolate agent changes
+    phase_snapshot
+
     local phase_result=0
     run_phase_with_verification "$name" "$prompt_file" "$timeout" "$skip" "$task_id" "$task_prompt" "$phase_idx" "$total_phases" || phase_result=$?
 
@@ -1623,9 +1626,48 @@ clear_phase_progress() {
   rm -f "$progress_file"
 }
 
-# Commit (and optionally push) uncommitted changes after a successful phase.
-# Skipped if: not a git repo, no changes, or DOYAKEN_AUTO_COMMIT=0.
-# Push controlled by DOYAKEN_AUTO_PUSH (default: 0).
+# Snapshot directory for pre-phase file hashes.
+_PHASE_SNAPSHOT_FILE=""
+
+# Capture a content-hash snapshot of all dirty files before a phase starts.
+# Uses md5/sha checksums so we can detect which files the agent actually
+# changed vs files that were already dirty from other work.
+phase_snapshot() {
+  if [ "${DOYAKEN_AUTO_COMMIT:-1}" != "1" ]; then
+    return 0
+  fi
+  if [ ! -d "$PROJECT_DIR/.git" ]; then
+    return 0
+  fi
+
+  _PHASE_SNAPSHOT_FILE=$(mktemp "${TMPDIR:-/tmp}/doyaken-snapshot.XXXXXX")
+
+  # For each dirty file, record "filename<TAB>hash".
+  # New (untracked) files get hash "NEW" so we can tell them apart
+  # from files that existed but weren't modified by the agent.
+  local file
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    if [ -f "$PROJECT_DIR/$file" ]; then
+      local h
+      h=$(git -C "$PROJECT_DIR" hash-object "$file" 2>/dev/null) || h="UNKNOWN"
+      printf '%s\t%s\n' "$file" "$h"
+    else
+      printf '%s\tDELETED\n' "$file"
+    fi
+  done >> "$_PHASE_SNAPSHOT_FILE" < <({
+    git -C "$PROJECT_DIR" diff --name-only 2>/dev/null || true
+    git -C "$PROJECT_DIR" diff --cached --name-only 2>/dev/null || true
+    git -C "$PROJECT_DIR" ls-files --others --exclude-standard 2>/dev/null || true
+  } | sort -u)
+}
+
+# Commit only files the agent actually changed during this phase.
+# Compares content hashes against the pre-phase snapshot so that:
+#   - Files dirty before the phase that the agent didn't touch are skipped
+#   - Files dirty before the phase that the agent DID modify are included
+#   - Newly created files are included
+# Controlled by DOYAKEN_AUTO_COMMIT (default: 1) and DOYAKEN_AUTO_PUSH (default: 0).
 phase_commit() {
   local phase_name="$1"
   local task_id="$2"
@@ -1638,15 +1680,66 @@ phase_commit() {
     return 0
   fi
 
-  if git -C "$PROJECT_DIR" diff --quiet HEAD 2>/dev/null \
-     && [ -z "$(git -C "$PROJECT_DIR" ls-files --others --exclude-standard 2>/dev/null)" ]; then
+  # Build list of files the agent changed (new, modified, or deleted)
+  local agent_files=""
+  local file_count=0
+
+  # Collect all currently dirty files with their hashes
+  local current_file current_hash
+  while IFS= read -r current_file; do
+    [ -z "$current_file" ] && continue
+
+    if [ -f "$PROJECT_DIR/$current_file" ]; then
+      current_hash=$(git -C "$PROJECT_DIR" hash-object "$current_file" 2>/dev/null) || current_hash="UNKNOWN"
+    else
+      current_hash="DELETED"
+    fi
+
+    # Compare against snapshot: include file only if it's new or content changed
+    local dominated=0
+    if [ -n "${_PHASE_SNAPSHOT_FILE:-}" ] && [ -f "$_PHASE_SNAPSHOT_FILE" ]; then
+      local old_hash
+      old_hash=$(grep -F "$(printf '%s\t' "$current_file")" "$_PHASE_SNAPSHOT_FILE" 2>/dev/null | head -1 | cut -f2) || true
+      if [ -n "$old_hash" ] && [ "$old_hash" = "$current_hash" ]; then
+        # File was already dirty and content hasn't changed — skip
+        dominated=1
+      fi
+    fi
+
+    if [ "$dominated" -eq 0 ]; then
+      agent_files="${agent_files}${current_file}
+"
+      file_count=$(( file_count + 1 ))
+    fi
+  done < <({
+    git -C "$PROJECT_DIR" diff --name-only 2>/dev/null || true
+    git -C "$PROJECT_DIR" diff --cached --name-only 2>/dev/null || true
+    git -C "$PROJECT_DIR" ls-files --others --exclude-standard 2>/dev/null || true
+  } | sort -u)
+
+  # Clean up snapshot
+  if [ -n "${_PHASE_SNAPSHOT_FILE:-}" ]; then
+    rm -f "$_PHASE_SNAPSHOT_FILE"
+    _PHASE_SNAPSHOT_FILE=""
+  fi
+
+  if [ "$file_count" -eq 0 ]; then
     log_info "No uncommitted changes after $phase_name"
     return 0
   fi
 
   log_step "Committing changes from $phase_name phase..."
 
-  git -C "$PROJECT_DIR" add -A 2>/dev/null || true
+  # Stage only agent-changed files
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    if [ -f "$PROJECT_DIR/$file" ]; then
+      git -C "$PROJECT_DIR" add -- "$file" 2>/dev/null || true
+    else
+      # File was deleted by agent
+      git -C "$PROJECT_DIR" rm --cached -- "$file" 2>/dev/null || true
+    fi
+  done <<< "$agent_files"
 
   local commit_msg="wip($task_id): $phase_name phase"
   if ! git -C "$PROJECT_DIR" commit -m "$commit_msg" 2>/dev/null; then
@@ -1656,7 +1749,7 @@ phase_commit() {
 
   local short_hash
   short_hash=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null)
-  log_ok "Committed: $short_hash - $commit_msg"
+  log_ok "Committed $file_count file(s): $short_hash - $commit_msg"
 
   if [ "${DOYAKEN_AUTO_PUSH:-0}" = "1" ]; then
     local branch
