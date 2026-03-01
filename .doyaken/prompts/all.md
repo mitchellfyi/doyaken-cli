@@ -9,10 +9,11 @@ You are implementing a feature, fix, or improvement. Your goal is production-gra
 **Read first, code second.** Before making any change:
 
 - Read AGENTS.md, README.md, CONTRIBUTING.md — understand the project's rules and conventions
-- Check CI workflows, lint/format/test/build configs — know what "passing" means
+- Check CI workflows, lint/format/test/build configs — know what "passing" means at each layer: local hooks, CI, release gate
 - Trace related code paths and find ALL files in the domain you'll touch
 - Note existing patterns: naming conventions, error handling, logging, test structure, config approach
 - Check git status and recent history — know what's already changed
+- Check git hooks (`.githooks/`, `.husky/`, `.pre-commit-config.yaml`) — understand what local quality enforcement already exists
 - Understand existing test coverage for the area you'll modify
 - Identify the tech stack, frameworks, and their idiomatic patterns
 
@@ -124,6 +125,16 @@ AI agents pattern-match from training data, not from your codebase's architectur
 - If your implementation looks structurally different from adjacent code, that's a red flag — investigate whether you're following the project's conventions
 - Resist adding abstraction layers that don't exist elsewhere in the codebase
 
+**For UI, CSS, and visual work, consistency is even more critical — visual deviations are immediately visible to users and reviewers:**
+
+- Before writing any markup or styles, find the most similar existing component or screen and study it. Match its structure, class names, and styling approach exactly
+- Identify the project's styling methodology (Tailwind, CSS Modules, styled-components, SCSS, plain CSS) and use only that — never mix methodologies in the same codebase
+- Use the project's design tokens for all visual values: colors, spacing, typography, border radius, shadows. Never hardcode hex values, pixel measurements, or font sizes that could instead reference a token or variable
+- Use existing components rather than recreating them — find the `Button`, `Card`, `Input`, or layout primitive that already exists before writing new markup
+- Match the project's spacing scale exactly — if it uses an 8px grid, use multiples of 8; don't use arbitrary values like `13px` or `22px`
+- If a Figma file, style guide, or design system reference exists, consult it. When a design says one thing and the existing code says another, align with the code (it reflects what shipped) and flag the discrepancy
+- Check that responsive behavior, dark mode support, and focus/hover states match adjacent components — don't implement these inconsistently
+
 ### Test Honestly
 
 AI agents that write both code and tests often produce tests that validate the AI's assumptions rather than actual system behaviour:
@@ -148,6 +159,8 @@ When fixing bugs, AI agents tend to overfocus on the specific failing case and b
 ## 4. IMPLEMENT WITH DISCIPLINE
 
 **After every file change, run the project's quality gates** (lint, typecheck, tests). Don't accumulate broken state — if a check fails, stop and fix it before continuing. Commit after each logical, verified change.
+
+**Discover the project's quality commands before writing any code.** Check `package.json` scripts, `Makefile` targets, or `scripts/check-all.sh` to find gate commands. Run targeted gates (lint + module tests) after each file change; run the full suite (`npm run check` or equivalent) before committing. For Bash projects, run `shellcheck` on every shell file you touch — errors are blocking; suppress warnings only with an inline comment explaining why (e.g. `# shellcheck disable=SC2034 — used in sourced file`).
 
 ### Codebase Stewardship
 
@@ -524,6 +537,7 @@ Before declaring done, perform a multi-pass review of your own changes:
 - Is it backward compatible? Will existing callers, configs, or data formats still work?
 - Are database migrations reversible?
 - Does the implementation match the structure, style, and approach of adjacent code in this codebase?
+- **For UI/CSS:** Are only the project's design tokens used (no hardcoded colors, spacing, or font sizes)? Are existing components reused rather than recreated? Does the visual result match adjacent UI in spacing, typography, and interactive states (hover, focus, disabled)? Is the styling methodology consistent with the rest of the codebase?
 
 ### Pass C: Security & Privacy
 - Input validation on all external data?
@@ -552,6 +566,17 @@ Before declaring done, perform a multi-pass review of your own changes:
 - Docs match implementation?
 - No stale comments referring to old code?
 - Configuration options documented?
+
+### Pass G: CI/CD & Tooling
+- All CI action versions pinned to commit SHAs, not floating tags (`@v4`, `@latest`)?
+- Every CI job has `permissions:` declared with minimum required scope?
+- Test jobs have `needs:` on lint/validate — expensive gates blocked by cheap ones?
+- No `|| true` silently masking real failures in CI scripts?
+- Release pipeline programmatically verifies CI passed before publishing?
+- Security audit step present and blocking on high/critical CVEs?
+- Install test present and testing the actual install path, not just the source?
+- Git hooks in place and covering the appropriate gates?
+- Local quality commands match what CI runs — no environment discrepancy?
 
 ### Loose Ends Sweep
 - No unused imports or variables
@@ -588,6 +613,121 @@ Before declaring done, perform a multi-pass review of your own changes:
 - Fix the root cause, not the symptom
 - Add a regression test for every bug you fix
 - If stuck after 3 attempts, step back and reassess the approach entirely — the design may be wrong
+
+---
+
+## 9. CI/CD PIPELINE & DEVELOPER TOOLING
+
+**Good tooling catches issues before they reach users. Layer gates from fastest to slowest — pre-commit hook → CI → release guard — and fail hard at every layer.**
+
+### Discovering Quality Gates
+
+Before writing any code, identify every gate the project enforces:
+
+| Source | What to check |
+|--------|---------------|
+| `package.json` → `scripts` | `lint`, `test`, `typecheck`, `build`, `check` |
+| `Makefile` | `lint`, `test`, `check`, `build` targets |
+| `.doyaken/manifest.yaml` | `lint_command`, `test_command`, `build_command` |
+| `scripts/check-all.sh` | Project-specific gate orchestration |
+| `.github/workflows/ci.yml` | Authoritative definition of what "passing" means |
+
+Know the individual commands AND the all-in-one command (`npm run check`, `make check`). The all-in-one is for pre-commit; the individual commands are for targeted feedback during development.
+
+### Running Gates Incrementally
+
+Don't accumulate broken state. Follow this order after each change:
+
+1. **File saved** — lint the modified file(s), run `shellcheck` for Bash
+2. **Logical unit complete** — run targeted tests (`npm run test:unit`, `go test ./pkg/...`)
+3. **Feature ready** — run the full gate suite (`npm run check`)
+4. **Before commit** — full suite must pass (ideally enforced by pre-commit hook)
+
+If a gate consistently takes > 30 seconds locally, it will be bypassed — profile and optimize it. Slow gates provide no protection.
+
+**Bash-specific gates:**
+- Run `shellcheck` on every `.sh` file and shell entry point you modify — errors block, warnings need a comment if suppressed
+- Run `bash -n <file>` for syntax-only validation when shellcheck isn't available
+- Fix all shellcheck errors; never use `shellcheck disable` without an inline explanation
+
+### Git Hooks
+
+Git hooks are the last local gate before code reaches CI. Check whether hooks already exist (`.githooks/`, `.husky/`, `.pre-commit-config.yaml`) before adding new ones.
+
+**Pre-commit (must be fast — < 10s):** lint changed files, bash syntax check, block commits with secrets or hardcoded credentials
+
+**Pre-push (can be slower — < 60s):** full test suite, security audit
+
+If hooks aren't present, note it as a gap and add them. For this project: `npm run setup` installs git hooks via `scripts/setup-hooks.sh`.
+
+Hooks that run slowly get disabled or worked around — they provide no protection. Keep pre-commit under 10 seconds or it will be skipped.
+
+### CI/CD Pipeline Design
+
+When writing or reviewing CI workflows:
+
+**Job ordering — cheap gates block expensive ones:**
+```
+lint ──┐
+       ├──→ test (matrix) ──→ package/security ──→ install-test
+validate ──┘
+```
+- Lint and validate run in parallel (no `needs:`)
+- Tests run only after both pass: `needs: [lint, validate]`
+- Package, security, and install-test run only after tests pass
+
+**Workflow security — non-negotiable:**
+- Pin all action versions to commit SHAs — tags are mutable and can be silently overwritten:
+  ```yaml
+  # Vulnerable — the tag can be replaced without notice
+  uses: actions/checkout@v4
+  # Correct — SHA is immutable
+  uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+  ```
+- Declare `permissions:` on every job with only the minimum required scope — default to `contents: read`; only add `contents: write` or `id-token: write` where needed
+- Never log secrets; avoid `set -x` in scripts that reference environment variables
+- Use `concurrency:` with `cancel-in-progress: true` on deploy jobs to prevent simultaneous releases
+
+**What every CI pipeline must include:**
+
+| Gate | Purpose | Fail on |
+|------|---------|---------|
+| Lint | Catch style and correctness issues early | Any error |
+| Syntax validation (`bash -n`, YAML) | Catch structural breaks before runtime | Any error |
+| Tests (multi-OS matrix for cross-platform tools) | Prove behaviour | Any failure |
+| Security audit (`npm audit --omit=dev --audit-level=high`) | Block known CVEs from shipping | High or critical CVE |
+| Package/build check (`npm pack --dry-run`) | Catch packaging bugs, not just source bugs | Any error |
+| Install test | Verify the install path works, not just the dev path | Any failure |
+
+**Signs of a broken or insecure pipeline:**
+- Tests guarded with `|| true` — failures are hidden
+- Missing `needs:` — expensive jobs can run before cheap gates pass
+- Floating action versions (`@v4`, `@latest`) — supply-chain risk
+- No security audit — CVEs ship undetected
+- Release that doesn't verify CI passed — broken code can reach users
+- No install test — works in dev, breaks on install
+
+### Release Pipeline Guards
+
+The release pipeline is the final gate before code reaches users. Every release must:
+
+- **Verify CI passed** — check the commit's status programmatically (e.g. `gh api .../commits/$SHA/status`), never assume it passed
+- **Verify version consistency** — package.json version must equal the git tag; verify both explicitly
+- **Test the artifact** — run the binary/CLI after packaging, before publishing
+- **Publish with provenance** — use `npm publish --provenance` (or equivalent) for supply-chain transparency
+- **Maintain a rollback path** — every release must have a corresponding rollback mechanism (`npm dist-tag`, previous Docker tag, etc.)
+- **Prevent concurrent releases** — use `concurrency: group: deploy-production, cancel-in-progress: true`
+
+### Developer Experience
+
+A healthy developer toolchain creates no friction and catches problems fast:
+
+- **Zero-setup start** — `git clone && npm install && npm test` should work without additional manual steps
+- **One command for all gates** — `npm run check` (or `make check`) runs everything; developers should not need to remember individual gate commands
+- **Fast targeted feedback** — individual commands (`npm run lint`, `npm run test:unit`) let developers iterate quickly before running the full suite
+- **Clear, actionable output** — gate failures must identify exactly what failed, on which file and line, with enough context to fix it without searching
+- **Self-installing hooks** — `npm run setup` installs git hooks automatically; never require manual setup steps
+- **CI parity** — what runs locally must match what runs in CI; divergence between local and CI means bugs ship undetected until CI runs
 
 ---
 
@@ -631,6 +771,19 @@ Before declaring done, perform a multi-pass review of your own changes:
 | Over-abstracting | Don't add layers that don't exist elsewhere |
 | Monolithic files doing many things | Split into focused, single-purpose modules |
 | Complexity without justification | Simpler is always better unless proven otherwise |
+| CI action versions not pinned to SHA | Pin to commit SHA with a version comment — tags are mutable |
+| Tests silenced with `\|\| true` in CI | Fix the test or remove it; don't hide failures |
+| Release without verifying CI passed | Check commit status programmatically before publishing |
+| Missing `needs:` on CI jobs | Gate expensive jobs on cheap ones; lint before test before release |
+| No `permissions:` on CI jobs | Declare minimum required permissions per job — default to `contents: read` |
+| Local gates diverge from CI | Run the same commands locally and in CI; divergence means bugs ship |
+| No git hooks | Add pre-commit (lint) and pre-push (tests) hooks — gates without hooks get bypassed |
+| Slow gates that get skipped | Profile and optimize — a gate only protects if it runs |
+| Hardcoded colors, spacing, or font sizes in UI | Use the project's design tokens and CSS variables |
+| Recreating existing UI components | Find and reuse the existing component — check the component library first |
+| Mixing CSS methodologies | Match the project's approach (Tailwind OR CSS Modules OR styled-components — not a mix) |
+| Arbitrary spacing values | Use the project's spacing scale — off-scale values break visual rhythm |
+| Inconsistent interactive states | Match hover, focus, active, and disabled styles to adjacent components |
 
 ---
 
