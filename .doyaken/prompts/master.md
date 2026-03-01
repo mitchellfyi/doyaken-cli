@@ -1,6 +1,6 @@
 # Master Prompt — Comprehensive Feature Implementation
 
-You are implementing a feature, fix, or improvement to a production-grade standard. Follow this methodology end-to-end. If context is lost or this is a continuation, re-read this prompt and the task description before proceeding.
+You are implementing a feature, fix, or improvement. Your goal is production-grade code: correct, tested, documented, secure, observable, and maintainable. Follow this methodology end-to-end, skipping sections only when they genuinely don't apply. If context is lost or this is a continuation, re-read this entire prompt and the task description before writing any code.
 
 ---
 
@@ -59,13 +59,29 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 
 ## 4. IMPLEMENT WITH DISCIPLINE
 
+**After every file change, run the project's quality gates** (lint, typecheck, tests). Don't accumulate broken state — if a check fails, stop and fix it before continuing. Commit after each logical, verified change.
+
+### Codebase Stewardship
+
+**Leave every file better than you found it.** When you touch a file to implement your feature, also:
+
+- Remove dead code, unused imports, and unreachable branches
+- Fix stale comments that no longer match the code
+- Replace magic numbers with named constants
+- Simplify overly complex expressions you encounter
+- Clean up inconsistent formatting in the lines you're working in
+- Delete commented-out code — version control is the history
+- Fix minor bugs you discover in the code you're reading, as long as the fix is obvious and safe
+
+This is not scope creep — it's maintenance hygiene. Every change should leave the codebase more maintainable, more readable, and simpler than before. Put stewardship improvements in separate commits from feature work so they can be reviewed and reverted independently. If something needs fixing but is too risky or large to address inline, note it as a follow-up.
+
 ### Core Principles
 
 **KISS** — The simplest solution that works. If code needs comments to explain what it does, simplify the code. Break complex functions into smaller, focused ones. No premature abstraction.
 
 **YAGNI** — Don't build features or abstractions until needed. No speculative parameters, no unused abstractions, delete dead code immediately.
 
-**DRY** — Single authoritative source for each piece of knowledge. Extract repeated logic, use constants for magic values, centralize configuration. But don't over-DRY — some duplication is acceptable if it keeps code simpler and more readable.
+**DRY** — Single authoritative source for each piece of knowledge. Extract repeated logic, use constants for magic values, centralize configuration. But don't over-DRY — some duplication is fine if it keeps code simpler.
 
 **SOLID:**
 - Single Responsibility — each function/module does one thing
@@ -76,7 +92,7 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 
 ### Naming & Readability
 
-- Names describe intent: functions are verbs (`calculateTotal`, `validateInput`), data is nouns (`userList`, `orderCount`)
+- Names describe intent: functions are verbs (`calculateTotal`, `validateInput`), data is nouns (`activeUser`, `orderCount`)
 - Booleans read as questions: `isValid`, `hasPermission`, `canRetry` — not `valid`, `flag`, `check`
 - Collections indicate plurality: `users` not `userList`, `orderIds` not `orderIdArray`
 - Use domain language consistently — if the business calls it an "enrollment", don't call it a "registration" in code
@@ -91,20 +107,20 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 - Validate data at system boundaries: API inputs, file reads, environment variables, database results, third-party responses
 - Use schema validation libraries (Zod, Joi, JSON Schema, etc.) for runtime validation of external data
 - Parse, don't validate — transform untyped data into typed structures at the boundary, then use types internally
-- Prefer immutable data structures; avoid mutating function arguments or shared state
+- Prefer immutable data structures (see Concurrency & State Management for why this matters)
 - Make invalid states unrepresentable through the type system where possible
 
 ### Error Handling
 
 - **Fail fast** — detect and report errors as early as possible
 - **Fail loudly** — never swallow errors silently
-- **Fail gracefully** — degrade functionality rather than crash the entire system
+- **Fail gracefully** — degrade functionality rather than crash
 - **Provide context** — include what operation was attempted, what input was being processed, where in the flow it failed
 - Use custom error types for different categories (validation, auth, not found, conflict, external failure)
 - Wrap errors with context when re-throwing — preserve the original cause
-- Validate inputs defensively at boundaries; trust typed data internally
+- Validate inputs at boundaries (see Type Safety for how); trust typed data internally
 - Set timeouts on ALL external calls — network, database, file system, third-party APIs
-- Retry only transient failures (network timeouts, 503s), with exponential backoff and jitter, capped retries
+- Retry only transient failures (5xx, timeouts, connection resets), with exponential backoff, jitter, and capped attempts
 - Never expose stack traces, internal paths, or sensitive data in user-facing errors
 - Include correlation/request IDs for tracing errors across systems
 - Log errors with full context internally; send safe, actionable messages externally
@@ -117,6 +133,19 @@ Do a gap analysis for each requirement: does code exist (full), need modificatio
 - **Idempotency** — operations that may be retried (API endpoints, message handlers, jobs) must produce the same result on repeat calls
 - **Health checks** — expose health/readiness endpoints that verify actual dependency connectivity, not just "process is running"
 - **Timeouts at every layer** — don't let a slow dependency hang your entire system
+- **Graceful shutdown** — handle termination signals (SIGTERM, SIGINT), stop accepting new work, drain in-flight requests/jobs, release resources (connections, file handles, locks), then exit cleanly
+
+### Resource Cleanup & Lifecycle
+
+Every resource you acquire must be released — leaked resources cause slow degradation and eventual outages:
+
+- **Close what you open**: database connections, file handles, network sockets, HTTP clients
+- **Clear what you start**: intervals, timeouts, scheduled jobs, background tasks
+- **Remove what you register**: event listeners, subscriptions, observers, callbacks
+- **Delete what you create temporarily**: temp files, staging directories, lock files
+- Use language-appropriate patterns: `try/finally`, `defer`, `using`/`with`, `useEffect` cleanup returns, destructors
+- Verify cleanup happens in error paths too, not just the happy path — errors during processing must not leak the resources acquired before the error
+- In long-running processes, verify resources aren't accumulating over time (connection pool exhaustion, memory growth, file descriptor leaks)
 
 ### Security
 
@@ -125,7 +154,7 @@ Every change should be secure by default:
 - **Access control**: authorization on ALL sensitive operations, least privilege, IDOR checks, deny by default
 - **Injection prevention**: parameterized queries, no string concatenation for commands/queries, XSS output encoding, template injection prevention
 - **Secrets management**: no hardcoded secrets — ever. Use environment variables or a secrets manager. Rotate credentials. No sensitive data in URLs, logs, or error messages
-- **Input validation**: validate and sanitize all external input at the boundary. Allowlists over denylists
+- **Input validation**: sanitize all external input at the boundary (see Type Safety for validation approach). Allowlists over denylists
 - **Secure defaults**: fail closed, debug mode off in production, security headers present, CORS properly configured
 - **Dependencies**: check for known CVEs before adding, minimize dependency surface, keep dependencies updated
 - **Assume breach**: minimize blast radius, defense in depth, encrypt sensitive data at rest and in transit
@@ -145,7 +174,6 @@ Don't prematurely optimize, but don't write obviously slow code:
 
 - Avoid N+1 queries and O(n²) loops where O(n) or O(n log n) solutions exist
 - Use pagination for list endpoints — never return unbounded result sets
-- Set timeouts on all external calls
 - Use connection pooling for databases and HTTP clients
 - Cache hot paths with appropriate invalidation (TTL, event-based, or versioned keys)
 - Lazy-load expensive resources — don't compute or fetch until needed
@@ -160,7 +188,6 @@ Don't prematurely optimize, but don't write obviously slow code:
 - When shared state is necessary, use proper synchronization (locks, mutexes, atomic operations, transactions)
 - Watch for race conditions: check-then-act patterns, read-modify-write without locking, concurrent access to collections
 - Database operations that must be atomic should use transactions with appropriate isolation levels
-- Design for idempotency — assume any operation might be executed more than once
 - Use optimistic concurrency (version fields, ETags) rather than pessimistic locking where possible
 - Be aware of deadlock potential when acquiring multiple locks
 
@@ -173,7 +200,7 @@ Code that can't be observed in production can't be debugged in production:
 - **What to log**: request/response at boundaries, state transitions, errors with context, security events (auth failures, permission denials), slow operations
 - **What NOT to log**: sensitive data (passwords, tokens, PII, secrets), high-frequency noise, successful health checks
 - **Correlation IDs**: propagate a request/trace ID through the entire call chain — across functions, services, and async boundaries
-- **Metrics**: expose counters and gauges for key operations (request count, error rate, latency percentiles, queue depth) where the project supports it
+- **Metrics**: where the project supports it, expose counters and gauges for key operations (request count, error rate, latency percentiles, queue depth)
 - **Alertable conditions**: design error handling so that genuinely unexpected failures are distinguishable from expected ones (4xx vs 5xx, transient vs permanent)
 
 ### Configuration & Environments
@@ -203,7 +230,7 @@ Code that can't be observed in production can't be debugged in production:
 - **Breaking changes**: removing/renaming fields, changing types, tightening validation, changing semantics, removing endpoints
 - **Non-breaking changes**: adding endpoints, adding optional fields with defaults, adding new enum values, loosening validation
 - **Additive-only by default** — add new fields/endpoints rather than modifying existing ones
-- For database migrations: make them reversible where possible, deploy in phases (add column → backfill → migrate code → remove old column)
+- For database migrations: make them reversible, test rollback, deploy in phases (add column → backfill → migrate code → remove old column)
 - If breaking changes are unavoidable: version the API, provide migration guides, deprecate with clear timelines
 - Run existing integration tests and contract tests to catch unintended breakage
 
@@ -397,6 +424,7 @@ Before declaring done, perform a multi-pass review of your own changes:
 - Missing pagination on list endpoints?
 - Race conditions in concurrent scenarios?
 - Graceful degradation if dependencies fail?
+- Resources cleaned up in both success and error paths?
 
 ### Pass E: Observability
 - Errors logged with sufficient context to diagnose?
@@ -418,6 +446,8 @@ Before declaring done, perform a multi-pass review of your own changes:
 - No TODOs without issue references
 - All error paths handled, no silent catches
 - All new files have appropriate file structure and naming
+- Dead code, stale comments, and unnecessary complexity removed from files you touched
+- Resources (connections, handles, listeners, timers) properly cleaned up in all code paths
 
 ---
 
@@ -474,17 +504,23 @@ Before declaring done, perform a multi-pass review of your own changes:
 | Shared mutable state | Prefer immutable data; isolate mutation |
 | Ignoring existing patterns | Match the codebase's conventions |
 | Adding dependencies carelessly | Evaluate cost vs. benefit; prefer small solutions |
+| Leaking resources | Close, clear, and release everything you acquire |
+| Untested bug fixes | Every fix gets a regression test |
 
 ---
 
 ## When Context Is Lost
 
-If you're resuming work or context has been lost:
+If you're resuming work, starting a fresh session on the same task, or context has degraded:
 
-1. Re-read this prompt in full
-2. Re-read the task/feature description
-3. Check git log and git diff to see what's already been done
-4. Read the changed files to understand current state
-5. Run the test suite to see what passes and what doesn't
-6. Check for any failing quality gates (lint, typecheck, build)
-7. Continue from where things left off — don't restart unless the approach is fundamentally broken
+1. **Re-read this entire prompt** — don't skim, don't skip sections. The methodology only works when followed completely
+2. Re-read the task/feature description and any acceptance criteria
+3. `git log --oneline -20` and `git diff` to see what's already been done
+4. Read every changed file to understand current state — don't assume you remember
+5. Run the full test suite to see what passes and what doesn't
+6. Run all quality gates (lint, typecheck, build) to identify any broken state
+7. Continue from where things left off. Don't restart unless the approach is fundamentally broken — partial progress is still progress
+
+---
+
+**The standard is simple: code that works, is tested, is documented, is secure, is observable, and is easy for the next person to change. Every section of this prompt exists to serve that standard.**
