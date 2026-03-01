@@ -759,6 +759,9 @@ AGENT_ID="${AGENT_NAME}"
 # Track if this is an interrupt (Ctrl+C) vs normal exit
 INTERRUPTED=0
 
+# PID of the currently running agent pipeline (for signal handler)
+AGENT_PIPELINE_PID=""
+
 # Source centralized logging for colors
 source "$SCRIPT_DIR/logging.sh"
 
@@ -1236,10 +1239,10 @@ run_phase_once() {
   # Start phase monitor (checks for stuck agents)
   start_phase_monitor "$phase_name" "$phase_log" "$timeout"
 
-  # Build timeout prefix
-  # --foreground: prevents timeout from creating a new process group, which
-  # would cause the child to lose TTY access and get stopped (SIGTTIN/SIGTTOU).
-  # Without this, the agent process hangs silently in pipelines.
+  # Build timeout prefix.
+  # --foreground keeps the agent in our process group so it can access
+  # the TTY (without it, timeout creates a new process group and the
+  # agent gets SIGTTIN-stopped when it tries to read the terminal).
   local timeout_cmd=""
   if command -v gtimeout &> /dev/null; then
     timeout_cmd="gtimeout --foreground"
@@ -1254,128 +1257,90 @@ run_phase_once() {
 
   printf '%s\n' "${DIM}[$AGENT_ID]${NC} Launching $CURRENT_AGENT agent for $phase_label..."
 
-  # Build agent command using abstraction functions
-  # Each agent uses its correct autonomous mode flags
+  # Build agent command flags per agent type
   local agent_args=()
+  local agent_bin=""
 
   case "$CURRENT_AGENT" in
     claude)
-      # Claude: --dangerously-skip-permissions --permission-mode bypassPermissions --model <model>
+      agent_bin="claude"
       agent_args+=("--dangerously-skip-permissions")
       agent_args+=("--permission-mode" "bypassPermissions")
       [ -n "$CURRENT_MODEL" ] && agent_args+=("--model" "$CURRENT_MODEL")
       if [ "$output_mode" != "quiet" ]; then
         agent_args+=("--output-format" "stream-json" "--verbose")
       fi
-      # Add any pass-through args
       if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
         agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
       fi
       agent_args+=("-p" "$prompt")
-
-      if [ "$output_mode" = "progress" ]; then
-        if [ -n "$timeout_cmd" ]; then
-          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" || exit_code=$?
-        else
-          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" || exit_code=$?
-        fi
-      else
-        if [ -n "$timeout_cmd" ]; then
-          $timeout_cmd "${timeout}s" claude "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-        else
-          claude "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-        fi
-      fi
       ;;
-
     codex)
-      # Codex: codex exec --dangerously-bypass-approvals-and-sandbox -m <model> <prompt>
-      agent_args+=("exec")
-      agent_args+=("--dangerously-bypass-approvals-and-sandbox")
+      agent_bin="codex"
+      agent_args+=("exec" "--dangerously-bypass-approvals-and-sandbox")
       [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
-      if [ "$output_mode" != "quiet" ]; then
-        agent_args+=("--verbose")
-      fi
-      # Add any pass-through args
+      [ "$output_mode" != "quiet" ] && agent_args+=("--verbose")
       if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
         agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
       fi
       agent_args+=("$prompt")
-
-      if [ -n "$timeout_cmd" ]; then
-        $timeout_cmd "${timeout}s" codex "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      else
-        codex "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      fi
       ;;
-
     gemini)
-      # Gemini: gemini --yolo -m <model> -p <prompt>
+      agent_bin="gemini"
       agent_args+=("--yolo")
       [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
-      if [ "$output_mode" != "quiet" ]; then
-        agent_args+=("--verbose")
-      fi
-      # Add any pass-through args
+      [ "$output_mode" != "quiet" ] && agent_args+=("--verbose")
       if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
         agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
       fi
       agent_args+=("-p" "$prompt")
-
-      if [ -n "$timeout_cmd" ]; then
-        $timeout_cmd "${timeout}s" gemini "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      else
-        gemini "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      fi
       ;;
-
     copilot)
-      # Copilot: copilot --allow-all-tools --allow-all-paths -m <model> -p <prompt>
-      agent_args+=("--allow-all-tools")
-      agent_args+=("--allow-all-paths")
+      agent_bin="copilot"
+      agent_args+=("--allow-all-tools" "--allow-all-paths")
       [ -n "$CURRENT_MODEL" ] && agent_args+=("-m" "$CURRENT_MODEL")
-      if [ "$output_mode" != "quiet" ]; then
-        agent_args+=("--verbose")
-      fi
-      # Add any pass-through args
+      [ "$output_mode" != "quiet" ] && agent_args+=("--verbose")
       if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
         agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
       fi
       agent_args+=("-p" "$prompt")
-
-      if [ -n "$timeout_cmd" ]; then
-        $timeout_cmd "${timeout}s" copilot "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      else
-        copilot "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      fi
       ;;
-
     opencode)
-      # OpenCode: opencode run --auto-approve --model <model> <prompt>
-      agent_args+=("run")
-      agent_args+=("--auto-approve")
+      agent_bin="opencode"
+      agent_args+=("run" "--auto-approve")
       [ -n "$CURRENT_MODEL" ] && agent_args+=("--model" "$CURRENT_MODEL")
-      if [ "$output_mode" != "quiet" ]; then
-        agent_args+=("--print-logs")
-      fi
-      # Add any pass-through args
+      [ "$output_mode" != "quiet" ] && agent_args+=("--print-logs")
       if [ ${#DOYAKEN_PASSTHROUGH_ARGS[@]} -gt 0 ]; then
         agent_args+=("${DOYAKEN_PASSTHROUGH_ARGS[@]}")
       fi
       agent_args+=("$prompt")
-
-      if [ -n "$timeout_cmd" ]; then
-        $timeout_cmd "${timeout}s" opencode "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      else
-        opencode "${agent_args[@]}" 2>&1 | tee "$phase_log" || exit_code=$?
-      fi
       ;;
-
     *)
       log_error "Unknown agent: $CURRENT_AGENT"
       return 1
       ;;
   esac
+
+  # Run the agent pipeline in the BACKGROUND so that `wait` is used.
+  # Bash only runs signal trap handlers during `wait` for async commands;
+  # for foreground pipelines, traps are deferred until the pipeline finishes,
+  # making Ctrl+C unresponsive if the agent doesn't die on SIGINT.
+  if [ "$output_mode" = "progress" ] && [ "$CURRENT_AGENT" = "claude" ]; then
+    if [ -n "$timeout_cmd" ]; then
+      $timeout_cmd "${timeout}s" "$agent_bin" "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" &
+    else
+      "$agent_bin" "${agent_args[@]}" 2>&1 | tee "$phase_log" | progress_filter "$phase_label" &
+    fi
+  else
+    if [ -n "$timeout_cmd" ]; then
+      $timeout_cmd "${timeout}s" "$agent_bin" "${agent_args[@]}" 2>&1 | tee "$phase_log" &
+    else
+      "$agent_bin" "${agent_args[@]}" 2>&1 | tee "$phase_log" &
+    fi
+  fi
+  AGENT_PIPELINE_PID=$!
+  wait $AGENT_PIPELINE_PID 2>/dev/null || exit_code=$?
+  AGENT_PIPELINE_PID=""
 
   # Stop phase monitor
   stop_phase_monitor
@@ -1547,7 +1512,7 @@ run_all_phases() {
       return 130
     elif [ "$phase_result" -eq 3 ]; then
       log_error "Phase $name exhausted verification budget - needs human input"
-      log_info "Re-run 'dk run' with the same prompt to resume from this phase"
+      log_info "Run 'dk resume' to continue from this phase"
       status_line_clear 2>/dev/null || true
       return 1
     elif [ "$phase_result" -ne 0 ]; then
@@ -1608,6 +1573,7 @@ STATUS="$status"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 MODEL="${DOYAKEN_MODEL:-opus}"
 LOG_DIR="$RUN_LOG_DIR"
+PROMPT="$(printf '%s' "${DOYAKEN_PROMPT:-}" | sed 's/"/\\"/g')"
 EOF
   log_info "Session state saved: $session_id"
 }
@@ -1999,7 +1965,7 @@ append_phase_context() {
 
 cleanup() {
   if [ "$INTERRUPTED" = "1" ]; then
-    log_info "Interrupted - run 'dk run' again to resume"
+    log_info "Interrupted - run 'dk resume' to continue where you left off"
   else
     log_info "Cleaning up..."
   fi
@@ -2014,13 +1980,17 @@ handle_interrupt() {
   log_warn "Ctrl+C received - shutting down..."
   INTERRUPTED=1
 
-  # Kill background monitors immediately (they now have signal handlers)
   stop_phase_monitor
 
-  # Kill all child processes (agent pipeline, tee, etc.)
-  pkill -P $$ 2>/dev/null || true
-  # Brief grace period, then force-kill any survivors
-  sleep 0.2 2>/dev/null || true
+  # Kill the agent pipeline and all its children
+  if [ -n "${AGENT_PIPELINE_PID:-}" ] && kill -0 "$AGENT_PIPELINE_PID" 2>/dev/null; then
+    kill -TERM "$AGENT_PIPELINE_PID" 2>/dev/null || true
+    pkill -TERM -P "$AGENT_PIPELINE_PID" 2>/dev/null || true
+  fi
+
+  # Kill all remaining child processes
+  pkill -TERM -P $$ 2>/dev/null || true
+  sleep 0.3 2>/dev/null || true
   pkill -9 -P $$ 2>/dev/null || true
 
   exit 130
@@ -2136,7 +2106,7 @@ main() {
 
   if [ "$run_result" -eq 3 ]; then
     log_warn "Execution paused - human input needed"
-    log_info "Check logs for details, then re-run: dk run \"$task_prompt\""
+    log_info "Check logs for details, then run: dk resume"
     save_session "$SESSION_ID" "paused"
     exit 1
   fi

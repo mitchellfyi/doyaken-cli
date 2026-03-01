@@ -18,6 +18,7 @@ ${BOLD}USAGE:${NC}
 
 ${BOLD}COMMANDS:${NC}
   ${CYAN}run${NC} "<prompt>"     Execute a prompt through the 8-phase pipeline
+  ${CYAN}resume${NC}              Resume the last interrupted run
   ${CYAN}chat${NC}                Interactive chat/REPL mode
   ${CYAN}chat${NC} --resume [id]   Resume a previous session
   ${CYAN}sessions${NC}             List chat sessions
@@ -149,6 +150,26 @@ ${BOLD}EXAMPLES:${NC}
   doyaken run "Add user authentication with JWT"
   doyaken run "Fix the login bug in src/auth.ts"
   doyaken --agent codex run "Optimize database queries"
+
+EOF
+      ;;
+    resume)
+      cat << EOF
+${BOLD}doyaken resume${NC} - Resume the last interrupted run
+
+${BOLD}USAGE:${NC}
+  doyaken resume
+
+${BOLD}DESCRIPTION:${NC}
+  Resumes the most recent interrupted, paused, or failed run.
+  The prompt and session state are restored automatically.
+  Completed phases are skipped; execution continues from the
+  first incomplete phase.
+
+${BOLD}EXAMPLES:${NC}
+  dk run "Add auth"        # Start a run
+  # ... Ctrl+C ...         # Interrupt it
+  dk resume                # Continue where you left off
 
 EOF
       ;;

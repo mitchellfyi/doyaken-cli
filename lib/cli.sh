@@ -99,6 +99,56 @@ cmd_run() {
   exec "$core_script"
 }
 
+cmd_resume() {
+  local project
+  project=$(require_project)
+
+  local data_dir="$project/.doyaken"
+  if [ ! -d "$data_dir" ]; then
+    # Legacy fallback
+    if [ -d "$project/.claude" ]; then
+      data_dir="$project/.claude"
+    else
+      log_error "No .doyaken/ directory found. Run 'dk init' first."
+      exit 1
+    fi
+  fi
+
+  local agent_name="${AGENT_NAME:-doyaken}"
+  local session_file="$data_dir/state/session-$agent_name"
+
+  if [ ! -f "$session_file" ]; then
+    log_error "No session to resume"
+    echo "Start a new run with: dk run \"<prompt>\""
+    exit 1
+  fi
+
+  local saved_status saved_prompt
+  saved_status=$(grep '^STATUS=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"') || true
+  saved_prompt=$(grep '^PROMPT=' "$session_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | sed 's/\\"/"/g') || true
+
+  if [ -z "$saved_prompt" ]; then
+    log_error "Session has no saved prompt (session may be from an older version)"
+    echo "Start a new run with: dk run \"<prompt>\""
+    exit 1
+  fi
+
+  case "$saved_status" in
+    running|interrupted|paused|failed)
+      log_info "Resuming: ${saved_prompt:0:80}$([ ${#saved_prompt} -gt 80 ] && echo "...")"
+      cmd_run "$saved_prompt"
+      ;;
+    completed)
+      log_info "Last session already completed successfully"
+      echo "Start a new run with: dk run \"<prompt>\""
+      ;;
+    *)
+      log_error "Unknown session status: $saved_status"
+      exit 1
+      ;;
+  esac
+}
+
 cmd_chat() {
   local resume_id=""
 
@@ -368,6 +418,8 @@ cmd_init() {
 
   # Check if already initialized
   if [ -d "$target_dir/.doyaken" ]; then
+    # Ensure directory structure is complete (idempotent)
+    init_directories "$target_dir"
     log_warn "Project already initialized at: $target_dir"
     log_info "Use 'doyaken status' to view project info"; return 0
   fi
@@ -1515,6 +1567,9 @@ main() {
     run)
       cmd_run "${args[@]+"${args[@]}"}"
       ;;
+    resume)
+      cmd_resume
+      ;;
     chat)
       cmd_chat "${args[@]+"${args[@]}"}"
       ;;
@@ -1608,6 +1663,7 @@ main() {
         echo "Common commands:"
         echo "  dk init              Initialize project"
         echo "  dk run \"<prompt>\"    Run a prompt through the pipeline"
+        echo "  dk resume            Resume last interrupted run"
         echo "  dk status            Project status"
         echo "  dk help              Full help"
       fi
