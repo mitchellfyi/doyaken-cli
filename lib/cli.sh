@@ -1503,6 +1503,14 @@ main() {
         export DISPLAY_STATUS_LINE=0
         shift
         ;;
+      --no-commit)
+        export DOYAKEN_AUTO_COMMIT=0
+        shift
+        ;;
+      --auto-push)
+        export DOYAKEN_AUTO_PUSH=1
+        shift
+        ;;
       --supervised)
         export DOYAKEN_APPROVAL="supervised"
         shift

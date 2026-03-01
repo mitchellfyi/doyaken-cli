@@ -1527,6 +1527,9 @@ run_all_phases() {
     fi
     save_phase_progress "$task_id" "$phase_idx" "$name"
 
+    # Auto-commit any changes the agent made during this phase
+    phase_commit "$name" "$task_id"
+
     # Approval gate between phases
     if declare -f approval_gate &>/dev/null; then
       local gate_result=0
@@ -1618,6 +1621,56 @@ load_phase_progress() {
 clear_phase_progress() {
   local progress_file="$STATE_DIR/phase-progress-$AGENT_ID"
   rm -f "$progress_file"
+}
+
+# Commit (and optionally push) uncommitted changes after a successful phase.
+# Skipped if: not a git repo, no changes, or DOYAKEN_AUTO_COMMIT=0.
+# Push controlled by DOYAKEN_AUTO_PUSH (default: 0).
+phase_commit() {
+  local phase_name="$1"
+  local task_id="$2"
+
+  if [ "${DOYAKEN_AUTO_COMMIT:-1}" != "1" ]; then
+    return 0
+  fi
+
+  if [ ! -d "$PROJECT_DIR/.git" ]; then
+    return 0
+  fi
+
+  if git -C "$PROJECT_DIR" diff --quiet HEAD 2>/dev/null \
+     && [ -z "$(git -C "$PROJECT_DIR" ls-files --others --exclude-standard 2>/dev/null)" ]; then
+    log_info "No uncommitted changes after $phase_name"
+    return 0
+  fi
+
+  log_step "Committing changes from $phase_name phase..."
+
+  git -C "$PROJECT_DIR" add -A 2>/dev/null || true
+
+  local commit_msg="wip($task_id): $phase_name phase"
+  if ! git -C "$PROJECT_DIR" commit -m "$commit_msg" 2>/dev/null; then
+    log_warn "Git commit failed (possibly no staged changes)"
+    return 0
+  fi
+
+  local short_hash
+  short_hash=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null)
+  log_ok "Committed: $short_hash - $commit_msg"
+
+  if [ "${DOYAKEN_AUTO_PUSH:-0}" = "1" ]; then
+    local branch
+    branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null) || true
+    if [ -n "$branch" ]; then
+      if git -C "$PROJECT_DIR" push origin "$branch" 2>/dev/null; then
+        log_ok "Pushed to origin/$branch"
+      else
+        log_warn "Push failed (will retry on next phase)"
+      fi
+    fi
+  fi
+
+  return 0
 }
 
 load_session() {

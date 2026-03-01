@@ -61,6 +61,8 @@ ${BOLD}OPTIONS:${NC}
   --supervised        Pause between phases for human review
   --plan-only         Stop after plan phase for approval
   --approval <level>  Set approval level (full-auto, supervised, plan-only)
+  --no-commit         Skip auto-commit after each phase
+  --auto-push         Push to origin after each phase commit
   --no-status-line    Disable persistent status line during execution
   -- <args>           Pass additional arguments to the underlying agent CLI
 
@@ -90,6 +92,8 @@ ${BOLD}ENVIRONMENT:${NC}
   DOYAKEN_PROJECT      Override project detection
   DOYAKEN_AGENT        Default agent (claude, codex, gemini, copilot, opencode)
   DOYAKEN_MODEL        Default model for the agent
+  DOYAKEN_AUTO_COMMIT  Auto-commit after phases (default: 1, set 0 to disable)
+  DOYAKEN_AUTO_PUSH    Auto-push after phase commits (default: 0)
 
 EOF
 }
