@@ -832,7 +832,7 @@ cmd_validate() {
 
   # Check manifest exists
   if [ ! -f "$manifest" ]; then
-    error_add "manifest.yaml not found" "Run 'dk init' to create one"
+    error_add "manifest.yaml not found" "Run 'dk init' to create one" "https://github.com/mitchellfyi/doyaken-cli#quick-start"
     error_report_and_exit
   fi
 
@@ -864,7 +864,7 @@ cmd_validate() {
         if command -v "$base_cmd" &>/dev/null; then
           log_success "quality.$field: $cmd_value"
         else
-          error_add "quality.$field command not found: $base_cmd" "Install '$base_cmd' or update the command in manifest.yaml"
+          error_add "quality.$field command not found: $base_cmd" "Install '$base_cmd' or update the command in manifest.yaml" "https://github.com/mitchellfyi/doyaken-cli#configuration"
         fi
       fi
     done
@@ -884,11 +884,11 @@ cmd_validate() {
           while IFS= read -r var; do
             [ -z "$var" ] && continue
             if [ -z "${!var:-}" ]; then
-              error_add "Integration '$integration' requires env var: $var" "export $var=<value> or run 'dk mcp setup $integration'"
+              error_add "Integration '$integration' requires env var: $var" "export $var=<value> or run 'dk mcp setup $integration'" "https://github.com/mitchellfyi/doyaken-cli#supported-integrations"
             fi
           done <<< "$envs"
         else
-          error_add "Integration '$integration' enabled but no server config found" "Check config/mcp/servers/ for available servers"
+          error_add "Integration '$integration' enabled but no server config found" "Run 'dk mcp status' to see available integrations, or add a server config at config/mcp/servers/${integration}.yaml" "https://github.com/mitchellfyi/doyaken-cli#mcp-integration"
         fi
       done <<< "$integrations"
     fi
@@ -900,12 +900,12 @@ cmd_validate() {
       while IFS= read -r skill_name; do
         [ -z "$skill_name" ] && continue
         if ! find_skill "$skill_name" &>/dev/null; then
-          error_add "Skill hook '$skill_name' not found" "Create skills/$skill_name.md or remove from manifest hooks"
+          error_add "Skill hook '$skill_name' not found" "Create skills/$skill_name.md or remove from manifest hooks" "https://github.com/mitchellfyi/doyaken-cli#skill-hooks"
         fi
       done <<< "$skill_hooks"
     fi
   else
-    error_add "yq not installed (required for full validation)" "Install: brew install yq (macOS) or snap install yq (Ubuntu)"
+    error_add "yq not installed (required for full validation)" "Install: brew install yq (macOS) or snap install yq (Ubuntu)" "https://github.com/mikefarah/yq#install"
   fi
 
   # Check prompt templates exist
