@@ -8,6 +8,6 @@ See [AGENTS.md](./AGENTS.md) for complete project instructions.
 
 ## Quick Reference
 
-- Prompts: `.doyaken/prompts/library/`
-- Skills: `.doyaken/skills/`
-- Phases: `.doyaken/prompts/phases/`
+- Prompts: `prompts/library/`
+- Skills: `skills/`
+- Phases: `prompts/phases/`

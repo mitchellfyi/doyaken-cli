@@ -10,20 +10,9 @@ logs/
 *.log
 npm-debug.log*
 
-# Doyaken runtime data (not committed)
-.doyaken/logs/
-.doyaken/state/
-.doyaken/locks/
-.doyaken/plans/
+# Doyaken meta-install (this IS the source repo, no need for .doyaken/)
+.doyaken/
 state/
-
-# Doyaken local install artifacts (use repo source directly via ./bin/doyaken)
-.doyaken/bin/
-.doyaken/lib/
-.doyaken/scripts/
-.doyaken/templates/
-.doyaken/README.md
-.doyaken/VERSION
 
 # OS
 .DS_Store
