@@ -62,28 +62,59 @@ if [[ -f "$COMPLETE_FILE" ]]; then
   exit 0
 fi
 
-# Read current iteration count (validate it's numeric)
+# Read current iteration count and timestamp.
+# State file format: "iteration:epoch" (new) or bare "iteration" (legacy).
 ITERATION=0
+LAST_EPOCH=0
+STALL_COUNT=0
 if [[ -f "$STATE_FILE" ]]; then
   RAW=$(cat "$STATE_FILE" 2>/dev/null || echo "0")
-  if [[ "$RAW" =~ ^[0-9]+$ ]]; then
+  if [[ "$RAW" =~ ^([0-9]+):([0-9]+):?([0-9]*)$ ]]; then
+    # New format: iteration:epoch or iteration:epoch:stall_count
+    ITERATION="${BASH_REMATCH[1]}"
+    LAST_EPOCH="${BASH_REMATCH[2]}"
+    STALL_COUNT="${BASH_REMATCH[3]:-0}"
+  elif [[ "$RAW" =~ ^[0-9]+$ ]]; then
+    # Legacy format: bare iteration count
     ITERATION=$RAW
   fi
 fi
 ITERATION=$((ITERATION + 1))
+NOW_EPOCH=$(date +%s)
 
-# Check max iterations
+# Stall detection — if the time between consecutive iterations exceeds the
+# threshold, the loop may be stuck on a fundamentally broken problem.
+# Inspired by autoresearch's NaN/exploding-loss early termination.
+STALL_TIMEOUT="${DOYAKEN_LOOP_STALL_TIMEOUT:-300}"  # default: 5 minutes
+STALL_ESCALATE_AFTER="${DOYAKEN_LOOP_STALL_ESCALATE:-3}"  # escalate after N stalls
+IS_STALLED=0
+if [[ $LAST_EPOCH -gt 0 ]] && [[ $STALL_TIMEOUT -gt 0 ]]; then
+  ELAPSED=$((NOW_EPOCH - LAST_EPOCH))
+  if [[ $ELAPSED -gt $STALL_TIMEOUT ]]; then
+    STALL_COUNT=$((STALL_COUNT + 1))
+    IS_STALLED=1
+  else
+    STALL_COUNT=0
+  fi
+fi
+
+# Check max iterations.
+# Leave STATE_FILE intact (unlike the .complete path) so the wrapper can
+# distinguish max-iter (exit 0 + state file present) from advance (exit 0 +
+# state file removed by .complete cleanup). The wrapper is responsible for
+# cleaning up the state file after reading the iteration count.
 if [[ $ITERATION -gt $MAX_ITERATIONS ]]; then
   echo "Phase audit loop reached max iterations ($MAX_ITERATIONS). Allowing stop."
-  rm -f "$STATE_FILE" "$ACTIVE_FILE"
+  rm -f "$ACTIVE_FILE"
   exit 0
 fi
 
-# Save iteration count atomically: write to a PID-suffixed temp file, then mv.
-# mv is atomic on POSIX filesystems, so a crash mid-write won't corrupt the
-# state file (we'd lose at most the temp file, and default to 0 on next read).
+# Save iteration count with timestamp atomically: write to a PID-suffixed temp
+# file, then mv. mv is atomic on POSIX filesystems, so a crash mid-write won't
+# corrupt the state file (we'd lose at most the temp file, and default to 0 on
+# next read).
 TEMP_FILE="${STATE_FILE}.tmp.$$"
-if ! echo "$ITERATION" > "$TEMP_FILE" || ! mv "$TEMP_FILE" "$STATE_FILE"; then
+if ! echo "${ITERATION}:${NOW_EPOCH}:${STALL_COUNT}" > "$TEMP_FILE" || ! mv "$TEMP_FILE" "$STATE_FILE"; then
   echo "WARNING: Failed to save loop state. Allowing stop."
   rm -f "$TEMP_FILE"
   exit 0
@@ -143,6 +174,19 @@ if [[ -f "$PROMPT_FILE" ]]; then
   cat "$PROMPT_FILE" >&2
   printf '%s\n' "" >&2
   printf '%s\n' "---" >&2
+  printf '%s\n' "" >&2
+fi
+
+# If stalled beyond the escalation threshold, inject an escalation prompt instead
+# of (or in addition to) the normal audit prompt.
+if [[ $IS_STALLED -eq 1 ]] && [[ $STALL_COUNT -ge $STALL_ESCALATE_AFTER ]]; then
+  printf '%s\n' "## STUCK LOOP DETECTED (stalled $STALL_COUNT times)" >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "You appear to be stuck in a loop. The last $STALL_COUNT iterations each took longer than ${STALL_TIMEOUT}s without making progress." >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "1. Summarize what is blocking you — what error or issue keeps recurring?" >&2
+  printf '%s\n' "2. If you cannot resolve the blocker, create the completion signal file to escalate to the user." >&2
+  printf '%s\n' "3. Do NOT retry the same approach that has been failing." >&2
   printf '%s\n' "" >&2
 fi
 

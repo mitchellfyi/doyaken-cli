@@ -38,6 +38,18 @@ dkloop now runs two sequential Claude sessions: (1) Plan session in --permission
 
 New library providing: dk_wt_branch, dk_wt_remove, dk_cleanup_last_session, dk_cleanup_stale_files. Sourced via common.sh. The header claims "Used by bin scripts (uninit.sh)" but uninit.sh does not call any functions from worktree.sh directly — it uses session.sh functions only. The header is inaccurate for uninit.sh.
 
+## Atomic Write Consistency
+
+phase-loop.sh's atomic write pattern includes `rm -f "$TEMP_FILE"` cleanup on failure. dk.sh's `__dk_write_state` uses the same temp+mv pattern but omits the cleanup on failure. This asymmetry is a known finding; the temp file leaks on echo failure but doesn't corrupt state.
+
+## max-iter Status: Dead Code
+
+`__dk_classify_exit` documents and the `format_status` in log.sh handles a "max-iter" status, but this status is never produced. `phase-loop.sh` exits 0 (not a distinct code) when max iterations are reached, so `__dk_classify_exit` always returns "advance" for exit 0. The log.sh `max-iter` case is dead code.
+
+## Watchdog Process Group Pattern
+
+The phase timeout watchdog (`kill -TERM "$claude_pid"`) targets the background subshell PID. The `claude` CLI runs as a CHILD of that subshell. Killing the subshell does not guarantee SIGTERM propagates to `claude` — claude may become an orphan if it doesn't handle SIGHUP on parent exit. The intended fix is to kill the process group (`kill -TERM -"$claude_pid"`) rather than just the parent subshell.
+
 ## Commit Message Pattern
 
 All commits in this repo use single-word messages ("init", "fix", "rename") — this is the established style.
