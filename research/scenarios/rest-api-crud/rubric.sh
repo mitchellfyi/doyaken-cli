@@ -236,7 +236,7 @@ except:
     score=$((score + 4))
   fi
 
-  # Title too long (>200 chars) should fail validation (3 pts)
+  # Title too long (>200 chars) should fail validation (4 pts)
   local long_title
   long_title=$(python3 -c "print('A' * 201)" 2>/dev/null || true)
   local longstr_resp
@@ -246,10 +246,10 @@ except:
   local longstr_code
   longstr_code=$(echo "$longstr_resp" | tail -1)
   if [[ "$longstr_code" == "400" ]] || [[ "$longstr_code" == "422" ]]; then
-    score=$((score + 3))
+    score=$((score + 4))
   fi
 
-  # Content-Type validation — send non-JSON body with wrong content type (3 pts)
+  # Content-Type validation — send non-JSON body with wrong content type (4 pts)
   local ct_resp
   ct_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: text/plain" \
@@ -257,7 +257,7 @@ except:
   local ct_code
   ct_code=$(echo "$ct_resp" | tail -1)
   if [[ "$ct_code" == "400" ]] || [[ "$ct_code" == "415" ]] || [[ "$ct_code" == "422" ]]; then
-    score=$((score + 3))
+    score=$((score + 4))
   fi
 
   # Malformed JSON body handling (3 pts)
@@ -271,7 +271,7 @@ except:
     score=$((score + 3))
   fi
 
-  # ---------- ADVANCED (10 points) ----------
+  # ---------- ADVANCED (15 points) ----------
 
   # PATCH /books/:id — partial update (5 pts)
   # Create a fresh book to test PATCH against
@@ -319,7 +319,7 @@ except:
     fi
   fi
 
-  # Response Content-Type header is application/json (3 pts)
+  # Response Content-Type header is application/json (4 pts)
   local ct_header
   ct_header=$(curl -s -o /dev/null -w "%{content_type}" "$base/books" 2>/dev/null) || true
   local ct_check
@@ -328,9 +328,9 @@ import sys
 ct = sys.stdin.read().strip().lower()
 print('yes' if 'application/json' in ct else 'no')
 " 2>/dev/null || true)
-  [[ "$ct_check" == "yes" ]] && score=$((score + 3))
+  [[ "$ct_check" == "yes" ]] && score=$((score + 4))
 
-  # PUT /books/:id with missing required field should fail (2 pts)
+  # PUT /books/:id with missing required field should fail (3 pts)
   # (PUT should require full object replacement)
   local put_partial
   put_partial=$(curl -s -w "\n%{http_code}" -X PUT "$base/books/$patch_id" \
@@ -339,8 +339,20 @@ print('yes' if 'application/json' in ct else 'no')
   local put_partial_code
   put_partial_code=$(echo "$put_partial" | tail -1)
   if [[ "$put_partial_code" == "400" ]] || [[ "$put_partial_code" == "422" ]]; then
-    score=$((score + 2))
+    score=$((score + 3))
   fi
+
+  # POST /books — verify createdAt field is auto-populated (3 pts)
+  local has_created_at
+  has_created_at=$(echo "$create_body" | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    print('yes' if data.get('createdAt') or data.get('created_at') else 'no')
+except:
+    print('no')
+" 2>/dev/null || true)
+  [[ "$has_created_at" == "yes" ]] && score=$((score + 3))
 
   # Cleanup — kill server and don't block on wait
   kill "$server_pid" 2>/dev/null

@@ -25,7 +25,7 @@ print('PASS')
 " 2>&1) || true
   [[ "$email_basic" == *"PASS"* ]] && score=$((score + 8))
 
-  # ── Email validator — edge cases (7 pts) ───────────────────────────
+  # ── Email validator — edge cases (8 pts) ───────────────────────────
   local email_edge
   email_edge=$(cd "$ws" && python3 -c "
 from validators import validate_email
@@ -43,7 +43,7 @@ ok, msg = validate_email('user..name@example.com')
 assert not ok, 'Double dot in local part should be invalid'
 print('PASS')
 " 2>&1) || true
-  [[ "$email_edge" == *"PASS"* ]] && score=$((score + 7))
+  [[ "$email_edge" == *"PASS"* ]] && score=$((score + 8))
 
   # ── Email — error message quality (3 pts) ──────────────────────────
   local email_msg
@@ -76,7 +76,7 @@ print('PASS')
 " 2>&1) || true
   [[ "$url_basic" == *"PASS"* ]] && score=$((score + 8))
 
-  # ── URL — advanced (7 pts) ─────────────────────────────────────────
+  # ── URL — advanced (8 pts) ─────────────────────────────────────────
   local url_adv
   url_adv=$(cd "$ws" && python3 -c "
 from validators import validate_url
@@ -96,7 +96,7 @@ ok, msg = validate_url('example.com')
 assert not ok, 'Missing scheme should be invalid'
 print('PASS')
 " 2>&1) || true
-  [[ "$url_adv" == *"PASS"* ]] && score=$((score + 7))
+  [[ "$url_adv" == *"PASS"* ]] && score=$((score + 8))
 
   # ── Phone validator — basic US (8 pts) ─────────────────────────────
   local phone_basic
@@ -146,7 +146,7 @@ print('PASS')
 " 2>&1) || true
   [[ "$cc_basic" == *"PASS"* ]] && score=$((score + 8))
 
-  # ── Credit card — formatting tolerance (5 pts) ─────────────────────
+  # ── Credit card — formatting tolerance (6 pts) ─────────────────────
   local cc_fmt
   cc_fmt=$(cd "$ws" && python3 -c "
 from validators import validate_credit_card
@@ -164,7 +164,7 @@ ok, msg = validate_credit_card('abcdefghijklmnop')
 assert not ok, 'Non-numeric should be invalid'
 print('PASS')
 " 2>&1) || true
-  [[ "$cc_fmt" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$cc_fmt" == *"PASS"* ]] && score=$((score + 6))
 
   # ── Date range — basic (8 pts) ─────────────────────────────────────
   local date_basic

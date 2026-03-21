@@ -112,7 +112,7 @@ Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>") || true
     fi
 
     # Merge to main
-    local current_branch
+    current_branch=""
     current_branch=$(dk_branch)
     if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
       (cd "$DOYAKEN_DIR" && \
@@ -156,7 +156,7 @@ Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>") || true
 
             # Merge to main if improved
             if python3 -c "exit(0 if $NEW_SCORE > $AGG_SCORE else 1)" 2>/dev/null; then
-              local current_branch
+              current_branch=""
               current_branch=$(dk_branch)
               if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
                 (cd "$DOYAKEN_DIR" && \
