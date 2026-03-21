@@ -1,0 +1,7 @@
+{
+  "name": "template",
+  "type": "feature",
+  "description": "Template scenario — copy this directory to create a new scenario.",
+  "timeout": 900,
+  "language": "node"
+}

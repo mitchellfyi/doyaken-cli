@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+# Research harness — improvement engine
+# Analyzes test results, uses Claude to propose DK prompt/skill improvements.
+#
+# Usage:
+#   ./research/improve.sh <run-dir>
+#   ./research/improve.sh results/run-20260321-120000
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/safety.sh"
+
+# ── Parse arguments ────────────────────────────────────────────────────────
+RUN_DIR="${1:-}"
+if [[ -z "$RUN_DIR" ]]; then
+  # Try to use latest
+  if [[ -L "$RESULTS_DIR/latest" ]]; then
+    RUN_DIR="$RESULTS_DIR/$(readlink "$RESULTS_DIR/latest")"
+  else
+    log_error "Usage: $0 <run-dir>"
+    exit 1
+  fi
+fi
+
+# Resolve relative paths
+[[ "$RUN_DIR" != /* ]] && RUN_DIR="$RESULTS_DIR/$RUN_DIR"
+
+if [[ ! -f "$RUN_DIR/summary.json" ]]; then
+  log_error "No summary.json found in $RUN_DIR"
+  exit 1
+fi
+
+log_step "Analyzing results from: $(basename "$RUN_DIR")"
+
+# ── Gather failure details ─────────────────────────────────────────────────
+
+# Build the analysis prompt
+ANALYSIS_PROMPT="You are analyzing the results of an AI agent testing harness for Doyaken (DK), a workflow automation framework for Claude Code.
+
+The harness runs DK against predefined scenarios (coding tasks), then scores its output with deterministic rubrics. Your job is to propose specific improvements to DK's skill prompts and audit criteria to improve scores.
+
+## Current Scores
+
+$(cat "$RUN_DIR/summary.json")
+
+## Failure Details
+"
+
+# Add per-scenario details for low-scoring scenarios
+for scenario_dir in "$RUN_DIR"/*/; do
+  [[ -d "$scenario_dir" ]] || continue
+  scenario=$(basename "$scenario_dir")
+  [[ -f "$scenario_dir/rubric-results.json" ]] || continue
+
+  total=$(json_field "$scenario_dir/rubric-results.json" "total")
+  [[ -z "$total" ]] && continue
+
+  # Include scenarios scoring below 80
+  if [[ $total -lt 80 ]]; then
+    ANALYSIS_PROMPT+="
+### Scenario: $scenario (Score: $total/100)
+
+#### Rubric Scores:
+$(cat "$scenario_dir/rubric-results.json" 2>/dev/null)
+
+#### Scenario Prompt:
+$(cat "$SCENARIOS_DIR/$scenario/prompt.md" 2>/dev/null || echo "(not found)")
+
+#### DK Output (last 100 lines of stderr, which includes hook/guard messages):
+$(tail -100 "$scenario_dir/stderr.log" 2>/dev/null || echo "(no stderr)")
+
+"
+  fi
+done
+
+# Add current DK skill/prompt content
+ANALYSIS_PROMPT+="
+## Current DK Skill/Prompt Files (these are what you can modify)
+
+### prompts/guardrails.md:
+$(cat "$DOYAKEN_DIR/prompts/guardrails.md" 2>/dev/null || echo "(not found)")
+
+### prompts/phase-audits/prompt-loop.md:
+$(cat "$DOYAKEN_DIR/prompts/phase-audits/prompt-loop.md" 2>/dev/null || echo "(not found)")
+
+### skills/dkimplement/SKILL.md:
+$(head -100 "$DOYAKEN_DIR/skills/dkimplement/SKILL.md" 2>/dev/null || echo "(not found)")
+
+### skills/dkreview/SKILL.md:
+$(head -100 "$DOYAKEN_DIR/skills/dkreview/SKILL.md" 2>/dev/null || echo "(not found)")
+
+### skills/dkverify/SKILL.md:
+$(head -100 "$DOYAKEN_DIR/skills/dkverify/SKILL.md" 2>/dev/null || echo "(not found)")
+
+## Constraints
+
+You may ONLY propose changes to files matching these patterns:
+- skills/*/SKILL.md
+- prompts/*.md
+- prompts/phase-audits/*.md
+- agents/*.md
+- hooks/guards/*.md
+
+You MUST NOT modify: dk.sh, lib/*.sh, bin/*.sh, hooks/phase-loop.sh, hooks/guard-handler.py, settings.json
+
+## Task
+
+Analyze the failures and propose SPECIFIC, TARGETED changes to DK's skill prompts or audit criteria.
+
+For each proposed change:
+1. Explain WHY the current text causes the failure
+2. Show the EXACT change in unified diff format
+
+Focus on the lowest-scoring scenarios first. Prefer small, precise edits over broad rewrites.
+
+Output your proposed changes as a series of unified diffs that can be applied with \`git apply\`:
+
+\`\`\`diff
+--- a/path/to/file
++++ b/path/to/file
+@@ ... @@
+ context line
+-old line
++new line
+ context line
+\`\`\`
+"
+
+# ── Run Claude to generate improvements ────────────────────────────────────
+log_step "Generating improvement proposals..."
+
+PROPOSAL_DIR="$IMPROVEMENTS_DIR/proposals"
+mkdir -p "$PROPOSAL_DIR"
+
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+PROPOSAL_FILE="$PROPOSAL_DIR/proposal-${TIMESTAMP}.md"
+PATCH_FILE="$PROPOSAL_DIR/patch-${TIMESTAMP}.diff"
+
+# Run Claude for analysis
+claude_response=$(claude -p \
+  --model "$CLAUDE_MODEL" \
+  --permission-mode "$CLAUDE_PERMISSION_MODE" \
+  --effort "$CLAUDE_EFFORT" \
+  --output-format text \
+  "$ANALYSIS_PROMPT" 2>/dev/null) || {
+    log_error "Claude analysis failed"
+    exit 1
+  }
+
+# Save the full response
+echo "$claude_response" > "$PROPOSAL_FILE"
+log_info "Proposal saved: $PROPOSAL_FILE"
+
+# Extract the diff portion
+python3 - "$PROPOSAL_FILE" "$PATCH_FILE" <<'PYEOF'
+import sys, re
+
+with open(sys.argv[1]) as f:
+    content = f.read()
+
+# Extract all diff blocks
+diffs = []
+in_diff = False
+current_diff = []
+
+for line in content.split('\n'):
+    if line.startswith('```diff'):
+        in_diff = True
+        current_diff = []
+        continue
+    if line.startswith('```') and in_diff:
+        in_diff = False
+        if current_diff:
+            diffs.append('\n'.join(current_diff))
+        continue
+    if in_diff:
+        current_diff.append(line)
+
+# Also catch diffs not in code blocks
+if not diffs:
+    for line in content.split('\n'):
+        if line.startswith('--- a/') or line.startswith('diff --git'):
+            in_diff = True
+            current_diff = [line]
+            continue
+        if in_diff:
+            if line.startswith('--- a/') or line.startswith('diff --git'):
+                if current_diff:
+                    diffs.append('\n'.join(current_diff))
+                current_diff = [line]
+            else:
+                current_diff.append(line)
+    if current_diff:
+        diffs.append('\n'.join(current_diff))
+
+patch_content = '\n'.join(diffs) + '\n' if diffs else ''
+
+with open(sys.argv[2], 'w') as f:
+    f.write(patch_content)
+
+if patch_content.strip():
+    print(f"Extracted {len(diffs)} diff(s)")
+else:
+    print("No diffs found in response")
+PYEOF
+
+if [[ ! -s "$PATCH_FILE" ]]; then
+  log_warn "No actionable diffs extracted from Claude's response"
+  log_info "Review the full proposal: $PROPOSAL_FILE"
+  exit 1
+fi
+
+# ── Validate scope ─────────────────────────────────────────────────────────
+log_step "Validating proposed changes..."
+
+if ! cat "$PATCH_FILE" | safety_validate_diff; then
+  log_error "Proposed changes touch files outside allowed scope. Rejecting."
+  exit 1
+fi
+
+log_success "Proposal validated. Patch ready: $PATCH_FILE"
+echo ""
+echo "To apply:  cd $DOYAKEN_DIR && git apply $PATCH_FILE"
+echo "To review: cat $PROPOSAL_FILE"
+
+# Output the patch file path for loop.sh
+echo "$PATCH_FILE"
