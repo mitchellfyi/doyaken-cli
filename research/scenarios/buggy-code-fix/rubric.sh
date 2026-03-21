@@ -77,7 +77,7 @@ try {
 }
 " 2>&1) || true
   local pass_count
-  pass_count=$(echo "$disc_validate_test" | grep -c "PASS" || echo "0")
+  pass_count="$(echo "$disc_validate_test" | grep -c "PASS")" || pass_count=0
   [[ $pass_count -ge 2 ]] && score=$((score + 15))
 
   # All 5 bugs fixed — bonus for clean code
