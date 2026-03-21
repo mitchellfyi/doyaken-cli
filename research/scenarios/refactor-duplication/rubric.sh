@@ -13,9 +13,10 @@ rubric_correctness() {
   # Shared utility exists
   local shared_found=false
   for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" \
-           "src/utils/validate.js" "src/validation.js" "src/shared/validation.js" \
+           "src/utils/validate.js" "src/lib/validate.js" "src/validation.js" "src/shared/validation.js" \
            "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" \
-           "src/helpers/validators.js"; do
+           "src/helpers/validators.js" "src/helpers/validate.js" "src/common/validators.js" \
+           "src/common/validate.js"; do
     if [[ -f "$ws/$f" ]]; then
       shared_found=true
       break
@@ -199,9 +200,10 @@ rubric_robustness() {
   # Shared utility is well-structured (has multiple exported functions)
   local shared_file=""
   for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" \
-           "src/utils/validate.js" "src/validation.js" "src/shared/validation.js" \
+           "src/utils/validate.js" "src/lib/validate.js" "src/validation.js" "src/shared/validation.js" \
            "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" \
-           "src/helpers/validators.js"; do
+           "src/helpers/validators.js" "src/helpers/validate.js" "src/common/validators.js" \
+           "src/common/validate.js"; do
     [[ -f "$ws/$f" ]] && shared_file="$ws/$f" && break
   done
 
