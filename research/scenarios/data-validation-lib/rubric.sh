@@ -37,7 +37,7 @@ print('PASS')
   local phone_result
   phone_result=$(cd "$ws" && python3 -c "
 from validators import validate_phone
-ok, msg = validate_phone('(555) 123-4567')
+ok, msg = validate_phone('(555) 234-5678')
 assert ok, f'Should be valid: {msg}'
 ok, msg = validate_phone('123')
 assert not ok, 'Should be invalid'
