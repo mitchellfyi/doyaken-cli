@@ -235,7 +235,16 @@ rubric_test_quality() {
 
   # --- Test file existence and count (20 pts) ---
   local test_files
-  test_files=$(find "$ws" -maxdepth 3 \( -name "*.test.*" -o -name "*.spec.*" \) ! -path "*/node_modules/*" 2>/dev/null)
+  test_files=$(find "$ws" -maxdepth 3 \( \
+    -name "*.test.*" -o -name "*.spec.*" -o \
+    -name "test.js" -o -name "test_*.js" -o -name "tests.js" \
+  \) ! -path "*/node_modules/*" 2>/dev/null)
+  # Also check __tests__/ and test/ directories
+  local test_dir_files
+  test_dir_files=$(find "$ws" -maxdepth 4 -path "*/__tests__/*.js" -o -path "*/test/*.js" -o -path "*/tests/*.js" 2>/dev/null | grep -v node_modules) || true
+  if [[ -n "$test_dir_files" ]]; then
+    test_files=$(printf '%s\n%s' "$test_files" "$test_dir_files" | sort -u | grep -v '^$')
+  fi
   local test_count
   test_count=$(echo "$test_files" | grep -c "." 2>/dev/null) || true
   test_count=${test_count:-0}
