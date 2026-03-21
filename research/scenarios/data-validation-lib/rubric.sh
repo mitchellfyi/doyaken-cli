@@ -268,10 +268,9 @@ rubric_test_quality() {
   # ── Test directory exists (5 pts) ──────────────────────────────────
   [[ -d "$ws/tests" || -d "$ws/test" ]] && score=$((score + 5))
 
-  # ── Test files exist (10 pts) ──────────────────────────────────────
+  # ── Test files exist (5 pts) ───────────────────────────────────────
   local test_count
   test_count=$(find "$ws" -maxdepth 4 \( -name "test_*.py" -o -name "*_test.py" \) ! -path "*/.venv/*" 2>/dev/null | wc -l | tr -d ' ')
-  [[ $test_count -gt 0 ]] && score=$((score + 5))
   [[ $test_count -ge 3 ]] && score=$((score + 5))
 
   # ── Tests pass with pytest (20 pts) ────────────────────────────────
@@ -337,7 +336,7 @@ rubric_test_quality() {
     fi
   done
   [[ $null_coverage -ge 3 ]] && score=$((score + 5))
-  [[ $null_coverage -ge 5 ]] && score=$((score + 15))
+  [[ $null_coverage -ge 5 ]] && score=$((score + 20))
 
   echo "$score"
 }
@@ -349,7 +348,7 @@ rubric_robustness() {
   local src_files
   src_files=$(find "$ws/validators" -name "*.py" 2>/dev/null)
 
-  # ── Non-string inputs handled gracefully (15 pts) ──────────────────
+  # ── Non-string inputs handled gracefully (20 pts) ──────────────────
   local type_safety
   type_safety=$(cd "$ws" && python3 -c "
 from validators import validate_email, validate_url, validate_phone, validate_credit_card, validate_date_range
@@ -369,9 +368,9 @@ ok, msg = validate_date_range('2024-01-01', [1, 2])
 assert not ok, 'date_range(str, list) should be invalid'
 print('PASS')
 " 2>&1) || true
-  [[ "$type_safety" == *"PASS"* ]] && score=$((score + 15))
+  [[ "$type_safety" == *"PASS"* ]] && score=$((score + 20))
 
-  # ── Extremely long inputs don't crash (10 pts) ─────────────────────
+  # ── Extremely long inputs don't crash (15 pts) ─────────────────────
   local long_input
   long_input=$(cd "$ws" && python3 -c "
 from validators import validate_email, validate_url, validate_phone, validate_credit_card
@@ -386,7 +385,7 @@ ok, msg = validate_email(long_email)
 assert not ok, 'Very long email should be invalid'
 print('PASS')
 " 2>&1) || true
-  [[ "$long_input" == *"PASS"* ]] && score=$((score + 10))
+  [[ "$long_input" == *"PASS"* ]] && score=$((score + 15))
 
   # ── Type annotations present (10 pts) ──────────────────────────────
   local has_annotations

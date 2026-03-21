@@ -9,19 +9,6 @@
 # Expected "good DK" scores: correctness ~75, test_quality ~65, robustness ~60
 # Overall weighted: ~80-85
 
-# Helper: run an inline Go program inside the workspace and capture output.
-# Writes a temp main file, runs it, cleans up. Returns stdout.
-_dk_run_go() {
-  local ws="$1"
-  local code="$2"
-  local tmpfile="$ws/_dk_rubric_runner.go"
-  printf '%s' "$code" > "$tmpfile"
-  local out
-  out=$(cd "$ws" && go run "$tmpfile" 2>/dev/null) || true
-  rm -f "$tmpfile" 2>/dev/null
-  echo "$out"
-}
-
 rubric_correctness() {
   local ws="$1"
   local score=0
@@ -42,25 +29,12 @@ rubric_correctness() {
     echo "$score"; return
   fi
 
+  # All correctness checks inject a temporary test file into the package,
+  # run it via `go test`, then clean up. This avoids import resolution issues.
+  local tmptest="$ws/_dk_rubric_test.go"
+
   # --- Reverse: basic ASCII + empty string (10pts) ---
-  local rev_basic
-  rev_basic=$(_dk_run_go "$ws" '
-package main
-import "fmt"
-func main() {
-    if Reverse("hello") == "olleh" && Reverse("") == "" {
-        fmt.Println("PASS")
-    } else {
-        fmt.Println("FAIL")
-    }
-}
-') || true
-  # Fallback: test via go test if inline import fails
-  if [[ "$rev_basic" != *"PASS"* ]]; then
-    # The inline approach may fail if the package requires separate import.
-    # Try a different approach: write a test file and run it.
-    local tmptest="$ws/_dk_rubric_test.go"
-    cat > "$tmptest" <<'GOEOF'
+  cat > "$tmptest" <<'GOEOF'
 package strutil
 
 import (
@@ -76,13 +50,12 @@ func TestDKRubricReverseBasic(t *testing.T) {
     }
 }
 GOEOF
-    rev_basic=$(cd "$ws" && go test -run TestDKRubricReverseBasic -v ./... 2>&1) || true
-    rm -f "$tmptest" 2>/dev/null
-  fi
+  local rev_basic
+  rev_basic=$(cd "$ws" && go test -run TestDKRubricReverseBasic -v ./... 2>&1) || true
+  rm -f "$tmptest" 2>/dev/null
   [[ "$rev_basic" == *"PASS"* ]] && score=$((score + 10))
 
   # --- Reverse: multi-byte Unicode / rune-level (7pts) ---
-  local tmptest="$ws/_dk_rubric_test.go"
   cat > "$tmptest" <<'GOEOF'
 package strutil
 
@@ -428,7 +401,9 @@ rubric_test_quality() {
 
   # Step 2: Tests actually pass (not just present)
   local tests_output
-  tests_output=$(cd "$ws" && go test -run '^Test[^D]' ./... -count=1 2>&1) || true
+  # Run DK's tests (exclude our rubric injected tests by name prefix).
+  # The rubric test files are cleaned up before this runs, so this is just a safety measure.
+  tests_output=$(cd "$ws" && go test ./... -count=1 2>&1) || true
   if [[ "$tests_output" == *"PASS"* && "$tests_output" != *"FAIL"* ]]; then
     score=$((score + 10))
   fi

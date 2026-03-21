@@ -44,9 +44,9 @@ rubric_correctness() {
 
   local base="http://localhost:$port"
 
-  # ---------- BASIC CRUD (50 points) ----------
+  # ---------- BASIC CRUD (46 points) ----------
 
-  # POST /books — create a book (8 pts)
+  # POST /books — create a book (7 pts)
   local create_resp
   create_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: application/json" \
@@ -54,10 +54,10 @@ rubric_correctness() {
   local create_code
   create_code=$(echo "$create_resp" | tail -1)
   if [[ "$create_code" == "201" ]] || [[ "$create_code" == "200" ]]; then
-    score=$((score + 8))
+    score=$((score + 7))
   fi
 
-  # Verify created book has an ID in the response (4 pts)
+  # Verify created book has an ID in the response (3 pts)
   local create_body
   create_body=$(echo "$create_resp" | sed '$d')
   local created_id
@@ -73,7 +73,7 @@ except:
     print('')
 " 2>/dev/null || true)
   if [[ -n "$created_id" && "$created_id" != "None" && "$created_id" != "" ]]; then
-    score=$((score + 4))
+    score=$((score + 3))
   fi
 
   # Verify created book echoes back the title (2 pts)
@@ -88,7 +88,7 @@ except:
 " 2>/dev/null || true)
   [[ "$has_title" == "yes" ]] && score=$((score + 2))
 
-  # GET /books — list all books (8 pts)
+  # GET /books — list all books (7 pts)
   local list_resp
   list_resp=$(curl -s -w "\n%{http_code}" "$base/books" 2>/dev/null) || true
   local list_code
@@ -96,7 +96,7 @@ except:
   local list_body
   list_body=$(echo "$list_resp" | sed '$d')
   if [[ "$list_code" == "200" ]]; then
-    score=$((score + 5))
+    score=$((score + 4))
     local has_book
     has_book=$(echo "$list_body" | python3 -c "
 import json, sys
@@ -129,21 +129,21 @@ except:
   # Last resort fallback
   [[ -z "$book_id" || "$book_id" == "None" ]] && book_id="1"
 
-  # GET /books/:id — single book (8 pts)
+  # GET /books/:id — single book (7 pts)
   local get_resp
   get_resp=$(curl -s -w "\n%{http_code}" "$base/books/$book_id" 2>/dev/null) || true
   local get_code
   get_code=$(echo "$get_resp" | tail -1)
-  [[ "$get_code" == "200" ]] && score=$((score + 8))
+  [[ "$get_code" == "200" ]] && score=$((score + 7))
 
-  # PUT /books/:id — full update (8 pts)
+  # PUT /books/:id — full update (7 pts)
   local put_resp
   put_resp=$(curl -s -w "\n%{http_code}" -X PUT "$base/books/$book_id" \
     -H "Content-Type: application/json" \
     -d '{"title":"Updated Book","author":"Updated Author","isbn":"9780131103627"}' 2>/dev/null) || true
   local put_code
   put_code=$(echo "$put_resp" | tail -1)
-  [[ "$put_code" == "200" ]] && score=$((score + 8))
+  [[ "$put_code" == "200" ]] && score=$((score + 7))
 
   # Verify PUT actually changed the data (3 pts)
   local verify_put
@@ -159,13 +159,13 @@ except:
 " 2>/dev/null || true)
   [[ "$put_changed" == "yes" ]] && score=$((score + 3))
 
-  # DELETE /books/:id (8 pts)
+  # DELETE /books/:id (7 pts)
   local del_resp
   del_resp=$(curl -s -w "\n%{http_code}" -X DELETE "$base/books/$book_id" 2>/dev/null) || true
   local del_code
   del_code=$(echo "$del_resp" | tail -1)
   if [[ "$del_code" == "200" ]] || [[ "$del_code" == "204" ]]; then
-    score=$((score + 8))
+    score=$((score + 7))
   fi
 
   # Verify deleted book is truly gone — GET after DELETE should 404 (3 pts)
@@ -175,7 +175,7 @@ except:
   gone_code=$(echo "$gone_resp" | tail -1)
   [[ "$gone_code" == "404" ]] && score=$((score + 3))
 
-  # ---------- ERROR HANDLING (30 points) ----------
+  # ---------- ERROR HANDLING (34 points) ----------
 
   # GET /books/nonexistent — 404 (5 pts)
   local notfound_resp
@@ -271,7 +271,7 @@ except:
     score=$((score + 3))
   fi
 
-  # ---------- ADVANCED (15 points) ----------
+  # ---------- ADVANCED (20 points) ----------
 
   # PATCH /books/:id — partial update (5 pts)
   # Create a fresh book to test PATCH against
@@ -366,14 +366,14 @@ rubric_test_quality() {
   local ws="$1"
   local score=0
 
-  # --- Test files exist (10 pts) ---
+  # --- Test files exist (15 pts) ---
   local test_files
   test_files=$(find "$ws" -maxdepth 4 \( -name "*.test.*" -o -name "*.spec.*" \) ! -path "*/node_modules/*" 2>/dev/null || true)
   local test_count
   test_count=$(echo "$test_files" | grep -c '.' 2>/dev/null || true)
-  [[ $test_count -gt 0 ]] && score=$((score + 10))
+  [[ $test_count -gt 0 ]] && score=$((score + 15))
 
-  # --- Tests actually pass (20 pts) ---
+  # --- Tests actually pass (25 pts) ---
   local test_output
   test_output=$(cd "$ws" && npm test 2>&1 | tail -40) || true
   local tests_pass
@@ -390,7 +390,7 @@ if re.search(r'(pass|PASS|✓|Tests:.*passed|test suites.*passed)', text, re.IGN
 else:
     print('no')
 " 2>/dev/null || true)
-  [[ "$tests_pass" == "yes" ]] && score=$((score + 20))
+  [[ "$tests_pass" == "yes" ]] && score=$((score + 25))
 
   # --- Test count > 5 (individual test cases, not files) (10 pts) ---
   local individual_tests
@@ -503,7 +503,7 @@ rubric_robustness() {
   local src_files
   src_files=$(find "$ws" -maxdepth 4 -name "*.js" ! -path "*/node_modules/*" ! -name "*.test.*" ! -name "*.spec.*" 2>/dev/null || true)
 
-  # --- Input validation present (10 pts) ---
+  # --- Input validation present (12 pts) ---
   local has_validation
   has_validation=$(echo "$src_files" | while read -r f; do
     [[ -z "$f" ]] && continue
@@ -511,9 +511,9 @@ rubric_robustness() {
       echo "found"; break
     fi
   done) || true
-  [[ "$has_validation" == "found" ]] && score=$((score + 10))
+  [[ "$has_validation" == "found" ]] && score=$((score + 12))
 
-  # --- Error handling middleware or try/catch (10 pts) ---
+  # --- Error handling middleware or try/catch (12 pts) ---
   local has_error_handling
   has_error_handling=$(echo "$src_files" | while read -r f; do
     [[ -z "$f" ]] && continue
@@ -521,9 +521,9 @@ rubric_robustness() {
       echo "found"; break
     fi
   done) || true
-  [[ "$has_error_handling" == "found" ]] && score=$((score + 10))
+  [[ "$has_error_handling" == "found" ]] && score=$((score + 12))
 
-  # --- Proper status codes in source (10 pts) ---
+  # --- Proper status codes in source (12 pts) ---
   local status_count=0
   for code_pattern in "status(201" "status(400" "status(404" "status(204"; do
     local has_code
@@ -536,9 +536,9 @@ rubric_robustness() {
     [[ "$has_code" == "found" ]] && status_count=$((status_count + 1))
   done
   # Need at least 3 of 4 status codes
-  [[ $status_count -ge 3 ]] && score=$((score + 10))
+  [[ $status_count -ge 3 ]] && score=$((score + 12))
 
-  # --- JSON error responses with meaningful messages (10 pts) ---
+  # --- JSON error responses with meaningful messages (12 pts) ---
   local has_json_errors
   has_json_errors=$(echo "$src_files" | while read -r f; do
     [[ -z "$f" ]] && continue
@@ -546,7 +546,7 @@ rubric_robustness() {
       echo "found"; break
     fi
   done) || true
-  [[ "$has_json_errors" == "found" ]] && score=$((score + 10))
+  [[ "$has_json_errors" == "found" ]] && score=$((score + 12))
 
   # --- IDs are UUIDs (not sequential integers) (10 pts) ---
   local has_uuid
@@ -609,7 +609,7 @@ except:
     [[ "$pkg_limits" == "found" ]] && score=$((score + 10))
   fi
 
-  # --- Graceful server shutdown / process handling (5 pts) ---
+  # --- Graceful server shutdown / process handling (6 pts) ---
   local has_graceful
   has_graceful=$(echo "$src_files" | while read -r f; do
     [[ -z "$f" ]] && continue
@@ -617,9 +617,9 @@ except:
       echo "found"; break
     fi
   done) || true
-  [[ "$has_graceful" == "found" ]] && score=$((score + 5))
+  [[ "$has_graceful" == "found" ]] && score=$((score + 6))
 
-  # --- ISBN validation logic specifically (5 pts) ---
+  # --- ISBN validation logic specifically (6 pts) ---
   local has_isbn_validation
   has_isbn_validation=$(echo "$src_files" | while read -r f; do
     [[ -z "$f" ]] && continue
@@ -627,7 +627,7 @@ except:
       echo "found"; break
     fi
   done) || true
-  [[ "$has_isbn_validation" == "found" ]] && score=$((score + 5))
+  [[ "$has_isbn_validation" == "found" ]] && score=$((score + 6))
 
   # --- Module structure: routes separated from main file (10 pts) ---
   local route_files
