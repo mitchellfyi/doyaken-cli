@@ -195,13 +195,61 @@ if not diffs:
     if current_diff:
         diffs.append('\n'.join(current_diff))
 
-patch_content = '\n'.join(diffs) + '\n' if diffs else ''
+# Fix hunk headers: Claude often gets line counts wrong.
+# Recalculate old_count and new_count from actual hunk content.
+import os
 
+def fix_hunk_headers(diff_text):
+    """Recalculate @@ line counts from actual content."""
+    lines = diff_text.split('\n')
+    result = []
+    hunk_start = None
+    hunk_lines = []
+
+    def flush_hunk():
+        if hunk_start is None or not hunk_lines:
+            return
+        old_count = sum(1 for l in hunk_lines if l.startswith(' ') or l.startswith('-'))
+        new_count = sum(1 for l in hunk_lines if l.startswith(' ') or l.startswith('+'))
+        # Parse the original @@ header for old_start and new_start
+        m = re.match(r'@@ -(\d+),?\d* \+(\d+),?\d* @@(.*)', hunk_start)
+        if m:
+            old_start, new_start, rest = m.group(1), m.group(2), m.group(3)
+            result.append(f'@@ -{old_start},{old_count} +{new_start},{new_count} @@{rest}')
+        else:
+            result.append(hunk_start)  # Can't parse, keep original
+        result.extend(hunk_lines)
+
+    for line in lines:
+        if line.startswith('@@'):
+            flush_hunk()
+            hunk_start = line
+            hunk_lines = []
+        elif hunk_start is not None and (line.startswith(' ') or line.startswith('+') or line.startswith('-')):
+            hunk_lines.append(line)
+        else:
+            flush_hunk()
+            hunk_start = None
+            hunk_lines = []
+            result.append(line)
+
+    flush_hunk()
+    return '\n'.join(result)
+
+# Fix all diffs and write individual patch files
+fixed_diffs = [fix_hunk_headers(d) for d in diffs]
+
+all_content = '\n'.join(fixed_diffs) + '\n' if fixed_diffs else ''
 with open(sys.argv[2], 'w') as f:
-    f.write(patch_content)
+    f.write(all_content)
 
-if patch_content.strip():
-    print(f"Extracted {len(diffs)} diff(s)")
+for i, diff_text in enumerate(fixed_diffs):
+    part_file = f"{sys.argv[2]}.{i}"
+    with open(part_file, 'w') as f:
+        f.write(diff_text + '\n')
+
+if fixed_diffs:
+    print(f"Extracted and fixed {len(fixed_diffs)} diff(s)")
 else:
     print("No diffs found in response")
 PYEOF

@@ -128,11 +128,33 @@ for iter in $(seq 1 "$MAX_ITER"); do
 
   # ── Apply ──────────────────────────────────────────────────────────────
   log_step "Applying patch..."
-  if ! (cd "$DOYAKEN_DIR" && git apply "$PATCH_FILE" 2>/dev/null); then
-    log_warn "Patch failed to apply cleanly. Skipping iteration."
+  local applied=0
+  # Try individual patch parts first (avoids hunk offset issues)
+  # Use `patch` instead of `git apply` for better fuzz/offset tolerance
+  local part_idx=0
+  while [[ -f "${PATCH_FILE}.${part_idx}" ]]; do
+    if (cd "$DOYAKEN_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "${PATCH_FILE}.${part_idx}" 2>/dev/null); then
+      applied=$((applied + 1))
+    else
+      log_warn "Patch part $part_idx failed to apply"
+    fi
+    part_idx=$((part_idx + 1))
+  done
+
+  # Fallback: try applying the combined patch if no parts exist
+  if [[ $part_idx -eq 0 ]]; then
+    if (cd "$DOYAKEN_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "$PATCH_FILE" 2>/dev/null); then
+      applied=1
+    fi
+  fi
+
+  if [[ $applied -eq 0 ]]; then
+    log_warn "No patches applied. Skipping iteration."
     _changelog "### Iteration $iter: SKIP (patch failed to apply)"
     continue
   fi
+
+  log_info "Applied $applied patch part(s)"
 
   # Copy patch to applied/
   cp "$PATCH_FILE" "$IMPROVEMENTS_DIR/applied/$(basename "$PATCH_FILE")"

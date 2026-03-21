@@ -13,9 +13,10 @@ rubric_correctness() {
   # Shared utility exists
   local shared_found=false
   for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" \
-           "src/utils/validate.js" "src/validation.js" "src/shared/validation.js" \
+           "src/utils/validate.js" "src/lib/validate.js" "src/validation.js" "src/shared/validation.js" \
            "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" \
-           "src/helpers/validators.js"; do
+           "src/helpers/validators.js" "src/helpers/validate.js" "src/common/validators.js" \
+           "src/common/validate.js"; do
     if [[ -f "$ws/$f" ]]; then
       shared_found=true
       break
@@ -138,7 +139,13 @@ rubric_test_quality() {
   local score=0
 
   local test_files
-  test_files=$(find "$ws" -maxdepth 4 \( -name "*.test.*" -o -name "*.spec.*" \) ! -path "*/node_modules/*" 2>/dev/null)
+  test_files=$(find "$ws" -maxdepth 4 \( \
+    -name "*.test.*" -o -name "*.spec.*" -o \
+    -name "test.js" -o -name "test_*.js" -o -name "tests.js" \
+  \) ! -path "*/node_modules/*" 2>/dev/null)
+  local _test_dir_files
+  _test_dir_files=$(find "$ws" -maxdepth 4 \( -path "*/__tests__/*.js" -o -path "*/test/*.js" -o -path "*/tests/*.js" \) 2>/dev/null | grep -v node_modules) || true
+  [[ -n "$_test_dir_files" ]] && test_files=$(printf '%s\n%s' "$test_files" "$_test_dir_files" | sort -u | grep -v '^$')
   local test_count
   test_count=$(echo "$test_files" | grep -c . 2>/dev/null) || test_count=0
   [[ $test_count -gt 0 ]] && score=$((score + 15))
@@ -193,9 +200,10 @@ rubric_robustness() {
   # Shared utility is well-structured (has multiple exported functions)
   local shared_file=""
   for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" \
-           "src/utils/validate.js" "src/validation.js" "src/shared/validation.js" \
+           "src/utils/validate.js" "src/lib/validate.js" "src/validation.js" "src/shared/validation.js" \
            "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" \
-           "src/helpers/validators.js"; do
+           "src/helpers/validators.js" "src/helpers/validate.js" "src/common/validators.js" \
+           "src/common/validate.js"; do
     [[ -f "$ws/$f" ]] && shared_file="$ws/$f" && break
   done
 

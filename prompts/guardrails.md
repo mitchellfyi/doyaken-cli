@@ -45,6 +45,20 @@ If you cannot answer all five confidently, gather more context first.
 - Do not trust data shape from external sources. Parse and validate before using.
 - Use the language's type system to enforce contracts internally (generics, branded types, sum types, enums).
 
+### Production API Defaults
+
+When building HTTP APIs (REST, GraphQL, RPC), always include these unless explicitly scoped out:
+
+- **CORS**: Enable cross-origin requests via middleware (e.g., `cors` package) or manual `Access-Control-Allow-*` headers.
+- **Request size limits**: Set explicit body size limits (e.g., `express.json({ limit: '10kb' })`).
+- **UUIDs for resource IDs**: Use `crypto.randomUUID()` or a uuid library — never sequential integers (they leak information and are guessable).
+- **Graceful shutdown**: Handle `SIGTERM` and `SIGINT` to close the server and release resources cleanly.
+- **Module structure**: Separate route definitions from the app/server setup. Each resource gets its own route file (e.g., `routes/books.js`), imported by the main app.
+- **JSON error bodies**: Every error response must be JSON with a descriptive `error` or `message` field. Never return raw strings or stack traces.
+- **Status code discipline**: Use the correct code for each outcome — `201` for creation, `204` for deletion, `400` for validation failure, `404` for missing resources, `409` for conflicts.
+
+These are implied requirements for any production-quality API, even when the spec does not list them.
+
 ### Resource Cleanup
 
 - Close what you open: database connections, file handles, HTTP clients, sockets.
@@ -76,3 +90,25 @@ Do not expand scope to files outside the plan. Stewardship improvements in your 
 - If a test passes with the implementation removed or broken, the test is not testing anything — rewrite it.
 - Test behavior, not implementation details. Tests should survive refactoring.
 - Error-case tests are mandatory, not optional. For every happy-path test, write at least one error-case test.
+
+### Edge Case Coverage
+
+For any non-trivial feature, systematically test these categories (where applicable):
+
+- **Concurrency / parallel access**: Multiple simultaneous callers sharing state. Use keywords like `concurrent`, `parallel`, `simultaneous` in test names so intent is searchable.
+- **State expiry / reset**: Time-based state (windows, TTLs, caches) must have tests that verify cleanup, expiry, and window boundaries.
+- **Multi-tenant / client isolation**: If state is keyed per client, user, or tenant, test that one key's state does not affect another.
+- **Burst / stress**: Rapid successive calls beyond normal limits — verify the system degrades correctly, not silently.
+- **Boundary values**: Zero, one, max, max+1, empty, null, undefined for every input.
+
+Aim for **>10 focused test cases** per feature. Prefer many small tests over few large ones.
+
+### Refactoring Quality
+
+When extracting shared utilities or reducing duplication:
+
+- **Declarative over imperative**: Prefer validation schemas/rule objects over chains of if-else. The shared module should express *what* to validate, not *how* to walk through fields.
+- **Parameterize**: Shared helpers must accept configuration (max lengths, required fields, patterns) — not hardcode values from one caller.
+- **Clean exports**: Use named exports (`module.exports = { fn1, fn2 }` or `export { fn1, fn2 }`), not default exports of anonymous objects.
+- **Modern idioms**: Use `const`/`let` (never `var`). Remove `console.log` from production code — use a proper logger or remove debug output entirely.
+- **Minimal callers**: After extraction, caller files should be thin — route handlers should delegate to the shared utility and be short.

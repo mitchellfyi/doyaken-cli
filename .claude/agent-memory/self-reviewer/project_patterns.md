@@ -53,3 +53,15 @@ The phase timeout watchdog (`kill -TERM "$claude_pid"`) targets the background s
 ## Commit Message Pattern
 
 All commits in this repo use single-word messages ("init", "fix", "rename") — this is the established style.
+
+## Research Harness: Node.js require() Fallback Pattern
+
+In rubric.sh files, the pattern `require('./src/cart.js') || require('./cart.js')` does NOT work as a fallback. `require()` throws `MODULE_NOT_FOUND` (does not return null/undefined), so the `||` branch never executes. The correct pattern is a try/catch or pre-checking the path with `fs.existsSync`.
+
+## Research Harness: Subshell Process Kill Pattern
+
+`(cd "$ws" && cmd) &` followed by `server_pid=$!` and `kill "$server_pid"` kills the bash subshell wrapper, NOT the inner `cmd` process. The inner process becomes an orphan. Test confirmed on macOS. Same pattern as the existing Watchdog Process Group Pattern in the main codebase. Fix: use `kill -- -$server_pid` to kill the process group, or start with `node ... &` directly.
+
+## Research Harness: RUN_ID Capture via tail -1
+
+loop.sh captures run.sh's RUN_ID via `2>&1 | tail -1`. This works because `echo "$RUN_ID"` is the absolute last output line in run.sh. If a new echo or log statement is added after that line in run.sh, the capture breaks silently. This is a fragile coupling.
