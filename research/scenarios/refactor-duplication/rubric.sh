@@ -10,7 +10,7 @@ rubric_correctness() {
 
   # Shared utility exists
   local shared_found=false
-  for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" "src/utils/validate.js" "src/validation.js" "src/shared/validation.js"; do
+  for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" "src/utils/validate.js" "src/validation.js" "src/shared/validation.js" "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" "src/helpers/validators.js"; do
     if [[ -f "$ws/$f" ]]; then
       shared_found=true
       break
@@ -115,14 +115,14 @@ rubric_robustness() {
 
   # Shared utility is well-structured (has multiple exported functions)
   local shared_file=""
-  for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" "src/utils/validate.js" "src/validation.js" "src/shared/validation.js"; do
+  for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" "src/utils/validate.js" "src/validation.js" "src/shared/validation.js" "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" "src/helpers/validators.js"; do
     [[ -f "$ws/$f" ]] && shared_file="$ws/$f" && break
   done
 
   if [[ -n "$shared_file" ]]; then
     # Has multiple validation helper functions
     local func_count
-    func_count=$(grep -cE "function |const .* = |module\.exports\." "$shared_file" 2>/dev/null || echo "0")
+    func_count="$(grep -cE 'function |const .* = |module\.exports\.' "$shared_file" 2>/dev/null)" || func_count=0
     [[ $func_count -ge 2 ]] && score=$((score + 30))
 
     # Is reusable (parameterized, not hardcoded)
@@ -137,7 +137,7 @@ rubric_robustness() {
     [[ -f "$f" ]] || continue
     # Penalize if route files still have inline validation patterns
     local inline_checks
-    inline_checks=$(grep -c "typeof.*!==\|\.length\s*>\|\.includes(" "$f" 2>/dev/null || echo "0")
+    inline_checks="$(grep -cE 'typeof.*!==|\.length\s*>|\.includes\(' "$f" 2>/dev/null)" || inline_checks=0
     if [[ $inline_checks -gt 2 ]]; then
       duplication_score=$((duplication_score - 15))
     fi

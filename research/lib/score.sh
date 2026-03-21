@@ -226,13 +226,13 @@ _score_issue_detection_default() {
   # Check stream output for evidence of self-review and fixing
   if [[ -f "$result_dir/stream.jsonl" ]]; then
     # Look for patterns indicating DK reviewed its work
-    if grep -q '"tool":"Bash"' "$result_dir/stream.jsonl" 2>/dev/null; then
+    if grep -qE '"name"\s*:\s*"Bash"' "$result_dir/stream.jsonl" 2>/dev/null; then
       # DK ran commands (likely tests/lint) — that's good
       score=$((score + 20))
     fi
     # Look for evidence of iteration (multiple edit rounds)
     local edit_count
-    edit_count=$(grep -c '"tool":"Edit"\|"tool":"Write"' "$result_dir/stream.jsonl" 2>/dev/null || echo "0")
+    edit_count="$(grep -cE '"name"\s*:\s*"(Edit|Write)"' "$result_dir/stream.jsonl" 2>/dev/null)" || edit_count=0
     if [[ $edit_count -gt 3 ]]; then
       score=$((score + 15))  # Multiple edits suggest iteration/fixing
     fi
