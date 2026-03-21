@@ -50,9 +50,11 @@ rubric_correctness() {
   if [[ -f "$ws/package.json" ]] && grep -q '"test"' "$ws/package.json" 2>/dev/null; then
     (cd "$ws" && npm test 2>&1 | tail -5 | grep -qiE "pass|ok|success") && tests_pass=true
   elif [[ -f "$ws/go.mod" ]]; then
-    (cd "$ws" && go test ./... 2>&1 | grep -q "PASS") && tests_pass=true
+    local _go_out; _go_out=$(cd "$ws" && go test ./... 2>&1) || true
+    [[ "$_go_out" == *"PASS"* ]] && tests_pass=true
   elif echo "$all_src" | head -1 | grep -q "\.py$" 2>/dev/null; then
-    (cd "$ws" && python3 -m pytest 2>&1 | grep -qiE "passed|ok") && tests_pass=true
+    local _py_out; _py_out=$(cd "$ws" && python3 -m pytest 2>&1) || true
+    [[ "$_py_out" == *"passed"* ]] || [[ "$_py_out" == *"ok"* ]] && tests_pass=true
   fi
   $tests_pass && score=$((score + 15))
 
@@ -78,9 +80,11 @@ rubric_test_quality() {
   if [[ -f "$ws/package.json" ]]; then
     (cd "$ws" && npm test 2>&1 | tail -10 | grep -qiE "pass|✓|ok") && score=$((score + 40))
   elif [[ -f "$ws/go.mod" ]]; then
-    (cd "$ws" && go test ./... 2>&1 | grep -q "PASS") && score=$((score + 40))
+    local _go_t; _go_t=$(cd "$ws" && go test ./... 2>&1) || true
+    [[ "$_go_t" == *"PASS"* ]] && score=$((score + 40))
   else
-    (cd "$ws" && python3 -m pytest 2>&1 | grep -qiE "passed") && score=$((score + 40))
+    local _py_t; _py_t=$(cd "$ws" && python3 -m pytest 2>&1) || true
+    [[ "$_py_t" == *"passed"* ]] && score=$((score + 40))
   fi
 
   # Tests cover rate limiting behavior (allow/deny scenarios)

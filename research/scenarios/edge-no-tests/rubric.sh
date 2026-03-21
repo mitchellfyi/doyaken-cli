@@ -47,20 +47,20 @@ GOEOF
     score=$((score + 20))
   fi
 
-  # Capitalize works
-  if (cd "$ws" && go test -run "TestCapitalize|Test_Capitalize" -v ./... 2>&1 | grep -q "PASS"); then
-    score=$((score + 20))
-  fi
+  # Capitalize works (capture first to avoid SIGPIPE with pipefail)
+  local cap_output
+  cap_output=$(cd "$ws" && go test -run "TestCapitalize|Test_Capitalize" -v ./... 2>&1) || true
+  [[ "$cap_output" == *"PASS"* ]] && score=$((score + 20))
 
   # Truncate works
-  if (cd "$ws" && go test -run "TestTruncate|Test_Truncate" -v ./... 2>&1 | grep -q "PASS"); then
-    score=$((score + 20))
-  fi
+  local trunc_output
+  trunc_output=$(cd "$ws" && go test -run "TestTruncate|Test_Truncate" -v ./... 2>&1) || true
+  [[ "$trunc_output" == *"PASS"* ]] && score=$((score + 20))
 
   # Slugify works
-  if (cd "$ws" && go test -run "TestSlugify|Test_Slugify" -v ./... 2>&1 | grep -q "PASS"); then
-    score=$((score + 20))
-  fi
+  local slug_output
+  slug_output=$(cd "$ws" && go test -run "TestSlugify|Test_Slugify" -v ./... 2>&1) || true
+  [[ "$slug_output" == *"PASS"* ]] && score=$((score + 20))
 
   echo "$score"
 }
@@ -78,9 +78,9 @@ rubric_test_quality() {
   fi
 
   # Tests pass
-  if (cd "$ws" && go test ./... 2>&1 | grep -q "PASS"); then
-    score=$((score + 30))
-  fi
+  local tests_output
+  tests_output=$(cd "$ws" && go test ./... 2>&1) || true
+  [[ "$tests_output" == *"PASS"* ]] && score=$((score + 30))
 
   # Tests cover all 4 functions
   local funcs_tested=0
