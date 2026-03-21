@@ -104,7 +104,7 @@ rubric_test_quality() {
   local test_files
   test_files=$(find "$ws" -maxdepth 3 \( -name "*.test.*" -o -name "*.spec.*" \) ! -path "*/node_modules/*" 2>/dev/null)
   local bugs_tested=0
-  for pattern in "negativ\|invalid.*price\|invalid.*quantity" "remove\|filter" "total\|off.by.one\|boundary" "discount.*subtract\|discount.*correct" "discount.*range\|discount.*valid\|discount.*100"; do
+  for pattern in "negativ|invalid.*price|invalid.*quantity" "remove|filter" "total|off.by.one|boundary" "discount.*subtract|discount.*correct" "discount.*range|discount.*valid|discount.*100"; do
     if echo "$test_files" | xargs grep -qlEi "$pattern" 2>/dev/null; then
       bugs_tested=$((bugs_tested + 1))
     fi
