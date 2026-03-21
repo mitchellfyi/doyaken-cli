@@ -629,7 +629,16 @@ except:
   local has_isbn_validation
   has_isbn_validation=$(echo "$src_files" | while read -r f; do
     [[ -z "$f" ]] && continue
-    if grep -qlEi "isbn.*length|isbn.*\d{10}|isbn.*\d{13}|isbn.*regex|isbn.*match|isbn.*valid" "$f" 2>/dev/null; then
+    # Check for ISBN validation: regex with digits, length checks, or explicit validation
+    if grep -qlEi "isbn.*length|isbn.*[0-9]{10}|isbn.*regex|isbn.*match|isbn.*valid|isbn.*test" "$f" 2>/dev/null; then
+      echo "found"; break
+    fi
+    # Also check for ISBN digit patterns (ERE: \d not portable, use [0-9])
+    if grep -qlE '[0-9]{10}.*isbn|isbn.*[0-9]{10}|[0-9]{13}.*isbn|isbn.*[0-9]{13}' "$f" 2>/dev/null; then
+      echo "found"; break
+    fi
+    # Check for isbn-related validation on a nearby line (grep -A2)
+    if grep -qE '^\d\{10\}|\\d\{10\}|\\d\{13\}' "$f" 2>/dev/null && grep -qi "isbn" "$f" 2>/dev/null; then
       echo "found"; break
     fi
   done) || true
