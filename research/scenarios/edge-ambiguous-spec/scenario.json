@@ -1,0 +1,7 @@
+{
+  "name": "edge-ambiguous-spec",
+  "type": "edge-case",
+  "description": "Deliberately vague prompt — does DK make reasonable assumptions and build something functional?",
+  "timeout": 900,
+  "language": "any"
+}

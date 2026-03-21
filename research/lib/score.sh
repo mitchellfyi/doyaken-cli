@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# Research harness — scoring engine
+# Loads per-scenario rubrics, runs deterministic checks, computes weighted totals.
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+# score_scenario <scenario_name> <result_dir> [--skip-llm-judge]
+# Run all rubric checks and write results to result_dir.
+# Returns the total weighted score (0-100).
+score_scenario() {
+  local scenario="$1"
+  local result_dir="$2"
+  local skip_llm="${3:-}"
+
+  local ws
+  ws=$(workspace_dir "$scenario")
+  local sc_dir
+  sc_dir=$(scenario_dir "$scenario")
+  local rubric_file="$sc_dir/rubric.sh"
+
+  if [[ ! -f "$rubric_file" ]]; then
+    log_error "No rubric.sh found for scenario: $scenario"
+    echo "0"
+    return 1
+  fi
+
+  # Source the scenario's rubric (defines rubric_* functions)
+  source "$rubric_file"
+
+  log_step "Scoring scenario: $scenario"
+
+  # ── Run each dimension ───────────────────────────────────────────────────
+  local correctness=0 test_quality=0 robustness=0 verification=0 issue_detection=0 code_quality=0
+
+  # Correctness (scenario-specific)
+  if declare -f rubric_correctness &>/dev/null; then
+    correctness=$(rubric_correctness "$ws" 2>/dev/null || echo "0")
+    correctness=$(_clamp "$correctness")
+    log_info "  Correctness: $correctness/100"
+  fi
+
+  # Test quality (scenario-specific)
+  if declare -f rubric_test_quality &>/dev/null; then
+    test_quality=$(rubric_test_quality "$ws" 2>/dev/null || echo "0")
+    test_quality=$(_clamp "$test_quality")
+    log_info "  Test quality: $test_quality/100"
+  fi
+
+  # Robustness (scenario-specific)
+  if declare -f rubric_robustness &>/dev/null; then
+    robustness=$(rubric_robustness "$ws" 2>/dev/null || echo "0")
+    robustness=$(_clamp "$robustness")
+    log_info "  Robustness: $robustness/100"
+  fi
+
+  # Verification (shared — check if lint/typecheck/tests pass)
+  verification=$(_score_verification "$ws" 2>/dev/null || echo "0")
+  verification=$(_clamp "$verification")
+  log_info "  Verification: $verification/100"
+
+  # Issue detection (scenario-specific or default)
+  if declare -f rubric_issue_detection &>/dev/null; then
+    issue_detection=$(rubric_issue_detection "$ws" "$result_dir" 2>/dev/null || echo "0")
+  else
+    issue_detection=$(_score_issue_detection_default "$ws" "$result_dir" 2>/dev/null || echo "0")
+  fi
+  issue_detection=$(_clamp "$issue_detection")
+  log_info "  Issue detection: $issue_detection/100"
+
+  # Code quality (LLM-judged)
+  if [[ "$skip_llm" != "--skip-llm-judge" ]] && [[ -f "$sc_dir/rubric-llm.md" ]]; then
+    code_quality=$(_score_llm_judge "$scenario" "$ws" "$result_dir" 2>/dev/null || echo "50")
+    code_quality=$(_clamp "$code_quality")
+    log_info "  Code quality (LLM): $code_quality/100"
+  else
+    code_quality=50  # Neutral default when skipping
+    log_info "  Code quality (LLM): skipped, using default 50"
+  fi
+
+  # ── Compute weighted total ───────────────────────────────────────────────
+  local total
+  total=$(( (correctness * W_CORRECTNESS + test_quality * W_TEST_QUALITY + robustness * W_ROBUSTNESS + verification * W_VERIFICATION + issue_detection * W_ISSUE_DETECTION + code_quality * W_CODE_QUALITY) / 100 ))
+
+  log_success "  Total: $total/100"
+
+  # ── Write results ────────────────────────────────────────────────────────
+  json_write "$result_dir/rubric-results.json" "{
+    \"scenario\": \"$scenario\",
+    \"correctness\": $correctness,
+    \"test_quality\": $test_quality,
+    \"robustness\": $robustness,
+    \"verification\": $verification,
+    \"issue_detection\": $issue_detection,
+    \"code_quality\": $code_quality,
+    \"total\": $total,
+    \"weights\": {
+      \"correctness\": $W_CORRECTNESS,
+      \"test_quality\": $W_TEST_QUALITY,
+      \"robustness\": $W_ROBUSTNESS,
+      \"verification\": $W_VERIFICATION,
+      \"issue_detection\": $W_ISSUE_DETECTION,
+      \"code_quality\": $W_CODE_QUALITY
+    }
+  }"
+
+  echo "$total"
+}
+
+# ── Shared scoring functions ───────────────────────────────────────────────
+
+# Detect project type and run appropriate verification checks
+_score_verification() {
+  local ws="$1"
+  local score=0
+
+  # Detect project type and capture verification score
+  if [[ -f "$ws/package.json" ]]; then
+    score=$(_verify_node "$ws")
+  elif [[ -f "$ws/requirements.txt" ]] || [[ -f "$ws/setup.py" ]] || [[ -f "$ws/pyproject.toml" ]] || find "$ws" -maxdepth 2 -name "__init__.py" 2>/dev/null | grep -q .; then
+    score=$(_verify_python "$ws")
+  elif [[ -f "$ws/go.mod" ]]; then
+    score=$(_verify_go "$ws")
+  else
+    # No recognizable project — check if any code files exist at all
+    local code_files
+    code_files=$(find "$ws" -maxdepth 3 \( -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.go" \) ! -path "*/node_modules/*" 2>/dev/null | wc -l)
+    [[ $code_files -gt 0 ]] && score=50  # Partial credit for producing code
+  fi
+
+  echo "$score"
+}
+
+_verify_node() {
+  local ws="$1"
+  local score=0 checks=0 passed=0
+
+  # Install deps
+  if (cd "$ws" && npm install --silent &>/dev/null); then
+    passed=$((passed + 1))
+  fi
+  checks=$((checks + 1))
+
+  # Lint (if configured)
+  if (cd "$ws" && grep -q '"lint"' package.json 2>/dev/null); then
+    checks=$((checks + 1))
+    if (cd "$ws" && npm run lint &>/dev/null); then
+      passed=$((passed + 1))
+    fi
+  fi
+
+  # Typecheck (if TypeScript)
+  if [[ -f "$ws/tsconfig.json" ]]; then
+    checks=$((checks + 1))
+    if (cd "$ws" && npx tsc --noEmit &>/dev/null); then
+      passed=$((passed + 1))
+    fi
+  fi
+
+  # Tests
+  if (cd "$ws" && grep -q '"test"' package.json 2>/dev/null); then
+    checks=$((checks + 1))
+    if (cd "$ws" && npm test &>/dev/null); then
+      passed=$((passed + 1))
+    fi
+  fi
+
+  [[ $checks -gt 0 ]] && score=$(( (passed * 100) / checks ))
+  echo "$score"
+}
+
+_verify_python() {
+  local ws="$1"
+  local score=0 checks=0 passed=0
+
+  # Install deps
+  checks=$((checks + 1))
+  if [[ -f "$ws/requirements.txt" ]]; then
+    if (cd "$ws" && pip install -q -r requirements.txt &>/dev/null); then
+      passed=$((passed + 1))
+    fi
+  else
+    passed=$((passed + 1))  # No deps needed
+  fi
+
+  # Run tests
+  checks=$((checks + 1))
+  if (cd "$ws" && python3 -m pytest &>/dev/null) || (cd "$ws" && python3 -m unittest discover &>/dev/null); then
+    passed=$((passed + 1))
+  fi
+
+  [[ $checks -gt 0 ]] && score=$(( (passed * 100) / checks ))
+  echo "$score"
+}
+
+_verify_go() {
+  local ws="$1"
+  local score=0 checks=0 passed=0
+
+  # Build
+  checks=$((checks + 1))
+  if (cd "$ws" && go build ./... &>/dev/null); then
+    passed=$((passed + 1))
+  fi
+
+  # Vet
+  checks=$((checks + 1))
+  if (cd "$ws" && go vet ./... &>/dev/null); then
+    passed=$((passed + 1))
+  fi
+
+  # Test
+  checks=$((checks + 1))
+  if (cd "$ws" && go test ./... &>/dev/null); then
+    passed=$((passed + 1))
+  fi
+
+  [[ $checks -gt 0 ]] && score=$(( (passed * 100) / checks ))
+  echo "$score"
+}
+
+# Default issue detection: check if DK's output shows it found and fixed problems
+_score_issue_detection_default() {
+  local ws="$1" result_dir="$2"
+  local score=50  # Neutral baseline
+
+  # Check stream output for evidence of self-review and fixing
+  if [[ -f "$result_dir/stream.jsonl" ]]; then
+    # Look for patterns indicating DK reviewed its work
+    if grep -q '"tool":"Bash"' "$result_dir/stream.jsonl" 2>/dev/null; then
+      # DK ran commands (likely tests/lint) — that's good
+      score=$((score + 20))
+    fi
+    # Look for evidence of iteration (multiple edit rounds)
+    local edit_count
+    edit_count=$(grep -c '"tool":"Edit"\|"tool":"Write"' "$result_dir/stream.jsonl" 2>/dev/null || echo "0")
+    if [[ $edit_count -gt 3 ]]; then
+      score=$((score + 15))  # Multiple edits suggest iteration/fixing
+    fi
+    # Check for test execution
+    if grep -q 'npm test\|pytest\|go test\|jest\|mocha' "$result_dir/stream.jsonl" 2>/dev/null; then
+      score=$((score + 15))
+    fi
+  fi
+
+  [[ $score -gt 100 ]] && score=100
+  echo "$score"
+}
+
+# LLM-as-judge scoring
+_score_llm_judge() {
+  local scenario="$1" ws="$2" result_dir="$3"
+  local sc_dir
+  sc_dir=$(scenario_dir "$scenario")
+  local rubric_llm="$sc_dir/rubric-llm.md"
+
+  # Gather the code DK produced
+  local code_listing=""
+  while IFS= read -r f; do
+    [[ -f "$ws/$f" ]] || continue
+    # Skip binary files and node_modules
+    [[ "$f" == *"node_modules"* ]] && continue
+    [[ "$f" == *".lock"* ]] && continue
+    local content
+    content=$(head -200 "$ws/$f" 2>/dev/null || true)
+    code_listing+="
+--- $f ---
+$content
+"
+  done < <(workspace_files_changed "$scenario" 2>/dev/null)
+
+  # Build the judge prompt
+  local judge_prompt
+  judge_prompt=$(cat "$rubric_llm")
+  judge_prompt="${judge_prompt//\{\{CODE_LISTING\}\}/$code_listing}"
+
+  # Call Claude as judge
+  local judge_result
+  judge_result=$(claude -p \
+    --model "$LLM_JUDGE_MODEL" \
+    --permission-mode "$CLAUDE_PERMISSION_MODE" \
+    --output-format text \
+    "$judge_prompt" 2>/dev/null || echo '{"score": 50, "reasoning": "LLM judge failed"}')
+
+  # Extract score from JSON response
+  local llm_score
+  llm_score=$(echo "$judge_result" | python3 -c "
+import json, sys, re
+text = sys.stdin.read()
+# Find the outermost JSON object and parse it properly
+match = re.search(r'\{.*\}', text, re.DOTALL)
+if match:
+    try:
+        parsed = json.loads(match.group(0))
+        print(int(parsed.get('score', 50)))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        print('50')
+else:
+    print('50')
+" 2>/dev/null || echo "50")
+
+  # Save the full judge response
+  json_write "$result_dir/llm-judge.json" "{
+    \"scenario\": \"$scenario\",
+    \"model\": \"$LLM_JUDGE_MODEL\",
+    \"score\": $llm_score,
+    \"response\": $(python3 -c "import json; print(json.dumps('''$judge_result'''[:2000]))" 2>/dev/null || echo '""')
+  }"
+
+  echo "$llm_score"
+}
+
+# ── Utilities ──────────────────────────────────────────────────────────────
+
+# Clamp a score to 0-100
+_clamp() {
+  local v="${1:-0}"
+  [[ "$v" =~ ^[0-9]+$ ]] || v=0
+  [[ $v -gt 100 ]] && v=100
+  [[ $v -lt 0 ]] && v=0
+  echo "$v"
+}

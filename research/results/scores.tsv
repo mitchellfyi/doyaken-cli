@@ -1,0 +1,4 @@
+run_id	timestamp	iteration	scenario	correctness	test_quality	robustness	verification	issue_detection	code_quality	total	dk_commit	duration_s	cost_usd
+run-20260321-212853	1774128599	0	edge-no-tests	40	70	75	0	100	50	52	ee1cc0b	63	0.00
+run-20260321-213058	1774128716	0	edge-no-tests	40	70	75	0	100	50	52	ee1cc0b	56	0.00
+run-20260321-213317	1774128856	0	edge-no-tests	40	70	75	100	100	50	67	ee1cc0b	57	0.00
