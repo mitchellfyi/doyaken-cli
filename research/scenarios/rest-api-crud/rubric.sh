@@ -13,11 +13,17 @@ rubric_correctness() {
   fi
   score=$((score + 5))
 
-  # Find the server entry point
+  # Find the server entry point (prefer main from package.json, then server.* over app.*)
   local entry=""
-  for f in "index.js" "src/index.js" "app.js" "src/app.js" "server.js" "src/server.js"; do
-    [[ -f "$ws/$f" ]] && entry="$f" && break
-  done
+  local pkg_main
+  pkg_main=$(cd "$ws" && node -e "try{console.log(require('./package.json').main||'')}catch(e){}" 2>/dev/null || true)
+  if [[ -n "$pkg_main" && -f "$ws/$pkg_main" ]]; then
+    entry="$pkg_main"
+  else
+    for f in "server.js" "src/server.js" "index.js" "src/index.js" "app.js" "src/app.js"; do
+      [[ -f "$ws/$f" ]] && entry="$f" && break
+    done
+  fi
   [[ -z "$entry" ]] && { echo "$score"; return; }
 
   # Start the server in background, test endpoints
@@ -124,9 +130,10 @@ except:
   isbn_code=$(echo "$isbn_resp" | tail -1)
   [[ "$isbn_code" == "400" ]] || [[ "$isbn_code" == "422" ]] && score=$((score + 10))
 
-  # Cleanup
+  # Cleanup — kill server and don't block on wait
   kill "$server_pid" 2>/dev/null
-  wait "$server_pid" 2>/dev/null
+  sleep 0.5
+  kill -9 "$server_pid" 2>/dev/null || true
 
   echo "$score"
 }
