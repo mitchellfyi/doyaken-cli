@@ -45,6 +45,11 @@ If during implementation you discover:
 - **The plan needs to change**: STOP. Explain the change and its impact. Ask for approval.
 - **A dependency is blocked**: STOP. Document the blocker. Ask how to proceed.
 
+**When running non-interactively** (no user to respond — e.g., `-p` mode, automated harness, or if the user is unavailable): do NOT stop on ambiguity. Instead, choose the **most comprehensive reasonable interpretation** and document your assumptions in a README. Specifically:
+- For algorithmic or strategic choices: implement **at least two approaches** (e.g., fixed-window + token-bucket for rate limiting, multiple sort algorithms, etc.) and let the caller choose.
+- For data modeling: default to **per-client/per-key isolation** and **configurable limits** with sensible defaults.
+- For scope: when the prompt is vague, build a complete library with a clean exported API, comprehensive tests covering edge cases, and a README explaining design decisions and usage.
+
 When stopping for scope changes, do NOT output a completion promise (e.g., `PHASE_2_COMPLETE`). Simply halt and wait for user input. The phase audit loop will detect that the completion signal file was not written and keep the session alive. Once the user provides direction, resume implementation from where you left off.
 
 Update the ticket via the configured tracker (see doyaken.md § Integrations) with the scope change details. If no tracker is configured, inform the user in conversation.
