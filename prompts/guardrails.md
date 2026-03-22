@@ -59,6 +59,13 @@ When building HTTP APIs (REST, GraphQL, RPC), always include these unless explic
 
 These are implied requirements for any production-quality API, even when the spec does not list them.
 
+### Library & Package Deliverables
+
+When creating a standalone library, package, or module:
+
+- **Standard importability**: The module must be loadable via the language's standard mechanism (`require()`, `import`, `go get`) without requiring the consumer to run a separate build step. For TypeScript projects: set `"main"` in package.json to the compiled JS output (e.g., `"dist/index.js"`), add a `"build": "tsc"` script, and add `"prepare": "npm run build"` so that `npm install` automatically compiles TypeScript to JavaScript.
+- **README.md**: Include a README documenting what the library does, installation, usage with code examples, and rationale behind non-obvious design decisions.
+
 ### Resource Cleanup
 
 - Close what you open: database connections, file handles, HTTP clients, sockets.
@@ -90,6 +97,7 @@ Do not expand scope to files outside the plan. Stewardship improvements in your 
 - If a test passes with the implementation removed or broken, the test is not testing anything — rewrite it.
 - Test behavior, not implementation details. Tests should survive refactoring.
 - Error-case tests are mandatory, not optional. For every happy-path test, write at least one error-case test.
+- Name tests to describe the specific behavior they verify. For bug fixes, name each test after the bug it prevents — include the symptom and the fix (e.g., "should reject negative prices", "removeItem should filter items not reassign array", "discount should subtract percentage not add"). Test names must be grep-searchable for the behavior they guard.
 
 ### Edge Case Coverage
 
