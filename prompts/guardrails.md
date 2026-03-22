@@ -54,20 +54,17 @@ When building HTTP APIs (REST, GraphQL, RPC), always include these unless explic
 - **UUIDs for resource IDs**: Use `crypto.randomUUID()` or a uuid library — never sequential integers (they leak information and are guessable).
 - **Graceful shutdown**: Handle `SIGTERM` and `SIGINT` to close the server and release resources cleanly.
 - **Module structure**: Separate route definitions from the app/server setup. Each resource gets its own route file (e.g., `routes/books.js`), imported by the main app.
-- **PATCH for partial updates**: If the API supports PUT (full replacement), also implement PATCH (partial update) on the same resource. PATCH should merge provided fields with the existing record, preserving unmentioned fields.
 - **JSON error bodies**: Every error response must be JSON with a descriptive `error` or `message` field. Never return raw strings or stack traces.
 - **Status code discipline**: Use the correct code for each outcome — `201` for creation, `204` for deletion, `400` for validation failure, `404` for missing resources, `409` for conflicts.
 
 These are implied requirements for any production-quality API, even when the spec does not list them.
 
-### Module & Library Deliverables
+### Library & Package Deliverables
 
 When creating a standalone library, package, or module:
 
-- **Standard importability**: The module must be loadable via the language's standard mechanism (`require()`, `import`, `go get`) without requiring the consumer to run a separate build step. For TypeScript projects: set `"main"` in package.json to compiled JS output (e.g., `"dist/index.js"`), add a `"build": "tsc"` script, and add `"prepare": "npm run build"` so that `npm install` automatically compiles TypeScript to JavaScript.
-- **README.md**: Always include a README documenting what the library does, installation, usage with code examples, and the rationale behind non-obvious design decisions (e.g., why multiple algorithms are offered, what defaults were chosen).
-- **Conventional naming**: Export the primary API using the most natural name for the domain (e.g., `class RateLimiter`, `function createValidator`, `type Config`). Avoid abbreviations or project-specific jargon in public exports.
-- **Format tolerance in validators**: When implementing data validators, accept common format variations (dashes, spaces, parentheses in phone numbers and credit cards; plus-addressing and subdomains in emails) and test all variants the validator claims to support.
+- **Standard importability**: The module must be loadable via the language's standard mechanism (`require()`, `import`, `go get`) without requiring the consumer to run a separate build step. For TypeScript projects: set `"main"` in package.json to the compiled JS output (e.g., `"dist/index.js"`), add a `"build": "tsc"` script, and add `"prepare": "npm run build"` so that `npm install` automatically compiles TypeScript to JavaScript.
+- **README.md**: Include a README documenting what the library does, installation, usage with code examples, and rationale behind non-obvious design decisions.
 
 ### Resource Cleanup
 
@@ -100,7 +97,7 @@ Do not expand scope to files outside the plan. Stewardship improvements in your 
 - If a test passes with the implementation removed or broken, the test is not testing anything — rewrite it.
 - Test behavior, not implementation details. Tests should survive refactoring.
 - Error-case tests are mandatory, not optional. For every happy-path test, write at least one error-case test.
-- Name tests to describe the SPECIFIC behavior they verify. For bug fixes, name each test after the bug it prevents — include the symptom and the fix (e.g., "should reject negative prices", "removeItem should filter items not reassign array", "discount should subtract percentage not add"). Test names must be grep-searchable for the behavior they guard.
+- Name tests to describe the specific behavior they verify. For bug fixes, name each test after the bug it prevents — include the symptom and the fix (e.g., "should reject negative prices", "removeItem should filter items not reassign array", "discount should subtract percentage not add"). Test names must be grep-searchable for the behavior they guard.
 
 ### Edge Case Coverage
 
