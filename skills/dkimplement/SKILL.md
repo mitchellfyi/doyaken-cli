@@ -13,6 +13,13 @@ Execute the approved plan, working through tasks with TDD discipline.
 
 Before starting, read the implementation guardrails from `prompts/guardrails.md`. Apply them throughout.
 
+**Pre-flight: Expand scope with production defaults.**
+Before starting task 1, check the guardrails for implied requirements that apply to this project type and add them to your task list — they are in-scope even when the task prompt does not mention them:
+- **HTTP APIs**: CORS middleware (`cors` package), request body size limits (`express.json({ limit: '10kb' })`), UUID-based resource IDs (`crypto.randomUUID()`), graceful shutdown (SIGTERM/SIGINT → `server.close()`), PATCH endpoint for partial updates alongside PUT, route module separation.
+- **Libraries/packages**: Compiled output importable via standard `require()`/`import` without a manual build step (for TypeScript: add `"prepare": "npm run build"` to package.json so `npm install` triggers `tsc`; set `"main"` to compiled output like `"dist/index.js"`). A README.md with usage examples and design decisions. Conventional export names matching the domain (e.g., `class RateLimiter`, not `class RL`).
+- **HTTP API tests**: Use the ecosystem's standard HTTP testing library (e.g., `supertest` for Express.js, `httptest` for Go, `TestClient` for FastAPI) rather than raw `fetch()` calls. Structure tests with `describe`/`it` blocks.
+- **All projects**: At least 10 focused test cases. Descriptive test names that reference the specific behavior being verified (see guardrails § Test Integrity).
+
 For each task in the approved plan:
 
 1. `TaskUpdate(task_id, "in_progress")`
