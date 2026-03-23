@@ -167,11 +167,10 @@ __dk_setup_worktree() {
     return 0
   fi
 
-  # Require doyaken init
+  # Auto-init if .doyaken doesn't exist yet
   if [[ ! -d "${_dk_repo_root}/.doyaken" ]]; then
-    echo "ERROR: This repo hasn't been initialised for Doyaken."
-    echo "Run: dk init"
-    return 1
+    echo "Auto-initialising Doyaken for this repo..."
+    bash "$DOYAKEN_DIR/bin/init.sh" --skip-analysis --skip-config
   fi
 
   # Create worktree
