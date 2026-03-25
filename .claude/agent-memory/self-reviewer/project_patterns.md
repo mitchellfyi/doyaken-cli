@@ -38,6 +38,30 @@ dkloop now runs two sequential Claude sessions: (1) Plan session in --permission
 
 New library providing: dk_wt_branch, dk_wt_remove, dk_cleanup_last_session, dk_cleanup_stale_files. Sourced via common.sh. The header claims "Used by bin scripts (uninit.sh)" but uninit.sh does not call any functions from worktree.sh directly — it uses session.sh functions only. The header is inaccurate for uninit.sh.
 
+## Atomic Write Consistency
+
+phase-loop.sh's atomic write pattern includes `rm -f "$TEMP_FILE"` cleanup on failure. dk.sh's `__dk_write_state` uses the same temp+mv pattern but omits the cleanup on failure. This asymmetry is a known finding; the temp file leaks on echo failure but doesn't corrupt state.
+
+## max-iter Status: Dead Code
+
+`__dk_classify_exit` documents and the `format_status` in log.sh handles a "max-iter" status, but this status is never produced. `phase-loop.sh` exits 0 (not a distinct code) when max iterations are reached, so `__dk_classify_exit` always returns "advance" for exit 0. The log.sh `max-iter` case is dead code.
+
+## Watchdog Process Group Pattern
+
+The phase timeout watchdog (`kill -TERM "$claude_pid"`) targets the background subshell PID. The `claude` CLI runs as a CHILD of that subshell. Killing the subshell does not guarantee SIGTERM propagates to `claude` — claude may become an orphan if it doesn't handle SIGHUP on parent exit. The intended fix is to kill the process group (`kill -TERM -"$claude_pid"`) rather than just the parent subshell.
+
 ## Commit Message Pattern
 
 All commits in this repo use single-word messages ("init", "fix", "rename") — this is the established style.
+
+## Research Harness: Node.js require() Fallback Pattern
+
+In rubric.sh files, the pattern `require('./src/cart.js') || require('./cart.js')` does NOT work as a fallback. `require()` throws `MODULE_NOT_FOUND` (does not return null/undefined), so the `||` branch never executes. The correct pattern is a try/catch or pre-checking the path with `fs.existsSync`.
+
+## Research Harness: Subshell Process Kill Pattern
+
+`(cd "$ws" && cmd) &` followed by `server_pid=$!` and `kill "$server_pid"` kills the bash subshell wrapper, NOT the inner `cmd` process. The inner process becomes an orphan. Test confirmed on macOS. Same pattern as the existing Watchdog Process Group Pattern in the main codebase. Fix: use `kill -- -$server_pid` to kill the process group, or start with `node ... &` directly.
+
+## Research Harness: RUN_ID Capture via tail -1
+
+loop.sh captures run.sh's RUN_ID via `2>&1 | tail -1`. This works because `echo "$RUN_ID"` is the absolute last output line in run.sh. If a new echo or log statement is added after that line in run.sh, the capture breaks silently. This is a fragile coupling.

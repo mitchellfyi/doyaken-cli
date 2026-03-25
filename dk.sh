@@ -63,6 +63,8 @@ doyaken() {
       echo "  dk \"<description>\"     Start/resume phased lifecycle for a task"
       echo "  dk --resume            Resume the most recent session"
       echo "  dk --from-pr <N>      Resume session linked to a PR"
+      echo "  dk revert <N> [phase] Revert worktree to a phase checkpoint"
+      echo "  dk log [session_id]   Show structured phase execution log"
       echo "  dkrm <number|name>    Remove a worktree"
       echo "  dkrm --all            Remove all worktrees"
       echo "  dkls                  List worktrees"
@@ -77,6 +79,43 @@ doyaken() {
       echo "  3. Verify & Commit Format, lint, typecheck, test, then commit + push"
       echo "  4. PR              Generate PR description, get approval"
       echo "  5. Complete        Monitor CI/reviews, close ticket"
+      ;;
+    revert)
+      # dk revert <ticket> [phase] — revert worktree to a phase checkpoint
+      local raw="${1:-}"
+      if [[ -z "$raw" ]]; then
+        echo "Usage: dk revert <ticket|name> [phase]"
+        return 1
+      fi
+      local rev_phase="${2:-}"
+      local rev_name
+      if __dk_is_ticket "$raw"; then
+        rev_name="ticket-${raw//[^0-9]/}"
+      else
+        rev_name="task-$(dk_slugify "$raw")"
+      fi
+      local rev_root
+      rev_root=$(dk_repo_root) || return 1
+      local rev_dir="${rev_root}/.doyaken/worktrees/${rev_name}"
+      if [[ ! -d "$rev_dir" ]]; then
+        echo "ERROR: Worktree ${rev_name} not found."
+        return 1
+      fi
+      if [[ -z "$rev_phase" ]]; then
+        # Find the most recent checkpoint
+        local latest_tag
+        latest_tag=$(git -C "$rev_dir" tag -l 'dk-checkpoint/phase-*' --sort=-version:refname 2>/dev/null | head -1)
+        if [[ -z "$latest_tag" ]]; then
+          echo "No checkpoints found for ${rev_name}."
+          return 1
+        fi
+        rev_phase="${latest_tag##*-}"
+      fi
+      echo "Reverting ${rev_name} to checkpoint for phase ${rev_phase}..."
+      dk_revert_to_checkpoint "$rev_phase" "$rev_dir"
+      ;;
+    log)
+      bash "$DOYAKEN_DIR/bin/log.sh" "$@"
       ;;
     *)
       echo "Unknown command: $cmd"
@@ -122,7 +161,97 @@ DK_PHASE_MESSAGES=("" \
 # Audit prompt file basenames (must match prompts/phase-audits/ filenames)
 DK_PHASE_AUDIT_FILES=("" "1-plan" "2-implement" "3-verify" "4-pr" "5-complete")
 
+# Phase timeouts in seconds — safety net to prevent indefinite hangs.
+# Generous defaults: these should never fire during normal operation.
+# Override per-phase: DOYAKEN_PHASE_2_TIMEOUT=28800 (8h)
+# Override all:       DOYAKEN_PHASE_TIMEOUT=14400 (4h)
+# Set to 0 to disable timeout for a phase.
+DK_PHASE_TIMEOUTS=("" "7200" "14400" "7200" "3600" "10800")
+
 # ─── Internal helpers ───────────────────────────────────────────────────────
+
+# __dk_write_state <file> <content>
+# Atomic file write via temp+mv — crash-safe (same pattern as phase-loop.sh).
+# On crash mid-write, the temp file is lost and the original is untouched.
+__dk_write_state() {
+  local file="$1" content="$2"
+  local tmp="${file}.tmp.$$"
+  if ! echo "$content" > "$tmp" || ! mv "$tmp" "$file"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+# __dk_phase_timeout <step>
+# Resolve the effective timeout for a phase (seconds). Returns 0 to disable.
+# Priority: DOYAKEN_PHASE_N_TIMEOUT > DOYAKEN_PHASE_TIMEOUT > DK_PHASE_TIMEOUTS[step]
+__dk_phase_timeout() {
+  local step="$1"
+  local env_var="DOYAKEN_PHASE_${step}_TIMEOUT"
+  if [[ -n "${(P)env_var:-}" ]]; then
+    echo "${(P)env_var}"
+  elif [[ -n "${DOYAKEN_PHASE_TIMEOUT:-}" ]]; then
+    echo "$DOYAKEN_PHASE_TIMEOUT"
+  else
+    echo "${DK_PHASE_TIMEOUTS[$step]:-0}"
+  fi
+}
+
+# __dk_classify_exit <exit_code> <step> <session_id>
+# Classify a phase's exit into a status marker (inspired by autoresearch's
+# keep/discard/crash statuses). Returns one of:
+#   advance  — phase completed successfully (.complete file was written)
+#   timeout  — killed by wall-clock watchdog
+#   interrupt — user sent Ctrl+C (SIGINT)
+#   max-iter — audit loop exhausted without completion (exit 0 but no .complete)
+#   crash    — unexpected non-zero exit
+__dk_classify_exit() {
+  local exit_code="$1" step="$2" session_id="$3"
+  if [[ $exit_code -eq 0 ]]; then
+    # Phase 1 has no audit loop — exit 0 always means advance.
+    # For phases 2-5, phase-loop.sh cleans up .complete on success but leaves
+    # no .complete on max-iterations (also exit 0). Check the loop state file:
+    # if it still exists, phase-loop.sh didn't clean it up via the .complete
+    # path, meaning max-iterations was hit.
+    if [[ $step -ge 2 ]]; then
+      local loop_file
+      loop_file=$(dk_loop_file "$session_id")
+      if [[ -f "$loop_file" ]]; then
+        echo "max-iter"
+        return
+      fi
+    fi
+    echo "advance"
+  elif [[ $exit_code -eq 143 ]] || [[ $exit_code -eq 137 ]]; then
+    echo "timeout"
+  elif [[ $exit_code -eq 130 ]]; then
+    echo "interrupt"
+  else
+    echo "crash"
+  fi
+}
+
+# __dk_log_phase <session_id> <step> <phase_name> <start_epoch> <end_epoch> <duration_s> <iterations> <status> <exit_code>
+# Append a TSV row to the structured phase log. Creates the header on first write.
+# Inspired by autoresearch's TSV experiment results logging.
+__dk_log_phase() {
+  local session_id="$1" step="$2" phase_name="$3"
+  local start_epoch="$4" end_epoch="$5" duration_s="$6"
+  local iterations="$7" status="$8" exit_code="$9"
+  local log_file
+  log_file=$(dk_log_file "$session_id")
+
+  # Write header if this is a new log file
+  if [[ ! -f "$log_file" ]]; then
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "session_id" "phase" "phase_name" "start_epoch" "end_epoch" \
+      "duration_s" "iterations" "status" "exit_code" > "$log_file"
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$session_id" "$step" "$phase_name" "$start_epoch" "$end_epoch" \
+    "$duration_s" "$iterations" "$status" "$exit_code" >> "$log_file"
+}
 
 # dk_default_branch is provided by lib/git.sh (sourced via lib/common.sh)
 
@@ -251,6 +380,10 @@ __dk_run_phases() {
   # Ensure state directory exists (needed for resume path and fresh start)
   mkdir -p "$DK_STATE_DIR"
 
+  # Session ID — derived once, used for checkpoints, logging, and status classification.
+  local session_id
+  session_id=$(dk_session_id "$wt_name")
+
   while [[ $step -le 5 ]]; do
     __dk_show_header "$wt_name" "$step" "$wt_dir" "$default_branch"
 
@@ -271,8 +404,6 @@ __dk_run_phases() {
 
       # System prompt context file — survives conversation compaction so Claude
       # always knows which phase it is in and how to signal completion.
-      local session_id
-      session_id=$(dk_session_id "$wt_name")
       local ctx_file
       ctx_file=$(__dk_build_system_context "$wt_name" "$step" "$session_id" "$wt_dir")
       claude_args+=(--append-system-prompt-file "$ctx_file")
@@ -289,14 +420,29 @@ __dk_run_phases() {
       fi
     fi
 
+    # Git checkpoint — snapshot HEAD before the phase runs so we can revert
+    # on failure (inspired by autoresearch's commit-before-experiment pattern).
+    # Phase 1 is read-only (plan mode) so no checkpoint needed.
+    if [[ $step -ge 2 ]]; then
+      dk_checkpoint_tag "$step" "$wt_dir"
+    fi
+
     # Record phase start time
-    echo "${step}:$(date +%s)" >> "$times_file"
+    local phase_start_epoch
+    phase_start_epoch=$(date +%s)
+    echo "${step}:${phase_start_epoch}" >> "$times_file"
+
+    # Resolve phase timeout (0 = disabled). Watchdog runs in the background
+    # and sends SIGTERM if the phase exceeds its wall-clock budget.
+    local phase_timeout
+    phase_timeout=$(__dk_phase_timeout "$step")
+    local _dk_watchdog_pid=""
 
     if [[ $step -eq 1 ]]; then
       # Phase 1: EnterPlanMode called by Claude — no audit loop. ExitPlanMode handles approval.
       (cd "$wt_dir" && \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
-        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}")
+        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}") &
     else
       # Phases 2-5: audit loop active.
       # Load phase-specific audit prompt from file
@@ -320,29 +466,87 @@ __dk_run_phases() {
         DOYAKEN_LOOP_PROMPT="$audit_prompt" \
         DOYAKEN_LOOP_PHASE="$step" \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
-        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}")
+        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}") &
     fi
 
-    local exit_code=$?
+    local claude_pid=$!
 
-    # Non-zero exit = user interrupted (Ctrl+C) or error — save state for resume
+    # Start timeout watchdog if enabled
+    if [[ "$phase_timeout" -gt 0 ]]; then
+      # Negative PID kills the entire process group (subshell + claude child)
+      (sleep "$phase_timeout" 2>/dev/null && kill -TERM -"$claude_pid" 2>/dev/null) &
+      _dk_watchdog_pid=$!
+    fi
+
+    # Wait for Claude to finish (blocks until subshell exits or is killed)
+    wait "$claude_pid" 2>/dev/null
+
+    local exit_code=$?
+    local phase_end_epoch
+    phase_end_epoch=$(date +%s)
+
+    # Kill the timeout watchdog if it's still running
+    if [[ -n "$_dk_watchdog_pid" ]]; then
+      kill "$_dk_watchdog_pid" 2>/dev/null
+      wait "$_dk_watchdog_pid" 2>/dev/null
+    fi
+
+    # Classify the phase outcome (autoresearch-inspired status markers)
+    local phase_status
+    phase_status=$(__dk_classify_exit "$exit_code" "$step" "$session_id")
+
+    # Read iteration count from loop state file before cleaning up.
+    # On max-iter, phase-loop.sh leaves this file intact for classification;
+    # on .complete, it's already removed. Clean up after reading.
+    local iterations=0
+    local loop_file
+    loop_file=$(dk_loop_file "$session_id")
+    if [[ -f "$loop_file" ]]; then
+      local raw_iter
+      raw_iter=$(cat "$loop_file" 2>/dev/null || echo "0")
+      # Handle both old format (bare number) and new format (number:epoch:stall)
+      iterations="${raw_iter%%:*}"
+      [[ "$iterations" =~ ^[0-9]+$ ]] || iterations=0
+      rm -f "$loop_file"
+    fi
+
+    # Log phase result (TSV)
+    local duration_s=$((phase_end_epoch - phase_start_epoch))
+    __dk_log_phase "$session_id" "$step" "${DK_PHASE_NAMES[$step]}" \
+      "$phase_start_epoch" "$phase_end_epoch" "$duration_s" \
+      "$iterations" "$phase_status" "$exit_code"
+
+    # Non-zero exit = user interrupted (Ctrl+C), timeout, or error — save state for resume
     if [[ $exit_code -ne 0 ]]; then
-      echo "$step" > "$state_file"
+      __dk_write_state "$state_file" "$step"
       echo ""
-      echo "Paused at Phase ${step}: ${DK_PHASE_NAMES[$step]}"
+      case "$phase_status" in
+        timeout)
+          echo "Phase ${step} (${DK_PHASE_NAMES[$step]}) timed out after ${phase_timeout}s."
+          ;;
+        interrupt)
+          echo "Paused at Phase ${step}: ${DK_PHASE_NAMES[$step]} (interrupted)"
+          ;;
+        *)
+          echo "Paused at Phase ${step}: ${DK_PHASE_NAMES[$step]} (${phase_status}, exit ${exit_code})"
+          ;;
+      esac
       echo "Resume with: ${resume_hint}"
+      if [[ $step -ge 2 ]] && git -C "$wt_dir" rev-parse --verify "dk-checkpoint/phase-${step}" &>/dev/null; then
+        echo "Revert to pre-phase state with: dk revert ${wt_name##*-} ${step}"
+      fi
       return $exit_code
     fi
 
     # Advance to next phase
     step=$((step + 1))
-    echo "$step" > "$state_file"
+    __dk_write_state "$state_file" "$step"
   done
 
   # All phases complete — write step=6 so re-running `dk <ticket>` or
   # `dk --resume` detects completion instead of restarting from Phase 1.
   # State files are cleaned up by dkrm / dkclean when the worktree is removed.
-  echo "6" > "$state_file"
+  __dk_write_state "$state_file" "6"
   __dk_show_header "$wt_name" 6 "$wt_dir" "$default_branch"
   echo "All phases complete! Run dkrm ${wt_name} to clean up."
 }
@@ -445,7 +649,7 @@ dk() {
 
   # Route management subcommands to doyaken
   case "$1" in
-    init|config|install|uninstall|uninit|status|reload|help|--help|-h)
+    init|config|install|uninstall|uninit|status|reload|help|--help|-h|revert|log)
       doyaken "$@"
       return $?
       ;;
@@ -733,6 +937,7 @@ dkrm() {
         fi
 
         echo "Removing ${wt_name}..."
+        dk_cleanup_checkpoints "$wt_dir"
         dk_wt_remove "$wt_dir"
       done
     fi
@@ -823,6 +1028,7 @@ dkrm() {
 
   echo "Removing ${wt_name}..."
 
+  [[ $has_dir -eq 1 ]] && dk_cleanup_checkpoints "$wt_dir"
   [[ $has_dir -eq 1 ]] && dk_wt_remove "$wt_dir"
 
   if [[ $has_branch -eq 1 ]]; then

@@ -1,0 +1,7 @@
+{
+  "name": "edge-no-tests",
+  "type": "edge-case",
+  "description": "Build Go string utilities — tests not mentioned in prompt. Does DK write them anyway?",
+  "timeout": 600,
+  "language": "go"
+}

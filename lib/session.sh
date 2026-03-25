@@ -44,10 +44,11 @@ dk_session_id() {
 
 # dk_unique_session_id
 # Generate a session ID unique to this shell invocation, for concurrent dkloop isolation.
-# Appends PID and epoch seconds to the branch-based ID so multiple dkloop calls on the
-# same branch get distinct state/prompt files.
+# Appends PID, epoch seconds, and $RANDOM to the branch-based ID so multiple dkloop
+# calls on the same branch get distinct state/prompt files — even if started in the
+# same second ($RANDOM provides 0-32767 range, available in both bash and zsh).
 dk_unique_session_id() {
-  echo "$(dk_session_id)-$$-$(date +%s)"
+  echo "$(dk_session_id)-$$-$(date +%s)-${RANDOM}"
 }
 
 # dk_state_file <session_id>  — phase state file path
@@ -71,10 +72,13 @@ dk_prompt_file() { echo "${DK_LOOP_DIR}/${1}.prompt"; }
 # dk_context_file <session_id> — system prompt context file (survives compaction via --append-system-prompt-file)
 dk_context_file() { echo "${DK_STATE_DIR}/${1}.system-context"; }
 
+# dk_log_file <session_id> — structured phase execution log (TSV)
+dk_log_file() { echo "${DK_STATE_DIR}/${1}.log"; }
+
 # dk_cleanup_session <session_id>
 # Remove all loop and phase state files for a session. Safe to call when dirs don't exist.
 dk_cleanup_session() {
   local sid="$1"
   [[ -d "$DK_LOOP_DIR" ]]  && rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" 2>/dev/null
-  [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" 2>/dev/null
+  [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" "$(dk_log_file "$sid")" 2>/dev/null
 }

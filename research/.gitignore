@@ -1,0 +1,9 @@
+# Workspaces (DK writes code here, ephemeral)
+workspaces/
+
+# Per-run results (only scores.tsv is tracked)
+results/run-*/
+results/latest
+
+# Improvement proposals (patches, not final)
+improvements/proposals/
