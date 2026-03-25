@@ -120,6 +120,16 @@ Record cross-file assumptions — these will be verified in Phase 2.2-2.3 and 2.
 
 For every changed file, `Read` the **entire file** — not just the diff. Evaluate the change within its full context. The diff tells you _what_ changed; the full file tells you whether the change _fits_.
 
+### 2.1a — Observation Before Conclusion
+
+For each file under deep review, record observations before forming conclusions:
+
+1. **Observe** — Read the file and note what the code does. Write neutral statements, not judgments. "Function X calls Y without null check" not "Bug: missing null check."
+2. **Challenge** — For each observation, ask: is this intentional? Does the caller handle it? Does the type system prevent it? Is there a project convention that allows it?
+3. **Conclude** — Only classify surviving observations as findings.
+
+This sequence exists because code review is susceptible to motivated reasoning — forming a conclusion ("this is a bug") then constructing justification backward. Observations first, conclusions second.
+
 ### 2.2 — Dependency Tracing (multi-hop)
 
 For each changed function, class, type, or export, trace consumers up to 3 hops deep:

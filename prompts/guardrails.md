@@ -2,6 +2,18 @@
 
 Reference document for doyaken skills. Read when referenced by `/dkplan`, `/dkimplement`, or `/dkloop`.
 
+## HARD STOPS — Override All Other Priorities
+
+These override code completion momentum, pattern consistency, and time pressure. Violating any is a blocking defect:
+
+1. **Verification failures block progress.** If the type checker, linter, or test runner fails → stop and fix. Do not move on, declare done, or commit.
+2. **Parameterized queries only.** No string interpolation in database queries. No exceptions.
+3. **No hardcoded secrets.** Not in production code, not in tests, not "temporarily."
+4. **Tests must run before done.** "It should work" is not verification.
+5. **No silent error swallowing.** Every catch block logs with context or re-throws.
+
+These rules exist because they compete with the momentum of code completion. If you find yourself about to skip one because "it's simpler" or "just for now" — that impulse is exactly what the rule guards against.
+
 ## AI Discipline
 
 ### Verify, Don't Assume

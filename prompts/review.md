@@ -20,15 +20,42 @@ Every finding MUST include a confidence score from 0-100:
 
 **Threshold: 50.** Only report findings with confidence >= 50.
 
-**Scoring guidelines:**
-- Pre-existing code patterns (not introduced in this PR) → confidence 0. However, if new code _extends_ a pre-existing bad pattern (e.g., adds a new instance of a known anti-pattern), score the new instance at 50-60 with a note that it follows an existing pattern — the new code should not perpetuate known issues.
-- Issues that linters/formatters will catch → confidence 0
-- Code that looks odd but follows a nearby pattern → confidence 10-30
-- Missing error handling in a new code path → confidence 80-95
-- Security gap (missing auth, hardcoded secret) → confidence 95-100
-- Failing test or type error → confidence 100
-- Convention violation in new code → confidence 60-80
-- Potential performance issue → confidence 50-70 (depends on evidence)
+**Scoring guidelines — evidence determines confidence, not how certain you feel:**
+
+**Tier 1 (90-100) — Mechanically verifiable:**
+- You can write a test that reproduces the issue → 95-100
+- The type checker / linter flags this → 90-95
+- A required code path is missing and `Grep` confirms no alternative exists → 90-95
+
+**Tier 2 (70-89) — Concrete example constructed:**
+- You traced a specific input through the code to a wrong output → 80-89
+- You found a consumer passing data inconsistent with the changed contract → 75-85
+- You identified a missing check AND traced where unchecked data reaches a consumer → 70-80
+
+**Tier 3 (50-69) — Pattern-matched with partial verification:**
+- Code matches a known anti-pattern AND you verified preconditions apply here → 55-69
+- You found the same bug elsewhere in this codebase (establishing precedent) → 50-65
+- New code extends a pre-existing bad pattern → 50-60 (note the existing pattern)
+
+**Below 50 — Reasoning without evidence (filtered out):**
+- "This looks like it could be a problem" without a concrete trigger → 0
+- "Best practice suggests..." without demonstrating the consequence → 0
+- Pre-existing patterns not introduced in this change → 0
+- Issues linters/formatters catch → 0
+- Code that looks odd but follows a nearby pattern → 0
+
+---
+
+### Observe-Verify-Conclude Protocol
+
+Before reporting ANY finding, follow this sequence. Do not skip or reorder.
+
+1. **LOCATE**: `Grep` or `Read` to find the exact file:line you will reference. If you cannot locate it, you do not have a finding.
+2. **OBSERVE**: Read the surrounding code (minimum 3 lines of context). Record what the code DOES as a neutral statement ("Function X calls Y without checking the return value"), not what is WRONG with it.
+3. **CHALLENGE**: Is this actually a problem? Check: Does the caller handle it instead? Does the type system guarantee safety? Does a nearby comment explain why? Does the project convention allow this?
+4. **CONCLUDE**: Only now classify as a finding with severity and confidence (using the evidence tiers above).
+
+If you feel certain about a finding before completing steps 1-3, treat that certainty as a signal to be MORE skeptical — pattern-recognition confidence without verification is the primary source of false positives.
 
 ---
 

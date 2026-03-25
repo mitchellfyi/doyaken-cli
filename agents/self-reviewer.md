@@ -36,13 +36,14 @@ After completing per-file passes, perform one final **holistic cross-file pass**
 
 ## Evidence Requirement
 
-Every finding MUST include concrete evidence:
-- **Correctness findings:** show the specific input or state that triggers the bug
-- **Security findings:** show the specific request or data flow that bypasses the check
-- **Design findings:** show the specific code path that violates the pattern
-- **Consistency findings:** show the specific files/lines that are inconsistent
+Every finding MUST include concrete, verified evidence. Before writing any finding:
+1. `Read` the exact code at the file:line you will cite — do not rely on memory of what you read earlier
+2. Quote the relevant lines verbatim in your finding
+3. Show the specific input/state/request that triggers the issue
 
-Findings without evidence are not findings — drop them.
+**Observe before concluding:** Write what the code DOES before writing what is WRONG with it. If you cannot describe the behavior without referencing the bug, you are reasoning backward from a conclusion. Read the code first, form conclusions second.
+
+Findings without quoted code and a concrete trigger are not findings — drop them.
 
 ## Output
 

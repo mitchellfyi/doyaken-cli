@@ -44,6 +44,18 @@ Use the integrations configured in doyaken.md § Integrations. Skip any that are
 
 If you cannot answer all five confidently, gather more context.
 
+### 2.5 Define the Target State
+
+Before drafting task lists, explicitly describe the end state:
+
+1. **What does done look like?** List the specific files that exist/changed, functions that are callable, tests that pass, and behaviors that differ from today.
+2. **Diff against current:** For each element, note: exists today (modify), doesn't exist (create), or exists but shouldn't (remove).
+3. **Validate against acceptance criteria:** Walk each criterion and confirm the target state satisfies it. If any criterion is unmet by the target, the target is wrong — revise before proceeding.
+
+The plan is then the ordered steps transforming current state into this target. Work backward: what must be true last? What must be true before that? Continue until you reach the current state.
+
+This step exists because plans naturally construct backward from a target. Making the target explicit and validated prevents a common failure: a well-structured plan aimed at the wrong outcome.
+
 ### 3. Draft the Plan
 
 For non-trivial tickets (more than a config change, typo fix, or single-file edit), present **2-3 approaches** before detailing the chosen one:
