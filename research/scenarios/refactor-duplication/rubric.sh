@@ -8,15 +8,16 @@ rubric_correctness() {
   local score=0
 
   [[ -f "$ws/package.json" ]] && score=$((score + 3))
-  (cd "$ws" && npm install --silent 2>/dev/null) || true
+  (cd "$ws" && npm install --silent >/dev/null 2>&1) || true
 
   # Shared utility exists
   local shared_found=false
   for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" \
            "src/utils/validate.js" "src/lib/validate.js" "src/validation.js" "src/shared/validation.js" \
-           "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" \
+           "src/validation/validators.js" "src/validation/index.js" "src/validation/validator.js" \
+           "src/middleware/validators.js" "src/middleware/validate.js" \
            "src/helpers/validators.js" "src/helpers/validate.js" "src/common/validators.js" \
-           "src/common/validate.js"; do
+           "src/common/validate.js" "src/validator.js"; do
     if [[ -f "$ws/$f" ]]; then
       shared_found=true
       break
@@ -130,6 +131,38 @@ console.log(allValid ? 'PASS' : 'FAIL');
 " 2>&1) || true
   [[ "$shape_test" == *"PASS"* ]] && score=$((score + 7))
 
+  # Shared utility handles multiple resource types (not user-only)
+  local multi_resource
+  multi_resource=$(cd "$ws" && node -e "
+try {
+  // Check that shared module handles products and orders too
+  let shared;
+  const paths = ['./src/validation/validator', './src/validators', './src/utils/validators',
+                 './src/lib/validators', './src/validate', './src/validation/index',
+                 './src/validation/validators', './src/common/validators', './src/validator'];
+  for (const p of paths) { try { shared = require(p); break; } catch(e) {} }
+  if (!shared) { console.log('NO_SHARED'); process.exit(); }
+  // Should have multiple exported functions or a generic validate function
+  const keys = Object.keys(shared).filter(k => typeof shared[k] === 'function');
+  console.log(keys.length >= 2 ? 'PASS' : 'PARTIAL:' + keys.length);
+} catch(e) { console.log('ERROR:' + e.message); }
+" 2>&1) || true
+  [[ "$multi_resource" == *"PASS"* ]] && score=$((score + 8))
+
+  # Shared utility is importable directly (not only through routes)
+  local direct_import
+  direct_import=$(cd "$ws" && node -e "
+try {
+  let shared;
+  const paths = ['./src/validation/validator', './src/validators', './src/utils/validators',
+                 './src/lib/validators', './src/validate', './src/validation/index',
+                 './src/validation/validators', './src/common/validators', './src/validator'];
+  for (const p of paths) { try { shared = require(p); break; } catch(e) {} }
+  console.log(shared && Object.keys(shared).length > 0 ? 'PASS' : 'FAIL');
+} catch(e) { console.log('ERROR:' + e.message); }
+" 2>&1) || true
+  [[ "$direct_import" == *"PASS"* ]] && score=$((score + 7))
+
   [[ $score -gt 100 ]] && score=100
   echo "$score"
 }
@@ -201,9 +234,10 @@ rubric_robustness() {
   local shared_file=""
   for f in "src/validators.js" "src/utils/validators.js" "src/lib/validators.js" "src/validate.js" \
            "src/utils/validate.js" "src/lib/validate.js" "src/validation.js" "src/shared/validation.js" \
-           "src/validation/validators.js" "src/validation/index.js" "src/middleware/validators.js" \
+           "src/validation/validators.js" "src/validation/index.js" "src/validation/validator.js" \
+           "src/middleware/validators.js" "src/middleware/validate.js" \
            "src/helpers/validators.js" "src/helpers/validate.js" "src/common/validators.js" \
-           "src/common/validate.js"; do
+           "src/common/validate.js" "src/validator.js"; do
     [[ -f "$ws/$f" ]] && shared_file="$ws/$f" && break
   done
 

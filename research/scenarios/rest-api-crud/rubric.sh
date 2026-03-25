@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rubric for: rest-api-crud
-# Hardened rubric — a strong implementation should score ~85-90, not 100.
+# Hardened rubric v2 — target score ~60-75 for typical implementations.
 
 rubric_correctness() {
   local ws="$1"
@@ -9,7 +9,7 @@ rubric_correctness() {
   [[ -f "$ws/package.json" ]] && score=$((score + 2))
 
   # Install deps
-  if ! (cd "$ws" && npm install --silent 2>/dev/null); then
+  if ! (cd "$ws" && npm install --silent >/dev/null 2>&1); then
     echo "$score"; return
   fi
   score=$((score + 3))
@@ -44,9 +44,9 @@ rubric_correctness() {
 
   local base="http://localhost:$port"
 
-  # ---------- BASIC CRUD (46 points) ----------
+  # ---------- BASIC CRUD (34 points) ----------
 
-  # POST /books — create a book (7 pts)
+  # POST /books — create a book (5 pts)
   local create_resp
   create_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: application/json" \
@@ -54,7 +54,7 @@ rubric_correctness() {
   local create_code
   create_code=$(echo "$create_resp" | tail -1)
   if [[ "$create_code" == "201" ]] || [[ "$create_code" == "200" ]]; then
-    score=$((score + 7))
+    score=$((score + 5))
   fi
 
   # Verify created book has an ID in the response (3 pts)
@@ -88,7 +88,7 @@ except:
 " 2>/dev/null || true)
   [[ "$has_title" == "yes" ]] && score=$((score + 2))
 
-  # GET /books — list all books (7 pts)
+  # GET /books — list all books (5 pts)
   local list_resp
   list_resp=$(curl -s -w "\n%{http_code}" "$base/books" 2>/dev/null) || true
   local list_code
@@ -96,7 +96,7 @@ except:
   local list_body
   list_body=$(echo "$list_resp" | sed '$d')
   if [[ "$list_code" == "200" ]]; then
-    score=$((score + 4))
+    score=$((score + 3))
     local has_book
     has_book=$(echo "$list_body" | python3 -c "
 import json, sys
@@ -107,7 +107,7 @@ try:
 except:
     print('no')
 " 2>/dev/null || true)
-    [[ "$has_book" == "yes" ]] && score=$((score + 3))
+    [[ "$has_book" == "yes" ]] && score=$((score + 2))
   fi
 
   # Extract book ID from list for subsequent tests
@@ -129,23 +129,23 @@ except:
   # Last resort fallback
   [[ -z "$book_id" || "$book_id" == "None" ]] && book_id="1"
 
-  # GET /books/:id — single book (7 pts)
+  # GET /books/:id — single book (5 pts)
   local get_resp
   get_resp=$(curl -s -w "\n%{http_code}" "$base/books/$book_id" 2>/dev/null) || true
   local get_code
   get_code=$(echo "$get_resp" | tail -1)
-  [[ "$get_code" == "200" ]] && score=$((score + 7))
+  [[ "$get_code" == "200" ]] && score=$((score + 5))
 
-  # PUT /books/:id — full update (7 pts)
+  # PUT /books/:id — full update (5 pts)
   local put_resp
   put_resp=$(curl -s -w "\n%{http_code}" -X PUT "$base/books/$book_id" \
     -H "Content-Type: application/json" \
     -d '{"title":"Updated Book","author":"Updated Author","isbn":"9780131103627"}' 2>/dev/null) || true
   local put_code
   put_code=$(echo "$put_resp" | tail -1)
-  [[ "$put_code" == "200" ]] && score=$((score + 7))
+  [[ "$put_code" == "200" ]] && score=$((score + 5))
 
-  # Verify PUT actually changed the data (3 pts)
+  # Verify PUT actually changed the data (2 pts)
   local verify_put
   verify_put=$(curl -s "$base/books/$book_id" 2>/dev/null) || true
   local put_changed
@@ -157,34 +157,34 @@ try:
 except:
     print('no')
 " 2>/dev/null || true)
-  [[ "$put_changed" == "yes" ]] && score=$((score + 3))
+  [[ "$put_changed" == "yes" ]] && score=$((score + 2))
 
-  # DELETE /books/:id (7 pts)
+  # DELETE /books/:id (5 pts)
   local del_resp
   del_resp=$(curl -s -w "\n%{http_code}" -X DELETE "$base/books/$book_id" 2>/dev/null) || true
   local del_code
   del_code=$(echo "$del_resp" | tail -1)
   if [[ "$del_code" == "200" ]] || [[ "$del_code" == "204" ]]; then
-    score=$((score + 7))
+    score=$((score + 5))
   fi
 
-  # Verify deleted book is truly gone — GET after DELETE should 404 (3 pts)
+  # Verify deleted book is truly gone — GET after DELETE should 404 (2 pts)
   local gone_resp
   gone_resp=$(curl -s -w "\n%{http_code}" "$base/books/$book_id" 2>/dev/null) || true
   local gone_code
   gone_code=$(echo "$gone_resp" | tail -1)
-  [[ "$gone_code" == "404" ]] && score=$((score + 3))
+  [[ "$gone_code" == "404" ]] && score=$((score + 2))
 
-  # ---------- ERROR HANDLING (34 points) ----------
+  # ---------- ERROR HANDLING (24 points) ----------
 
-  # GET /books/nonexistent — 404 (5 pts)
+  # GET /books/nonexistent — 404 (3 pts)
   local notfound_resp
   notfound_resp=$(curl -s -w "\n%{http_code}" "$base/books/nonexistent-id-999" 2>/dev/null) || true
   local nf_code
   nf_code=$(echo "$notfound_resp" | tail -1)
-  [[ "$nf_code" == "404" ]] && score=$((score + 5))
+  [[ "$nf_code" == "404" ]] && score=$((score + 3))
 
-  # POST with empty body — 400 (5 pts)
+  # POST with empty body — 400 (3 pts)
   local empty_resp
   empty_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: application/json" \
@@ -192,10 +192,10 @@ except:
   local empty_code
   empty_code=$(echo "$empty_resp" | tail -1)
   if [[ "$empty_code" == "400" ]] || [[ "$empty_code" == "422" ]]; then
-    score=$((score + 5))
+    score=$((score + 3))
   fi
 
-  # POST missing required field (author) — 400 (4 pts)
+  # POST missing required field (author) — 400 (3 pts)
   local missing_resp
   missing_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: application/json" \
@@ -203,10 +203,10 @@ except:
   local missing_code
   missing_code=$(echo "$missing_resp" | tail -1)
   if [[ "$missing_code" == "400" ]] || [[ "$missing_code" == "422" ]]; then
-    score=$((score + 4))
+    score=$((score + 3))
   fi
 
-  # Invalid ISBN format — 400 (5 pts)
+  # Invalid ISBN format — 400 (3 pts)
   local isbn_resp
   isbn_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: application/json" \
@@ -214,10 +214,10 @@ except:
   local isbn_code
   isbn_code=$(echo "$isbn_resp" | tail -1)
   if [[ "$isbn_code" == "400" ]] || [[ "$isbn_code" == "422" ]]; then
-    score=$((score + 5))
+    score=$((score + 3))
   fi
 
-  # Duplicate ISBN rejection — second book with same ISBN should fail (4 pts)
+  # Duplicate ISBN rejection — second book with same ISBN should fail (3 pts)
   # First create a book with a specific ISBN
   local dup1_resp
   dup1_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
@@ -233,10 +233,10 @@ except:
   local dup2_code
   dup2_code=$(echo "$dup2_resp" | tail -1)
   if [[ "$dup2_code" == "400" ]] || [[ "$dup2_code" == "409" ]] || [[ "$dup2_code" == "422" ]]; then
-    score=$((score + 4))
+    score=$((score + 3))
   fi
 
-  # Title too long (>200 chars) should fail validation (4 pts)
+  # Title too long (>200 chars) should fail validation (3 pts)
   local long_title
   long_title=$(python3 -c "print('A' * 201)" 2>/dev/null || true)
   local longstr_resp
@@ -246,10 +246,10 @@ except:
   local longstr_code
   longstr_code=$(echo "$longstr_resp" | tail -1)
   if [[ "$longstr_code" == "400" ]] || [[ "$longstr_code" == "422" ]]; then
-    score=$((score + 4))
+    score=$((score + 3))
   fi
 
-  # Content-Type validation — send non-JSON body with wrong content type (4 pts)
+  # Content-Type validation — send non-JSON body with wrong content type (2 pts)
   local ct_resp
   ct_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: text/plain" \
@@ -257,10 +257,10 @@ except:
   local ct_code
   ct_code=$(echo "$ct_resp" | tail -1)
   if [[ "$ct_code" == "400" ]] || [[ "$ct_code" == "415" ]] || [[ "$ct_code" == "422" ]]; then
-    score=$((score + 4))
+    score=$((score + 2))
   fi
 
-  # Malformed JSON body handling (3 pts)
+  # Malformed JSON body handling (1 pt)
   local malformed_resp
   malformed_resp=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
     -H "Content-Type: application/json" \
@@ -268,12 +268,12 @@ except:
   local malformed_code
   malformed_code=$(echo "$malformed_resp" | tail -1)
   if [[ "$malformed_code" == "400" ]] || [[ "$malformed_code" == "422" ]]; then
-    score=$((score + 3))
+    score=$((score + 1))
   fi
 
   # ---------- ADVANCED (20 points) ----------
 
-  # PATCH /books/:id — partial update (5 pts)
+  # PATCH /books/:id — partial update (4 pts)
   # Create a fresh book to test PATCH against
   local patch_create
   patch_create=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
@@ -315,11 +315,11 @@ try:
 except:
     print('no')
 " 2>/dev/null || true)
-      [[ "$patch_ok" == "yes" ]] && score=$((score + 5))
+      [[ "$patch_ok" == "yes" ]] && score=$((score + 4))
     fi
   fi
 
-  # Response Content-Type header is application/json (4 pts)
+  # Response Content-Type header is application/json (3 pts)
   local ct_header
   ct_header=$(curl -s -o /dev/null -w "%{content_type}" "$base/books" 2>/dev/null) || true
   local ct_check
@@ -328,7 +328,7 @@ import sys
 ct = sys.stdin.read().strip().lower()
 print('yes' if 'application/json' in ct else 'no')
 " 2>/dev/null || true)
-  [[ "$ct_check" == "yes" ]] && score=$((score + 4))
+  [[ "$ct_check" == "yes" ]] && score=$((score + 3))
 
   # PUT /books/:id with missing required field should fail (3 pts)
   # (PUT should require full object replacement)
@@ -353,6 +353,132 @@ except:
     print('no')
 " 2>/dev/null || true)
   [[ "$has_created_at" == "yes" ]] && score=$((score + 3))
+
+  # ---------- HARDER CHECKS (22 points) ----------
+
+  # PAGINATION: GET /books?page=1&limit=2 should return paginated results (8 pts)
+  # First, create several books so we have enough data
+  for _i in 1 2 3 4 5; do
+    curl -s -X POST "$base/books" \
+      -H "Content-Type: application/json" \
+      -d "{\"title\":\"Paginated Book $_i\",\"author\":\"Author $_i\"}" 2>/dev/null >/dev/null || true
+  done
+  local page_resp
+  page_resp=$(curl -s -w "\n%{http_code}" "$base/books?page=1&limit=2" 2>/dev/null) || true
+  local page_code
+  page_code=$(echo "$page_resp" | tail -1)
+  local page_body
+  page_body=$(echo "$page_resp" | sed '$d')
+  if [[ "$page_code" == "200" ]]; then
+    local page_ok
+    page_ok=$(echo "$page_body" | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    # Response should be an object with items array and metadata (not a bare array)
+    if isinstance(data, dict):
+        items = data.get('books', data.get('data', data.get('items', [])))
+        total = data.get('total', data.get('totalCount', data.get('count', 0)))
+        page = data.get('page', data.get('currentPage', 0))
+        # Paginated: items count should be <= limit (2), total should be > 2, and metadata present
+        if isinstance(items, list) and len(items) <= 2 and total > 2:
+            print('yes')
+        else:
+            print('no')
+    else:
+        print('no')
+except:
+    print('no')
+" 2>/dev/null || true)
+    [[ "$page_ok" == "yes" ]] && score=$((score + 8))
+  fi
+
+  # SEARCH/FILTER: GET /books?author=X should filter results (7 pts)
+  # Create a book with a unique author to search for
+  curl -s -X POST "$base/books" \
+    -H "Content-Type: application/json" \
+    -d '{"title":"Searchable Book","author":"Unique Searchable Author"}' 2>/dev/null >/dev/null || true
+  local search_resp
+  search_resp=$(curl -s -w "\n%{http_code}" "$base/books?author=Unique%20Searchable%20Author" 2>/dev/null) || true
+  local search_code
+  search_code=$(echo "$search_resp" | tail -1)
+  local search_body
+  search_body=$(echo "$search_resp" | sed '$d')
+  if [[ "$search_code" == "200" ]]; then
+    local search_ok
+    search_ok=$(echo "$search_body" | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    items = data if isinstance(data, list) else data.get('books', data.get('data', data.get('items', [])))
+    # All returned items should have the searched author, and there should be at least 1
+    if isinstance(items, list) and len(items) >= 1:
+        all_match = all('Unique Searchable Author' in str(b.get('author','')) for b in items)
+        print('yes' if all_match else 'no')
+    else:
+        print('no')
+except:
+    print('no')
+" 2>/dev/null || true)
+    [[ "$search_ok" == "yes" ]] && score=$((score + 7))
+  fi
+
+  # IDEMPOTENT PUT: PUT with same data twice should return same result, not create duplicates (7 pts)
+  local idem_create
+  idem_create=$(curl -s -w "\n%{http_code}" -X POST "$base/books" \
+    -H "Content-Type: application/json" \
+    -d '{"title":"Idempotent Test","author":"Idem Author"}' 2>/dev/null) || true
+  local idem_id
+  idem_id=$(echo "$idem_create" | sed '$d' | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    print(data.get('id', ''))
+except:
+    print('')
+" 2>/dev/null || true)
+  if [[ -n "$idem_id" && "$idem_id" != "None" && "$idem_id" != "" ]]; then
+    local idem_data='{"title":"Idempotent Updated","author":"Idem Author Updated"}'
+    # PUT twice with the same data
+    curl -s -X PUT "$base/books/$idem_id" \
+      -H "Content-Type: application/json" \
+      -d "$idem_data" 2>/dev/null >/dev/null || true
+    local idem_put2
+    idem_put2=$(curl -s -w "\n%{http_code}" -X PUT "$base/books/$idem_id" \
+      -H "Content-Type: application/json" \
+      -d "$idem_data" 2>/dev/null) || true
+    local idem_put2_code
+    idem_put2_code=$(echo "$idem_put2" | tail -1)
+    # After two PUTs, GET the book and verify it's correct (not duplicated)
+    local idem_get
+    idem_get=$(curl -s "$base/books/$idem_id" 2>/dev/null) || true
+    local idem_ok
+    idem_ok=$(echo "$idem_get" | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    print('yes' if data.get('title') == 'Idempotent Updated' else 'no')
+except:
+    print('no')
+" 2>/dev/null || true)
+    # Also check the list doesn't have duplicates of this book
+    local idem_list
+    idem_list=$(curl -s "$base/books" 2>/dev/null) || true
+    local idem_no_dup
+    idem_no_dup=$(echo "$idem_list" | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    items = data if isinstance(data, list) else data.get('books', data.get('data', data.get('items', [])))
+    count = sum(1 for b in items if b.get('title') == 'Idempotent Updated')
+    print('yes' if count == 1 else 'no')
+except:
+    print('no')
+" 2>/dev/null || true)
+    if [[ "$idem_put2_code" == "200" ]] && [[ "$idem_ok" == "yes" ]] && [[ "$idem_no_dup" == "yes" ]]; then
+      score=$((score + 7))
+    fi
+  fi
 
   # Cleanup — kill server and don't block on wait
   kill "$server_pid" 2>/dev/null
@@ -389,7 +515,7 @@ text = sys.stdin.read()
 # Look for common pass indicators
 if re.search(r'(pass|PASS|✓|Tests:.*passed|test suites.*passed)', text, re.IGNORECASE):
     # Also check there's no failure
-    if not re.search(r'(FAIL|fail(?:ed|ure)|error|ERR!)', text, re.IGNORECASE):
+    if not re.search(r'(FAIL(?!\s+0)|fail(?:ed|ure)|ERR!)', text, re.IGNORECASE):
         print('yes')
     else:
         print('no')
@@ -398,7 +524,7 @@ else:
 " 2>/dev/null || true)
   [[ "$tests_pass" == "yes" ]] && score=$((score + 25))
 
-  # --- Test count > 5 (individual test cases, not files) (10 pts) ---
+  # --- Test count > 5 (5 pts) and > 15 (additional 10 pts) ---
   local individual_tests
   individual_tests=$(echo "$test_output" | python3 -c "
 import sys, re
@@ -417,7 +543,8 @@ if m:
 count = len(re.findall(r'[✓✔]|PASS\s', text))
 print(count if count > 0 else 0)
 " 2>/dev/null || true)
-  [[ -n "$individual_tests" ]] && [[ "$individual_tests" -gt 5 ]] 2>/dev/null && score=$((score + 10))
+  [[ -n "$individual_tests" ]] && [[ "$individual_tests" -gt 5 ]] 2>/dev/null && score=$((score + 5))
+  [[ -n "$individual_tests" ]] && [[ "$individual_tests" -gt 15 ]] 2>/dev/null && score=$((score + 10))
 
   # --- Tests cover ALL HTTP methods: GET, POST, PUT, DELETE (15 pts) ---
   local methods_covered=0
@@ -486,7 +613,7 @@ print(count if count > 0 else 0)
   done) || true
   [[ "$has_http_client" == "found" ]] && score=$((score + 10))
 
-  # --- Bonus: tests are well-structured with describe/it blocks (10 pts) ---
+  # --- Bonus: tests are well-structured with describe/it blocks (5 pts) ---
   local has_structure
   has_structure=$(echo "$test_files" | while read -r f; do
     [[ -z "$f" ]] && continue
@@ -494,7 +621,18 @@ print(count if count > 0 else 0)
       echo "found"; break
     fi
   done) || true
-  [[ "$has_structure" == "found" ]] && score=$((score + 10))
+  [[ "$has_structure" == "found" ]] && score=$((score + 5))
+
+  # --- HARDER: Tests include concurrent request patterns (10 pts) ---
+  # Check for Promise.all, Promise.allSettled, async parallel patterns in tests
+  local has_concurrent
+  has_concurrent=$(echo "$test_files" | while read -r f; do
+    [[ -z "$f" ]] && continue
+    if grep -qlEi "Promise\.all|Promise\.allSettled|concurrent|parallel|simultaneous|Promise\.race|async.*map" "$f" 2>/dev/null; then
+      echo "found"; break
+    fi
+  done) || true
+  [[ "$has_concurrent" == "found" ]] && score=$((score + 10))
 
   # Cap at 100
   [[ $score -gt 100 ]] && score=100
@@ -644,7 +782,7 @@ except:
   done) || true
   [[ "$has_isbn_validation" == "found" ]] && score=$((score + 6))
 
-  # --- Module structure: routes separated from main file (10 pts) ---
+  # --- Module structure: routes separated from main file (8 pts) ---
   local route_files
   route_files=$(find "$ws" -maxdepth 4 -name "*.js" ! -path "*/node_modules/*" ! -name "*.test.*" ! -name "*.spec.*" 2>/dev/null | while read -r f; do
     if grep -qlE "router\.|Router\(\)|module\.exports.*router" "$f" 2>/dev/null; then
@@ -653,7 +791,72 @@ except:
   done || true)
   local main_separate
   main_separate=$(echo "$route_files" | grep -c '.' 2>/dev/null || true)
-  [[ "$main_separate" -ge 1 ]] && score=$((score + 10))
+  [[ "$main_separate" -ge 1 ]] && score=$((score + 8))
+
+  # --- HARDER: Request logging middleware (8 pts) ---
+  # Check for morgan, winston, pino, or custom request logging middleware
+  local has_logging
+  has_logging=$(echo "$src_files" | while read -r f; do
+    [[ -z "$f" ]] && continue
+    if grep -qlEi "morgan|winston|pino|bunyan|req\.method.*req\.url|console\.log.*req\.|request.*log|logger" "$f" 2>/dev/null; then
+      echo "found"; break
+    fi
+  done) || true
+  if [[ "$has_logging" != "found" && -f "$ws/package.json" ]]; then
+    local pkg_logging
+    pkg_logging=$(python3 -c "
+import json
+try:
+    data = json.load(open('$ws/package.json'))
+    deps = {**data.get('dependencies',{}), **data.get('devDependencies',{})}
+    matches = [k for k in deps if k in ('morgan','winston','pino','bunyan')]
+    print('found' if matches else '')
+except:
+    print('')
+" 2>/dev/null || true)
+    [[ "$pkg_logging" == "found" ]] && has_logging="found"
+  fi
+  [[ "$has_logging" == "found" ]] && score=$((score + 8))
+
+  # --- HARDER: Health check endpoint (8 pts) ---
+  # Actually test that GET /health or /healthz returns 200
+  # Need a running server for this — start one
+  local hc_port=0
+  hc_port=$(_find_free_port)
+  local hc_entry=""
+  local hc_pkg_main
+  hc_pkg_main=$(cd "$ws" && node -e "try{console.log(require('./package.json').main||'')}catch(e){}" 2>/dev/null || true)
+  if [[ -n "$hc_pkg_main" && -f "$ws/$hc_pkg_main" ]]; then
+    hc_entry="$hc_pkg_main"
+  else
+    for f in "server.js" "src/server.js" "index.js" "src/index.js" "app.js" "src/app.js"; do
+      [[ -f "$ws/$f" ]] && hc_entry="$f" && break
+    done
+  fi
+  if [[ -n "$hc_entry" ]]; then
+    local hc_pid=""
+    (cd "$ws" && exec env PORT=$hc_port node "$hc_entry") &>/dev/null &
+    hc_pid=$!
+    sleep 2
+    if kill -0 "$hc_pid" 2>/dev/null; then
+      local hc_base="http://localhost:$hc_port"
+      local hc_resp=""
+      # Try /health first, then /healthz
+      hc_resp=$(curl -s -w "\n%{http_code}" "$hc_base/health" 2>/dev/null) || true
+      local hc_code
+      hc_code=$(echo "$hc_resp" | tail -1)
+      if [[ "$hc_code" != "200" ]]; then
+        hc_resp=$(curl -s -w "\n%{http_code}" "$hc_base/healthz" 2>/dev/null) || true
+        hc_code=$(echo "$hc_resp" | tail -1)
+      fi
+      [[ "$hc_code" == "200" ]] && score=$((score + 8))
+      kill "$hc_pid" 2>/dev/null
+      sleep 0.3
+      kill -9 "$hc_pid" 2>/dev/null || true
+    else
+      kill -9 "$hc_pid" 2>/dev/null || true
+    fi
+  fi
 
   # Cap at 100
   [[ $score -gt 100 ]] && score=100

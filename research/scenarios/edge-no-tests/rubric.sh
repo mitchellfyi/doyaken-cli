@@ -15,12 +15,10 @@ rubric_correctness() {
 
   [[ -f "$ws/go.mod" ]] && score=$((score + 5))
 
-  # Find the main source file
-  local src_file=""
-  for f in "strutil.go" "str_util.go" "string_util.go" "strings.go"; do
-    [[ -f "$ws/$f" ]] && src_file="$f" && break
-  done
-  [[ -z "$src_file" ]] && { echo "$score"; return; }
+  # Find any Go source file (DK may split across multiple files)
+  local go_files
+  go_files=$(find "$ws" -maxdepth 1 -name "*.go" ! -name "*_test.go" 2>/dev/null | head -1)
+  [[ -z "$go_files" ]] && { echo "$score"; return; }
 
   # Go builds cleanly
   if (cd "$ws" && go build ./... 2>/dev/null); then
@@ -31,11 +29,17 @@ rubric_correctness() {
 
   # All correctness checks inject a temporary test file into the package,
   # run it via `go test`, then clean up. This avoids import resolution issues.
-  local tmptest="$ws/_dk_rubric_test.go"
+  # Note: filename must NOT start with _ or . (Go ignores those files).
+  local tmptest="$ws/dkrubric_test.go"
+
+  # Detect the actual package name from Go source files (DK may use strutil, stringutil, main, etc.)
+  local pkg_name
+  pkg_name=$(grep -m1 '^package ' $go_files 2>/dev/null | awk '{print $2}') || true
+  [[ -z "$pkg_name" ]] && pkg_name="strutil"
 
   # --- Reverse: basic ASCII + empty string (10pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -53,11 +57,11 @@ GOEOF
   local rev_basic
   rev_basic=$(cd "$ws" && go test -run TestDKRubricReverseBasic -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$rev_basic" == *"PASS"* ]] && score=$((score + 10))
+  [[ "$rev_basic" == *"PASS_REV_BASIC"* ]] && score=$((score + 10))
 
   # --- Reverse: multi-byte Unicode / rune-level (7pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -75,12 +79,12 @@ GOEOF
   local rev_unicode
   rev_unicode=$(cd "$ws" && go test -run TestDKRubricReverseUnicode -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$rev_unicode" == *"PASS"* ]] && score=$((score + 7))
+  [[ "$rev_unicode" == *"PASS_REV_UNI"* ]] && score=$((score + 7))
 
   # --- Reverse: emoji / grapheme clusters (5pts) ---
   # This is HARD — most naive rune-based Reverse breaks combining chars.
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -101,11 +105,11 @@ GOEOF
   local rev_emoji
   rev_emoji=$(cd "$ws" && go test -run TestDKRubricReverseEmoji -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$rev_emoji" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$rev_emoji" == *"PASS_REV_EMOJI"* ]] && score=$((score + 5))
 
   # --- Capitalize: basic (10pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -124,11 +128,11 @@ GOEOF
   local cap_basic
   cap_basic=$(cd "$ws" && go test -run TestDKRubricCapBasic -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$cap_basic" == *"PASS"* ]] && score=$((score + 10))
+  [[ "$cap_basic" == *"PASS_CAP_BASIC"* ]] && score=$((score + 10))
 
   # --- Capitalize: Unicode accented chars (5pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -148,11 +152,11 @@ GOEOF
   local cap_unicode
   cap_unicode=$(cd "$ws" && go test -run TestDKRubricCapUnicode -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$cap_unicode" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$cap_unicode" == *"PASS_CAP_UNI"* ]] && score=$((score + 5))
 
   # --- Capitalize: empty and whitespace (4pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -170,11 +174,11 @@ GOEOF
   local cap_empty
   cap_empty=$(cd "$ws" && go test -run TestDKRubricCapEmpty -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$cap_empty" == *"PASS"* ]] && score=$((score + 4))
+  [[ "$cap_empty" == *"PASS_CAP_EMPTY"* ]] && score=$((score + 4))
 
   # --- Truncate: basic (10pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -197,11 +201,11 @@ GOEOF
   local trunc_basic
   trunc_basic=$(cd "$ws" && go test -run TestDKRubricTruncBasic -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$trunc_basic" == *"PASS"* ]] && score=$((score + 10))
+  [[ "$trunc_basic" == *"PASS_TRUNC_BASIC"* ]] && score=$((score + 10))
 
   # --- Truncate: must not break multi-byte characters (5pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -222,11 +226,11 @@ GOEOF
   local trunc_unicode
   trunc_unicode=$(cd "$ws" && go test -run TestDKRubricTruncUnicode -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$trunc_unicode" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$trunc_unicode" == *"PASS_TRUNC_UNI"* ]] && score=$((score + 5))
 
   # --- Truncate: edge cases — 0, negative, empty (5pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -247,11 +251,11 @@ GOEOF
   local trunc_edge
   trunc_edge=$(cd "$ws" && go test -run TestDKRubricTruncEdge -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$trunc_edge" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$trunc_edge" == *"PASS_TRUNC_EDGE"* ]] && score=$((score + 5))
 
   # --- Slugify: basic (8pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -270,11 +274,11 @@ GOEOF
   local slug_basic
   slug_basic=$(cd "$ws" && go test -run TestDKRubricSlugBasic -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$slug_basic" == *"PASS"* ]] && score=$((score + 8))
+  [[ "$slug_basic" == *"PASS_SLUG_BASIC"* ]] && score=$((score + 8))
 
   # --- Slugify: multiple spaces / special chars (6pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -295,12 +299,12 @@ GOEOF
   local slug_special
   slug_special=$(cd "$ws" && go test -run TestDKRubricSlugSpecial -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$slug_special" == *"PASS"* ]] && score=$((score + 6))
+  [[ "$slug_special" == *"PASS_SLUG_SPECIAL"* ]] && score=$((score + 6))
 
   # --- Slugify: Unicode / accented chars (5pts) ---
   # Hard: "Café Résumé" should become "cafe-resume" (transliterated) or "caf-rsum" (stripped)
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -323,11 +327,11 @@ GOEOF
   local slug_unicode
   slug_unicode=$(cd "$ws" && go test -run TestDKRubricSlugUnicode -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$slug_unicode" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$slug_unicode" == *"PASS_SLUG_UNI"* ]] && score=$((score + 5))
 
   # --- Slugify: empty / whitespace only (5pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -347,11 +351,11 @@ GOEOF
   local slug_empty
   slug_empty=$(cd "$ws" && go test -run TestDKRubricSlugEmpty -v ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$slug_empty" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$slug_empty" == *"PASS_SLUG_EMPTY"* ]] && score=$((score + 5))
 
   # --- Long string stress test — 10K+ chars (5pts) ---
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -372,7 +376,7 @@ GOEOF
   local long_test
   long_test=$(cd "$ws" && go test -run TestDKRubricLongString -v -timeout 30s ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$long_test" == *"PASS"* ]] && score=$((score + 5))
+  [[ "$long_test" == *"PASS_LONG"* ]] && score=$((score + 5))
 
   echo "$score"
 }
@@ -389,7 +393,7 @@ rubric_test_quality() {
 
   # Step 1: Do test files exist at all? (CRITICAL — 40pt bonus)
   local test_files
-  test_files=$(find "$ws" -name "*_test.go" ! -name "_dk_rubric*" 2>/dev/null | wc -l | tr -d ' ')
+  test_files=$(find "$ws" -name "*_test.go" ! -name "dkrubric*" 2>/dev/null | wc -l | tr -d ' ')
 
   if [[ $test_files -gt 0 ]]; then
     score=$((score + 40))  # Massive bonus for writing tests unprompted
@@ -411,7 +415,7 @@ rubric_test_quality() {
   # Step 3: Tests cover ALL 4 functions
   local funcs_tested=0
   for func in "Reverse" "Capitalize" "Truncate" "Slugify"; do
-    if find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -ql "$func" {} + 2>/dev/null; then
+    if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -ql "$func" {} + 2>/dev/null; then
       funcs_tested=$((funcs_tested + 1))
     fi
   done
@@ -419,22 +423,22 @@ rubric_test_quality() {
   [[ $funcs_tested -ge 4 ]] && score=$((score + 5))
 
   # Step 4: Table-driven tests (idiomatic Go)
-  if find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -qlE '\[\]struct|testCases|testcases|tests\s*:=|cases\s*:=|tt\.|tc\.' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -qlE '\[\]struct|testCases|testcases|tests\s*:=|cases\s*:=|tt\.|tc\.' {} + 2>/dev/null; then
     score=$((score + 8))
   fi
 
   # Step 5: Edge cases in tests (empty strings, Unicode, long strings)
   local edge_cases=0
   # Check for empty string test cases
-  if find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -ql '""' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -ql '""' {} + 2>/dev/null; then
     edge_cases=$((edge_cases + 1))
   fi
   # Check for Unicode test cases
-  if find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -qlE 'unicode|rune|utf|emoji|héllo|café|accented|ñ|ü|é' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -qlE 'unicode|rune|utf|emoji|héllo|café|accented|ñ|ü|é' {} + 2>/dev/null; then
     edge_cases=$((edge_cases + 1))
   fi
   # Check for long string or boundary tests
-  if find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -qlE 'Repeat|long|boundary|10000|1000|large' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -qlE 'Repeat|long|boundary|10000|1000|large' {} + 2>/dev/null; then
     edge_cases=$((edge_cases + 1))
   fi
   [[ $edge_cases -ge 1 ]] && score=$((score + 5))
@@ -442,13 +446,13 @@ rubric_test_quality() {
   [[ $edge_cases -ge 3 ]] && score=$((score + 7))
 
   # Step 6: Benchmark tests (bonus — very few DKs will do this)
-  if find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -ql "func Benchmark" {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -ql "func Benchmark" {} + 2>/dev/null; then
     score=$((score + 5))
   fi
 
   # Step 7: Test count — more tests = more thorough
   local test_func_count
-  test_func_count=$(find "$ws" -name "*_test.go" ! -name "_dk_rubric*" -exec grep -c "func Test" {} + 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}') || true
+  test_func_count=$(find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -c "func Test" {} + 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}') || true
   [[ $test_func_count -ge 4 ]] && score=$((score + 5))
   [[ $test_func_count -ge 8 ]] && score=$((score + 5))
 
@@ -459,24 +463,32 @@ rubric_robustness() {
   local ws="$1"
   local score=0
 
-  local src_file=""
-  for f in "strutil.go" "str_util.go" "string_util.go" "strings.go"; do
-    [[ -f "$ws/$f" ]] && src_file="$ws/$f" && break
-  done
-  [[ -z "$src_file" ]] && { echo "0"; return; }
+  # Find all Go source files (DK may split across multiple files)
+  local src_files
+  src_files=$(find "$ws" -maxdepth 1 -name "*.go" ! -name "*_test.go" 2>/dev/null)
+  [[ -z "$src_files" ]] && { echo "0"; return; }
+
+  # Detect the actual package name (needed for injected test file)
+  local pkg_name
+  pkg_name=$(grep -m1 '^package ' $src_files 2>/dev/null | awk '{print $2}') || true
+  [[ -z "$pkg_name" ]] && pkg_name="strutil"
+
+  # Concatenate all source content for pattern matching
+  local src_content
+  src_content=$(cat $src_files 2>/dev/null)
 
   # --- Empty string handling (explicit checks in source) --- (10pts)
-  if grep -qE 'len\(s\)\s*==\s*0|s\s*==\s*""|len\(.*\)\s*==\s*0' "$src_file" 2>/dev/null; then
+  if grep -qE 'len\(s\)\s*==\s*0|s\s*==\s*""|len\(.*\)\s*==\s*0' <<< "$src_content" 2>/dev/null; then
     score=$((score + 10))
   fi
 
   # --- Unicode-aware: uses runes not bytes in Reverse --- (10pts)
-  if grep -q "rune\|utf8\|RuneCountInString" "$src_file" 2>/dev/null; then
+  if grep -q "rune\|utf8\|RuneCountInString" <<< "$src_content" 2>/dev/null; then
     score=$((score + 10))
   fi
 
   # --- Truncate boundary checks (maxLen <= 0, maxLen >= len) --- (10pts)
-  if grep -qE 'maxLen\s*[<]=\s*0|maxLen\s*>=\s*len|maxLen\s*>\s*len|len\(.*\)\s*<=\s*max' "$src_file" 2>/dev/null; then
+  if grep -qE 'maxLen\s*[<]=\s*0|maxLen\s*>=\s*len|maxLen\s*>\s*len|len\(.*\)\s*<=\s*max' <<< "$src_content" 2>/dev/null; then
     score=$((score + 10))
   fi
 
@@ -487,10 +499,10 @@ rubric_robustness() {
 
   # --- Go doc comments on all exported functions --- (10pts)
   local exported_funcs
-  exported_funcs=$(grep -cE '^func [A-Z]' "$src_file" 2>/dev/null) || true
+  exported_funcs=$(grep -cE '^func [A-Z]' $src_files 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}') || true
   local documented_funcs
   # A doc comment is a // comment on the line immediately before func
-  documented_funcs=$(grep -cB1 '^func [A-Z]' "$src_file" 2>/dev/null | grep -c '//' 2>/dev/null) || true
+  documented_funcs=$(grep -cB1 '^func [A-Z]' $src_files 2>/dev/null | grep -c '//' 2>/dev/null) || true
   if [[ $exported_funcs -gt 0 && $documented_funcs -ge $exported_funcs ]]; then
     score=$((score + 10))
   elif [[ $documented_funcs -ge 2 ]]; then
@@ -521,9 +533,9 @@ rubric_robustness() {
   fi
 
   # --- Thread safety: concurrent calls don't panic --- (10pts)
-  local tmptest="$ws/_dk_rubric_test.go"
-  cat > "$tmptest" <<'GOEOF'
-package strutil
+  local tmptest="$ws/dkrubric_test.go"
+  cat > "$tmptest" <<GOEOF
+package ${pkg_name}
 
 import (
     "fmt"
@@ -547,15 +559,15 @@ GOEOF
   local concurrent_test
   concurrent_test=$(cd "$ws" && go test -run TestDKRubricConcurrent -v -race -timeout 30s ./... 2>&1) || true
   rm -f "$tmptest" 2>/dev/null
-  [[ "$concurrent_test" == *"PASS"* ]] && score=$((score + 10))
+  [[ "$concurrent_test" == *"PASS_CONCURRENT"* ]] && score=$((score + 10))
 
   # --- Uses strings.Builder or efficient concatenation --- (10pts)
-  if grep -qE 'strings\.Builder|bytes\.Buffer|strings\.Join|append.*rune' "$src_file" 2>/dev/null; then
+  if grep -qE 'strings\.Builder|bytes\.Buffer|strings\.Join|append.*rune' <<< "$src_content" 2>/dev/null; then
     score=$((score + 10))
   fi
 
   # --- Slugify uses regexp or unicode package for special char handling --- (10pts)
-  if grep -qE 'regexp\.|unicode\.|strings\.Map' "$src_file" 2>/dev/null; then
+  if grep -qE 'regexp\.|unicode\.|strings\.Map' <<< "$src_content" 2>/dev/null; then
     score=$((score + 10))
   fi
 

@@ -23,7 +23,7 @@ For each task in the approved plan:
    - Write a failing test first.
    - Write the minimum code to make it pass.
    - Refactor while keeping tests green.
-4. After completing the task, run deterministic quality checks (format, lint, typecheck) on changed files only. Fix issues before moving to the next task — this prevents error accumulation across tasks.
+4. After completing the task, run deterministic quality checks (format, lint, typecheck) on changed files only. Fix issues before moving to the next task — this prevents error accumulation across tasks. Run the language's type checker and static analysis tool. If tests use libraries that extend the assertion framework, verify the type checker also recognizes those extensions. These checks must pass — do not defer them to the end.
 5. Codebase stewardship: if you encounter dead code, stale comments, or outdated references in files you are modifying, clean them up — but do not expand scope to files outside the plan.
 6. `TaskUpdate(task_id, "completed")`
 
@@ -46,9 +46,21 @@ If during implementation you discover:
 - **A dependency is blocked**: STOP. Document the blocker. Ask how to proceed.
 
 **When running non-interactively** (no user to respond — e.g., `-p` mode, automated harness, or if the user is unavailable): do NOT stop on ambiguity. Instead, choose the **most comprehensive reasonable interpretation** and document your assumptions in a README. Specifically:
-- For algorithmic or strategic choices: implement **at least two approaches** (e.g., fixed-window + token-bucket for rate limiting, multiple sort algorithms, etc.) and let the caller choose.
+- For algorithmic or strategic choices: implement **at least two approaches** (e.g., fixed-window + sliding-window + token-bucket for rate limiting, multiple sort algorithms, etc.) and let the caller choose via a factory or configuration parameter.
 - For data modeling: default to **per-client/per-key isolation** and **configurable limits** with sensible defaults.
 - For scope: when the prompt is vague, build a complete library with a clean exported API, comprehensive tests covering edge cases, and a README explaining design decisions and usage.
+- For REST APIs: always include the production API defaults from guardrails.md (pagination, search/filter, PATCH, timestamps, uniqueness constraints, health check, request logging) even when not explicitly requested. These are expected in any production API.
+- For stateful systems (caches, rate limiters, session stores): implement automatic memory cleanup of expired entries and export a destroy/close method for resource cleanup.
+- For HTTP middleware: if building a library that could be used as middleware, export a middleware adapter alongside the core API.
+- For ALL projects: write tests even if the prompt does not ask for them. Aim for **>20 test cases** spread across **at least three test files** covering: every public function/command with valid input, every public function/command with invalid/edge input (empty, null, boundary, unicode), error paths, and at least one concurrency or stress test. Use the language's idiomatic test organization (named subtests, describe/it blocks, table-driven tests, etc.).
+- For CLI tools: test every command for both success and error cases. Test with empty input, non-existent IDs, corrupted data files, and missing arguments. Organize tests into **at least three files**: (1) unit tests for individual modules/functions, (2) integration tests for end-to-end command flows, (3) edge case and error recovery tests (corrupted data, boundary values, concurrent access).
+
+**Non-interactive mistakes to avoid** (these cause the most quality failures):
+- Don't declare "done" without running the test suite and seeing all tests pass. If tests fail, read the error output and fix the root cause. "Tests should pass" is not the same as "tests pass."
+- Don't install a library that extends the test framework or type system without configuring the type checker to recognize it. If tests run fine but the type checker reports errors on assertion matchers, you have a type registration problem — fix it.
+- Don't write 20 tests for one function and zero for another. Spread test coverage evenly across all public APIs, commands, or functions.
+- Don't create multiple interacting modules without an integration test. If Module A calls Module B, write a test that exercises A→B together, not just each in isolation.
+- Don't assume the first API design you choose is stable. After implementing, run the tests — if the tests import your module and call your functions, the API is real. If you change function signatures after writing tests, update the tests too.
 
 When stopping for scope changes, do NOT output a completion promise (e.g., `PHASE_2_COMPLETE`). Simply halt and wait for user input. The phase audit loop will detect that the completion signal file was not written and keep the session alive. Once the user provides direction, resume implementation from where you left off.
 

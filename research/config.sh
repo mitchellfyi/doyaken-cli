@@ -19,8 +19,8 @@ CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
 CLAUDE_EFFORT="${CLAUDE_EFFORT:-max}"
 CLAUDE_PERMISSION_MODE="bypassPermissions"
 
-# LLM judge uses a cheaper model
-LLM_JUDGE_MODEL="${LLM_JUDGE_MODEL:-haiku}"
+# LLM judge model (opus for quality, matches production)
+LLM_JUDGE_MODEL="${LLM_JUDGE_MODEL:-opus}"
 
 # ── Execution ──────────────────────────────────────────────────────────────
 # Max seconds per scenario execution (0 = no limit)

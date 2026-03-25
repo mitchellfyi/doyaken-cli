@@ -38,7 +38,7 @@ rubric_correctness() {
   [[ -n "$entry" ]] && score=$((score + 3))
 
   # Install dependencies (4 pts)
-  if (cd "$ws" && npm install --silent 2>/dev/null); then
+  if (cd "$ws" && npm install --silent >/dev/null 2>&1); then
     score=$((score + 4))
   else
     echo "$score"; return
@@ -357,7 +357,7 @@ rubric_robustness() {
   [[ -z "$entry" || ! -f "$ws/$entry" ]] && { echo "0"; return; }
 
   # Install deps
-  (cd "$ws" && npm install --silent 2>/dev/null) || true
+  (cd "$ws" && npm install --silent >/dev/null 2>&1) || true
 
   # Clean state
   rm -f "$ws/todos.json" 2>/dev/null
@@ -366,7 +366,7 @@ rubric_robustness() {
 
   # Missing arguments to add — should not crash (7 pts)
   local exit_code
-  (cd "$ws" && node "$entry" add 2>/dev/null); exit_code=$?
+  (cd "$ws" && node "$entry" add >/dev/null 2>&1); exit_code=$?
   if [[ $exit_code -ne 139 && $exit_code -ne 134 ]]; then
     score=$((score + 4))
     # Bonus: gives a proper error message (3 pts)

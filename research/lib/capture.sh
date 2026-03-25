@@ -4,6 +4,38 @@
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
+# _inject_workspace_context <workspace_dir>
+# Create a CLAUDE.md in the workspace with guardrails and implementation guidance.
+# The workspace has its own .git root (from git init), so Claude won't see the
+# parent repo's files. This function bridges that gap.
+_inject_workspace_context() {
+  local ws="$1"
+  local guardrails_file="$DOYAKEN_DIR/prompts/guardrails.md"
+  local implement_skill="$DOYAKEN_DIR/skills/dkimplement/SKILL.md"
+
+  # Extract the non-interactive mode guidance from dkimplement
+  local noninteractive_guidance=""
+  if [[ -f "$implement_skill" ]]; then
+    noninteractive_guidance=$(awk '/\*\*When running non-interactively\*\*/{found=1} found{if(/^When stopping for scope/)exit; print}' "$implement_skill")
+  fi
+
+  cat > "$ws/CLAUDE.md" <<CLAUDEMD
+# Implementation Guidelines
+
+You are building production-quality code. Follow these guardrails strictly.
+
+## Handling Ambiguity
+
+${noninteractive_guidance:-Choose the most comprehensive reasonable interpretation. For algorithmic choices, implement at least two approaches. Default to per-client isolation with configurable limits. Include a README explaining design decisions.}
+
+## Guardrails
+
+$(cat "$guardrails_file" 2>/dev/null || echo "No guardrails file found.")
+CLAUDEMD
+
+  log_info "Injected CLAUDE.md into workspace"
+}
+
 # capture_run <scenario_name> <result_dir> [--lifecycle]
 # Execute Claude against a scenario's prompt in its workspace.
 # Captures: stream.jsonl, stderr.log, exit code, timing.
@@ -83,6 +115,11 @@ capture_run() {
 _capture_dkloop() {
   local scenario="$1" ws="$2" result_dir="$3" prompt="$4" timeout="$5"
 
+  # Inject guardrails into workspace as CLAUDE.md so Claude auto-reads them.
+  # Without this, the workspace's own .git root isolates it from the parent repo's
+  # guardrails.md, skill files, and AGENTS.md — making DK prompt improvements invisible.
+  _inject_workspace_context "$ws"
+
   # Build the full prompt with DK skill instructions
   local full_prompt
   full_prompt="You are working in an empty project directory. Your task:
@@ -90,11 +127,12 @@ _capture_dkloop() {
 ${prompt}
 
 Instructions:
-1. Plan your approach first — think about the structure, files needed, and edge cases.
-2. Implement the solution — write all code, tests, and configuration files.
-3. Verify your work — run the tests, check for lint errors, review your own code.
-4. Fix any issues you find — iterate until everything works correctly.
-5. Do a final self-review: check for edge cases, error handling, input validation, and code quality.
+1. Read the CLAUDE.md in this directory — it contains implementation guardrails you must follow.
+2. Plan your approach first — think about the structure, files needed, and edge cases.
+3. Implement the solution — write all code, tests, and configuration files.
+4. Verify your work — run the tests, check for lint errors, review your own code.
+5. Fix any issues you find — iterate until everything works correctly.
+6. Do a final self-review: check for edge cases, error handling, input validation, and code quality.
 
 Work autonomously. Create all files from scratch. Do not ask questions — make reasonable assumptions for anything unspecified."
 
@@ -134,6 +172,8 @@ Work autonomously. Create all files from scratch. Do not ask questions — make 
 # Lifecycle mode: separate plan and implement sessions.
 _capture_lifecycle() {
   local scenario="$1" ws="$2" result_dir="$3" prompt="$4" timeout="$5"
+
+  _inject_workspace_context "$ws"
 
   local session_id="research-lifecycle-${scenario}-$(date +%s)-$$"
   local state_dir="${WORKSPACES_DIR}/.state"

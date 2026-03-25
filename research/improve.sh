@@ -105,6 +105,30 @@ You may ONLY propose changes to files matching these patterns:
 
 You MUST NOT modify: dk.sh, lib/*.sh, bin/*.sh, hooks/phase-loop.sh, hooks/guard-handler.py, settings.json
 
+### CRITICAL: Language/Framework Agnosticism
+
+DK prompts (guardrails.md, SKILL.md) must remain **language-agnostic and framework-agnostic**. These prompts are used across ALL coding tasks — Go, Python, Node.js, React, Rust, Java, and any other language.
+
+**DO NOT add:**
+- Framework-specific configuration details (e.g., 'in jest.config.js use setupFilesAfterEnv', 'use supertest for Express')
+- Language-specific syntax examples (e.g., 'use strings.Builder in Go', 'use React.forwardRef')
+- Library-specific setup instructions (e.g., 'add jest-dom to tsconfig.json types array')
+- Tool-specific commands (e.g., 'run go vet ./...', 'run npx tsc --noEmit')
+
+**INSTEAD, write principles that apply universally:**
+- BAD: 'Use setupFilesAfterEnv in jest.config.js to load jest-dom'
+- GOOD: 'When using test assertion libraries that extend the test framework, configure them in the test setup file so the type system and runtime both recognize the extensions.'
+
+- BAD: 'Use strings.Builder for concatenation in Go loops'
+- GOOD: 'Do not concatenate strings in a loop with += or equivalent — use the language efficient string builder (StringBuilder, strings.Builder, StringIO, etc.).'
+
+- BAD: 'For Express API tests, use supertest'
+- GOOD: 'Use the idiomatic HTTP test client for the framework (the one that manages server lifecycle and provides assertion helpers) rather than raw HTTP calls.'
+
+**The test for any proposed change:** Would this guidance help someone building in a language/framework NOT mentioned in the current scenarios? If it only helps React or only helps Go, it is too specific. Rephrase it as a universal principle.
+
+**Negative examples (anti-patterns) are especially valuable** when written as universal principles. 'Do not return bare arrays from list endpoints' is framework-agnostic. 'Do not use res.send() instead of res.json()' is Express-specific.
+
 ## Task
 
 Analyze the failures and propose SPECIFIC, TARGETED changes to DK's skill prompts or audit criteria.
@@ -112,20 +136,11 @@ Analyze the failures and propose SPECIFIC, TARGETED changes to DK's skill prompt
 For each proposed change:
 1. Explain WHY the current text causes the failure
 2. Show the EXACT change in unified diff format
+3. Verify the change is **language/framework-agnostic** — rephrase if it isn't
 
-Focus on the lowest-scoring scenarios first. Prefer small, precise edits over broad rewrites.
+Focus on the lowest-scoring scenarios first. Prefer small, precise edits over broad rewrites. Prefer adding anti-patterns (like 'avoid doing X') alongside existing positive guidance over adding new framework-specific sections.
 
-Output your proposed changes as a series of unified diffs that can be applied with \`git apply\`:
-
-\`\`\`diff
---- a/path/to/file
-+++ b/path/to/file
-@@ ... @@
- context line
--old line
-+new line
- context line
-\`\`\`
+Output your proposed changes as a series of unified diffs that can be applied with git apply. Wrap each diff in a markdown code block with the diff language tag.
 "
 
 # ── Run Claude to generate improvements ────────────────────────────────────
