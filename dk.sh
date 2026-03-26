@@ -139,10 +139,10 @@ DK_CLAUDE_FLAGS=(--chrome --model opus --permission-mode bypassPermissions --eff
 # via ExitPlanMode.
 DK_PLAN_FLAGS=(--chrome --model opus --permission-mode bypassPermissions --effort max)
 
-# Phase definitions (1-indexed, index 0 is unused placeholder)
-DK_PHASE_NAMES=("" "Plan" "Implement" "Verify & Commit" "PR" "Complete")
+# Phase definitions (zsh arrays are 1-indexed, so index 1 = Phase 1)
+DK_PHASE_NAMES=("Plan" "Implement" "Verify & Commit" "PR" "Complete")
 
-DK_PHASE_PROMISES=("" \
+DK_PHASE_PROMISES=(\
   "PHASE_1_COMPLETE" \
   "PHASE_2_COMPLETE" \
   "PHASE_3_COMPLETE" \
@@ -150,7 +150,7 @@ DK_PHASE_PROMISES=("" \
   "DOYAKEN_TICKET_COMPLETE" \
 )
 
-DK_PHASE_MESSAGES=("" \
+DK_PHASE_MESSAGES=(\
   "Call EnterPlanMode now, then run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval." \
   "The plan is approved. Run /dkimplement — work through all tasks with TDD. Run /dkreview when done. When all tasks pass review, output PHASE_2_COMPLETE and stop." \
   "Run /dkverify — format, lint, typecheck, test. Fix any failures. When all green, run /dkcommit. When pushed, output PHASE_3_COMPLETE and stop." \
@@ -159,7 +159,7 @@ DK_PHASE_MESSAGES=("" \
 )
 
 # Audit prompt file basenames (must match prompts/phase-audits/ filenames)
-DK_PHASE_AUDIT_FILES=("" "1-plan" "2-implement" "3-verify" "4-pr" "5-complete")
+DK_PHASE_AUDIT_FILES=("1-plan" "2-implement" "3-verify" "4-pr" "5-complete")
 
 # Phase timeouts in seconds — safety net to prevent indefinite hangs.
 # Generous defaults: these should never fire during normal operation.
