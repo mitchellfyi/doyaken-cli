@@ -1,10 +1,10 @@
-# Skill: dkwatchreviews
+# Skill: dkwatchpr
 
 Monitor PR review comments and address feedback from automated and human reviewers.
 
 ## When to Use
 
-- Scheduled via `/loop 5m /dkwatchreviews` from `/dkpr` after `gh pr ready`
+- Scheduled via `/loop 5m /dkwatchpr` from `/dkpr` after `gh pr ready`
 - Can also be invoked manually for a one-off review check
 
 ## How It Works
@@ -27,33 +27,22 @@ gh api repos/$REPO/pulls/$PR_NUM/reviews
 gh api repos/$REPO/pulls/$PR_NUM/comments
 ```
 
-### 3. Classify Each New Comment
+### 3. Address Comments
 
-For each unaddressed comment (comments not yet replied to or resolved):
+If there are unaddressed comments (comments not yet replied to or resolved):
 
-| Type | Action |
-|------|--------|
-| **Request-change** | Implement the fix, verify, commit, push, reply |
-| **Question** | Reply with an answer based on code context |
-| **Nitpick** | Fix if trivial (< 2 minutes), reply explaining the fix |
-| **Suggestion** | Evaluate — apply if it improves the code, reply either way |
-| **Approval** | Note it, no action needed |
+Run `/dkprreview` to critically evaluate and respond to each comment.
 
-### 4. Address Request-Changes
+`/dkprreview` will:
+- Classify each comment (bug, security, request-change, question, suggestion, nitpick, approval)
+- Critically evaluate whether to fix, push back, answer, or escalate
+- Implement and push fixes for accepted comments
+- Reply to every comment with reasoning
+- Return a list of escalations (if any)
 
-For each request-change comment:
+If `/dkprreview` reports escalations, proceed to Step 5 (Escalation).
 
-1. Read the referenced code and understand the concern.
-2. Implement the fix.
-3. Run targeted verification (only the affected check — scope to the relevant package/app).
-4. Commit with `fix(review): <description>`.
-5. Push.
-6. Reply to the PR comment explaining what was changed:
-   ```bash
-   gh api repos/$REPO/pulls/$PR_NUM/comments/<comment-id>/replies -f body="Fixed in <commit-sha>. <brief explanation>"
-   ```
-
-### 5. Evaluate Completion
+### 4. Evaluate Completion
 
 **All reviews approved, no unresolved comments:**
 1. Cancel the review monitoring loop: use `CronDelete` with the job ID.
@@ -66,7 +55,7 @@ For each request-change comment:
 **Reviews still pending or comments unresolved:**
 - Do nothing further. Wait for the next loop invocation.
 
-### 6. Escalation
+### 5. Escalation
 
 **STOP, cancel all loops, and escalate to the user when:**
 - A reviewer requests a significant **architectural change** (affects multiple files, changes the approach).
@@ -88,5 +77,5 @@ The 30-minute window is tuned for automated reviewers (typically respond in 5-10
 
 - Automated reviewers typically respond within 5-10 minutes.
 - Human reviewers may take hours — the 30m timeout is designed for automated reviews.
-- If a human review comes in later, the user can re-run `/loop 5m /dkwatchreviews` or address it manually.
+- If a human review comes in later, the user can re-run `/loop 5m /dkwatchpr` or address it manually.
 - Do not dismiss review comments — always reply, even if the fix is trivial.

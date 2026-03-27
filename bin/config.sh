@@ -121,5 +121,55 @@ echo "  Ticket tracker: ${TRACKER_TOOL} (${TRACKER_STATUS})"
 [[ "$SENTRY_STATUS" == "enabled" ]] && echo "  Sentry: enabled"
 [[ "$VERCEL_STATUS" == "enabled" ]] && echo "  Vercel: enabled"
 [[ "$GRAFANA_STATUS" == "enabled" ]] && echo "  Grafana: enabled"
+# ── Promote MCP servers to global settings ────────────────────────────
+#
+# Project-level .mcp.json servers require per-directory OAuth. When dk
+# creates worktrees, the worktree is a different directory and won't
+# share the main repo's MCP auth. Promoting servers to ~/.claude/settings.json
+# makes auth global so all worktrees inherit it.
+
+MCP_FILE="$repo_root/.mcp.json"
+SETTINGS_FILE="$HOME/.claude/settings.json"
+
+if [[ -f "$MCP_FILE" ]] && command -v jq &>/dev/null; then
+  # Find servers in .mcp.json that aren't already in global settings
+  new_servers=""
+  if [[ -f "$SETTINGS_FILE" ]]; then
+    new_servers=$(jq -s '
+      (.[1].mcpServers // {} | keys) - (.[0].mcpServers // {} | keys)
+      | .[]
+    ' "$SETTINGS_FILE" "$MCP_FILE" 2>/dev/null || true)
+  else
+    new_servers=$(jq -r '.mcpServers // {} | keys | .[]' "$MCP_FILE" 2>/dev/null || true)
+  fi
+
+  if [[ -n "$new_servers" ]]; then
+    server_count=$(echo "$new_servers" | wc -l | tr -d ' ')
+    echo ""
+    echo "Found ${server_count} MCP server(s) in .mcp.json not in global settings:"
+    echo "$new_servers" | while IFS= read -r name; do
+      echo "  - $name"
+    done
+    echo ""
+    if ask_yn "Promote to ~/.claude/settings.json for worktree compatibility?" "y"; then
+      if [[ ! -f "$SETTINGS_FILE" ]]; then
+        echo '{}' > "$SETTINGS_FILE"
+      fi
+      # Merge .mcp.json servers into global settings.json mcpServers
+      if merged=$(jq -s '
+        .[0] + {mcpServers: ((.[0].mcpServers // {}) + (.[1].mcpServers // {}))}
+      ' "$SETTINGS_FILE" "$MCP_FILE" 2>/dev/null) && [[ -n "$merged" ]]; then
+        TMPFILE="${SETTINGS_FILE}.tmp.$$"
+        echo "$merged" > "$TMPFILE" && mv "$TMPFILE" "$SETTINGS_FILE"
+        dk_done "Promoted MCP servers to global settings"
+      else
+        dk_warn "Failed to merge MCP servers — settings.json left unchanged"
+      fi
+    else
+      dk_skip "Skipped MCP promotion"
+    fi
+  fi
+fi
+
 echo ""
 echo "To reconfigure later, run: dk config"

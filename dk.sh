@@ -155,7 +155,7 @@ DK_PHASE_MESSAGES=(\
   "The plan is approved. Run /dkimplement — work through all tasks with TDD. Run /dkreview when done. When all tasks pass review, output PHASE_2_COMPLETE and stop." \
   "Run /dkverify — format, lint, typecheck, test. Fix any failures. When all green, run /dkcommit. When pushed, output PHASE_3_COMPLETE and stop." \
   "Run /dkpr. Generate the PR description, present it for my review. When I approve, mark ready and output PHASE_4_COMPLETE and stop." \
-  "Set up monitoring with /loop 2m /dkwatchci and /loop 5m /dkwatchreviews. When all checks green and reviews approved, run /dkcomplete. Output DOYAKEN_TICKET_COMPLETE and stop." \
+  "Set up monitoring with /loop 2m /dkwatchci and /loop 5m /dkwatchpr. When all checks green and reviews approved, run /dkcomplete. Output DOYAKEN_TICKET_COMPLETE and stop." \
 )
 
 # Audit prompt file basenames (must match prompts/phase-audits/ filenames)
@@ -175,6 +175,7 @@ DK_PHASE_TIMEOUTS=("" "7200" "14400" "7200" "3600" "10800")
 # On crash mid-write, the temp file is lost and the original is untouched.
 __dk_write_state() {
   local file="$1" content="$2"
+  mkdir -p "$(dirname "$file")"
   local tmp="${file}.tmp.$$"
   if ! echo "$content" > "$tmp" || ! mv "$tmp" "$file"; then
     rm -f "$tmp"
@@ -242,6 +243,7 @@ __dk_log_phase() {
   log_file=$(dk_log_file "$session_id")
 
   # Write header if this is a new log file
+  mkdir -p "$(dirname "$log_file")"
   if [[ ! -f "$log_file" ]]; then
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "session_id" "phase" "phase_name" "start_epoch" "end_epoch" \
@@ -291,8 +293,9 @@ __dk_setup_worktree() {
 
   _dk_default_branch=$(dk_default_branch)
 
-  # If worktree exists, we're done
+  # If worktree exists, ensure links are set up (retroactive fix) and return
   if [[ -d "$_dk_wt_dir" ]]; then
+    dk_link_claude_to_worktree "$_dk_repo_root" "$_dk_wt_dir"
     return 0
   fi
 
@@ -316,6 +319,9 @@ __dk_setup_worktree() {
   if [[ $_dk_is_task -eq 1 ]]; then
     printf '%s\n' "$raw_input" > "$_dk_wt_dir/.doyaken-prompt"
   fi
+
+  # Share .claude/ config and MCP auth with main repo
+  dk_link_claude_to_worktree "$_dk_repo_root" "$_dk_wt_dir"
 
   return 0
 }
@@ -377,9 +383,6 @@ __dk_run_phases() {
     return 1
   fi
 
-  # Ensure state directory exists (needed for resume path and fresh start)
-  mkdir -p "$DK_STATE_DIR"
-
   # Session ID — derived once, used for checkpoints, logging, and status classification.
   local session_id
   session_id=$(dk_session_id "$wt_name")
@@ -400,7 +403,11 @@ __dk_run_phases() {
     else
       # Phases 2-5: autonomous with stop hook audit loop
       claude_args=("${DK_CLAUDE_FLAGS[@]}" -n "$wt_name")
-      claude_args+=(--resume)
+      # Resume only if a prior phase actually ran (times_file has entries).
+      # Handles edge case where state_file advanced but session was never created.
+      if [[ -f "$times_file" ]]; then
+        claude_args+=(--resume)
+      fi
 
       # System prompt context file — survives conversation compaction so Claude
       # always knows which phase it is in and how to signal completion.
@@ -427,10 +434,10 @@ __dk_run_phases() {
       dk_checkpoint_tag "$step" "$wt_dir"
     fi
 
-    # Record phase start time
+    # Record phase start time (written to times_file AFTER claude exits so
+    # the file serves as a reliable "session exists" marker for --resume)
     local phase_start_epoch
     phase_start_epoch=$(date +%s)
-    echo "${step}:${phase_start_epoch}" >> "$times_file"
 
     # Resolve phase timeout (0 = disabled). Watchdog runs in the background
     # and sends SIGTERM if the phase exceeds its wall-clock budget.
@@ -438,11 +445,37 @@ __dk_run_phases() {
     phase_timeout=$(__dk_phase_timeout "$step")
     local _dk_watchdog_pid=""
 
+    # PID file lets the watchdog discover the foreground subshell's PID.
+    # Claude is a TUI — it MUST run in the foreground (not &) or the kernel
+    # suspends it with SIGTTOU. The old pattern backgrounded the subshell to
+    # capture $!, but that broke terminal access.
+    local _dk_pidfile=""
+    _dk_pidfile=$(mktemp "${TMPDIR:-/tmp}/dk-phase.XXXXXX")
+
+    # Start timeout watchdog BEFORE the foreground process (which blocks).
+    # It polls the PID file until the subshell writes its PID, then sleeps
+    # for the budget duration before sending SIGTERM to the process group.
+    if [[ "$phase_timeout" -gt 0 ]]; then
+      (
+        local tgt=""
+        while [[ -z "$tgt" ]]; do
+          [[ -s "$_dk_pidfile" ]] && tgt=$(<"$_dk_pidfile")
+          [[ -z "$tgt" ]] && sleep 0.2
+        done
+        sleep "$phase_timeout" 2>/dev/null
+        kill -TERM -"$tgt" 2>/dev/null
+      ) &
+      _dk_watchdog_pid=$!
+    fi
+
     if [[ $step -eq 1 ]]; then
       # Phase 1: EnterPlanMode called by Claude — no audit loop. ExitPlanMode handles approval.
-      (cd "$wt_dir" && \
+      (
+        sh -c 'echo $PPID' > "$_dk_pidfile"
+        cd "$wt_dir" && \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
-        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}") &
+        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}"
+      )
     else
       # Phases 2-5: audit loop active.
       # Load phase-specific audit prompt from file
@@ -460,28 +493,27 @@ __dk_run_phases() {
       # See: docs/autonomous-mode.md for the full architecture.
       # Runs in a subshell so `cd` doesn't affect the parent shell. Environment
       # variables are set inline (not exported) to scope them to this invocation.
-      (cd "$wt_dir" && \
+      (
+        sh -c 'echo $PPID' > "$_dk_pidfile"
+        cd "$wt_dir" && \
         DOYAKEN_LOOP_ACTIVE=1 \
         DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[$step]}" \
         DOYAKEN_LOOP_PROMPT="$audit_prompt" \
         DOYAKEN_LOOP_PHASE="$step" \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
-        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}") &
+        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}"
+      )
     fi
-
-    local claude_pid=$!
-
-    # Start timeout watchdog if enabled
-    if [[ "$phase_timeout" -gt 0 ]]; then
-      # Negative PID kills the entire process group (subshell + claude child)
-      (sleep "$phase_timeout" 2>/dev/null && kill -TERM -"$claude_pid" 2>/dev/null) &
-      _dk_watchdog_pid=$!
-    fi
-
-    # Wait for Claude to finish (blocks until subshell exits or is killed)
-    wait "$claude_pid" 2>/dev/null
 
     local exit_code=$?
+    rm -f "$_dk_pidfile"
+
+    # Write phase timing now that claude actually ran. This must happen AFTER
+    # claude exits so times_file only exists when a real session was created —
+    # the --resume guard on phase 1 (and phases 2-5) checks this file.
+    mkdir -p "$(dirname "$times_file")"
+    echo "${step}:${phase_start_epoch}" >> "$times_file"
+
     local phase_end_epoch
     phase_end_epoch=$(date +%s)
 
@@ -726,14 +758,13 @@ dk() {
     return 1
   fi
 
-  mkdir -p "$DK_STATE_DIR"
-
   local session_id state_file times_file
   session_id=$(dk_session_id "$_dk_wt_name")
   state_file=$(dk_state_file "$session_id")
   times_file=$(dk_times_file "$session_id")
 
   # Save as last session for --resume
+  mkdir -p "$DK_STATE_DIR"
   echo "${_dk_wt_name}:${_dk_wt_dir}" > "$DK_STATE_DIR/last-session"
 
   # Read current phase (default: 1)
@@ -787,7 +818,6 @@ dkloop() {
   repo_root=$(dk_repo_root) || return 1
 
   # Derive a unique session ID so concurrent dkloops on the same branch don't collide
-  mkdir -p "$DK_LOOP_DIR"
   local session_id
   session_id=$(dk_unique_session_id)
 
@@ -799,6 +829,7 @@ dkloop() {
   # iteration. Context compaction may lose the initial message after several rounds.
   local prompt_file
   prompt_file="$(dk_prompt_file "$session_id")"
+  mkdir -p "$(dirname "$prompt_file")"
   printf '%s\n' "$prompt" > "$prompt_file"
 
   # Show header
@@ -938,6 +969,7 @@ dkrm() {
 
         echo "Removing ${wt_name}..."
         dk_cleanup_checkpoints "$wt_dir"
+        dk_unlink_claude_from_worktree "$wt_dir"
         dk_wt_remove "$wt_dir"
       done
     fi
@@ -1029,6 +1061,7 @@ dkrm() {
   echo "Removing ${wt_name}..."
 
   [[ $has_dir -eq 1 ]] && dk_cleanup_checkpoints "$wt_dir"
+  [[ $has_dir -eq 1 ]] && dk_unlink_claude_from_worktree "$wt_dir"
   [[ $has_dir -eq 1 ]] && dk_wt_remove "$wt_dir"
 
   if [[ $has_branch -eq 1 ]]; then
@@ -1165,6 +1198,7 @@ dkclean() {
       fi
 
       echo "  Removing stale worktree: ${wt_name}"
+      dk_unlink_claude_from_worktree "$wt_dir"
       dk_wt_remove "$wt_dir"
 
       # Delete the branch (wt_branch captured above; handles renamed branches too)

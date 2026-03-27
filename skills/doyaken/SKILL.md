@@ -44,7 +44,7 @@ The `dk` wrapper runs each phase as a separate Claude Code session, auto-advanci
 
 1. Monitoring loops are already running (launched by `/dkpr` in Phase 4):
    - `/loop 2m /dkwatchci` — checking CI status, fixing failures
-   - `/loop 5m /dkwatchreviews` — checking review comments, addressing feedback
+   - `/loop 5m /dkwatchpr` — checking review comments, addressing feedback
 2. **[STOP]** if a loop escalates (CI failures after 3 attempts, architectural review comments, secrets scan).
 3. When both loops complete, run `/dkcomplete` — verify all green, update tracker to Done (if available), print summary.
 4. Output `DOYAKEN_TICKET_COMPLETE` when everything is verified.
