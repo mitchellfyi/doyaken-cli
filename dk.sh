@@ -98,7 +98,7 @@ doyaken() {
       rev_root=$(dk_repo_root) || return 1
       local rev_dir="${rev_root}/.doyaken/worktrees/${rev_name}"
       if [[ ! -d "$rev_dir" ]]; then
-        echo "ERROR: Worktree ${rev_name} not found."
+        dk_error "Worktree ${rev_name} not found."
         return 1
       fi
       if [[ -z "$rev_phase" ]]; then
@@ -106,7 +106,7 @@ doyaken() {
         local latest_tag
         latest_tag=$(git -C "$rev_dir" tag -l 'dk-checkpoint/phase-*' --sort=-version:refname 2>/dev/null | head -1)
         if [[ -z "$latest_tag" ]]; then
-          echo "No checkpoints found for ${rev_name}."
+          dk_info "No checkpoints found for ${rev_name}."
           return 1
         fi
         rev_phase="${latest_tag##*-}"
@@ -118,8 +118,8 @@ doyaken() {
       bash "$DOYAKEN_DIR/bin/log.sh" "$@"
       ;;
     *)
-      echo "Unknown command: $cmd"
-      echo "Run 'dk help' for usage."
+      dk_error "Unknown command: $cmd"
+      dk_info "Run 'dk help' for usage."
       return 1
       ;;
   esac
@@ -166,7 +166,8 @@ DK_PHASE_AUDIT_FILES=("1-plan" "2-implement" "3-verify" "4-pr" "5-complete")
 # Override per-phase: DOYAKEN_PHASE_2_TIMEOUT=28800 (8h)
 # Override all:       DOYAKEN_PHASE_TIMEOUT=14400 (4h)
 # Set to 0 to disable timeout for a phase.
-DK_PHASE_TIMEOUTS=("" "7200" "14400" "7200" "3600" "10800")
+# zsh 1-indexed: [1]=Plan, [2]=Implement, [3]=Verify, [4]=PR, [5]=Complete
+DK_PHASE_TIMEOUTS=("7200" "14400" "7200" "3600" "10800")
 
 # ─── Internal helpers ───────────────────────────────────────────────────────
 
@@ -188,6 +189,7 @@ __dk_write_state() {
 # Priority: DOYAKEN_PHASE_N_TIMEOUT > DOYAKEN_PHASE_TIMEOUT > DK_PHASE_TIMEOUTS[step]
 __dk_phase_timeout() {
   local step="$1"
+  # shellcheck disable=SC2034  # used via zsh ${(P)env_var} indirect expansion below
   local env_var="DOYAKEN_PHASE_${step}_TIMEOUT"
   if [[ -n "${(P)env_var:-}" ]]; then
     echo "${(P)env_var}"
@@ -282,7 +284,7 @@ __dk_setup_worktree() {
     local slug
     slug=$(dk_slugify "$raw_input")
     if [[ -z "$slug" ]]; then
-      echo "ERROR: Could not create a valid name from '$raw_input'"
+      dk_error "Could not create a valid name from '$raw_input'"
       return 1
     fi
     _dk_wt_name="task-${slug}"
@@ -311,7 +313,7 @@ __dk_setup_worktree() {
   mkdir -p "${_dk_repo_root}/.doyaken/worktrees"
 
   if ! git worktree add "$_dk_wt_dir" -b "worktree-${_dk_wt_name}" "origin/${_dk_default_branch}" 2>&1; then
-    echo "ERROR: Failed to create worktree."
+    dk_error "Failed to create worktree."
     return 1
   fi
 
@@ -378,8 +380,8 @@ __dk_run_phases() {
 
   # Ensure Claude Code CLI is installed — all phases depend on it
   if ! command -v claude &>/dev/null; then
-    echo "ERROR: Claude Code CLI not found in PATH."
-    echo "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
+    dk_error "Claude Code CLI not found in PATH."
+    dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
     return 1
   fi
 
@@ -565,7 +567,7 @@ __dk_run_phases() {
       esac
       echo "Resume with: ${resume_hint}"
       if [[ $step -ge 2 ]] && git -C "$wt_dir" rev-parse --verify "dk-checkpoint/phase-${step}" &>/dev/null; then
-        echo "Revert to pre-phase state with: dk revert ${wt_name##*-} ${step}"
+        echo "Revert to pre-phase state with: dk revert ${wt_name} ${step}"
       fi
       return $exit_code
     fi
@@ -691,8 +693,8 @@ dk() {
   if [[ "$1" == "--resume" ]]; then
     local last_session_file="$DK_STATE_DIR/last-session"
     if [[ ! -f "$last_session_file" ]]; then
-      echo "ERROR: No previous session found."
-      echo "Start a new session with: dk <number>"
+      dk_error "No previous session found."
+      dk_info "Start a new session with: dk <number>"
       return 1
     fi
     # last-session file format: "wt_name:wt_dir" (e.g., "ticket-999:/path/to/worktree")
@@ -701,15 +703,15 @@ dk() {
     local last_wt_name="${last_info%%:*}"  # everything before first colon
     local last_wt_dir="${last_info#*:}"    # everything after first colon
     if [[ ! -d "$last_wt_dir" ]]; then
-      echo "ERROR: Worktree ${last_wt_name} no longer exists."
+      dk_error "Worktree ${last_wt_name} no longer exists."
       rm -f "$last_session_file"
       return 1
     fi
 
     # Validate worktree git state
     if ! git -C "$last_wt_dir" rev-parse --git-dir &>/dev/null; then
-      echo "ERROR: Worktree ${last_wt_name} has corrupted git state."
-      echo "Run dkrm ${last_wt_name} and start fresh."
+      dk_error "Worktree ${last_wt_name} has corrupted git state."
+      dk_info "Run dkrm ${last_wt_name} and start fresh."
       return 1
     fi
 
@@ -763,9 +765,8 @@ dk() {
   state_file=$(dk_state_file "$session_id")
   times_file=$(dk_times_file "$session_id")
 
-  # Save as last session for --resume
-  mkdir -p "$DK_STATE_DIR"
-  echo "${_dk_wt_name}:${_dk_wt_dir}" > "$DK_STATE_DIR/last-session"
+  # Save as last session for --resume (atomic write to avoid corruption on interrupt)
+  __dk_write_state "$DK_STATE_DIR/last-session" "${_dk_wt_name}:${_dk_wt_dir}"
 
   # Read current phase (default: 1)
   local step=1
@@ -798,7 +799,7 @@ dkloop() {
     # No prompt given — load the default codebase improvement prompt
     local default_prompt_file="$DOYAKEN_DIR/prompts/default-loop.md"
     if [[ ! -f "$default_prompt_file" ]]; then
-      echo "ERROR: Default prompt not found at $default_prompt_file"
+      dk_error "Default prompt not found at $default_prompt_file"
       return 1
     fi
     prompt=$(cat "$default_prompt_file")
@@ -808,8 +809,8 @@ dkloop() {
   fi
 
   if ! command -v claude &>/dev/null; then
-    echo "ERROR: Claude Code CLI not found in PATH."
-    echo "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
+    dk_error "Claude Code CLI not found in PATH."
+    dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
     return 1
   fi
 
@@ -838,7 +839,11 @@ dkloop() {
   local prompt_slug
   prompt_slug=$(dk_slugify "${prompt:0:40}")
   local session_name=""
-  [[ -n "$prompt_slug" ]] && session_name="dkloop-${prompt_slug}"
+  if [[ -n "$prompt_slug" ]]; then
+    session_name="dkloop-${prompt_slug}"
+  else
+    session_name="dkloop-$(date +%s)"
+  fi
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -932,7 +937,7 @@ dkrm() {
     fi
   fi
   if [[ -z "$repo_root" ]]; then
-    echo "ERROR: Could not determine repo root. cd to the repo and try again."
+    dk_error "Could not determine repo root. cd to the repo and try again."
     return 1
   fi
 
@@ -1001,7 +1006,7 @@ dkrm() {
     done
 
     if [[ $found -eq 0 ]]; then
-      echo "No worktrees or branches found."
+      dk_info "No worktrees or branches found."
     else
       echo "All worktrees removed."
     fi
@@ -1022,7 +1027,7 @@ dkrm() {
     local slug
     slug=$(dk_slugify "$raw_input")
     if [[ -z "$slug" ]]; then
-      echo "ERROR: Could not create a valid name from '$raw_input'"
+      dk_error "Could not create a valid name from '$raw_input'"
       return 1
     fi
     if [[ -d "${worktrees_dir}/${slug}" ]]; then
@@ -1030,8 +1035,8 @@ dkrm() {
     elif [[ -d "${worktrees_dir}/task-${slug}" ]]; then
       wt_name="task-${slug}"
     else
-      echo "ERROR: No worktree found matching '${raw_input}'."
-      echo "Run dkls to see available worktrees."
+      dk_error "No worktree found matching '${raw_input}'."
+      dk_info "Run dkls to see available worktrees."
       return 1
     fi
   fi
@@ -1054,7 +1059,7 @@ dkrm() {
   fi
 
   if [[ $has_dir -eq 0 ]] && [[ $has_branch -eq 0 ]] && [[ $has_actual_branch -eq 0 ]]; then
-    echo "ERROR: No worktree or branch found for '${wt_name}'."
+    dk_error "No worktree or branch found for '${wt_name}'."
     return 1
   fi
 
@@ -1093,7 +1098,7 @@ dkls() {
 
   local worktrees_dir="${repo_root}/.doyaken/worktrees"
   if [[ ! -d "$worktrees_dir" ]]; then
-    echo "No worktrees."
+    dk_info "No worktrees."
     return 0
   fi
 
@@ -1139,7 +1144,7 @@ dkls() {
   done
 
   if [[ $count -eq 0 ]]; then
-    echo "No worktrees."
+    dk_info "No worktrees."
   fi
 }
 
@@ -1212,12 +1217,17 @@ dkclean() {
     done
   fi
 
-  # 2. Prune branches whose remote tracking branch is gone
+  # 2. Prune doyaken branches whose remote tracking branch is gone.
+  # Only targets worktree-* branches to avoid deleting non-doyaken feature branches.
   git fetch --prune 2>/dev/null || true
 
   local branch
   while IFS= read -r branch; do
     [[ -z "$branch" ]] && continue
+    # Only clean doyaken-managed branches (worktree-ticket-* or worktree-task-*)
+    if [[ "$branch" != worktree-ticket-* ]] && [[ "$branch" != worktree-task-* ]]; then
+      continue
+    fi
     # Don't delete branches with active worktrees
     local has_worktree=0
     if [[ -d "$worktrees_dir" ]]; then
@@ -1267,7 +1277,7 @@ dkclean() {
 
   # 5. Clean up old phase state files (older than 7 days)
   local old_phase_files
-  old_phase_files=$(dk_cleanup_stale_files "$DK_STATE_DIR" "phase times system-context" 7)
+  old_phase_files=$(dk_cleanup_stale_files "$DK_STATE_DIR" "phase times system-context log" 7)
   if [[ "$old_phase_files" -gt 0 ]]; then
     echo "  Cleaned ${old_phase_files} old phase state file(s)"
     cleaned=$((cleaned + old_phase_files))

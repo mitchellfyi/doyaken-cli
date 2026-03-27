@@ -61,7 +61,9 @@ main() {
     printf "  %-5s  %-18s  %-10s  %-10s  %s\n" "─────" "──────────────────" "──────────" "──────" "──────"
 
     # Skip header line, read data rows
-    tail -n +2 "$log_file" | while IFS=$'\t' read -r sid phase phase_name start end dur iters status exit_code; do
+    # Fields: session_id, phase, phase_name, start_epoch, end_epoch, duration_s, iterations, status, exit_code
+    # Only phase, phase_name, dur, iters, status are displayed — others assigned to _ to suppress SC2034.
+    tail -n +2 "$log_file" | while IFS=$'\t' read -r _ phase phase_name _ _ dur iters status _; do
       [[ -z "$phase" ]] && continue
       local formatted_dur formatted_status
       formatted_dur=$(format_duration "$dur")

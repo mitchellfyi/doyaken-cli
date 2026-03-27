@@ -135,7 +135,7 @@ if [[ -f "$MCP_FILE" ]] && command -v jq &>/dev/null; then
   # Find servers in .mcp.json that aren't already in global settings
   new_servers=""
   if [[ -f "$SETTINGS_FILE" ]]; then
-    new_servers=$(jq -s '
+    new_servers=$(jq -rs '
       (.[1].mcpServers // {} | keys) - (.[0].mcpServers // {} | keys)
       | .[]
     ' "$SETTINGS_FILE" "$MCP_FILE" 2>/dev/null || true)

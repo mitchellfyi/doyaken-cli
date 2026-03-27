@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Research harness configuration
+# shellcheck disable=SC2034
+# Research harness configuration — sourced by other research scripts.
 # All paths and defaults in one place.
+# SC2034 suppressed: variables are exported via `source` to consuming scripts.
 
 set -euo pipefail
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2088
 # doyaken install — one-time global setup
+# SC2088 suppressed: tilde in display strings is intentionally literal (e.g., "~/.claude/skills").
 set -euo pipefail
 
 if [[ -z "${DOYAKEN_DIR:-}" ]]; then

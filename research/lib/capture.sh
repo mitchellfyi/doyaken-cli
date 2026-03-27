@@ -137,14 +137,14 @@ Instructions:
 Work autonomously. Create all files from scratch. Do not ask questions — make reasonable assumptions for anything unspecified."
 
   # Generate unique session ID for this run
-  local session_id="research-${scenario}-$(date +%s)-$$"
+  local session_id
+  session_id="research-${scenario}-$(date +%s)-$$"
 
   # Ensure DK state dirs exist for the stop hook
   local state_dir="${WORKSPACES_DIR}/.state"
   local loop_dir="${WORKSPACES_DIR}/.loops"
   mkdir -p "$state_dir" "$loop_dir"
 
-  local timeout_pid=""
   local claude_exit=0
 
   # Run Claude in the workspace directory
@@ -175,7 +175,8 @@ _capture_lifecycle() {
 
   _inject_workspace_context "$ws"
 
-  local session_id="research-lifecycle-${scenario}-$(date +%s)-$$"
+  local session_id
+  session_id="research-lifecycle-${scenario}-$(date +%s)-$$"
   local state_dir="${WORKSPACES_DIR}/.state"
   local loop_dir="${WORKSPACES_DIR}/.loops"
   mkdir -p "$state_dir" "$loop_dir"

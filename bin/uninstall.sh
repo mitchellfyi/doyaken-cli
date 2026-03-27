@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2088
 # doyaken uninstall — remove global installation
+# SC2088 suppressed: tilde in display strings is intentionally literal (e.g., "~/.claude/skills").
 set -euo pipefail
 
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"

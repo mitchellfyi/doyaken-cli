@@ -24,6 +24,12 @@ score_scenario() {
     return 1
   fi
 
+  # Unset any rubric_* functions from prior scenarios to prevent pollution
+  local _fn
+  for _fn in $(declare -F | awk '/rubric_/{print $3}'); do
+    unset -f "$_fn"
+  done
+
   # Source the scenario's rubric (defines rubric_* functions)
   source "$rubric_file"
 
@@ -317,7 +323,7 @@ else:
     \"scenario\": \"$scenario\",
     \"model\": \"$LLM_JUDGE_MODEL\",
     \"score\": $llm_score,
-    \"response\": $(python3 -c "import json; print(json.dumps('''$judge_result'''[:2000]))" 2>/dev/null || echo '""')
+    \"response\": $(_JR="$judge_result" python3 -c "import json,os; print(json.dumps(os.environ.get('_JR','')[:2000]))" 2>/dev/null || echo '""')
   }"
 
   echo "$llm_score"

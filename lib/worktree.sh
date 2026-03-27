@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # Doyaken shared library — worktree helpers
 #
-# Bash/zsh-compatible utilities for worktree management.
-# Used by dk.sh (dkrm, dkls, dkclean, __dk_show_header).
+# Bash/zsh-compatible utilities for worktree management and state cleanup.
+# Used by dk.sh (dkrm, dkls, dkclean, __dk_show_header) and bin/uninit.sh.
 # Depends on: DK_STATE_DIR (from lib/common.sh)
 
 # dk_wt_branch <wt_dir> [fallback]
@@ -96,6 +96,7 @@ dk_cleanup_stale_files() {
   local extensions="$2"
   local max_age="$3"
   [[ -d "$dir" ]] || { echo "0"; return 0; }
+  [[ -n "$extensions" ]] || { echo "0"; return 0; }
 
   local find_args=()
   local first=1
@@ -109,10 +110,8 @@ dk_cleanup_stale_files() {
     fi
   done
 
+  # Single find pass: count deleted files via -print + -delete
   local count
-  count=$(find "$dir" \( "${find_args[@]}" \) -mtime +"$max_age" 2>/dev/null | wc -l | tr -d ' ')
-  if [[ "$count" -gt 0 ]]; then
-    find "$dir" \( "${find_args[@]}" \) -mtime +"$max_age" -delete 2>/dev/null
-  fi
-  echo "$count"
+  count=$(find "$dir" \( "${find_args[@]}" \) -mtime +"$max_age" -delete -print 2>/dev/null | wc -l | tr -d ' ')
+  echo "${count:-0}"
 }
