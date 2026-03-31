@@ -98,7 +98,7 @@ doyaken() {
       rev_root=$(dk_repo_root) || return 1
       local rev_dir="${rev_root}/.doyaken/worktrees/${rev_name}"
       if [[ ! -d "$rev_dir" ]]; then
-        echo "ERROR: Worktree ${rev_name} not found."
+        dk_error "Worktree ${rev_name} not found."
         return 1
       fi
       if [[ -z "$rev_phase" ]]; then
@@ -106,7 +106,7 @@ doyaken() {
         local latest_tag
         latest_tag=$(git -C "$rev_dir" tag -l 'dk-checkpoint/phase-*' --sort=-version:refname 2>/dev/null | head -1)
         if [[ -z "$latest_tag" ]]; then
-          echo "No checkpoints found for ${rev_name}."
+          dk_info "No checkpoints found for ${rev_name}."
           return 1
         fi
         rev_phase="${latest_tag##*-}"
@@ -118,8 +118,8 @@ doyaken() {
       bash "$DOYAKEN_DIR/bin/log.sh" "$@"
       ;;
     *)
-      echo "Unknown command: $cmd"
-      echo "Run 'dk help' for usage."
+      dk_error "Unknown command: $cmd"
+      dk_info "Run 'dk help' for usage."
       return 1
       ;;
   esac
@@ -139,10 +139,10 @@ DK_CLAUDE_FLAGS=(--chrome --model opus --permission-mode bypassPermissions --eff
 # via ExitPlanMode.
 DK_PLAN_FLAGS=(--chrome --model opus --permission-mode bypassPermissions --effort max)
 
-# Phase definitions (1-indexed, index 0 is unused placeholder)
-DK_PHASE_NAMES=("" "Plan" "Implement" "Verify & Commit" "PR" "Complete")
+# Phase definitions (zsh arrays are 1-indexed, so index 1 = Phase 1)
+DK_PHASE_NAMES=("Plan" "Implement" "Verify & Commit" "PR" "Complete")
 
-DK_PHASE_PROMISES=("" \
+DK_PHASE_PROMISES=(\
   "PHASE_1_COMPLETE" \
   "PHASE_2_COMPLETE" \
   "PHASE_3_COMPLETE" \
@@ -150,23 +150,24 @@ DK_PHASE_PROMISES=("" \
   "DOYAKEN_TICKET_COMPLETE" \
 )
 
-DK_PHASE_MESSAGES=("" \
+DK_PHASE_MESSAGES=(\
   "Call EnterPlanMode now, then run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval." \
   "The plan is approved. Run /dkimplement — work through all tasks with TDD. Run /dkreview when done. When all tasks pass review, output PHASE_2_COMPLETE and stop." \
   "Run /dkverify — format, lint, typecheck, test. Fix any failures. When all green, run /dkcommit. When pushed, output PHASE_3_COMPLETE and stop." \
   "Run /dkpr. Generate the PR description, present it for my review. When I approve, mark ready and output PHASE_4_COMPLETE and stop." \
-  "Set up monitoring with /loop 2m /dkwatchci and /loop 5m /dkwatchreviews. When all checks green and reviews approved, run /dkcomplete. Output DOYAKEN_TICKET_COMPLETE and stop." \
+  "Set up monitoring with /loop 2m /dkwatchci and /loop 5m /dkwatchpr. When all checks green and reviews approved, run /dkcomplete. Output DOYAKEN_TICKET_COMPLETE and stop." \
 )
 
 # Audit prompt file basenames (must match prompts/phase-audits/ filenames)
-DK_PHASE_AUDIT_FILES=("" "1-plan" "2-implement" "3-verify" "4-pr" "5-complete")
+DK_PHASE_AUDIT_FILES=("1-plan" "2-implement" "3-verify" "4-pr" "5-complete")
 
 # Phase timeouts in seconds — safety net to prevent indefinite hangs.
 # Generous defaults: these should never fire during normal operation.
 # Override per-phase: DOYAKEN_PHASE_2_TIMEOUT=28800 (8h)
 # Override all:       DOYAKEN_PHASE_TIMEOUT=14400 (4h)
 # Set to 0 to disable timeout for a phase.
-DK_PHASE_TIMEOUTS=("" "7200" "14400" "7200" "3600" "10800")
+# zsh 1-indexed: [1]=Plan, [2]=Implement, [3]=Verify, [4]=PR, [5]=Complete
+DK_PHASE_TIMEOUTS=("7200" "14400" "7200" "3600" "10800")
 
 # ─── Internal helpers ───────────────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ DK_PHASE_TIMEOUTS=("" "7200" "14400" "7200" "3600" "10800")
 # On crash mid-write, the temp file is lost and the original is untouched.
 __dk_write_state() {
   local file="$1" content="$2"
+  mkdir -p "$(dirname "$file")"
   local tmp="${file}.tmp.$$"
   if ! echo "$content" > "$tmp" || ! mv "$tmp" "$file"; then
     rm -f "$tmp"
@@ -187,6 +189,7 @@ __dk_write_state() {
 # Priority: DOYAKEN_PHASE_N_TIMEOUT > DOYAKEN_PHASE_TIMEOUT > DK_PHASE_TIMEOUTS[step]
 __dk_phase_timeout() {
   local step="$1"
+  # shellcheck disable=SC2034  # used via zsh ${(P)env_var} indirect expansion below
   local env_var="DOYAKEN_PHASE_${step}_TIMEOUT"
   if [[ -n "${(P)env_var:-}" ]]; then
     echo "${(P)env_var}"
@@ -242,6 +245,7 @@ __dk_log_phase() {
   log_file=$(dk_log_file "$session_id")
 
   # Write header if this is a new log file
+  mkdir -p "$(dirname "$log_file")"
   if [[ ! -f "$log_file" ]]; then
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "session_id" "phase" "phase_name" "start_epoch" "end_epoch" \
@@ -280,7 +284,7 @@ __dk_setup_worktree() {
     local slug
     slug=$(dk_slugify "$raw_input")
     if [[ -z "$slug" ]]; then
-      echo "ERROR: Could not create a valid name from '$raw_input'"
+      dk_error "Could not create a valid name from '$raw_input'"
       return 1
     fi
     _dk_wt_name="task-${slug}"
@@ -291,8 +295,9 @@ __dk_setup_worktree() {
 
   _dk_default_branch=$(dk_default_branch)
 
-  # If worktree exists, we're done
+  # If worktree exists, ensure links are set up (retroactive fix) and return
   if [[ -d "$_dk_wt_dir" ]]; then
+    dk_link_claude_to_worktree "$_dk_repo_root" "$_dk_wt_dir"
     return 0
   fi
 
@@ -308,7 +313,7 @@ __dk_setup_worktree() {
   mkdir -p "${_dk_repo_root}/.doyaken/worktrees"
 
   if ! git worktree add "$_dk_wt_dir" -b "worktree-${_dk_wt_name}" "origin/${_dk_default_branch}" 2>&1; then
-    echo "ERROR: Failed to create worktree."
+    dk_error "Failed to create worktree."
     return 1
   fi
 
@@ -316,6 +321,9 @@ __dk_setup_worktree() {
   if [[ $_dk_is_task -eq 1 ]]; then
     printf '%s\n' "$raw_input" > "$_dk_wt_dir/.doyaken-prompt"
   fi
+
+  # Share .claude/ config and MCP auth with main repo
+  dk_link_claude_to_worktree "$_dk_repo_root" "$_dk_wt_dir"
 
   return 0
 }
@@ -372,13 +380,10 @@ __dk_run_phases() {
 
   # Ensure Claude Code CLI is installed — all phases depend on it
   if ! command -v claude &>/dev/null; then
-    echo "ERROR: Claude Code CLI not found in PATH."
-    echo "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
+    dk_error "Claude Code CLI not found in PATH."
+    dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
     return 1
   fi
-
-  # Ensure state directory exists (needed for resume path and fresh start)
-  mkdir -p "$DK_STATE_DIR"
 
   # Session ID — derived once, used for checkpoints, logging, and status classification.
   local session_id
@@ -400,7 +405,11 @@ __dk_run_phases() {
     else
       # Phases 2-5: autonomous with stop hook audit loop
       claude_args=("${DK_CLAUDE_FLAGS[@]}" -n "$wt_name")
-      claude_args+=(--resume)
+      # Resume only if a prior phase actually ran (times_file has entries).
+      # Handles edge case where state_file advanced but session was never created.
+      if [[ -f "$times_file" ]]; then
+        claude_args+=(--resume)
+      fi
 
       # System prompt context file — survives conversation compaction so Claude
       # always knows which phase it is in and how to signal completion.
@@ -427,10 +436,10 @@ __dk_run_phases() {
       dk_checkpoint_tag "$step" "$wt_dir"
     fi
 
-    # Record phase start time
+    # Record phase start time (written to times_file AFTER claude exits so
+    # the file serves as a reliable "session exists" marker for --resume)
     local phase_start_epoch
     phase_start_epoch=$(date +%s)
-    echo "${step}:${phase_start_epoch}" >> "$times_file"
 
     # Resolve phase timeout (0 = disabled). Watchdog runs in the background
     # and sends SIGTERM if the phase exceeds its wall-clock budget.
@@ -438,11 +447,37 @@ __dk_run_phases() {
     phase_timeout=$(__dk_phase_timeout "$step")
     local _dk_watchdog_pid=""
 
+    # PID file lets the watchdog discover the foreground subshell's PID.
+    # Claude is a TUI — it MUST run in the foreground (not &) or the kernel
+    # suspends it with SIGTTOU. The old pattern backgrounded the subshell to
+    # capture $!, but that broke terminal access.
+    local _dk_pidfile=""
+    _dk_pidfile=$(mktemp "${TMPDIR:-/tmp}/dk-phase.XXXXXX")
+
+    # Start timeout watchdog BEFORE the foreground process (which blocks).
+    # It polls the PID file until the subshell writes its PID, then sleeps
+    # for the budget duration before sending SIGTERM to the process group.
+    if [[ "$phase_timeout" -gt 0 ]]; then
+      (
+        local tgt=""
+        while [[ -z "$tgt" ]]; do
+          [[ -s "$_dk_pidfile" ]] && tgt=$(<"$_dk_pidfile")
+          [[ -z "$tgt" ]] && sleep 0.2
+        done
+        sleep "$phase_timeout" 2>/dev/null
+        kill -TERM -"$tgt" 2>/dev/null
+      ) &
+      _dk_watchdog_pid=$!
+    fi
+
     if [[ $step -eq 1 ]]; then
       # Phase 1: EnterPlanMode called by Claude — no audit loop. ExitPlanMode handles approval.
-      (cd "$wt_dir" && \
+      (
+        sh -c 'echo $PPID' > "$_dk_pidfile"
+        cd "$wt_dir" && \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
-        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}") &
+        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}"
+      )
     else
       # Phases 2-5: audit loop active.
       # Load phase-specific audit prompt from file
@@ -460,28 +495,27 @@ __dk_run_phases() {
       # See: docs/autonomous-mode.md for the full architecture.
       # Runs in a subshell so `cd` doesn't affect the parent shell. Environment
       # variables are set inline (not exported) to scope them to this invocation.
-      (cd "$wt_dir" && \
+      (
+        sh -c 'echo $PPID' > "$_dk_pidfile"
+        cd "$wt_dir" && \
         DOYAKEN_LOOP_ACTIVE=1 \
         DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[$step]}" \
         DOYAKEN_LOOP_PROMPT="$audit_prompt" \
         DOYAKEN_LOOP_PHASE="$step" \
         DOYAKEN_DIR="$DOYAKEN_DIR" \
-        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}") &
+        claude "${claude_args[@]}" "${DK_PHASE_MESSAGES[$step]}"
+      )
     fi
-
-    local claude_pid=$!
-
-    # Start timeout watchdog if enabled
-    if [[ "$phase_timeout" -gt 0 ]]; then
-      # Negative PID kills the entire process group (subshell + claude child)
-      (sleep "$phase_timeout" 2>/dev/null && kill -TERM -"$claude_pid" 2>/dev/null) &
-      _dk_watchdog_pid=$!
-    fi
-
-    # Wait for Claude to finish (blocks until subshell exits or is killed)
-    wait "$claude_pid" 2>/dev/null
 
     local exit_code=$?
+    rm -f "$_dk_pidfile"
+
+    # Write phase timing now that claude actually ran. This must happen AFTER
+    # claude exits so times_file only exists when a real session was created —
+    # the --resume guard on phase 1 (and phases 2-5) checks this file.
+    mkdir -p "$(dirname "$times_file")"
+    echo "${step}:${phase_start_epoch}" >> "$times_file"
+
     local phase_end_epoch
     phase_end_epoch=$(date +%s)
 
@@ -533,7 +567,7 @@ __dk_run_phases() {
       esac
       echo "Resume with: ${resume_hint}"
       if [[ $step -ge 2 ]] && git -C "$wt_dir" rev-parse --verify "dk-checkpoint/phase-${step}" &>/dev/null; then
-        echo "Revert to pre-phase state with: dk revert ${wt_name##*-} ${step}"
+        echo "Revert to pre-phase state with: dk revert ${wt_name} ${step}"
       fi
       return $exit_code
     fi
@@ -659,8 +693,8 @@ dk() {
   if [[ "$1" == "--resume" ]]; then
     local last_session_file="$DK_STATE_DIR/last-session"
     if [[ ! -f "$last_session_file" ]]; then
-      echo "ERROR: No previous session found."
-      echo "Start a new session with: dk <number>"
+      dk_error "No previous session found."
+      dk_info "Start a new session with: dk <number>"
       return 1
     fi
     # last-session file format: "wt_name:wt_dir" (e.g., "ticket-999:/path/to/worktree")
@@ -669,15 +703,15 @@ dk() {
     local last_wt_name="${last_info%%:*}"  # everything before first colon
     local last_wt_dir="${last_info#*:}"    # everything after first colon
     if [[ ! -d "$last_wt_dir" ]]; then
-      echo "ERROR: Worktree ${last_wt_name} no longer exists."
+      dk_error "Worktree ${last_wt_name} no longer exists."
       rm -f "$last_session_file"
       return 1
     fi
 
     # Validate worktree git state
     if ! git -C "$last_wt_dir" rev-parse --git-dir &>/dev/null; then
-      echo "ERROR: Worktree ${last_wt_name} has corrupted git state."
-      echo "Run dkrm ${last_wt_name} and start fresh."
+      dk_error "Worktree ${last_wt_name} has corrupted git state."
+      dk_info "Run dkrm ${last_wt_name} and start fresh."
       return 1
     fi
 
@@ -726,15 +760,13 @@ dk() {
     return 1
   fi
 
-  mkdir -p "$DK_STATE_DIR"
-
   local session_id state_file times_file
   session_id=$(dk_session_id "$_dk_wt_name")
   state_file=$(dk_state_file "$session_id")
   times_file=$(dk_times_file "$session_id")
 
-  # Save as last session for --resume
-  echo "${_dk_wt_name}:${_dk_wt_dir}" > "$DK_STATE_DIR/last-session"
+  # Save as last session for --resume (atomic write to avoid corruption on interrupt)
+  __dk_write_state "$DK_STATE_DIR/last-session" "${_dk_wt_name}:${_dk_wt_dir}"
 
   # Read current phase (default: 1)
   local step=1
@@ -767,7 +799,7 @@ dkloop() {
     # No prompt given — load the default codebase improvement prompt
     local default_prompt_file="$DOYAKEN_DIR/prompts/default-loop.md"
     if [[ ! -f "$default_prompt_file" ]]; then
-      echo "ERROR: Default prompt not found at $default_prompt_file"
+      dk_error "Default prompt not found at $default_prompt_file"
       return 1
     fi
     prompt=$(cat "$default_prompt_file")
@@ -777,8 +809,8 @@ dkloop() {
   fi
 
   if ! command -v claude &>/dev/null; then
-    echo "ERROR: Claude Code CLI not found in PATH."
-    echo "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
+    dk_error "Claude Code CLI not found in PATH."
+    dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
     return 1
   fi
 
@@ -787,7 +819,6 @@ dkloop() {
   repo_root=$(dk_repo_root) || return 1
 
   # Derive a unique session ID so concurrent dkloops on the same branch don't collide
-  mkdir -p "$DK_LOOP_DIR"
   local session_id
   session_id=$(dk_unique_session_id)
 
@@ -799,6 +830,7 @@ dkloop() {
   # iteration. Context compaction may lose the initial message after several rounds.
   local prompt_file
   prompt_file="$(dk_prompt_file "$session_id")"
+  mkdir -p "$(dirname "$prompt_file")"
   printf '%s\n' "$prompt" > "$prompt_file"
 
   # Show header
@@ -807,7 +839,11 @@ dkloop() {
   local prompt_slug
   prompt_slug=$(dk_slugify "${prompt:0:40}")
   local session_name=""
-  [[ -n "$prompt_slug" ]] && session_name="dkloop-${prompt_slug}"
+  if [[ -n "$prompt_slug" ]]; then
+    session_name="dkloop-${prompt_slug}"
+  else
+    session_name="dkloop-$(date +%s)"
+  fi
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -901,7 +937,7 @@ dkrm() {
     fi
   fi
   if [[ -z "$repo_root" ]]; then
-    echo "ERROR: Could not determine repo root. cd to the repo and try again."
+    dk_error "Could not determine repo root. cd to the repo and try again."
     return 1
   fi
 
@@ -938,6 +974,7 @@ dkrm() {
 
         echo "Removing ${wt_name}..."
         dk_cleanup_checkpoints "$wt_dir"
+        dk_unlink_claude_from_worktree "$wt_dir"
         dk_wt_remove "$wt_dir"
       done
     fi
@@ -969,7 +1006,7 @@ dkrm() {
     done
 
     if [[ $found -eq 0 ]]; then
-      echo "No worktrees or branches found."
+      dk_info "No worktrees or branches found."
     else
       echo "All worktrees removed."
     fi
@@ -990,7 +1027,7 @@ dkrm() {
     local slug
     slug=$(dk_slugify "$raw_input")
     if [[ -z "$slug" ]]; then
-      echo "ERROR: Could not create a valid name from '$raw_input'"
+      dk_error "Could not create a valid name from '$raw_input'"
       return 1
     fi
     if [[ -d "${worktrees_dir}/${slug}" ]]; then
@@ -998,8 +1035,8 @@ dkrm() {
     elif [[ -d "${worktrees_dir}/task-${slug}" ]]; then
       wt_name="task-${slug}"
     else
-      echo "ERROR: No worktree found matching '${raw_input}'."
-      echo "Run dkls to see available worktrees."
+      dk_error "No worktree found matching '${raw_input}'."
+      dk_info "Run dkls to see available worktrees."
       return 1
     fi
   fi
@@ -1022,13 +1059,14 @@ dkrm() {
   fi
 
   if [[ $has_dir -eq 0 ]] && [[ $has_branch -eq 0 ]] && [[ $has_actual_branch -eq 0 ]]; then
-    echo "ERROR: No worktree or branch found for '${wt_name}'."
+    dk_error "No worktree or branch found for '${wt_name}'."
     return 1
   fi
 
   echo "Removing ${wt_name}..."
 
   [[ $has_dir -eq 1 ]] && dk_cleanup_checkpoints "$wt_dir"
+  [[ $has_dir -eq 1 ]] && dk_unlink_claude_from_worktree "$wt_dir"
   [[ $has_dir -eq 1 ]] && dk_wt_remove "$wt_dir"
 
   if [[ $has_branch -eq 1 ]]; then
@@ -1060,7 +1098,7 @@ dkls() {
 
   local worktrees_dir="${repo_root}/.doyaken/worktrees"
   if [[ ! -d "$worktrees_dir" ]]; then
-    echo "No worktrees."
+    dk_info "No worktrees."
     return 0
   fi
 
@@ -1106,7 +1144,7 @@ dkls() {
   done
 
   if [[ $count -eq 0 ]]; then
-    echo "No worktrees."
+    dk_info "No worktrees."
   fi
 }
 
@@ -1165,6 +1203,7 @@ dkclean() {
       fi
 
       echo "  Removing stale worktree: ${wt_name}"
+      dk_unlink_claude_from_worktree "$wt_dir"
       dk_wt_remove "$wt_dir"
 
       # Delete the branch (wt_branch captured above; handles renamed branches too)
@@ -1178,12 +1217,17 @@ dkclean() {
     done
   fi
 
-  # 2. Prune branches whose remote tracking branch is gone
+  # 2. Prune doyaken branches whose remote tracking branch is gone.
+  # Only targets worktree-* branches to avoid deleting non-doyaken feature branches.
   git fetch --prune 2>/dev/null || true
 
   local branch
   while IFS= read -r branch; do
     [[ -z "$branch" ]] && continue
+    # Only clean doyaken-managed branches (worktree-ticket-* or worktree-task-*)
+    if [[ "$branch" != worktree-ticket-* ]] && [[ "$branch" != worktree-task-* ]]; then
+      continue
+    fi
     # Don't delete branches with active worktrees
     local has_worktree=0
     if [[ -d "$worktrees_dir" ]]; then
@@ -1233,7 +1277,7 @@ dkclean() {
 
   # 5. Clean up old phase state files (older than 7 days)
   local old_phase_files
-  old_phase_files=$(dk_cleanup_stale_files "$DK_STATE_DIR" "phase times system-context" 7)
+  old_phase_files=$(dk_cleanup_stale_files "$DK_STATE_DIR" "phase times system-context log" 7)
   if [[ "$old_phase_files" -gt 0 ]]; then
     echo "  Cleaned ${old_phase_files} old phase state file(s)"
     cleaned=$((cleaned + old_phase_files))

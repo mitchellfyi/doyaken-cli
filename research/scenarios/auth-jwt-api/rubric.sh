@@ -45,6 +45,8 @@ rubric_correctness() {
 
   (cd "$ws" && exec env PORT=$port JWT_SECRET="test-rubric-secret-key-12345" node "$entry") &>/dev/null &
   local server_pid=$!
+  # shellcheck disable=SC2064  # Intentional: expand $server_pid now, not at trap time
+  trap "kill -- -$server_pid 2>/dev/null; kill -9 -- -$server_pid 2>/dev/null || true" RETURN
   sleep 2
 
   if ! kill -0 "$server_pid" 2>/dev/null; then
@@ -217,9 +219,9 @@ except:
   # Token contains user ID/email in payload — decode and verify (5 pts)
   if [[ -n "$access_token" ]]; then
     local payload_check
-    payload_check=$(node -e "
+    payload_check=$(ACCESS_TOKEN="$access_token" node -e "
 try {
-  const t='$access_token';
+  const t=process.env.ACCESS_TOKEN;
   const payload=JSON.parse(Buffer.from(t.split('.')[1],'base64url').toString());
   const hasId = payload.id || payload.userId || payload.user_id || payload.sub;
   const hasEmail = payload.email;
@@ -448,8 +450,8 @@ except:
     [[ "$update_code" == "200" ]] && score=$((score + 5))
   fi
 
-  # Cleanup
-  kill "$server_pid" 2>/dev/null; sleep 0.5; kill -9 "$server_pid" 2>/dev/null || true
+  # Cleanup — kill process group to include child processes
+  kill -- -$server_pid 2>/dev/null; sleep 0.5; kill -9 -- -$server_pid 2>/dev/null || true
 
   echo "$score"
 }

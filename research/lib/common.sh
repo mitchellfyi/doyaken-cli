@@ -70,11 +70,11 @@ list_scenarios() {
 # Usage: json_field file.json "key"
 json_field() {
   local file="$1" key="$2"
-  python3 -c "
-import json, sys
-with open('$file') as f:
+  _JF_FILE="$file" _JF_KEY="$key" python3 -c "
+import json, sys, os
+with open(os.environ['_JF_FILE']) as f:
     d = json.load(f)
-print(d.get('$key', ''))
+print(d.get(os.environ['_JF_KEY'], ''))
 " 2>/dev/null || echo ""
 }
 

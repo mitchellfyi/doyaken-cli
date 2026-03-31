@@ -19,7 +19,7 @@ fi
 ITER=""
 LOOP_FILE=$(dk_loop_file "$SESSION_ID")
 if [[ -f "$LOOP_FILE" ]]; then
-  ITER=$(cat "$LOOP_FILE" 2>/dev/null || echo "0")
+  ITER=$(cut -d: -f1 "$LOOP_FILE" 2>/dev/null || echo "0")
   MAX="${DOYAKEN_LOOP_MAX_ITERATIONS:-30}"
   ITER=" | Audit ${ITER}/${MAX}"
 fi

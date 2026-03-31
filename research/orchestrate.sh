@@ -16,8 +16,8 @@ source "$SCRIPT_DIR/lib/report.sh"
 source "$SCRIPT_DIR/lib/safety.sh"
 
 # ── Parse arguments ────────────────────────────────────────────────────────
-MAX_CYCLES="${1:-0}"  # 0 = infinite
-INTERVAL="${2:-600}"  # seconds between cycles
+MAX_CYCLES=0   # 0 = infinite
+INTERVAL=600   # seconds between cycles
 CYCLE=0
 
 while [[ $# -gt 0 ]]; do
@@ -32,7 +32,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── Pre-flight ─────────────────────────────────────────────────────────────
+# ── Pre-flight safety checks ──────────────────────────────────────────────
+safety_check_branch
+safety_check_clean
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  DK AUTORESEARCH — Autonomous Orchestrator"

@@ -3,13 +3,13 @@ IMPORTANT: Follow these steps in order. Use the ticket tracker configured in doy
 1. Gather ticket context from the configured ticket tracker:
 
    - Read ticket {{TICKET_NUM}} — title, description, acceptance criteria, relations, and comments.
-   - If the tracker supports assignees: check the assignee. If assigned to someone else, STOP and warn. If unassigned, assign to yourself.
+   - If the tracker supports assignees: check the assignee. If assigned to someone else, STOP and warn. If unassigned, assign to the current user (for Linear: use `save_issue` with `assignee: "me"`).
    - If no tracker is configured: use the branch name `{{BRANCH}}` and the local filesystem for context. Ask the user what they want to work on.
 
 2. Rename the branch and create a draft PR:
 
    **If ticket context was found**:
-   - Rename to match the ticket's suggested branch name:
+   - Rename to match the ticket's git branch name (returned by the tracker — e.g., Linear's `branchName` field from `get_issue`):
      ```
      git branch -m {{BRANCH}} <suggested-branch-name>
      git push -u origin <suggested-branch-name>

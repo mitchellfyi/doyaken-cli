@@ -114,9 +114,8 @@ for scenario in "${SCENARIOS[@]}"; do
   # 1. Create fresh workspace
   workspace_create "$scenario" > /dev/null
 
-  # 2. Execute DK
-  capture_exit=0
-  capture_run "$scenario" "$local_result_dir" "$EXEC_MODE" || capture_exit=$?
+  # 2. Execute DK (exit code unused — scoring proceeds regardless of execution outcome)
+  capture_run "$scenario" "$local_result_dir" "$EXEC_MODE" || true
 
   # 3. Score the output
   scenario_score=0

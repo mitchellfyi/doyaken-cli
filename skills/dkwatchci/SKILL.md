@@ -35,7 +35,7 @@ Parse each check: name, status (pending/pass/fail), URL.
    - Total checks: X
    - Time to green (if known)
    - Any flaky tests observed
-3. If `/dkwatchreviews` loop is also done (all reviews approved, no unresolved comments), proceed to `/dkcomplete`.
+3. If `/dkwatchpr` loop is also done (all reviews approved, no unresolved comments), proceed to `/dkcomplete`.
 
 **Any checks still pending:**
 - Do nothing. Wait for the next loop invocation.

@@ -107,8 +107,11 @@ def load_guards(event_type):
     if os.path.isdir(builtin_dir):
         for f in sorted(glob.glob(os.path.join(builtin_dir, '*.md'))):
             g = parse_guard(f)
-            if g and g.get('event') in (event_type, 'all'):
-                guards.append(g)
+            if g:
+                if not g.get('event'):
+                    print(f"[guard] Warning: guard {f} missing 'event' field, skipping", file=sys.stderr)
+                elif g['event'] in (event_type, 'all'):
+                    guards.append(g)
 
     # Project-specific guards — resolve project root via git toplevel so guards
     # are found regardless of which subdirectory the tool runs from.
@@ -123,8 +126,11 @@ def load_guards(event_type):
     if os.path.isdir(project_dir):
         for f in sorted(glob.glob(os.path.join(project_dir, '*.md'))):
             g = parse_guard(f)
-            if g and g.get('event') in (event_type, 'all'):
-                guards.append(g)
+            if g:
+                if not g.get('event'):
+                    print(f"[guard] Warning: guard {f} missing 'event' field, skipping", file=sys.stderr)
+                elif g['event'] in (event_type, 'all'):
+                    guards.append(g)
 
     return guards
 

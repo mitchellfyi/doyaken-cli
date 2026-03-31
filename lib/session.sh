@@ -26,6 +26,7 @@
 #     derive from the directory name. This is stable even if the branch
 #     is renamed by the SessionStart hook.
 #   - Otherwise, fall back to the current branch name (slashes → dashes).
+# shellcheck disable=SC2120  # Intentionally dual-mode: called with args from dk.sh, without from hooks
 dk_session_id() {
   if [[ $# -ge 1 ]]; then
     echo "worktree-${1}"

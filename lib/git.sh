@@ -62,8 +62,8 @@ dk_cleanup_checkpoints() {
 # Works in both bash and zsh.
 dk_slugify() {
   local slug
-  slug=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
-  slug="${slug//[^a-z0-9]/-}"                              # replace non-alphanumeric → dashes
+  slug=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+  slug=$(printf '%s' "$slug" | LC_ALL=C sed 's/[^a-z0-9]/-/g')  # replace non-alphanumeric → dashes (locale-safe)
   while [[ "$slug" == *--* ]]; do slug="${slug//--/-}"; done  # collapse consecutive dashes
   slug="${slug#-}"   # trim leading dash
   slug="${slug%-}"   # trim trailing dash

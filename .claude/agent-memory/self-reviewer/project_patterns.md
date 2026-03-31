@@ -40,7 +40,23 @@ New library providing: dk_wt_branch, dk_wt_remove, dk_cleanup_last_session, dk_c
 
 ## Atomic Write Consistency
 
-phase-loop.sh's atomic write pattern includes `rm -f "$TEMP_FILE"` cleanup on failure. dk.sh's `__dk_write_state` uses the same temp+mv pattern but omits the cleanup on failure. This asymmetry is a known finding; the temp file leaks on echo failure but doesn't corrupt state.
+phase-loop.sh's atomic write pattern includes `rm -f "$TEMP_FILE"` cleanup on failure. dk.sh's `__dk_write_state` now also includes `rm -f "$tmp"` on failure (fixed as of 2026-03-27). Both are now consistent.
+
+## DK_PHASE_TIMEOUTS Off-By-One (fixed 2026-03-27)
+
+The 9801e2f commit missed DK_PHASE_TIMEOUTS when converting arrays from 0-indexed to 1-indexed. Fixed by removing the leading "" element.
+
+## dkclean Gone Branch Deletion Scope (fixed 2026-03-27)
+
+dkclean step 2 now only targets `worktree-ticket-*` and `worktree-task-*` branches, matching the step 3 prefix filter. Non-doyaken branches with gone upstreams are no longer affected.
+
+## dkclean Missing .log Extension (fixed 2026-03-27)
+
+dkclean stale file cleanup now includes "log" extension, matching dk_cleanup_session()'s coverage.
+
+## Error Output on Wrong Stream (fixed 2026-03-27)
+
+All `echo "ERROR: ..."` calls in dk.sh (except line 24, which runs before lib/output.sh is available) now use `dk_error()` / `dk_info()` for proper stderr routing and formatted output.
 
 ## max-iter Status: Dead Code
 
@@ -64,4 +80,76 @@ In rubric.sh files, the pattern `require('./src/cart.js') || require('./cart.js'
 
 ## Research Harness: RUN_ID Capture via tail -1
 
-loop.sh captures run.sh's RUN_ID via `2>&1 | tail -1`. This works because `echo "$RUN_ID"` is the absolute last output line in run.sh. If a new echo or log statement is added after that line in run.sh, the capture breaks silently. This is a fragile coupling.
+loop.sh captures run.sh's RUN_ID via `2>&1 | tail -1`. This works because `echo "$RUN_ID"` is the absolute last output line in run.sh. If a new echo or log statement is added after that line in run.sh, the capture breaks silently. This is a fragile coupling. Same pattern in orchestrate.sh for both run.sh and improve.sh captures.
+
+## Research Harness: 'local' Outside Function in loop.sh (fixed 2026-03-27)
+
+Fixed by removing `local` keyword from top-level variables `applied` and `part_idx` in loop.sh.
+
+## Research Harness: Rubric Function Pollution (fixed 2026-03-27)
+
+Fixed by adding `unset -f` loop for all `rubric_*` functions before sourcing each scenario's rubric.sh in score_scenario().
+
+## Research Harness: access_token Injection Into node -e (fixed 2026-03-27)
+
+Fixed in auth-jwt-api/rubric.sh by passing the JWT token via `ACCESS_TOKEN` env var and reading with `process.env.ACCESS_TOKEN` instead of string interpolation. Also fixed server process leak by killing the process group (`kill -- -$server_pid`) and adding a RETURN trap.
+
+## Research Harness: LLM Judge Response Triple-Quote Corruption (fixed 2026-03-27)
+
+Fixed by passing judge_result via `_JR` env var and reading with `os.environ.get('_JR','')` instead of Python triple-quote interpolation.
+
+## Research Harness: orchestrate.sh Skips Branch/Clean Safety Checks (fixed 2026-03-27)
+
+Fixed by adding `safety_check_branch` and `safety_check_clean` calls to pre-flight section. Also fixed duplicate arg parsing (positional `$1/$2` overwritten by `--flag` loop) by removing the positional defaults.
+
+## lib/ Cross-Shell BASH_SOURCE Pattern (Intentionally Correct — Do Not Flag)
+
+common.sh uses `_dk_self="${BASH_SOURCE[0]:-$0}"`. In bash, BASH_SOURCE[0] = sourced file path. In zsh, BASH_SOURCE[0] = empty string (not an error), $0 = sourced file path. Both cases are correct. This is an intentional idiom. Do NOT flag it.
+
+## lib/session.sh: DK_STATE_DIR / DK_LOOP_DIR Not Exported (Intentionally Correct — Do Not Flag)
+
+Set (not exported) in common.sh. All consumers source common.sh in the same shell process before using them. Not exporting is correct. Do NOT flag "not exported" as a bug.
+
+## lib/session.sh: SC2120/SC2119 Shellcheck Warnings (False Positive — Do Not Flag)
+
+shellcheck SC2120 warns dk_session_id "references arguments but none are passed" — false positive because callers (dk.sh, hooks, bin/) all pass arguments. SC2119 is informational only. Not a real issue.
+
+## dk_slugify: Unicode Passthrough in UTF-8 Locale (fixed 2026-03-27)
+
+Fixed by using `LC_ALL=C sed 's/[^a-z0-9]/-/g'` instead of bash `${slug//[^a-z0-9]/-}` which is locale-dependent. The `LC_ALL=C` forces byte-level matching so multi-byte UTF-8 chars are replaced with dashes.
+
+## output.sh: Write Tool Mislabeled as "Editing" in Progress Filter (fixed 2026-03-27)
+
+Fixed by splitting the `('Write', 'Edit')` tuple into separate cases: Edit shows "Editing", Write shows "Writing". Also removed redundant initial `print('\r\033[K', end='')` before the Thinking message.
+
+## dk_cleanup_stale_files: Empty find_args + Double-Find (fixed 2026-03-27)
+
+Fixed both issues: (1) Added early return guard for empty `$extensions`, (2) Replaced two-pass find (count then delete) with single-pass `find ... -delete -print | wc -l` that atomically counts what it deletes.
+
+## status-line.sh: Loop State File Format Mismatch (fixed 2026-03-27)
+
+Fixed by using `cut -d: -f1` instead of raw `cat` to extract only the iteration number from the `ITERATION:EPOCH:STALL_COUNT` format.
+
+## uninit.sh: Global last-session File Removed Too Broadly (fixed 2026-03-27)
+
+Fixed by replacing unconditional `rm -f "$DK_STATE_DIR/last-session"` with a loop that calls `dk_cleanup_last_session` for each worktree, which checks ownership before deleting.
+
+## config.sh: MCP Server Names Display with JSON Quotes (fixed 2026-03-27)
+
+Fixed by adding `-r` flag to `jq -s` → `jq -rs` so server names are output as raw strings instead of JSON-quoted.
+
+## guard-handler.py: Missing 'event' Field in Guard Silently Skipped (fixed 2026-03-27)
+
+Fixed by adding a warning log (matching the existing 'pattern' warning style) when a guard is missing the 'event' frontmatter field, before skipping it.
+
+## Research Harness: json_field Shell Injection (fixed 2026-03-27)
+
+research/lib/common.sh json_field() interpolated file path and key directly into Python code via `open('$file')` and `d.get('$key')`. Fixed by passing both via env vars `_JF_FILE` and `_JF_KEY` and reading with `os.environ[]`.
+
+## dk.sh: Revert Hint Wrong for Task Worktrees (fixed 2026-03-27)
+
+`${wt_name##*-}` stripped to last segment, breaking for multi-segment names like `task-fix-login` → `login`. Fixed by passing the full `$wt_name`.
+
+## dk.sh: dkloop Empty Slug Fallback (fixed 2026-03-27)
+
+When prompt contains only non-alphanumeric characters, `dk_slugify` returns empty string, leaving `session_name=""`. Fixed by falling back to `dkloop-$(date +%s)` when slug is empty.

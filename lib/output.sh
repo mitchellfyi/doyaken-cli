@@ -88,8 +88,10 @@ for line in sys.stdin:
                 print(f'{prefix}[....]  Searching for {detail}')
             elif name == 'Bash':
                 print(f'{prefix}[....]  Running {detail}')
-            elif name in ('Write', 'Edit'):
+            elif name == 'Edit':
                 print(f'{prefix}[....]  Editing {detail}')
+            elif name == 'Write':
+                print(f'{prefix}[....]  Writing {detail}')
             else:
                 print(f'{prefix}[....]  {name} {detail}')
             sys.stdout.flush()
@@ -101,9 +103,7 @@ for line in sys.stdin:
             for b in content
         )
         if has_text:
-            if first:
-                print('\r\033[K', end='')
-                first = False
+            first = False
             print('\r\033[K[....]  Thinking...', end='', flush=True)
             showing_thinking = True
 " "$repo_root"

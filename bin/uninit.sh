@@ -68,7 +68,11 @@ if [[ -d "$repo_root/.doyaken/worktrees" ]]; then
     dk_cleanup_session "$session_id"
   done
 fi
-rm -f "$DK_STATE_DIR/last-session" 2>/dev/null
+# Clean up last-session only if it belongs to this repo's worktrees
+for wt_dir in "$repo_root/.doyaken/worktrees"/*/; do
+  [[ -d "$wt_dir" ]] || continue
+  dk_cleanup_last_session "$(basename "$wt_dir")"
+done
 dk_done "Cleaned up phase and loop state files"
 
 # 7. Clean up .doyaken/ if empty

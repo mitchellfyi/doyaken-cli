@@ -128,10 +128,10 @@ for iter in $(seq 1 "$MAX_ITER"); do
 
   # ── Apply ──────────────────────────────────────────────────────────────
   log_step "Applying patch..."
-  local applied=0
+  applied=0
   # Try individual patch parts first (avoids hunk offset issues)
   # Use `patch` instead of `git apply` for better fuzz/offset tolerance
-  local part_idx=0
+  part_idx=0
   while [[ -f "${PATCH_FILE}.${part_idx}" ]]; do
     if (cd "$DOYAKEN_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "${PATCH_FILE}.${part_idx}" 2>/dev/null); then
       applied=$((applied + 1))

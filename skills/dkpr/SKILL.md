@@ -84,7 +84,7 @@ Set up recurring loops and a timeout to monitor CI and reviews. `/loop` is a bui
 
 2. **Review monitoring** — check every 5 minutes:
    ```
-   /loop 5m /dkwatchreviews
+   /loop 5m /dkwatchpr
    ```
 
 3. **Timeout** — schedule a one-shot 30-minute deadline using `CronCreate`. When it fires, it should cancel both `/loop` instances (using `CronDelete` with their job IDs) and output a status report summarizing which checks are still pending/failing and which reviews are outstanding:
@@ -92,7 +92,7 @@ Set up recurring loops and a timeout to monitor CI and reviews. `/loop` is a bui
    CronCreate: in 30 minutes, cancel the CI and review monitoring loops and report final status.
    ```
 
-The loops run in the background between turns. Each invocation of `/dkwatchci` or `/dkwatchreviews` checks current status, fixes issues if found, and cancels its own loop when done. When both loops have completed and cancelled themselves, proceed to `/dkcomplete`.
+The loops run in the background between turns. Each invocation of `/dkwatchci` or `/dkwatchpr` checks current status, fixes issues if found, and cancels its own loop when done. When both loops have completed and cancelled themselves, proceed to `/dkcomplete`.
 
 ## Notes
 

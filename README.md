@@ -94,7 +94,8 @@ doyaken/
     dkcommit/                # Atomic conventional commits
     dkpr/                    # PR description, reviews, monitoring
     dkwatchci/              # CI monitoring via /loop
-    dkwatchreviews/         # Review monitoring via /loop
+    dkwatchpr/              # PR review monitoring via /loop
+    dkprreview/              # Critically evaluate and address PR review comments
     dkcomplete/              # Final verification, ticket closure
     dkloop/                  # In-session prompt loop (run until done)
   lib/                       # Shared shell library (sourced by dk.sh and hook scripts)
@@ -199,7 +200,7 @@ Run `/doyaken` inside a worktree to kick off the full autonomous workflow:
 | 2. Implement | `/dkimplement` + `/dkreview` | TDD per task, audit loop until PASS with zero findings | Clarify if needed |
 | 3. Verify & Commit | `/dkverify` + `/dkcommit` | Quality gates, atomic conventional commits, push | — |
 | 4. PR | `/dkpr` | PR description, update tracker | Approve to mark ready |
-| 5. Complete | `/dkwatchci` + `/dkwatchreviews` + `/dkcomplete` | Monitor CI/reviews, update tracker, print summary | Escalations only |
+| 5. Complete | `/dkwatchci` + `/dkwatchpr` + `/dkcomplete` | Monitor CI/reviews, update tracker, print summary | Escalations only |
 
 ### Autonomous Mode
 
