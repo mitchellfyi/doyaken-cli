@@ -13,6 +13,8 @@ Execute the approved plan, working through tasks with TDD discipline.
 
 Before starting, read the implementation guardrails from `prompts/guardrails.md`. Apply them throughout.
 
+If `.doyaken/learnings.md` exists, read it — it contains conventions, failure patterns, and interface details discovered during earlier tasks in this session that may save you time.
+
 For each task in the approved plan:
 
 1. `TaskUpdate(task_id, "in_progress")`

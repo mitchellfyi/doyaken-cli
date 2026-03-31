@@ -75,6 +75,19 @@ Examples:
 - Lines added/removed: +X / -Y
 - Test coverage: X new test cases
 
+## Technical Debt
+
+If a debt ledger exists for this session, include its contents here:
+
+```bash
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+DEBT_FILE=$(dk_debt_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")
+[[ -f "$DEBT_FILE" ]] && cat "$DEBT_FILE"
+```
+
+If no debt was recorded:
+- [x] No technical debt — all findings resolved
+
 ## Breaking Changes
 
 - [ ] No breaking changes — fully backward compatible

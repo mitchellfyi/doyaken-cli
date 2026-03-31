@@ -69,6 +69,15 @@ These are recurring mistakes observed across many implementations. Check against
 - Never swallow errors silently. If you catch an exception, log it with context or re-throw with added information.
 - Set timeouts on all external calls — network, database, file system. No unbounded waits.
 
+### Recovery Over Retry
+
+When a fix attempt fails:
+
+- Do NOT retry the identical approach. The same input produces the same output.
+- Before your second attempt, analyze WHY the first attempt failed.
+- If two different approaches both fail, the problem may be in your understanding of the requirement, not in the code. Re-read the acceptance criteria and the error message together.
+- Refer to `prompts/failure-recovery.md` for the full recovery decision framework when you hit 2+ failures on the same check or finding.
+
 ### Type Safety at Boundaries
 
 - Validate all data entering the system: API inputs, file reads, environment variables, database results, third-party responses.

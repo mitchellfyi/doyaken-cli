@@ -84,7 +84,19 @@ For each changed file, assign review depth and applicable passes. This is intern
 
 ### Pass Assignment
 
-Select which review passes apply per file:
+Select which review passes apply per file. If the plan includes **task risk levels** (from `/dkplan`), use them to adjust review depth:
+
+**Risk-proportional pass selection** (when task risk metadata is available):
+
+| Risk | Passes | Notes |
+|------|--------|-------|
+| **LOW** | A, F, H | Correctness, Style, Acceptance Criteria only |
+| **MEDIUM** | A, B, C, E, F, G, H, J | Skip D (Performance) and I (Documentation) unless complex |
+| **HIGH** | All 10 passes | Full dependency trace + git history context |
+
+If no risk metadata is available, fall back to the file-based assignment below.
+
+**File-based pass assignment** (default):
 
 | Pass | Applies when |
 |------|-------------|
@@ -212,6 +224,8 @@ Execute Pass J from `prompts/review.md` across ALL changed files as a set:
    - Broken cross-file consistency (naming, patterns, error handling)
 4. New findings → add to list, continue loop
 5. No new findings → exit loop
+
+**On 2nd iteration with recurring findings:** Read `prompts/failure-recovery.md` and run the failure analysis on each finding that appeared in the previous iteration. Log your recovery decision before proceeding. If findings are accepted as debt, record them in the debt ledger and remove them from the active findings list.
 
 After 3 iterations, report remaining findings and proceed to `/dkverify`.
 

@@ -72,10 +72,11 @@ When a check fails:
 1. **Diagnose** — read the error output carefully.
 2. **Fix** — make the minimum change to resolve the issue.
 3. **Re-run only the failing check** — not the entire pipeline.
-4. **Max 3 retries per check type.** After 3 failures on the same check, stop and escalate to the user with:
-   - The check name
-   - The error output
-   - What was tried
+4. **On 2nd failure of the same check type**: read `prompts/failure-recovery.md` and run the failure analysis. Choose a recovery strategy and follow it. If you switch strategies, the retry count resets for the new strategy.
+5. **Max 3 retries per strategy per check type.** After exhausting 2 strategies (6 total attempts), escalate to the user with:
+   - The check name and error output
+   - The recovery analysis (strategies tried and why each failed)
+   - Recommended next steps
 
 Run checks sequentially — fix each before moving to the next:
 - Format failures first (they may fix lint issues).

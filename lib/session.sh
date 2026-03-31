@@ -76,10 +76,16 @@ dk_context_file() { echo "${DK_STATE_DIR}/${1}.system-context"; }
 # dk_log_file <session_id> — structured phase execution log (TSV)
 dk_log_file() { echo "${DK_STATE_DIR}/${1}.log"; }
 
+# dk_findings_file <session_id> — findings hash history for stuck loop detection
+dk_findings_file() { echo "${DK_LOOP_DIR}/${1}.findings"; }
+
+# dk_debt_file <session_id> — technical debt ledger (append-only markdown)
+dk_debt_file() { echo "${DK_LOOP_DIR}/${1}.debt"; }
+
 # dk_cleanup_session <session_id>
 # Remove all loop and phase state files for a session. Safe to call when dirs don't exist.
 dk_cleanup_session() {
   local sid="$1"
-  [[ -d "$DK_LOOP_DIR" ]]  && rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" 2>/dev/null
+  [[ -d "$DK_LOOP_DIR" ]]  && rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" "$(dk_findings_file "$sid")" "$(dk_debt_file "$sid")" 2>/dev/null
   [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" "$(dk_log_file "$sid")" 2>/dev/null
 }

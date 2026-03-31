@@ -98,6 +98,30 @@ if [[ $LAST_EPOCH -gt 0 ]] && [[ $STALL_TIMEOUT -gt 0 ]]; then
   fi
 fi
 
+# Semantic stuck detection — check if review findings are repeating across
+# iterations. Claude writes a findings hash after each review cycle (see
+# prompts/phase-audits/2-implement.md). If the same hash appears 3+ consecutive
+# times, the loop is semantically stuck on the same issues.
+FINDINGS_FILE=$(dk_findings_file "$SESSION_ID")
+SEMANTIC_STUCK=0
+if [[ -f "$FINDINGS_FILE" ]]; then
+  LAST_HASH=$(tail -1 "$FINDINGS_FILE" 2>/dev/null || echo "")
+  if [[ -n "$LAST_HASH" ]]; then
+    # Count consecutive identical hashes from the end of the file
+    REPEAT_COUNT=0
+    while IFS= read -r line; do
+      if [[ "$line" == "$LAST_HASH" ]]; then
+        REPEAT_COUNT=$((REPEAT_COUNT + 1))
+      else
+        break
+      fi
+    done < <(tac "$FINDINGS_FILE" 2>/dev/null)
+    if [[ $REPEAT_COUNT -ge 3 ]]; then
+      SEMANTIC_STUCK=1
+    fi
+  fi
+fi
+
 # Check max iterations.
 # Leave STATE_FILE intact (unlike the .complete path) so the wrapper can
 # distinguish max-iter (exit 0 + state file present) from advance (exit 0 +
@@ -184,9 +208,22 @@ if [[ $IS_STALLED -eq 1 ]] && [[ $STALL_COUNT -ge $STALL_ESCALATE_AFTER ]]; then
   printf '%s\n' "" >&2
   printf '%s\n' "You appear to be stuck in a loop. The last $STALL_COUNT iterations each took longer than ${STALL_TIMEOUT}s without making progress." >&2
   printf '%s\n' "" >&2
-  printf '%s\n' "1. Summarize what is blocking you — what error or issue keeps recurring?" >&2
-  printf '%s\n' "2. If you cannot resolve the blocker, create the completion signal file to escalate to the user." >&2
-  printf '%s\n' "3. Do NOT retry the same approach that has been failing." >&2
+  printf '%s\n' "MANDATORY: Read prompts/failure-recovery.md and run the failure analysis." >&2
+  printf '%s\n' "You MUST choose a different recovery strategy. Do NOT retry the same approach." >&2
+  printf '%s\n' "" >&2
+fi
+
+if [[ $SEMANTIC_STUCK -eq 1 ]]; then
+  printf '%s\n' "## STUCK LOOP DETECTED (same findings recurring)" >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "The last 3+ review cycles found the SAME issues. You are going in circles." >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "MANDATORY: Read prompts/failure-recovery.md and run the failure analysis." >&2
+  printf '%s\n' "You MUST choose a different strategy. Options:" >&2
+  printf '%s\n' "  - CHANGE_APPROACH: Try a fundamentally different implementation" >&2
+  printf '%s\n' "  - ACCEPT_WITH_DEBT: Accept non-critical findings and track as debt" >&2
+  printf '%s\n' "  - SPLIT_TASK: Reduce scope to what you can complete cleanly" >&2
+  printf '%s\n' "  - ESCALATE: Signal completion and let the user take over" >&2
   printf '%s\n' "" >&2
 fi
 

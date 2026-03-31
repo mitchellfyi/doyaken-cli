@@ -354,6 +354,22 @@ Completion protocol:
 If you lose context after compaction, re-read the phase audit prompt at:
   ${DOYAKEN_DIR}/prompts/phase-audits/${DK_PHASE_AUDIT_FILES[$step]}.md
 EOF
+
+  # Append debt warnings from prior phases so downstream work is aware of accepted gaps
+  local debt_file
+  debt_file=$(dk_debt_file "$session_id")
+  if [[ -f "$debt_file" ]] && [[ -s "$debt_file" ]]; then
+    cat >> "$ctx_file" <<DEOF
+
+## Active Technical Debt (from prior phases)
+
+WARNING: The following debt items were accepted in earlier phases. Be aware of
+these when implementing — they may affect your work.
+
+$(cat "$debt_file")
+DEOF
+  fi
+
   echo "$ctx_file"
 }
 

@@ -109,6 +109,18 @@ If the self-reviewer agent was not spawned (non-code session), omit that source.
 - If the inventory is **empty** → skip to Step 7.
 - If **non-empty** → proceed to Step 6.
 
+### Findings Hash (for stuck detection)
+
+After building the inventory, compute and record a findings hash so the stop hook can detect stuck loops:
+
+```bash
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+FINDINGS_HASH=$(echo "<sorted list of INV-N descriptions>" | shasum -a 256 | cut -c1-16)
+echo "$FINDINGS_HASH" >> "$(dk_findings_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")"
+```
+
+Replace `<sorted list of INV-N descriptions>` with the actual finding descriptions from your inventory, sorted alphabetically, one per line. If the inventory is empty, use the string "EMPTY".
+
 ## Step 6: Batch Fix and Holistic Re-verification
 
 1. Fix all inventory items in severity order (high → medium → low).

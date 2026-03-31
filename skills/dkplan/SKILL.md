@@ -51,6 +51,12 @@ Before drafting task lists, explicitly describe the end state:
 1. **What does done look like?** List the specific files that exist/changed, functions that are callable, tests that pass, and behaviors that differ from today.
 2. **Diff against current:** For each element, note: exists today (modify), doesn't exist (create), or exists but shouldn't (remove).
 3. **Validate against acceptance criteria:** Walk each criterion and confirm the target state satisfies it. If any criterion is unmet by the target, the target is wrong — revise before proceeding.
+4. **Make criteria verifiable:** Each acceptance criterion must include a **verification command** — a concrete assertion that can be checked mechanically:
+   - Test-based: "Running `npm test -- --grep 'auth middleware'` passes"
+   - File-based: "File `src/config.ts` exports `AuthConfig` type"
+   - Behavior-based: "GET /api/health returns 200 with `{\"status\":\"ok\"}`"
+   - Negative: "Running `grep -r 'TODO' src/` returns no matches"
+   - Prose-only criteria ("works correctly", "is performant") must be rewritten as testable assertions.
 
 The plan is then the ordered steps transforming current state into this target. Work backward: what must be true last? What must be true before that? Continue until you reach the current state.
 
@@ -82,12 +88,19 @@ Present the approaches briefly (2-3 sentences each), then recommend one with rea
 3. Note any dependencies between tasks (e.g., "migration must come before entity").
 4. Identify risks, unknowns, or decisions that need user input.
 5. Classify each change as additive (safe), modification (potentially breaking), or removal (breaking). Note migration needs for breaking changes.
+6. Assign a **risk level** to each task. This drives review depth in `/dkreview`:
+   - **HIGH** — security, auth, data access, migrations, new external integrations, financial logic
+   - **MEDIUM** — business logic, refactors touching multiple files, API contract changes
+   - **LOW** — config, docs, formatting, simple additive changes, test-only changes
+7. For MEDIUM and HIGH risk tasks, include:
+   - **review_focus** — what the reviewer should look for (e.g., "verify auth check on all new endpoints")
+   - **testing_guidance** — what to test (e.g., "test both valid and expired tokens")
 
 ### 4. Plan Quality Checklist
 
 Before presenting the plan, verify it against these quality gates:
 
-1. **COMPLETENESS** — Does the plan cover every acceptance criterion? Re-read the ticket/prompt requirements. For each one, confirm there is a task that addresses it. If any criterion is missing or only partially covered, add a task.
+1. **COMPLETENESS** — Does the plan cover every acceptance criterion? Re-read the ticket/prompt requirements. For each one, confirm there is a task that addresses it. If any criterion is missing or only partially covered, add a task. Every criterion must have a verification command — prose-only criteria must be rewritten as testable assertions.
 2. **EDGE CASES** — Have you considered failure modes? What happens with invalid/empty/boundary inputs? What happens when external services are unavailable? Are error messages helpful?
 3. **RESEARCH** — Were common pitfalls for the chosen approach checked? Is there prior art in the codebase? Is a migration strategy documented for breaking changes?
 4. **DEPENDENCIES** — Are tasks correctly ordered? Would any task fail if run before another? Are shared types/interfaces created before consumers?

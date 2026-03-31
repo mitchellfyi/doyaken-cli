@@ -5,7 +5,7 @@ description: >
   (A-J) on changed files. Returns a structured findings report with evidence.
   Use after implementation tasks are complete, before verify.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 skills:
   - dkreview
 memory: project

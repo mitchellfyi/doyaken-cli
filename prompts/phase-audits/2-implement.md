@@ -83,6 +83,18 @@ Source values: `dkreview`, `manual`, `agent`.
 - If the inventory is **empty** → skip to Step 6.
 - If **non-empty** → proceed to Step 5.
 
+### Findings Hash (for stuck detection)
+
+After building the inventory, compute and record a findings hash so the stop hook can detect stuck loops (same findings recurring across iterations):
+
+```bash
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+FINDINGS_HASH=$(echo "<sorted list of INV-N descriptions>" | shasum -a 256 | cut -c1-16)
+echo "$FINDINGS_HASH" >> "$(dk_findings_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")"
+```
+
+Replace `<sorted list of INV-N descriptions>` with the actual finding descriptions from your inventory, sorted alphabetically, one per line. If the inventory is empty, use the string "EMPTY".
+
 ## Step 5: Batch Fix and Holistic Re-verification
 
 1. Fix all inventory items in severity order (high → medium → low).
@@ -91,6 +103,17 @@ Source values: `dkreview`, `manual`, `agent`.
    - Re-run your manual passes (Step 2) on the **entire change set** — fixes can regress untouched files.
    - Re-spawn the self-reviewer agent to verify fixes against the FULL change set. **Maximum 3 total agent spawns** (including the initial spawn in Step 3).
 3. If new findings → add to inventory, fix, and re-verify. Maximum 3 cycles.
+
+## Step 5.5: Failure Recovery Check
+
+If Step 5 has run 2+ cycles without reaching an empty inventory:
+
+1. Read `prompts/failure-recovery.md` for recovery strategy guidance.
+2. Identify findings that keep recurring across cycles.
+3. For each recurring finding, run the failure analysis to choose a strategy.
+4. If any findings are accepted as DEBT, record them in the debt ledger and remove them from the inventory before checking the completion gate.
+
+Recurring findings accepted as debt do NOT block completion, but they MUST appear in the debt ledger and the PR description.
 
 ## Step 6: Evidence Table
 
@@ -120,16 +143,40 @@ Check if your implementation introduced any of these:
 
 If updates are needed but missing, make them now.
 
+## Step 8: Knowledge Propagation
+
+If you discovered conventions, failure patterns, or interface details during this task that would help subsequent tasks, append them to `.doyaken/learnings.md`:
+
+```markdown
+## Conventions Discovered
+- [pattern found, e.g., "this project uses barrel exports in src/index.ts"]
+
+## Failure Patterns
+- [what went wrong and how it was fixed, e.g., "Jest needs setupFilesAfterEnv for custom matchers"]
+
+## Interface Notes
+- [API contracts discovered, e.g., "error responses use {error: string, code: number} shape"]
+```
+
+Only add entries that are non-obvious and would save time in future tasks. Skip if nothing noteworthy was discovered.
+
 ## Completion Criteria
 
 Only output PHASE_2_COMPLETE when ALL of these are true:
-- /dkreview result is PASS (not PASS WITH WARNINGS or NEEDS ATTENTION)
-- The findings inventory from your last re-verification (Step 5) is empty
-- Every acceptance criterion has status MET in the evidence table (Step 6)
+- /dkreview result is PASS — OR result is PASS WITH WARNINGS and all remaining warnings are tracked as DEBT in the debt ledger
+- The findings inventory from your last re-verification (Step 5) is empty — OR all remaining findings are LOW/MEDIUM severity and tracked as DEBT
+- Every acceptance criterion has status MET in the evidence table (Step 6) — OR criteria with status RELAXED have a corresponding DEBT entry
 - Any needed `.doyaken/` updates are staged
 - You have run /dkreview AFTER your most recent code change
 
-Do NOT output PHASE_2_COMPLETE if any findings remain, the result is not PASS, or any criterion is NOT MET. Fix first, then re-audit from Step 2.
+If any findings are tracked as debt, output a debt summary before the completion signal:
+
+```
+## Debt Summary
+[List each debt item from the debt ledger file]
+```
+
+Do NOT output PHASE_2_COMPLETE if any HIGH severity findings remain unresolved, or any criterion is NOT MET without a DEBT entry. Fix first, then re-audit from Step 2.
 
 Before outputting PHASE_2_COMPLETE, write the completion signal file:
 

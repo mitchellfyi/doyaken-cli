@@ -100,7 +100,7 @@ Agents live in `agents/*.md` with YAML frontmatter:
 name: agent-name
 description: what it does
 tools: Read, Glob, Grep, Bash    # allowed tools
-model: sonnet                     # model selection
+model: opus                      # model selection
 skills:
   - dkreview                      # skills it can invoke
 memory: project                   # memory scope
