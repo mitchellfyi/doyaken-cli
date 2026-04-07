@@ -2,7 +2,8 @@ IMPORTANT: Follow these steps in order. Use the ticket tracker configured in doy
 
 1. Gather ticket context from the configured ticket tracker:
 
-   - Read ticket {{TICKET_NUM}} — title, description, acceptance criteria, relations, and comments.
+   - Read ticket {{TICKET_NUM}} — title, description, acceptance criteria, and relations.
+   - Read all comments on the ticket (for Linear: use `list_comments` with the issue ID). Comments often contain clarifications, decisions, and context not captured in the description.
    - If the tracker supports assignees: check the assignee. If assigned to someone else, STOP and warn. If unassigned, assign to the current user (for Linear: use `save_issue` with `assignee: "me"`).
    - If no tracker is configured: use the branch name `{{BRANCH}}` and the local filesystem for context. Ask the user what they want to work on.
 
