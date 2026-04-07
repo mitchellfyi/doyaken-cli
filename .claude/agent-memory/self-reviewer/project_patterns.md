@@ -6,9 +6,11 @@ type: project
 
 ## State File Cleanup Patterns
 
-dk_cleanup_session() in lib/session.sh is the canonical way to remove all loop+phase state files for a session. It covers: .state, .complete, .active, .prompt (loop files) + .phase, .times (phase files).
+dk_cleanup_session() in lib/session.sh is the canonical way to remove all loop+phase state files for a session. It covers: .state, .complete, .active, .prompt, .findings, .debt, .config (loop files) + .phase, .times, .system-context, .log (phase files).
 
-dkloop (shell function) intentionally does a SUBSET cleanup (only loop files, no .active or phase files) because it never creates .active or phase state. This is not an inconsistency.
+dkloop (shell function) intentionally does a SUBSET cleanup (only loop files, no .active or phase files) because it never creates .config or phase state. This is not an inconsistency.
+
+dkclean stale file cleanup (dk_cleanup_stale_files) covers extensions: state, complete, active, prompt (loop dir) + phase, times, system-context, log (state dir). It does NOT clean: findings, debt, config. These will accumulate indefinitely if dk_cleanup_session is never called for a given session ID. This is a known gap.
 
 ## Install/Uninstall Symmetry
 
@@ -37,6 +39,10 @@ dkloop now runs two sequential Claude sessions: (1) Plan session in --permission
 ## lib/worktree.sh (added 2026-03-21)
 
 New library providing: dk_wt_branch, dk_wt_remove, dk_cleanup_last_session, dk_cleanup_stale_files. Sourced via common.sh. The header claims "Used by bin scripts (uninit.sh)" but uninit.sh does not call any functions from worktree.sh directly — it uses session.sh functions only. The header is inaccurate for uninit.sh.
+
+## phase-loop.sh: .active File Defaults Override .config File (found 2026-04-07)
+
+When env vars are NOT inherited by the Stop hook (the scenario the file-based config was added to fix), the `.active` file block (lines 41-44) sets `DOYAKEN_LOOP_PHASE=prompt-loop` and `DOYAKEN_LOOP_PROMISE=PROMPT_COMPLETE` BEFORE the `.config` file block (lines 50-64) reads the correct values. Since both use `${VAR:-default}`, the first-set wins and the `.config` values are silently ignored. The audit prompt content (DOYAKEN_LOOP_PROMPT) IS correctly set because lines 42-43 don't set it. Fix: swap the block order (read .config before setting .active defaults) or make .config values unconditional when .config exists.
 
 ## Atomic Write Consistency
 

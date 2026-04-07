@@ -20,11 +20,12 @@ The `dk` wrapper runs each phase as a separate Claude Code session, auto-advanci
 
 ### Phase 2: Implement
 
-1. Run `/dkimplement` — work through tasks with TDD discipline.
+1. Invoke the Skill tool with `skill: "dkimplement"` — work through tasks with TDD discipline.
 2. **[STOP]** if ambiguous requirements, scope changes, or blocked dependencies arise.
-3. The `/dkimplement` skill automatically runs `/dkreview` after all tasks are done.
-4. The audit loop re-runs `/dkreview` until it returns PASS with zero findings.
-5. Output `PHASE_2_COMPLETE` when self-review passes and manual review finds no issues.
+3. `/dkimplement` includes a merged self-review loop (your own inventory + self-reviewer agent) and chains to `/dkreview` as a final gate.
+4. The audit loop (Stop hook) re-runs the review audit on every stop attempt until it returns PASS with zero findings.
+5. **SCOPE**: implementation and self-review ONLY. Do NOT commit, push, or create PRs.
+6. Output `PHASE_2_COMPLETE` when self-review passes and the evidence table shows all criteria MET.
 
 ### Phase 3: Verify & Commit
 
@@ -84,7 +85,7 @@ As a fallback (e.g., when running `/doyaken` interactively without the wrapper),
 
 ## Autonomous Mode (Phase Audit Loops)
 
-When the session is started with `DOYAKEN_LOOP_ACTIVE=1` (set automatically by `dk`), a Stop hook prevents premature exit and injects a phase-specific audit prompt. Each phase has its own quality criteria — the loop continues until the audit is satisfied. This enables quality-gated autonomous execution:
+When the session is started by `dk`, a Stop hook prevents premature exit and injects a phase-specific audit prompt. Activation is signaled via an `.active` file in `~/.claude/.doyaken-loops/` (and optionally the `DOYAKEN_LOOP_ACTIVE=1` env var as a belt-and-suspenders mechanism). Each phase has its own quality criteria — the loop continues until the audit is satisfied. This enables quality-gated autonomous execution:
 
 - If `/dkverify` fails → fix and retry automatically
 - If `/dkreview` finds issues → fix and re-review automatically

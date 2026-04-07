@@ -152,10 +152,10 @@ DK_PHASE_PROMISES=(\
 
 DK_PHASE_MESSAGES=(\
   "Call EnterPlanMode now, then run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval." \
-  "The plan is approved. Run /dkimplement — work through all tasks with TDD. Run /dkreview when done. When all tasks pass review, output PHASE_2_COMPLETE and stop." \
-  "Run /dkverify — format, lint, typecheck, test. Fix any failures. When all green, run /dkcommit. When pushed, output PHASE_3_COMPLETE and stop." \
-  "Run /dkpr. Generate the PR description, present it for my review. When I approve, mark ready and output PHASE_4_COMPLETE and stop." \
-  "Set up monitoring with /loop 2m /dkwatchci and /loop 5m /dkwatchpr. When all checks green and reviews approved, run /dkcomplete. Output DOYAKEN_TICKET_COMPLETE and stop." \
+  "The plan is approved. You MUST invoke the Skill tool with skill: \"dkimplement\" to begin implementation. Do NOT implement ad-hoc — the skill enforces TDD, self-review, and quality gates. After all tasks pass, invoke skill: \"dkreview\" for an independent review. SCOPE BOUNDARIES: implementation and self-review ONLY. Do NOT commit, push, create branches, or create PRs during this phase — those are handled by later phases. When review passes, output PHASE_2_COMPLETE." \
+  "Invoke the Skill tool with skill: \"dkverify\" to run the quality pipeline (format, lint, typecheck, test). Fix any failures and re-run until all green. Then invoke skill: \"dkcommit\" to commit and push. SCOPE BOUNDARIES: verify and commit ONLY. Do NOT create PRs or modify implementation beyond fixing verify failures. Output PHASE_3_COMPLETE when pushed." \
+  "Invoke the Skill tool with skill: \"dkpr\" to generate the PR description, present it for review, and launch monitoring. SCOPE BOUNDARIES: PR creation and description ONLY. Do NOT modify implementation code. Output PHASE_4_COMPLETE when the user approves." \
+  "Set up monitoring with /loop 2m /dkwatchci and /loop 5m /dkwatchpr. When all checks green and reviews approved, invoke the Skill tool with skill: \"dkcomplete\". Output DOYAKEN_TICKET_COMPLETE and stop." \
 )
 
 # Audit prompt file basenames (must match prompts/phase-audits/ filenames)
@@ -343,13 +343,45 @@ __dk_build_system_context() {
   local complete_file
   complete_file=$(dk_complete_file "$session_id")
 
+  # Build phase-specific scope boundaries
+  local scope_lines=""
+  case $step in
+    2) scope_lines="- Do NOT commit, push, create PRs, or modify git history
+- DO implement, test, and self-review via the Skill tool" ;;
+    3) scope_lines="- Do NOT create PRs or modify implementation beyond fixing verify failures
+- DO run format/lint/typecheck/test, fix failures, commit, push" ;;
+    4) scope_lines="- Do NOT modify implementation code
+- DO generate PR description, present to user, mark ready when approved" ;;
+    5) scope_lines="- Do NOT modify implementation code unless fixing CI/review failures
+- DO monitor CI, address reviews, run /dkcomplete when all green" ;;
+  esac
+
   cat > "$ctx_file" <<EOF
 You are Doyaken, running Phase ${step} (${DK_PHASE_NAMES[$step]}) for ${wt_name}.
 Worktree: ${wt_dir}
 
-Completion protocol:
-1. Write the signal file: use Bash to run: touch "${complete_file}"
-2. Output the promise string: ${DK_PHASE_PROMISES[$step]}
+## Audit Loop
+
+You are running inside a phase audit loop. When you try to stop, a Stop hook
+intercepts the attempt, reviews your work against phase-specific quality criteria,
+and blocks the stop if the work is incomplete. The loop continues until you write
+the completion signal file AND the audit criteria are met.
+
+Do NOT try to stop until you have genuinely completed all work for this phase.
+Premature stop attempts will be caught and you will be asked to continue working.
+
+CRITICAL: You MUST invoke skills using the Skill tool (e.g., Skill(skill="dkimplement")).
+Do NOT implement skill functionality ad-hoc — invoke the actual skill.
+
+## Scope Boundaries (Phase ${step} ONLY)
+
+${scope_lines}
+
+## Completion Protocol
+
+1. Verify all phase criteria are met (the audit prompt will guide you)
+2. Write the signal file: use Bash to run: touch "${complete_file}"
+3. Output the promise string: ${DK_PHASE_PROMISES[$step]}
 
 If you lose context after compaction, re-read the phase audit prompt at:
   ${DOYAKEN_DIR}/prompts/phase-audits/${DK_PHASE_AUDIT_FILES[$step]}.md
@@ -501,11 +533,18 @@ __dk_run_phases() {
       local audit_file="$DOYAKEN_DIR/prompts/phase-audits/${DK_PHASE_AUDIT_FILES[$step]}.md"
       [[ -f "$audit_file" ]] && audit_prompt=$(cat "$audit_file")
 
-      # The Stop hook (phase-loop.sh) uses these env vars to block premature stops:
-      #   DOYAKEN_LOOP_ACTIVE=1   — enables the audit loop
-      #   DOYAKEN_LOOP_PROMISE    — completion string for this phase
-      #   DOYAKEN_LOOP_PROMPT     — audit prompt injected when Claude tries to stop
-      #   DOYAKEN_LOOP_PHASE      — phase number (fallback for prompt file lookup)
+      # Write file-based activation signals — belt-and-suspenders alongside env vars.
+      # Claude Code runs hooks as separate subprocesses that may not inherit inline
+      # env vars from the parent process. These files ensure the hook activates
+      # even when DOYAKEN_LOOP_ACTIVE is not visible to the hook subprocess.
+      mkdir -p "$DK_LOOP_DIR"
+      touch "$(dk_active_file "$session_id")"
+      rm -f "$(dk_complete_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_findings_file "$session_id")"
+      __dk_write_state "$(dk_loop_config_file "$session_id")" "${step}:${DK_PHASE_PROMISES[$step]}:${audit_file}"
+
+      # The Stop hook (phase-loop.sh) reads activation from two sources:
+      #   1. File-based: .active file + .config file (primary — always works)
+      #   2. Env vars: DOYAKEN_LOOP_ACTIVE, etc. (belt-and-suspenders)
       # Claude exits 0 when the .complete file is written (loop allows stop) or
       # max iterations reached. Non-zero means user interrupt or error.
       # See: docs/autonomous-mode.md for the full architecture.
@@ -514,6 +553,7 @@ __dk_run_phases() {
       (
         sh -c 'echo $PPID' > "$_dk_pidfile"
         cd "$wt_dir" && \
+        DOYAKEN_SESSION_ID="$session_id" \
         DOYAKEN_LOOP_ACTIVE=1 \
         DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[$step]}" \
         DOYAKEN_LOOP_PROMPT="$audit_prompt" \
@@ -559,6 +599,8 @@ __dk_run_phases() {
       [[ "$iterations" =~ ^[0-9]+$ ]] || iterations=0
       rm -f "$loop_file"
     fi
+    # Clean up file-based activation signals (idempotent — hook may have already removed some)
+    rm -f "$(dk_active_file "$session_id")" "$(dk_loop_config_file "$session_id")" 2>/dev/null
 
     # Log phase result (TSV)
     local duration_s=$((phase_end_epoch - phase_start_epoch))
@@ -756,7 +798,9 @@ dk() {
     echo "Resuming ${_dk_wt_name} from Phase ${step}: ${DK_PHASE_NAMES[$step]}..."
 
     __dk_run_phases "$_dk_wt_name" "$_dk_wt_dir" "$_dk_default_branch" "$step" "$state_file" "$times_file" "dk --resume"
-    return $?
+    local _rc=$?
+    cd "$_dk_wt_dir" 2>/dev/null
+    return $_rc
   fi
 
   # PR-linked mode — resume a session associated with a GitHub PR
@@ -804,6 +848,9 @@ dk() {
 
   # ── Phase loop ──
   __dk_run_phases "$_dk_wt_name" "$_dk_wt_dir" "$_dk_default_branch" "$step" "$state_file" "$times_file" "dk ${raw_input}"
+  local _rc=$?
+  cd "$_dk_wt_dir" 2>/dev/null
+  return $_rc
 }
 
 # ─── dkloop — prompt loop (run until done) ─────────────────────────────────
@@ -1285,7 +1332,7 @@ dkclean() {
   # 7 days gives enough time to resume interrupted sessions while preventing
   # indefinite accumulation. Most tickets complete within a day or two.
   local old_files
-  old_files=$(dk_cleanup_stale_files "$DK_LOOP_DIR" "state complete active prompt" 7)
+  old_files=$(dk_cleanup_stale_files "$DK_LOOP_DIR" "state complete active prompt config findings debt" 7)
   if [[ "$old_files" -gt 0 ]]; then
     echo "  Cleaned ${old_files} old loop state file(s)"
     cleaned=$((cleaned + old_files))

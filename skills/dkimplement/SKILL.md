@@ -100,7 +100,27 @@ Before declaring PASS, produce an acceptance criteria evidence table:
 
 Every criterion must have status MET with specific file:line evidence. Any NOT FOUND blocks completion.
 
-If the final agent result is PASS and the evidence table has zero NOT FOUND entries: implementation is complete. When run via `/doyaken`, the next phase (verify) follows automatically.
+If the final agent result is PASS and the evidence table has zero NOT FOUND entries: implementation is complete. When run via the `dk` wrapper, the next phase (Verify & Commit) follows automatically after you signal completion.
+
+### 5. Chain to /dkreview
+
+After the self-review loop passes (Step 4 produces PASS with zero NOT FOUND entries), invoke `/dkreview` using the Skill tool as a final independent gate. The phase audit loop checks that `/dkreview` was run after the last code change.
+
+If `/dkreview` returns NEEDS ATTENTION, fix the findings and re-invoke `/dkreview`. Maximum 3 review cycles.
+
+## Scope Boundaries
+
+During implementation (Phase 2), you MUST NOT:
+- Run `git commit` or `git push` (that is Phase 3: Verify & Commit)
+- Create or modify pull requests via `gh pr` (that is Phase 4: PR)
+- Mark tickets as done or in-review (that is Phase 5: Complete)
+- Create new branches (the worktree branch was created by `dk`)
+
+You SHOULD:
+- Implement all planned tasks with TDD
+- Run quality checks on changed files after each task (format, lint, typecheck)
+- Run the self-review loop (Step 4) and chain to `/dkreview` (Step 5)
+- Update `.doyaken/` project docs if your changes require it
 
 ## Notes
 

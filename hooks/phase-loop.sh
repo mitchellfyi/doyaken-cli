@@ -35,9 +35,33 @@ if [[ "$LOOP_ACTIVE" != "1" ]] && [[ ! -f "$ACTIVE_FILE" ]]; then
   exit 0
 fi
 
-# If activated via .active file (in-session /dkloop), default to prompt-loop
-# mode. The .active file is a touch file — it doesn't carry data. Phase/promise
-# env vars can still override these defaults if set before the session.
+# Read phase configuration from .config file when env vars are not inherited.
+# dk.sh writes this file before launching Claude for phases 2-5. Format:
+# "phase_number:promise_string:audit_file_path"
+# Env vars take priority (belt-and-suspenders with file-based activation).
+# IMPORTANT: This block MUST run before the .active file defaults below,
+# because .active defaults set prompt-loop mode which would shadow the
+# correct phase values from .config.
+CONFIG_FILE=$(dk_loop_config_file "$SESSION_ID")
+if [[ -f "$CONFIG_FILE" ]]; then
+  CONFIG_RAW=$(cat "$CONFIG_FILE" 2>/dev/null || echo "")
+  if [[ -n "$CONFIG_RAW" ]]; then
+    CONFIG_PHASE="${CONFIG_RAW%%:*}"
+    CONFIG_REST="${CONFIG_RAW#*:}"
+    CONFIG_PROMISE="${CONFIG_REST%%:*}"
+    CONFIG_AUDIT_FILE="${CONFIG_REST#*:}"
+    DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-$CONFIG_PHASE}"
+    DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-$CONFIG_PROMISE}"
+    if [[ -z "${DOYAKEN_LOOP_PROMPT:-}" ]] && [[ -n "$CONFIG_AUDIT_FILE" ]] && [[ -f "$CONFIG_AUDIT_FILE" ]]; then
+      DOYAKEN_LOOP_PROMPT=$(cat "$CONFIG_AUDIT_FILE")
+    fi
+  fi
+fi
+
+# If activated via .active file only (in-session /dkloop with no .config file),
+# default to prompt-loop mode. The .active file is a touch file — it doesn't
+# carry data. When a .config file exists (dk phase workflow), the values above
+# take precedence.
 if [[ -f "$ACTIVE_FILE" ]]; then
   DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-prompt-loop}"
   DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-PROMPT_COMPLETE}"
@@ -58,7 +82,7 @@ COMPLETION_PROMISE="${DOYAKEN_LOOP_PROMISE:-DOYAKEN_TICKET_COMPLETE}"
 COMPLETE_FILE=$(dk_complete_file "$SESSION_ID")
 if [[ -f "$COMPLETE_FILE" ]]; then
   echo "Completion signal file found. Phase complete."
-  rm -f "$STATE_FILE" "$COMPLETE_FILE" "$ACTIVE_FILE"
+  rm -f "$STATE_FILE" "$COMPLETE_FILE" "$ACTIVE_FILE" "$CONFIG_FILE"
   exit 0
 fi
 
@@ -129,7 +153,7 @@ fi
 # cleaning up the state file after reading the iteration count.
 if [[ $ITERATION -gt $MAX_ITERATIONS ]]; then
   echo "Phase audit loop reached max iterations ($MAX_ITERATIONS). Allowing stop."
-  rm -f "$ACTIVE_FILE"
+  rm -f "$ACTIVE_FILE" "$CONFIG_FILE"
   exit 0
 fi
 
