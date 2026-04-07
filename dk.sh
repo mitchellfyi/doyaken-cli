@@ -1211,6 +1211,65 @@ dkls() {
   fi
 }
 
+# ─── dkcd — navigate to a worktree or repo root ─────────────────────────────
+
+unalias dkcd 2>/dev/null; unfunction dkcd 2>/dev/null
+dkcd() {
+  local repo_root
+  repo_root=$(dk_repo_root) || return 1
+
+  # If inside a worktree, resolve to the main repo root
+  if [[ "$repo_root" == *"/.doyaken/worktrees/"* ]]; then
+    repo_root="${repo_root%%/.doyaken/worktrees/*}"
+  fi
+
+  # No args → repo root
+  if [[ $# -eq 0 ]]; then
+    cd "$repo_root"
+    return 0
+  fi
+
+  local target="$1"
+  local worktrees_dir="${repo_root}/.doyaken/worktrees"
+
+  if [[ ! -d "$worktrees_dir" ]]; then
+    dk_error "No worktrees found."
+    return 1
+  fi
+
+  # Exact match first
+  if [[ -d "$worktrees_dir/$target" ]]; then
+    cd "$worktrees_dir/$target"
+    return 0
+  fi
+
+  # Prefix match: "ticket-123" or just "123" matches worktree names containing that string
+  local matches=()
+  for wt_dir in "$worktrees_dir"/*/; do
+    [[ -d "$wt_dir" ]] || continue
+    local name
+    name="$(basename "$wt_dir")"
+    if [[ "$name" == *"$target"* ]]; then
+      matches+=("$wt_dir")
+    fi
+  done
+
+  if [[ ${#matches[@]} -eq 0 ]]; then
+    dk_error "No worktree matching '$target'. Run dkls to see active worktrees."
+    return 1
+  elif [[ ${#matches[@]} -eq 1 ]]; then
+    cd "${matches[0]}"
+    return 0
+  else
+    dk_error "Multiple worktrees match '$target':"
+    for m in "${matches[@]}"; do
+      echo "  $(basename "$m")"
+    done
+    echo "Be more specific."
+    return 1
+  fi
+}
+
 # ─── dkclean — prune stale worktrees + gone branches ─────────────────────────
 
 unalias dkclean 2>/dev/null; unfunction dkclean 2>/dev/null

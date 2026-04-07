@@ -58,6 +58,8 @@ dk --resume          # Resume a previous session
 dkrm <number|name>  # Remove worktree
 dkrm --all          # Remove all worktrees
 dkls                # List active worktrees
+dkcd                # cd to repo root
+dkcd <number|slug>  # cd to a worktree (fuzzy match)
 dkclean             # Prune stale worktrees, gone branches, orphan branches
 
 # Prompt loop (no worktree or ticket needed)
