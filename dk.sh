@@ -569,8 +569,13 @@ __dk_run_phases() {
     # Write phase timing now that claude actually ran. This must happen AFTER
     # claude exits so times_file only exists when a real session was created —
     # the --resume guard on phase 1 (and phases 2-5) checks this file.
-    mkdir -p "$(dirname "$times_file")"
-    echo "${step}:${phase_start_epoch}" >> "$times_file"
+    # Skip writing on non-zero exit when no prior entry exists — this means
+    # Claude was interrupted before it could create a persistent session, so
+    # --resume would fail with a session picker instead of resuming.
+    if [[ $exit_code -eq 0 ]] || [[ -f "$times_file" ]]; then
+      mkdir -p "$(dirname "$times_file")"
+      echo "${step}:${phase_start_epoch}" >> "$times_file"
+    fi
 
     local phase_end_epoch
     phase_end_epoch=$(date +%s)

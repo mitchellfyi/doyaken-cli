@@ -10,7 +10,7 @@ Critically evaluate PR review comments — fix what should be fixed, push back o
 
 ## Arguments
 
-None. Operates on the current branch's open PR.
+Optional: a PR number (e.g., `/dkprreview 456`). If omitted, operates on the current branch's open PR.
 
 ## Steps
 
@@ -18,7 +18,20 @@ None. Operates on the current branch's open PR.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-PR_NUM=$(gh pr view --json number -q .number)
+
+# Use provided PR number, or detect from current branch
+if [[ -n "$1" ]]; then
+  PR_NUM="$1"
+else
+  PR_NUM=$(gh pr view --json number -q .number)
+fi
+```
+
+If a PR number was provided, fetch the PR's head branch and check it out locally so `git diff` commands work correctly:
+
+```bash
+PR_BRANCH=$(gh pr view $PR_NUM --json headRefName -q .headRefName)
+git fetch origin "$PR_BRANCH"
 ```
 
 Fetch all review data:
@@ -48,8 +61,16 @@ Before evaluating any comment, build context on the PR's scope and intent:
 ```bash
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
 DEFAULT_BRANCH=$(dk_default_branch)
-git diff origin/$DEFAULT_BRANCH...HEAD --stat
-git log origin/$DEFAULT_BRANCH..HEAD --oneline
+
+# If reviewing a different PR, use its branch; otherwise use HEAD
+if [[ -n "$PR_BRANCH" ]]; then
+  DIFF_REF="origin/$PR_BRANCH"
+else
+  DIFF_REF="HEAD"
+fi
+
+git diff origin/$DEFAULT_BRANCH...$DIFF_REF --stat
+git log origin/$DEFAULT_BRANCH..$DIFF_REF --oneline
 ```
 
 Read the PR description (`gh pr view $PR_NUM --json body -q .body`). This establishes what the change is trying to accomplish — essential for judging whether reviewer suggestions are in-scope.

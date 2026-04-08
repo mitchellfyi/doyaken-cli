@@ -11,13 +11,23 @@ Monitor PR review comments and address feedback from automated and human reviewe
 
 Each invocation is a **single check cycle** — `/loop` handles the scheduling. The session context carries state between invocations naturally.
 
+## Arguments
+
+Optional: a PR number (e.g., `/dkwatchpr 456`). If omitted, operates on the current branch's open PR.
+
 ## Steps
 
 ### 1. Get PR Info
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-PR_NUM=$(gh pr view --json number -q .number)
+
+# Use provided PR number, or detect from current branch
+if [[ -n "$1" ]]; then
+  PR_NUM="$1"
+else
+  PR_NUM=$(gh pr view --json number -q .number)
+fi
 ```
 
 ### 2. Check for Reviews and Comments
