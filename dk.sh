@@ -240,7 +240,7 @@ __dk_classify_exit() {
 __dk_log_phase() {
   local session_id="$1" step="$2" phase_name="$3"
   local start_epoch="$4" end_epoch="$5" duration_s="$6"
-  local iterations="$7" status="$8" exit_code="$9"
+  local iterations="$7" phase_status="$8" exit_code="$9"
   local log_file
   log_file=$(dk_log_file "$session_id")
 
@@ -254,7 +254,7 @@ __dk_log_phase() {
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$session_id" "$step" "$phase_name" "$start_epoch" "$end_epoch" \
-    "$duration_s" "$iterations" "$status" "$exit_code" >> "$log_file"
+    "$duration_s" "$iterations" "$phase_status" "$exit_code" >> "$log_file"
 }
 
 # dk_default_branch is provided by lib/git.sh (sourced via lib/common.sh)
@@ -802,10 +802,9 @@ dk() {
 
     echo "Resuming ${_dk_wt_name} from Phase ${step}: ${DK_PHASE_NAMES[$step]}..."
 
-    __dk_run_phases "$_dk_wt_name" "$_dk_wt_dir" "$_dk_default_branch" "$step" "$state_file" "$times_file" "dk --resume"
-    local _rc=$?
     cd "$_dk_wt_dir" 2>/dev/null
-    return $_rc
+    __dk_run_phases "$_dk_wt_name" "$_dk_wt_dir" "$_dk_default_branch" "$step" "$state_file" "$times_file" "dk --resume"
+    return $?
   fi
 
   # PR-linked mode — resume a session associated with a GitHub PR
@@ -852,10 +851,9 @@ dk() {
   fi
 
   # ── Phase loop ──
-  __dk_run_phases "$_dk_wt_name" "$_dk_wt_dir" "$_dk_default_branch" "$step" "$state_file" "$times_file" "dk ${raw_input}"
-  local _rc=$?
   cd "$_dk_wt_dir" 2>/dev/null
-  return $_rc
+  __dk_run_phases "$_dk_wt_name" "$_dk_wt_dir" "$_dk_default_branch" "$step" "$state_file" "$times_file" "dk ${raw_input}"
+  return $?
 }
 
 # ─── dkloop — prompt loop (run until done) ─────────────────────────────────
