@@ -44,6 +44,32 @@ Use the integrations configured in doyaken.md § Integrations. Skip any that are
 
 If you cannot answer all five confidently, gather more context.
 
+### 2.4 Surface Assumptions and Ask the User
+
+**Bar: if you cannot answer with 100% confidence from the ticket, codebase, or related docs, ask the user.** Do not silently make decisions on the user's behalf — even when the decision seems obvious to you. The user's domain context, deadlines, downstream coordination, and prior decisions are invisible from inside the codebase.
+
+Before defining the target state, list every:
+
+- **Assumption** you're making about scope, behaviour, or constraints
+- **Concern** about ambiguity, conflicting requirements, or risk
+- **Unknown** you couldn't resolve from the materials at hand
+
+For each one, ask: "Could I be wrong about this?" If your confidence is below 100%, surface it to the user.
+
+**How to ask:**
+- Use the `AskUserQuestion` tool to batch up to 4 related clarifying questions at once. Provide concrete options where possible (e.g., "Approach A vs Approach B"). `AskUserQuestion` is allowed in plan mode.
+- Group related questions in a single call rather than asking serially.
+- For genuinely free-form questions where options don't fit, ask in plain text.
+
+**Acceptable to skip asking only when:**
+- The assumption is universally true (e.g., "the codebase uses Git")
+- The decision is fully reversible during implementation with no downstream cost (no contract change, no schema change, no visible behaviour shift)
+- The unknown is implementation detail that can be deferred to TDD discovery without affecting the plan
+
+**Always ask** when the unknown affects: scope, contract (types, schemas, APIs), naming of public symbols, behaviour the user can observe, performance budgets, security posture, or visible UX.
+
+After the user answers, refine the plan. If new unknowns surface, ask again. Iterate until you can articulate every plan decision as either "the user said X" or "this is universally safe / fully reversible during implementation". Residual assumptions that survive this loop must be listed verbatim in Step 7 alongside the plan.
+
 ### 2.5 Define the Target State
 
 Before drafting task lists, explicitly describe the end state:
@@ -105,7 +131,8 @@ Before presenting the plan, verify it against these quality gates:
 3. **RESEARCH** — Were common pitfalls for the chosen approach checked? Is there prior art in the codebase? Is a migration strategy documented for breaking changes?
 4. **DEPENDENCIES** — Are tasks correctly ordered? Would any task fail if run before another? Are shared types/interfaces created before consumers?
 5. **SCOPE** — Is the plan minimal and focused? Remove any task not required by the acceptance criteria. Do not plan for hypothetical future work.
-6. **RISKS** — Are unknowns identified? For each risk, is there a mitigation or fallback? Are there questions needing answers before implementation?
+6. **RISKS** — Are unknowns identified? For each risk, is there a mitigation or fallback?
+7. **ASSUMPTIONS** — Has every <100%-confidence assumption been surfaced to the user via Step 2.4 and answered? List the assumptions you made; for each, name the source: "user said X" or "universally safe / fully reversible". If you cannot name a source, you skipped Step 2.4 — go back and ask.
 
 If any gate fails, fix the plan before proceeding.
 
@@ -125,8 +152,11 @@ Add the plan summary to the ticket via the configured tracker. If no tracker is 
 Include:
 - The numbered plan with task descriptions
 - Files that will be modified
-- Any questions or decisions needed
-- Risks or unknowns identified
+- **Assumptions surfaced and answered** — list each assumption resolved in Step 2.4 with a one-line note on what the user told you (so they can sanity-check)
+- **Residual unknowns or open decisions** — anything that survived Step 2.4 (e.g., implementation details deferred to TDD); flag explicitly so the user can correct course
+- Risks identified
+
+If the previous step ended with no answered questions, double-check Step 2.4 — a non-trivial change with zero assumptions usually means assumptions were made silently.
 
 When running in plan mode (e.g., via `dk` Phase 1 or `dkloop`), present the plan via `ExitPlanMode`. The user approves or rejects through the plan mode UI.
 
