@@ -2,7 +2,22 @@ Before stopping, run a thorough adversarial review of the implementation. Do NOT
 
 You are in the **Review phase** — your ONLY job is to find and fix issues. The implementation was written in a prior session. Review it as a critical, adversarial reviewer who did NOT write this code.
 
-If you haven't already, read the implementation guardrails from `prompts/guardrails.md` — they inform what to look for in the review passes below.
+## Step 0: Codebase Context (mandatory)
+
+Before reviewing, gather the project context needed to judge findings. Skipping this step is the primary source of false positives — patterns that look unusual in isolation are often the project's convention.
+
+Read in this order — stop when you have enough:
+
+1. `CLAUDE.md` (root and any nested), `AGENTS.md`, plus any `.doyaken/rules/*.md` they reference
+2. `.doyaken/doyaken.md` — especially any `## Reviewers` or project-specific review-criteria sections
+3. The plan file or ticket — what was the intended scope and out-of-scope list?
+4. Recent fix history of touched files: `git log --oneline --since=3.months -- <file>` for each changed file
+5. Similar features in the codebase — for any pattern the change introduces (`Grep` for existing instances). Established conventions filter out "doesn't match best practice" findings.
+6. `prompts/guardrails.md` — implementation discipline that informs review passes
+7. `prompts/review.md` — the canonical 12-pass criteria; treat its Phase 0 preamble as part of THIS phase
+8. `prompts/failure-recovery.md` and any `.debt` ledger entries — debt items already accepted should not be re-raised
+
+Every finding the review produces MUST cite which Phase 0 artefact backs it (e.g., "AGENTS.md:47 says hooks must use `set -euo pipefail`; this hook does not"). Findings without a Phase 0 anchor are filtered.
 
 ## Step 1: Self-Review via /dkreview (find only — no fixes yet)
 
@@ -14,7 +29,7 @@ Read the report carefully. Do NOT fix anything yet — record all findings for t
 
 **CRITICAL: Do NOT fix anything during this step. Only find and record.**
 
-Perform four manual review passes in addition to the /dkreview findings. For each issue, record: `[INV-N] file:line | Pass | Severity | Description`
+Perform six manual review passes in addition to the /dkreview findings. For each issue, record: `[INV-N] file:line | Pass | Severity | Description`
 
 Reference `prompts/review.md` for the full criteria behind each pass.
 
@@ -23,37 +38,100 @@ Reference `prompts/review.md` for the full criteria behind each pass.
 For each acceptance criterion, trace the implementing code end-to-end:
 - Happy path, failure paths, edge cases (empty/null/zero/boundary)
 - Try to BREAK each function — construct inputs that cause failure, states that cause inconsistency
-- Off-by-one errors, null checks, race conditions
+- Off-by-one errors, null checks
+- **Concurrency & races** — shared state without synchronisation, TOCTOU gaps, async ordering, reentrancy
+- **Idempotency** — does a retry/duplicate invocation cause duplicate side effects?
+- **State transitions** — atomic? Rollback path on partial failure? Exhaustive state machine?
 - Missing error handling — swallowed errors, generic catch-alls, empty catch blocks
-- Resource cleanup — are opened resources closed on both success and failure paths?
+- Resource cleanup — opened resources closed on both success and failure paths
+- Error propagation depth — does the error carry enough context to diagnose at the top of the stack?
 
 ### Pass B: Structure, Design & Documentation
 
-- Workarounds, hacks, TODOs, or hardcoded values?
-- Unnecessary complexity or abstraction?
-- Unused imports, dead code, commented-out code?
-- N+1 queries, unbounded loops, performance anti-patterns?
-- Does every new public function/method have a corresponding test?
-- Non-obvious logic has a "why" comment? Complex regexes explained? Magic numbers named?
-- New public APIs have doc comments?
+- Workarounds, hacks, TODOs without linked tickets, hardcoded values
+- Unnecessary complexity or abstraction (YAGNI)
+- Unused imports, dead code, commented-out code, debug artifacts (`console.log`, `print`, etc.)
+- N+1 queries, unbounded loops, performance anti-patterns
+- Algorithm complexity appropriate (no O(n²) where O(n log n) is achievable at scale)
+- Every new public function/method has a corresponding test
+- Non-obvious logic has a "why" comment; complex regexes explained; magic numbers named
+- New public APIs have doc comments with parameter/return descriptions
+- Coupling — does new code reach across module boundaries / bypass project layering?
+- Cohesion — single, clearly-named responsibility per module/function?
 
 ### Pass C: Security
 
-Review all changes for security gaps (reference `prompts/review.md` Pass C for full criteria):
-- New endpoints/routes have appropriate authentication and authorization?
-- No hardcoded secrets, credentials, or API keys?
-- No sensitive data in logs, error messages, or API responses?
-- Input validated at system boundaries?
-- Database queries use parameterized queries — no string interpolation?
-- Secure defaults — features restricted by default, not permissive?
+OWASP Top 10 categories explicitly (reference `prompts/review.md` Pass C for full criteria):
 
-### Pass D: Holistic Consistency & Dependencies
+- **A01 Access control** — every endpoint has authn AND authz (object-level, not just session-level)
+- **A02 Cryptography** — no hardcoded secrets, no weak algorithms, secrets via env/secret-manager
+- **A03 Injection** — parameterised SQL, no `shell=True`/`eval` on user input, template auto-escape, no `eval`/`exec` on untrusted input
+- **A04 Insecure design** — secure defaults, defense in depth, threat-model new trust boundaries
+- **A05 Misconfiguration** — security headers, narrow CORS, cookie flags, no leak of stack traces / internals to clients
+- **A06 Vulnerable components** — new deps pinned, CVE-checked, maintained
+- **A07 Auth failures** — random expiring rotating session tokens, slow KDF for passwords, MFA / rate-limit on login
+- **A08 Integrity** — webhook signature verification, safe deserialization (no pickle on untrusted input), supply-chain integrity
+- **A09 Logging gaps** — security-relevant events logged; no secrets/PII in logs
+- **A10 SSRF** — outbound URLs validated against allowlist
+- **CSRF** — state-changing requests require token / SameSite cookie
+- **TOCTOU** — auth/permission checks atomic with the operation they guard
+- **PII** — minimum necessary, retention documented, no PII in logs/metrics/traces
+
+### Pass D: Performance
+
+- N+1 queries (loop with query inside)
+- Pagination on list operations; no unbounded data
+- Indexes for new query patterns
+- Timeouts on all external calls
+- No unbounded loops over user-controlled data
+- Bulk over row-by-row, caching where read-heavy, connection pooling
+- Memory profile — buffering vs streaming, GC pressure in hot paths
+- Lock contention — coarse locks across I/O, deadlock risk
+
+### Pass E: Testing
+
+- Tests cover behaviour, not implementation
+- Real schemas/types imported, not redefined in tests
+- Mocks at boundaries only (external services, time, randomness, FS)
+- Edge cases / failure paths tested, not just happy path
+- Tests can actually fail — no tautologies, no asserting on mocked data
+- Each test independent; no shared mutable state
+- Each acceptance criterion has at least one test
+- Regression tests for any `fix:` introduced in the change
+
+### Pass F: Observability (production code only)
+
+- Logs at error/state-transition points; structured if the project is structured
+- Metrics for new counters/histograms/gauges where the existing code uses them
+- Tracing spans for new external calls (if project uses tracing)
+- Health/readiness reflects new background jobs / external dependencies
+- No secrets/PII in logs/metrics/traces
+
+If the project has no observability tooling, downgrade these findings to suggestions in the PR description.
+
+### Pass G: Backward Compatibility (when public contract touched)
+
+For changes to HTTP API, CLI, library API, DB schema, event/wire format, config format:
+
+- Breaking changes called out in PR description / CHANGELOG
+- Migration path documented; deprecation cycle for additive-then-remove
+- DB migrations split correctly (additive before required, drops gated/last)
+- No silent wire-format changes (renamed fields without aliases, removed protobuf field numbers)
+- Default-value changes verified safe for existing callers
+- Risky changes wrapped in feature flags
+
+If the change does NOT touch a public contract, mark Pass G as N/A.
+
+### Pass H: Holistic Consistency & Dependencies
 
 Run `git diff` against the base branch and review ALL changes together:
-- Naming, error handling, and logging consistent across all changed files?
-- Patterns established in one file followed in all files?
-- Code consistent with existing codebase conventions?
-- If you changed a contract (type, API, schema), trace consumers up to 3 hops deep using `Grep` — are all consumers updated?
+
+- Naming, error handling, logging, validation patterns consistent across all changed files
+- Patterns established in one file followed in all files
+- Code consistent with existing codebase conventions (`Grep` for nearby precedent)
+- If a contract changed (type, API, schema), trace consumers up to 3 hops deep using `Grep` — all consumers updated?
+- Architectural drift — does this change collectively shift the architecture?
+- Boundary integrity — external concerns (HTTP/DB/FS types) at the edge, not in domain code
 
 ## Step 3: Independent Self-Reviewer Agent
 

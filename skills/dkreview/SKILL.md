@@ -9,11 +9,11 @@ Agentic implementation review that combines deterministic tooling with semantic 
 
 ## Overview
 
-Four phases, executed sequentially:
+Four phases, executed sequentially. Phase 0 (Codebase Context) is a sub-step of Phase 0 — it runs FIRST so all subsequent passes have the context they need.
 
-0. **Deterministic Foundation** — machine checks establish a clean baseline
+0. **Deterministic Foundation** — codebase context + machine checks establish a clean baseline
 1. **Review Plan** — assign review depth and applicable passes per file
-2. **Semantic Review** — full-file context, dependency tracing, convention checks
+2. **Semantic Review** — full-file context, dependency tracing, convention checks (12 passes A-L)
 3. **Fix and Re-Review Loop** — fix findings, re-check, repeat (max 3 iterations)
 
 ---
@@ -21,6 +21,22 @@ Four phases, executed sequentially:
 ## Phase 0: Deterministic Foundation
 
 Run machine checks first. Don't waste semantic review effort on issues linters catch.
+
+### 0.0 — Codebase Context (mandatory)
+
+Before scope analysis, gather the context you need to judge findings. **Skipping this is the primary source of false positives** — what looks like a bug in isolation is often an established pattern when read in context.
+
+Read in this order — stop early when you have enough to judge the change:
+
+1. `CLAUDE.md` (root and any nested), `AGENTS.md` — language boundaries, naming, error-handling, architecture rules
+2. `.doyaken/rules/*.md` files referenced from CLAUDE.md / AGENTS.md
+3. `.doyaken/doyaken.md § Reviewers` and any project-specific review-criteria sections — some projects extend or override the defaults
+4. The plan file, ticket, or commit messages — what was the intended scope? What was explicitly out of scope?
+5. Recent fix history of the touched files — `git log --oneline --since=3.months -- <file>` for each deep-review file. Recent `fix:` commits = fragile area, apply extra scrutiny.
+6. Similar code in the repo — for any pattern the change introduces, `Grep` for existing instances. If pattern X is established (3+ occurrences) and the change introduces Y instead, that's a finding. If the change uses an "unusual" pattern that turns out to match an established convention, the finding is filtered.
+7. `prompts/failure-recovery.md` and any `.debt` ledger files — debt items already accepted should not be re-raised
+
+When you flag a finding, the report MUST cite which Phase 0 artefact you checked (e.g., "AGENTS.md says all hooks must use `set -euo pipefail`; this hook does not"). Findings without a Phase 0 anchor are downgraded.
 
 ### 0.1 — Scope Analysis
 
@@ -91,8 +107,8 @@ Select which review passes apply per file. If the plan includes **task risk leve
 | Risk | Passes | Notes |
 |------|--------|-------|
 | **LOW** | A, F, H | Correctness, Style, Acceptance Criteria only |
-| **MEDIUM** | A, B, C, E, F, G, H, J | Skip D (Performance) and I (Documentation) unless complex |
-| **HIGH** | All 10 passes | Full dependency trace + git history context |
+| **MEDIUM** | A, B, C, E, F, G, H, J | Skip D (Performance), I (Documentation), K (Observability), L (BC) unless they apply to the touched files |
+| **HIGH** | All 12 passes | Full dependency trace + git history context |
 
 If no risk metadata is available, fall back to the file-based assignment below.
 
@@ -100,22 +116,24 @@ If no risk metadata is available, fall back to the file-based assignment below.
 
 | Pass | Applies when |
 |------|-------------|
-| **A: Correctness** | Business logic, services, data access |
-| **B: Design** | New files, refactored code, complex changes |
-| **C: Security** | Auth, access control, external APIs, data access |
-| **D: Performance** | Database queries, list endpoints, loops, external calls |
-| **E: Testing** | Test files |
-| **F: Style** | All files |
-| **G: Dependency Consistency** | Types, schemas, API contracts, migrations |
+| **A: Correctness & Logic** | Business logic, services, data access, anything with branching or async |
+| **B: Design & Architecture** | New files, refactored code, complex changes, new boundaries |
+| **C: Security** | Auth, access control, external APIs, data access, file uploads, deserialization |
+| **D: Performance** | Database queries, list endpoints, loops, external calls, hot paths |
+| **E: Testing** | Test files, plus any production code with new branches |
+| **F: Style & Conventions** | All files |
+| **G: Dependency Consistency** | Types, schemas, API contracts, migrations, anything imported from elsewhere |
 | **H: Acceptance Criteria** | All production code (if ticket context available) |
-| **I: Documentation Quality** | All files with non-obvious logic |
+| **I: Documentation Quality** | All files with non-obvious logic; new public APIs |
 | **J: Holistic Consistency** | All changed files (cross-file pass) |
+| **K: Observability** | Production code paths (not docs/tests); new error paths or background jobs |
+| **L: Backward Compatibility** | Public APIs, CLI, DB schema, event/wire formats, config formats, defaults |
 
 ---
 
 ## Phase 2: Semantic Review
 
-Read the review criteria from `prompts/review.md` for the 10-pass criteria (A-J) and confidence scoring guidelines. Also check the project's CLAUDE.md or `.doyaken/doyaken.md` for project-specific review criteria.
+Read the review criteria from `prompts/review.md` for the 12-pass criteria (A-L), the Phase 0 codebase-context preamble, the Observe-Verify-Conclude protocol, and confidence scoring guidelines. Project-specific extensions live in `CLAUDE.md`, `AGENTS.md`, and `.doyaken/doyaken.md`.
 
 ### 2.0 — Cross-File Overview Scan
 
@@ -125,6 +143,7 @@ Before reviewing individual files, scan ALL changed files at the diff level to b
 - What contracts or interfaces cross file boundaries?
 - What assumptions does File A make about File B?
 - Are there cross-file patterns that should be consistent?
+- Does the change introduce a new pattern or follow an existing one? (`Grep` for similar features)
 
 Record cross-file assumptions — these will be verified in Phase 2.2-2.3 and 2.8.
 
@@ -200,13 +219,40 @@ Execute Pass I from `prompts/review.md` on all files with non-obvious logic:
 - Functions with complex control flow need "why" comments
 - New public APIs need doc comments
 - Complex regexes, magic numbers, and non-trivial algorithms need explanation
+- Architectural decisions of substance captured in ADR / decisions log
+- User-facing changes reflected in CHANGELOG / README
 
-### 2.8 — Holistic Consistency
+### 2.8 — Observability
+
+Execute Pass K from `prompts/review.md` on production code paths:
+
+- Logs at error/state-transition points, structured if the project is structured
+- Metrics for new counters/histograms/gauges where the existing code has them
+- Tracing spans for new external calls (if the project uses tracing)
+- Health/readiness reflects new background jobs and external dependencies
+- No secrets/PII in logs/metrics/traces
+
+If the project has no observability tooling, downgrade these findings to suggestions.
+
+### 2.9 — Backward Compatibility
+
+Execute Pass L from `prompts/review.md` if the change touches a public contract (HTTP API, CLI, library API, DB schema, event/wire format, config format):
+
+- Breaking changes called out in PR description / CHANGELOG
+- Migration path documented
+- DB migrations split correctly (additive before required, drops gated/last)
+- No silent wire-format changes (renamed fields without aliases, removed protobuf field numbers, etc.)
+- Default-value changes verified safe for existing callers
+- Risky changes wrapped in feature flags
+
+### 2.10 — Holistic Consistency
 
 Execute Pass J from `prompts/review.md` across ALL changed files as a set:
 
 - Review the cross-file assumptions recorded in Phase 2.0
 - Check naming, error handling, logging, and pattern consistency across all changed files
+- Detect architectural drift — does this change collectively shift the architecture in a way no individual file makes obvious?
+- Boundary integrity — external concerns (HTTP/DB/FS types) stay at the edge, not in domain code
 - This pass catches issues invisible when reviewing files individually
 
 ---

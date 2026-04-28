@@ -41,13 +41,13 @@ gh api repos/$REPO/pulls/$PR_NUM/comments
 
 If there are unaddressed comments (comments not yet replied to or resolved):
 
-Run `/dkprreview` to critically evaluate and respond to each comment.
+Run `/dkprreview --reply=inline` to critically evaluate and respond to each comment. Pass `--reply=inline` so the autonomous loop doesn't pause asking the user — `dkwatchpr` is running unattended and inline replies are the right default.
 
 `/dkprreview` will:
 - Classify each comment (bug, security, request-change, question, suggestion, nitpick, approval)
 - Critically evaluate whether to fix, push back, answer, or escalate
 - Implement and push fixes for accepted comments
-- Reply to every comment with reasoning
+- Reply to every comment inline with reasoning
 - Return a list of escalations (if any)
 
 If `/dkprreview` reports escalations, proceed to Step 5 (Escalation).

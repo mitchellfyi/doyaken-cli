@@ -1,6 +1,6 @@
 # Skill: dkprreview
 
-Critically evaluate PR review comments — fix what should be fixed, push back on what should not, and escalate what needs human judgement.
+Critically evaluate PR review comments — fix what should be fixed, push back on what should not, and escalate what needs human judgement. Always confirm with the user how they want replies delivered (inline on the PR per comment, or just summarised in the terminal).
 
 ## When to Use
 
@@ -12,7 +12,28 @@ Critically evaluate PR review comments — fix what should be fixed, push back o
 
 Optional: a PR number (e.g., `/dkprreview 456`). If omitted, operates on the current branch's open PR.
 
+Optional reply-mode override (skips the user prompt in Step 5.5):
+- `--reply=inline` — post a reply to each comment on the PR (default behaviour)
+- `--reply=terminal` — print proposed replies in the terminal report only; do not touch the PR
+
+The same overrides can be set via `DOYAKEN_PRREVIEW_REPLY_MODE=inline|terminal` in the environment.
+
 ## Steps
+
+### 0. Codebase Context (mandatory)
+
+Before evaluating any reviewer comment, gather the project context that lets you tell a substantive concern from a personal preference. Skipping this step means you risk fixing things that contradict the project's own conventions.
+
+Read in this order — stop when you have enough:
+
+1. `CLAUDE.md` (root and any nested) and `AGENTS.md` — language boundaries, naming, error-handling, architecture rules
+2. `.doyaken/rules/*.md` referenced from those files
+3. `.doyaken/doyaken.md § Reviewers` — the configured reviewers; mention-type bots' substantive feedback IS actionable (we deliberately invited them)
+4. `prompts/review.md` — the 12-pass criteria; use it to classify the comment's underlying concern (Pass A correctness, Pass C security, etc.)
+5. The plan file or ticket — establishes scope and out-of-scope. Comments asking for out-of-scope changes are Tier 3 (escalate).
+6. Similar code in the repo: when a comment says "do X instead", `Grep` for whether the codebase already does X or Y. If Y is the established pattern in 3+ places, "do X" is likely a personal preference and goes to Tier 2 evaluation, not Tier 1.
+
+Every "fix" or "do not fix" decision in Step 3 must reference one of these artefacts in the reply (e.g., "Keeping current approach: matches the pattern in `auth/middleware.ts:42` and `auth/session.ts:91`").
 
 ### 1. Gather Context
 
@@ -145,7 +166,27 @@ After all fixes are implemented and verified:
    git push
    ```
 
+### 5.5. Confirm Reply Mode
+
+Before posting anything to GitHub, confirm with the user how they want replies delivered.
+
+**Resolution order:**
+
+1. **`--reply=` argument** — if the invocation included `--reply=inline` or `--reply=terminal`, use that and skip the question.
+2. **`DOYAKEN_PRREVIEW_REPLY_MODE` env var** — if set to `inline` or `terminal`, use that and skip the question.
+3. **Otherwise, ask via `AskUserQuestion`:**
+
+   Question: "How should I deliver replies to these review comments?"
+   - **Inline on the PR (per comment)** — post a reply to each comment via `gh api repos/.../comments/<id>/replies` and `gh api repos/.../issues/<n>/comments`. Each reviewer sees a thread under their own comment. (Recommended)
+   - **Terminal only (summary)** — print the proposed replies in the terminal report (Step 8). Do not touch the PR. The user can copy-paste any replies they want to post manually.
+
+If the answer is **terminal**, skip Step 6 entirely and expand Step 8's report to include each comment with the proposed reply text in a quote-block beneath it.
+
+If the answer is **inline**, proceed to Step 6 as written.
+
 ### 6. Reply to Comments
+
+(Skip this step if the user chose `terminal` mode in Step 5.5.)
 
 After pushing (so commit SHAs are available), reply to every unaddressed comment. Use the appropriate API endpoint based on comment type:
 
@@ -193,10 +234,12 @@ If any comments were classified as Tier 3 (escalate):
 
 ### 8. Report
 
-Print a summary:
+Print a summary. The summary table is the same regardless of reply mode; in `terminal` mode, append a "Proposed replies" section with the full reply text per comment so the user can post them manually.
 
 ```
 ## PR Review Comments Addressed
+
+Reply mode: <inline | terminal>
 
 | # | Reviewer | Type | Decision | Detail |
 |---|----------|------|----------|--------|
@@ -210,6 +253,34 @@ Print a summary:
 **Answered:** N questions
 **Escalated:** N comments (awaiting user direction)
 ```
+
+**Additional `terminal`-mode section** (only when reply mode = terminal):
+
+```
+## Proposed Replies (not posted to PR)
+
+### Comment #1 — @reviewer (Bug report)
+> "<original comment text, quoted>"
+on `path/to/file.ts:42`
+
+**Reply:**
+> Fixed in <short-sha>. <1-2 sentence explanation.>
+
+---
+
+### Comment #2 — @reviewer (Suggestion)
+> "<original comment text>"
+on `path/to/file.ts:91`
+
+**Reply:**
+> Keeping current approach: matches the pattern in `auth/middleware.ts:42` and `auth/session.ts:91`. Open to discussion if you see something I'm missing.
+
+---
+
+(... etc)
+```
+
+This block lets the user copy any individual reply into the GitHub UI, or skip them entirely.
 
 ## Notes
 
