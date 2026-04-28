@@ -18,9 +18,9 @@ if [[ ! -f "$doyaken_md" ]]; then
   exit 1
 fi
 
-# Clean up temp files on exit (normal or interrupt). The awk section below
-# writes to a .integrations.tmp file that must not be left behind.
-trap 'rm -f "${doyaken_md}.integrations.tmp" "${doyaken_md}.tmp" 2>/dev/null' EXIT
+# Clean up temp files on exit (normal or interrupt). The awk sections below
+# write to .integrations.tmp / .reviewers.tmp files that must not be left behind.
+trap 'rm -f "${doyaken_md}.integrations.tmp" "${doyaken_md}.reviewers.tmp" "${doyaken_md}.tmp" 2>/dev/null' EXIT
 
 echo "Configuring integrations..."
 echo ""
@@ -74,6 +74,74 @@ ask_yn "Sentry (error monitoring)?" "n" && SENTRY_STATUS="enabled"
 ask_yn "Vercel (deployments)?" "n" && VERCEL_STATUS="enabled"
 ask_yn "Grafana (observability)?" "n" && GRAFANA_STATUS="enabled"
 
+# ── Reviewers ───────────────────────────────────────────────────────────
+#
+# Phase 6 (Complete) marks the PR ready and assigns these reviewers.
+# Two assignment types:
+#   request — gh pr edit --add-reviewer <handle>  (humans, Copilot, anything GitHub supports)
+#   mention — @<handle> posted as a PR comment   (for AI agents that watch mentions)
+#
+# Defaults: current authenticated GitHub user + Copilot (both request type).
+
+echo ""
+echo "Reviewers (assigned in Phase 6 when PR is marked ready):"
+
+# Auto-detect the current authenticated GitHub user
+CURRENT_GH_USER=""
+if command -v gh &>/dev/null; then
+  CURRENT_GH_USER=$(gh api user --jq .login 2>/dev/null || echo "")
+fi
+
+REVIEWER_ROWS=""
+if [[ -n "$CURRENT_GH_USER" ]]; then
+  echo "  Detected GitHub user: @${CURRENT_GH_USER}"
+  if ask_yn "Add @${CURRENT_GH_USER} as a reviewer (request)?" "y"; then
+    REVIEWER_ROWS+="| @${CURRENT_GH_USER} | request | Authenticated GitHub user |"$'\n'
+  fi
+else
+  echo "  (Could not auto-detect GitHub user — install/auth gh to enable.)"
+fi
+
+if ask_yn "Add Copilot as a reviewer (request)?" "y"; then
+  REVIEWER_ROWS+="| Copilot | request | GitHub Copilot review |"$'\n'
+fi
+
+echo ""
+echo "Add additional reviewers? Enter '<handle> <type>' (type = request|mention),"
+echo "or empty to finish. Example: '@dependabot mention' or 'octocat request'"
+while true; do
+  printf "Reviewer: "
+  read -r reviewer_line
+  [[ -z "$reviewer_line" ]] && break
+  rev_handle=$(echo "$reviewer_line" | awk '{print $1}')
+  rev_type=$(echo "$reviewer_line" | awk '{print $2}')
+  case "$rev_type" in
+    request|mention) ;;
+    *) echo "  Invalid type '$rev_type' — must be 'request' or 'mention'. Try again."; continue ;;
+  esac
+  if [[ -z "$rev_handle" ]]; then
+    echo "  Empty handle — skipping."
+    continue
+  fi
+  REVIEWER_ROWS+="| ${rev_handle} | ${rev_type} | Added via dk config |"$'\n'
+  echo "  Added: ${rev_handle} (${rev_type})"
+done
+
+if [[ -z "$REVIEWER_ROWS" ]]; then
+  REVIEWER_ROWS="| _none_ | _none_ | No reviewers configured — Phase 6 will skip review-request and mention steps |"$'\n'
+fi
+
+REVIEWERS="## Reviewers
+
+Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
+- \`request\` — \`gh pr edit --add-reviewer <handle>\` (humans, Copilot, anything GitHub supports)
+- \`mention\` — \`@<handle>\` posted as a PR comment (for AI agents that watch mentions)
+
+| Handle | Type | Notes |
+|--------|------|-------|
+${REVIEWER_ROWS}
+Edit rows directly or rerun \`dk config\`. Remove a row to skip a reviewer."
+
 # ── Write to doyaken.md ──────────────────────────────────────────────────
 
 INTEGRATIONS="## Integrations
@@ -114,6 +182,26 @@ else
 fi
 rm -f "$INTEGRATIONS_TMP"
 
+# Write Reviewers section using the same temp+awk pattern
+REVIEWERS_TMP="${doyaken_md}.reviewers.tmp"
+printf '%s\n' "$REVIEWERS" > "$REVIEWERS_TMP"
+
+if grep -q '^## Reviewers' "$doyaken_md" 2>/dev/null; then
+  _DKTMP="$REVIEWERS_TMP" awk '
+    /^## Reviewers/ { skip=1; while ((getline line < ENVIRON["_DKTMP"]) > 0) print line; next }
+    skip && /^## / { skip=0 }
+    !skip { print }
+  ' "$doyaken_md" > "${doyaken_md}.tmp" && mv "${doyaken_md}.tmp" "$doyaken_md"
+elif grep -q '^## Workflow' "$doyaken_md" 2>/dev/null; then
+  _DKTMP="$REVIEWERS_TMP" awk '
+    /^## Workflow/ { while ((getline line < ENVIRON["_DKTMP"]) > 0) print line; print "" }
+    { print }
+  ' "$doyaken_md" > "${doyaken_md}.tmp" && mv "${doyaken_md}.tmp" "$doyaken_md"
+else
+  printf '\n%s\n' "$REVIEWERS" >> "$doyaken_md"
+fi
+rm -f "$REVIEWERS_TMP"
+
 echo ""
 echo "Integrations configured:"
 echo "  Ticket tracker: ${TRACKER_TOOL} (${TRACKER_STATUS})"
@@ -121,6 +209,9 @@ echo "  Ticket tracker: ${TRACKER_TOOL} (${TRACKER_STATUS})"
 [[ "$SENTRY_STATUS" == "enabled" ]] && echo "  Sentry: enabled"
 [[ "$VERCEL_STATUS" == "enabled" ]] && echo "  Vercel: enabled"
 [[ "$GRAFANA_STATUS" == "enabled" ]] && echo "  Grafana: enabled"
+echo ""
+echo "Reviewers configured:"
+printf '%s' "$REVIEWER_ROWS" | sed 's/^| /  - /; s/ |.*//' | grep -v '^$'
 # ── Promote MCP servers to global settings ────────────────────────────
 #
 # Project-level .mcp.json servers require per-directory OAuth. When dk

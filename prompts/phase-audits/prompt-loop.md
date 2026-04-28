@@ -176,7 +176,7 @@ If updates are needed but missing, make them now.
 
 ## Completion Gate
 
-Only output PROMPT_COMPLETE when ALL of these are true:
+ALL of these must be true before you stop:
 - Every acceptance criterion from Step 1 has status MET in the evidence table (Step 8)
 - The findings inventory from your last re-verification (Step 6) is empty
 - **Code-change sessions:** /dkreview result is PASS (not PASS WITH WARNINGS or NEEDS ATTENTION), AND you have run /dkreview AFTER your most recent code change
@@ -184,10 +184,6 @@ Only output PROMPT_COMPLETE when ALL of these are true:
 - Any needed `.doyaken/` updates are applied (Step 9)
 - You have re-verified AFTER your most recent change of any kind
 
-Do NOT output PROMPT_COMPLETE if any acceptance criterion is NOT MET, any findings remain, /dkreview is not PASS (for code changes), or /dkverify has failures (for code changes). Fix first, then re-audit from Step 3.
+Do NOT stop if any acceptance criterion is NOT MET, any findings remain, /dkreview is not PASS (for code changes), or /dkverify has failures (for code changes). Fix first, then re-audit from Step 3.
 
-Before outputting PROMPT_COMPLETE, write the completion signal file:
-
-```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh" && touch "$(dk_complete_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")"
-```
+When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions after sufficient consecutive clean audit passes.

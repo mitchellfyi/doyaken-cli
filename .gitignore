@@ -2,3 +2,17 @@
 __pycache__/
 *.pyc
 .claude/scheduled_tasks.lock
+
+# Vendor skills installed via Claude plugins should never be committed.
+# Doyaken only ships its own dk*/doyaken skills. See AGENTS.md § Vendor skills.
+skills/figma-*/
+skills/asana-*/
+skills/linear-*/
+skills/notion-*/
+skills/slack-*/
+skills/hubspot-*/
+skills/gmail-*/
+skills/microsoft-*/
+skills/google-*/
+skills/fireflies-*/
+skills/vibe-*/

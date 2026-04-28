@@ -40,4 +40,4 @@ if [[ -f "$TIMES_FILE" ]]; then
   fi
 fi
 
-echo "Phase ${PHASE}/5${ITER}${ELAPSED}"
+echo "Phase ${PHASE}/6${ITER}${ELAPSED}"

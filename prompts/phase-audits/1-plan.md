@@ -40,13 +40,9 @@ Before stopping, critically audit your plan:
 
 If you find gaps in any of the above, fix them and re-present the plan.
 
-Only output PHASE_1_COMPLETE when:
+**Completion criteria** — all must be true before you stop:
 - All acceptance criteria are covered by tasks
 - Edge cases are accounted for
 - The user has explicitly approved the plan
 
-Before outputting PHASE_1_COMPLETE, write the completion signal file so the Stop hook detects it:
-
-```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh" && touch "$(dk_complete_file "$(dk_session_id)")"
-```
+When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions.

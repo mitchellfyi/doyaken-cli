@@ -85,10 +85,20 @@ dk_debt_file() { echo "${DK_LOOP_DIR}/${1}.debt"; }
 # dk_loop_config_file <session_id> — loop configuration (phase:promise:audit_file_path)
 dk_loop_config_file() { echo "${DK_LOOP_DIR}/${1}.config"; }
 
+# dk_review_state_file <session_id> — review sub-loop clean pass counter (survives interrupts)
+dk_review_state_file() { echo "${DK_LOOP_DIR}/${1}.review-state"; }
+
+# dk_review_result_file <session_id> — per-iteration review result ("CLEAN" or "FINDINGS:N")
+dk_review_result_file() { echo "${DK_LOOP_DIR}/${1}.review-result"; }
+
+# dk_complete_state_file <session_id> — Phase 6 cycle bookkeeping ("cycle_count:last_check_epoch")
+# Survives interrupts so resuming Phase 6 picks up the same cycle counter.
+dk_complete_state_file() { echo "${DK_LOOP_DIR}/${1}.complete-state"; }
+
 # dk_cleanup_session <session_id>
 # Remove all loop and phase state files for a session. Safe to call when dirs don't exist.
 dk_cleanup_session() {
   local sid="$1"
-  [[ -d "$DK_LOOP_DIR" ]]  && rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" "$(dk_findings_file "$sid")" "$(dk_debt_file "$sid")" "$(dk_loop_config_file "$sid")" 2>/dev/null
+  [[ -d "$DK_LOOP_DIR" ]]  && rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" "$(dk_findings_file "$sid")" "$(dk_debt_file "$sid")" "$(dk_loop_config_file "$sid")" "$(dk_review_state_file "$sid")" "$(dk_review_result_file "$sid")" "$(dk_complete_state_file "$sid")" 2>/dev/null
   [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" "$(dk_log_file "$sid")" 2>/dev/null
 }

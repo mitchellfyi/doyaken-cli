@@ -43,15 +43,11 @@ If you pushed and got errors (e.g., remote rejection, hook failures), fix the is
 
 ## Completion criteria
 
-Only output PHASE_3_COMPLETE when:
+ALL of these must be true before you stop:
 - All quality checks pass (format, lint, typecheck, tests)
 - Commits are clean and atomic with conventional messages
 - No unwanted files in the diff
 - Any `.doyaken/` changes are committed cleanly
 - Code is pushed to origin successfully
 
-Before outputting PHASE_3_COMPLETE, write the completion signal file so the Stop hook detects it:
-
-```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh" && touch "$(dk_complete_file "$(dk_session_id)")"
-```
+When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions.

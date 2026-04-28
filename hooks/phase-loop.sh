@@ -5,15 +5,18 @@
 #   1. Claude tries to stop → this hook runs
 #   2. Check .complete file → if found, allow stop (exit 0)
 #   3. Check iteration count → if max reached, allow stop (exit 0)
-#   4. Otherwise: inject audit prompt into stderr, block stop (exit 2)
+#   4. Check min audit iterations:
+#      a. Below threshold → block stop, inject audit prompt WITHOUT completion instructions
+#      b. At/above threshold → block stop, inject audit prompt WITH completion instructions
 #   5. Claude reads the audit prompt, reviews its work, and either:
 #      a. Finds issues → fixes them → tries to stop → back to step 1
-#      b. Finds nothing → writes .complete file → tries to stop → step 2 allows it
+#      b. Finds nothing, below min iterations → tries to stop → back to step 4a
+#      c. Finds nothing, at/above min iterations → writes .complete → step 2 allows stop
 #
 # Completion detection:
-#   .complete signal file — written by phase audit prompts (Phases 1-4)
-#   or the /dkcomplete skill (Phase 5). This file is the ONLY mechanism the
-#   hook checks; the promise string (e.g., PHASE_1_COMPLETE) is not parsed.
+#   .complete signal file — written by Claude after the hook authorizes completion
+#   (provides the file path and promise string after MIN_AUDIT_ITERATIONS passes).
+#   The promise string (e.g., PHASE_1_COMPLETE) is not parsed by the hook.
 #
 # Activated by:
 #   - DOYAKEN_LOOP_ACTIVE=1 in environment (set by dk/dkloop wrappers)
@@ -36,12 +39,13 @@ if [[ "$LOOP_ACTIVE" != "1" ]] && [[ ! -f "$ACTIVE_FILE" ]]; then
 fi
 
 # Read phase configuration from .config file when env vars are not inherited.
-# dk.sh writes this file before launching Claude for phases 2-5. Format:
-# "phase_number:promise_string:audit_file_path"
+# dk.sh writes this file before launching Claude for phases 2-6. Format:
+# "phase_number:promise_string:audit_file_path:min_audits"
 # Env vars take priority (belt-and-suspenders with file-based activation).
 # IMPORTANT: This block MUST run before the .active file defaults below,
 # because .active defaults set prompt-loop mode which would shadow the
 # correct phase values from .config.
+MIN_AUDIT_ITERATIONS="${DOYAKEN_LOOP_MIN_AUDITS:-1}"
 CONFIG_FILE=$(dk_loop_config_file "$SESSION_ID")
 if [[ -f "$CONFIG_FILE" ]]; then
   CONFIG_RAW=$(cat "$CONFIG_FILE" 2>/dev/null || echo "")
@@ -49,9 +53,13 @@ if [[ -f "$CONFIG_FILE" ]]; then
     CONFIG_PHASE="${CONFIG_RAW%%:*}"
     CONFIG_REST="${CONFIG_RAW#*:}"
     CONFIG_PROMISE="${CONFIG_REST%%:*}"
-    CONFIG_AUDIT_FILE="${CONFIG_REST#*:}"
+    CONFIG_REST2="${CONFIG_REST#*:}"
+    CONFIG_AUDIT_FILE="${CONFIG_REST2%%:*}"
+    CONFIG_MIN_AUDITS="${CONFIG_REST2#*:}"
     DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-$CONFIG_PHASE}"
     DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-$CONFIG_PROMISE}"
+    # Use config min_audits if no env override
+    [[ "$CONFIG_MIN_AUDITS" =~ ^[0-9]+$ ]] && MIN_AUDIT_ITERATIONS="${DOYAKEN_LOOP_MIN_AUDITS:-$CONFIG_MIN_AUDITS}"
     if [[ -z "${DOYAKEN_LOOP_PROMPT:-}" ]] && [[ -n "$CONFIG_AUDIT_FILE" ]] && [[ -f "$CONFIG_AUDIT_FILE" ]]; then
       DOYAKEN_LOOP_PROMPT=$(cat "$CONFIG_AUDIT_FILE")
     fi
@@ -73,11 +81,10 @@ STATE_FILE=$(dk_loop_file "$SESSION_ID")
 MAX_ITERATIONS="${DOYAKEN_LOOP_MAX_ITERATIONS:-30}"
 COMPLETION_PROMISE="${DOYAKEN_LOOP_PROMISE:-DOYAKEN_TICKET_COMPLETE}"
 
-# Completion detection: The .complete file is the sole automated mechanism.
-# Phase audit prompts (1-plan.md through prompt-loop.md) instruct Claude to:
-#   1. Create this file via `touch "$(dk_complete_file "$(dk_session_id)")"`
-#   2. Output the promise string (e.g., PHASE_1_COMPLETE) for human readability
-# Only the file triggers this check — the promise string is not parsed.
+# Completion detection: The .complete file is the sole mechanism.
+# This hook provides the .complete file path and promise string to Claude
+# ONLY after MIN_AUDIT_ITERATIONS passes — audit prompts do NOT contain
+# completion instructions (they were removed to prevent premature completion).
 # See: docs/autonomous-mode.md § Completion Signals
 COMPLETE_FILE=$(dk_complete_file "$SESSION_ID")
 if [[ -f "$COMPLETE_FILE" ]]; then
@@ -183,9 +190,10 @@ if [[ -z "$AUDIT_PROMPT" ]]; then
   case "$LOOP_PHASE" in
     1) AUDIT_FILENAME="1-plan" ;;
     2) AUDIT_FILENAME="2-implement" ;;
-    3) AUDIT_FILENAME="3-verify" ;;
-    4) AUDIT_FILENAME="4-pr" ;;
-    5) AUDIT_FILENAME="5-complete" ;;
+    3) AUDIT_FILENAME="3-review" ;;
+    4) AUDIT_FILENAME="4-verify" ;;
+    5) AUDIT_FILENAME="5-pr" ;;
+    6) AUDIT_FILENAME="6-complete" ;;
     prompt-loop) AUDIT_FILENAME="prompt-loop" ;;
   esac
   AUDIT_FILE="$DOYAKEN_DIR/prompts/phase-audits/${AUDIT_FILENAME}.md"
@@ -201,7 +209,6 @@ if [[ -z "$AUDIT_PROMPT" ]]; then
 2. Are there any issues, improvements, or optimizations remaining?
 3. Have you verified the quality of your output?
 
-If everything is done, output: $COMPLETION_PROMISE
 If something needs work, fix it and try again."
 fi
 
@@ -253,6 +260,35 @@ fi
 
 printf '%s\n' "$AUDIT_PROMPT" >&2
 echo "" >&2
+
+# Completion gate — only provide completion instructions after enough audit iterations.
+# Before the threshold: Claude can't complete (doesn't know how to write .complete).
+# After the threshold: Claude receives the .complete file path and promise string.
+# COMPLETE_FILE was already set above (line 87) for the early-exit check.
+if [[ $ITERATION -ge $MIN_AUDIT_ITERATIONS ]]; then
+  printf '%s\n' "---" >&2
+  printf '%s\n' "## Completion Authorized ($ITERATION/$MIN_AUDIT_ITERATIONS audit iterations reached)" >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "If ALL completion criteria above are met, you may now signal completion:" >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "1. Write the signal file:" >&2
+  printf '%s\n' '```bash' >&2
+  printf '%s\n' "touch \"${COMPLETE_FILE}\"" >&2
+  printf '%s\n' '```' >&2
+  printf '%s\n' "2. Output the promise string: ${COMPLETION_PROMISE}" >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "If criteria are NOT met, fix the issues and stop again. Do NOT write the signal file until all criteria pass." >&2
+  printf '%s\n' "" >&2
+else
+  REMAINING=$((MIN_AUDIT_ITERATIONS - ITERATION))
+  printf '%s\n' "---" >&2
+  printf '%s\n' "## Completion NOT Yet Authorized (audit iteration $ITERATION/$MIN_AUDIT_ITERATIONS)" >&2
+  printf '%s\n' "" >&2
+  printf '%s\n' "You must complete $REMAINING more audit iteration(s) before completion can be authorized." >&2
+  printf '%s\n' "Follow the audit steps above, then stop again for the next iteration." >&2
+  printf '%s\n' "Do NOT attempt to write any completion signal files." >&2
+  printf '%s\n' "" >&2
+fi
 
 # Exit 2 to block the Stop action
 exit 2

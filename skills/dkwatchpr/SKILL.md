@@ -4,7 +4,7 @@ Monitor PR review comments and address feedback from automated and human reviewe
 
 ## When to Use
 
-- Scheduled via `/loop 5m /dkwatchpr` from `/dkpr` after `gh pr ready`
+- Scheduled via `/loop 5m /dkwatchpr` from `/dkcomplete` (Phase 6) after `gh pr ready`
 - Can also be invoked manually for a one-off review check
 
 ## How It Works
@@ -51,6 +51,30 @@ Run `/dkprreview` to critically evaluate and respond to each comment.
 - Return a list of escalations (if any)
 
 If `/dkprreview` reports escalations, proceed to Step 5 (Escalation).
+
+### 3b. Re-Request Reviewers (after a push)
+
+If `/dkprreview` pushed any new commits in this cycle (i.e., the PR head SHA advanced), re-trigger reviewers so they get a fresh notification that there's something new to look at. Read the `## Reviewers` section of `.doyaken/doyaken.md`:
+
+```bash
+# Capture HEAD before /dkprreview ran. Compare after.
+PRE_HEAD=$(git rev-parse HEAD)
+# ... /dkprreview runs ...
+POST_HEAD=$(git rev-parse HEAD)
+if [[ "$PRE_HEAD" != "$POST_HEAD" ]]; then
+  # For each request-type reviewer:
+  for h in "${REQUEST_REVIEWERS[@]}"; do
+    gh pr edit "$PR_NUM" --add-reviewer "${h#@}"
+  done
+  # For each mention-type reviewer, post a fresh comment:
+  if [[ ${#MENTION_REVIEWERS[@]} -gt 0 ]]; then
+    handles=$(printf '%s ' "${MENTION_REVIEWERS[@]}")
+    gh pr comment "$PR_NUM" --body "Updated — ${handles}please re-review."
+  fi
+fi
+```
+
+`gh pr edit --add-reviewer` is idempotent — re-running on a reviewer that's already requested triggers a fresh notification on supported clients without duplicating the request.
 
 ### 4. Evaluate Completion
 

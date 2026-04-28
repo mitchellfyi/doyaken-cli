@@ -31,7 +31,7 @@ hooks/               Claude Code hooks + guard handler
   guards/            Built-in guard rules (3 rules)
 lib/                 Shared shell libraries (5 modules)
 prompts/             Prompt templates for skills/agents
-  phase-audits/      Phase-specific audit prompts (1-5 + prompt-loop)
+  phase-audits/      Phase-specific audit prompts (1-6 + prompt-loop)
 skills/              Lifecycle skills (11 total, symlinked to ~/.claude/skills/)
 .doyaken/            Per-project config (this directory)
 ```
@@ -55,6 +55,20 @@ skills/              Lifecycle skills (11 total, symlinked to ~/.claude/skills/)
 
 When an integration is "not configured", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.
+
+## Reviewers
+
+Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
+- `request` — `gh pr edit --add-reviewer <handle>` (humans, Copilot, anything GitHub supports)
+- `mention` — `@<handle>` posted as a PR comment (for AI agents that watch mentions)
+
+| Handle | Type | Notes |
+|--------|------|-------|
+| @mitchellbryson | request | Authenticated GitHub user |
+| Copilot | request | GitHub Copilot review |
+
+Edit rows directly or rerun `dk config`. Remove a row to skip a reviewer.
+
 ## Rules
 - @rules/shell.md — Shell scripting conventions and language boundaries
 - @rules/skills-prompts.md — Skill, agent, guard, and prompt conventions

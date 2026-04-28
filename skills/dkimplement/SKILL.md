@@ -111,9 +111,9 @@ If `/dkreview` returns NEEDS ATTENTION, fix the findings and re-invoke `/dkrevie
 ## Scope Boundaries
 
 During implementation (Phase 2), you MUST NOT:
-- Run `git commit` or `git push` (that is Phase 3: Verify & Commit)
-- Create or modify pull requests via `gh pr` (that is Phase 4: PR)
-- Mark tickets as done or in-review (that is Phase 5: Complete)
+- Run `git commit` or `git push` (that is Phase 4: Verify & Commit)
+- Create or modify pull requests via `gh pr` (that is Phase 5: PR)
+- Mark tickets as done or in-review (that is Phase 6: Complete)
 - Create new branches (the worktree branch was created by `dk`)
 
 You SHOULD:

@@ -1,6 +1,6 @@
 # Skill: dkpr
 
-Polish the PR for review — generate description, update tracker, mark ready, and launch monitoring.
+Generate a PR description, create a draft pull request, and attach `request`-type reviewers. Stays in draft — Phase 6 (`dkcomplete`) marks it ready and posts `@mention` comments.
 
 ## When to Use
 
@@ -38,73 +38,73 @@ Check if the project has a PR description template or prompt (referenced in CLAU
 
 Otherwise, read the PR description template from the Doyaken prompts directory (`prompts/pr-description.md`) and follow its structure. Fill in every section with specifics from the implementation.
 
-### 3. Update the PR
+### 3. Create or Update the PR (always as draft)
 
 Read the commit format prompt (`prompts/commit-format.md`) for title format guidance.
 
-Use a HEREDOC for the body to preserve multi-line formatting:
+If a PR doesn't yet exist for the current branch, create one as a **draft**:
 
 ```bash
-gh pr edit <number> --title "<title>" --body "$(cat <<'EOF'
+PR_NUM=$(gh pr view --json number -q .number 2>/dev/null)
+if [[ -z "$PR_NUM" ]]; then
+  gh pr create --draft --title "<title>" --body "$(cat <<'EOF'
+<generated description>
+EOF
+)"
+  PR_NUM=$(gh pr view --json number -q .number)
+fi
+```
+
+If a PR already exists, update its title and body. Do NOT mark it ready — Phase 6 does that.
+
+```bash
+gh pr edit "$PR_NUM" --title "<title>" --body "$(cat <<'EOF'
 <generated description>
 EOF
 )"
 ```
 
-### 4. Update Ticket (if tracker configured)
+### 4. Attach Request-Type Reviewers
+
+Read the `## Reviewers` section of `.doyaken/doyaken.md`. For every row whose Type column is `request`, attach the reviewer to the draft PR:
+
+```bash
+gh pr edit "$PR_NUM" --add-reviewer "<handle-without-leading-@>"
+```
+
+Notes:
+- `gh pr edit --add-reviewer` is idempotent — re-running on a PR that already has the reviewer is a no-op.
+- GitHub does NOT send notifications for review requests on a **draft** PR. The notifications fire when Phase 6 marks the PR ready. Attaching reviewers now is purely so they're already in place when the PR goes ready.
+- Skip rows whose Type is `mention` — those are posted as PR comments by Phase 6, not added as review requests.
+- Skip the placeholder row (`_none_` handle) — it means the user has chosen not to assign anyone.
+- Strip a leading `@` from the handle if present (e.g., `@octocat` → `octocat`). `gh` rejects the `@` prefix.
+
+If the `## Reviewers` section is missing or empty, skip this step entirely.
+
+### 5. Update Ticket (if tracker configured)
 
 Add an implementation summary to the ticket via the configured tracker (see doyaken.md § Integrations) — what was implemented, key decisions, deviations from plan. If no tracker is configured, skip — the PR description covers this.
 
-### 5. Present to User
+### 6. Hand Off to Phase 6
 
-**STOP and present to the user:**
+Print a summary of the draft PR for the user:
 - PR link
 - PR description preview (title + summary section)
+- List of `request` reviewers attached
 - Implementation summary
-- Ask: "Ready to mark this PR for review?"
 
-**Do not proceed until the user approves.**
+Then output:
 
-### 6. Mark Ready and Request Reviews
+```
+Phase 5 complete. The PR is in DRAFT state with reviewers pre-attached.
+Phase 6 (Complete) will mark it ready, request reviews, post @mention comments,
+monitor CI/reviews, address comments, and close the ticket.
+```
 
-On user approval:
-
-1. Mark the PR as ready for review:
-   ```bash
-   gh pr ready <number>
-   ```
-
-2. Request automated reviews if configured in the project:
-   ```bash
-   gh pr edit <number> --add-reviewer <reviewer>
-   ```
-
-3. Set the ticket status to "In Review" via the configured tracker (see doyaken.md § Integrations).
-
-4. If a deployment platform is configured (see doyaken.md § Integrations), check for a preview URL and include it in the PR description.
-
-### 7. Launch Monitoring Loops
-
-Set up recurring loops and a timeout to monitor CI and reviews. `/loop` is a built-in Claude Code skill that runs a given slash command on a recurring interval in the background. Syntax: `/loop <interval> <command>` (e.g., `/loop 2m /dkwatchci` runs `/dkwatchci` every 2 minutes). This is distinct from `/dkloop`, which runs a prompt until complete.
-
-1. **CI monitoring** — check every 2 minutes:
-   ```
-   /loop 2m /dkwatchci
-   ```
-
-2. **Review monitoring** — check every 5 minutes:
-   ```
-   /loop 5m /dkwatchpr
-   ```
-
-3. **Timeout** — schedule a one-shot 30-minute deadline using `CronCreate`. When it fires, it should cancel both `/loop` instances (using `CronDelete` with their job IDs) and output a status report summarizing which checks are still pending/failing and which reviews are outstanding:
-   ```
-   CronCreate: in 30 minutes, cancel the CI and review monitoring loops and report final status.
-   ```
-
-The loops run in the background between turns. Each invocation of `/dkwatchci` or `/dkwatchpr` checks current status, fixes issues if found, and cancels its own loop when done. When both loops have completed and cancelled themselves, proceed to `/dkcomplete`.
+Do NOT call `gh pr ready`. Do NOT post `@mention` comments. Do NOT launch `/loop` monitoring. Those belong to Phase 6.
 
 ## Notes
 
 - Keep the PR description factual and specific — no filler or marketing language.
 - If a ticket link is available, include it in the PR body for auto-linking.
+- The PR is created as a DRAFT in Phase 5 so reviewers are not notified prematurely. Phase 6 flips it to ready and triggers the notifications by re-requesting the same reviewers.

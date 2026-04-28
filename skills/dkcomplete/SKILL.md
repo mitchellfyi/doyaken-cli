@@ -1,41 +1,101 @@
 # Skill: dkcomplete
 
-Final verification and ticket closure.
+Phase 6 of the autonomous lifecycle. Marks the PR ready, requests configured reviewers, posts `@mention` comments, monitors CI and reviews, addresses comments via `/dkprreview`, and closes the ticket once everything is green and approved.
+
+This skill runs as a **cycle loop** driven by `prompts/phase-audits/6-complete.md`. The Stop hook re-injects the audit prompt every iteration; each cycle waits at least `DOYAKEN_COMPLETE_WAIT_MINUTES` minutes before checking outcomes. Bounded by `DOYAKEN_COMPLETE_MAX_CYCLES` (default 3) before escalating.
 
 ## When to Use
 
-- After CI and review monitoring both report success
-- When all checks are green and all reviews are approved
+- Phase 6 of the autonomous lifecycle (invoked by `dk` after Phase 5)
+- Standalone via the `dkcomplete` shell command (recovery / non-`dk` PRs)
 
 ## Steps
 
-### 1. Final Verification
+### 1. Read Reviewer Config
 
-Confirm all conditions are met:
+Read the `## Reviewers` section of `.doyaken/doyaken.md`. Parse rows into two lists:
+- `REQUEST_REVIEWERS` — rows where Type is `request`
+- `MENTION_REVIEWERS` — rows where Type is `mention`
 
-1. **CI**: All checks green.
+Strip leading `@` from handles before passing to `gh pr edit --add-reviewer`. Keep the `@` for `@mention` comments.
+
+If the section is missing, contains only the `_none_` placeholder, or both lists are empty, log a notice and skip the reviewer-related steps (the user has chosen not to assign anyone).
+
+### 2. Initial Setup (only on the very first invocation)
+
+Check whether `dk_complete_state_file` exists. If it does NOT exist, perform setup. If it DOES exist, setup ran in a prior iteration — skip to Step 3.
+
+(Gating on the state file rather than on the cycle counter prevents setup from re-running on every audit iteration during the first wait window — the cycle counter doesn't increment until after the window matures.)
+
+When setup runs:
+
+1. **Mark the PR ready** if it's still a draft:
    ```bash
-   gh pr checks $(gh pr view --json number -q .number)
-   ```
-
-2. **Reviews**: All reviews approved, no unresolved comments.
-   ```bash
-   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
    PR_NUM=$(gh pr view --json number -q .number)
-   gh api repos/$REPO/pulls/$PR_NUM/reviews
+   PR_DRAFT=$(gh pr view --json isDraft -q .isDraft)
+   [[ "$PR_DRAFT" == "true" ]] && gh pr ready "$PR_NUM"
    ```
 
-3. **Tasks**: All tasks marked as completed (iterate through task list).
+2. **Re-sync request reviewers** (idempotent):
+   ```bash
+   for h in "${REQUEST_REVIEWERS[@]}"; do
+     gh pr edit "$PR_NUM" --add-reviewer "${h#@}"
+   done
+   ```
 
-If any condition is not met, report what's outstanding and stop.
+3. **Post mention comment** (single comment listing all `mention` reviewers):
+   ```bash
+   if [[ ${#MENTION_REVIEWERS[@]} -gt 0 ]]; then
+     handles=$(printf '%s ' "${MENTION_REVIEWERS[@]}")
+     gh pr comment "$PR_NUM" --body "Requesting review from ${handles}— please take a look."
+   fi
+   ```
 
-### 2. Update Ticket (if tracker configured)
+### 3. Launch Monitoring Loops
 
-Mark the ticket as done via the configured tracker (see doyaken.md § Integrations). Add a final summary — what was implemented, key decisions, follow-up work. If no tracker is configured, skip — the PR and conversation serve as the record.
+`/loop <interval> <slash-command>` runs a slash command on a recurring interval in the background. Launch CI and review watchers if not already running:
 
-### 3. Print Summary
+```
+/loop 2m /dkwatchci
+/loop 5m /dkwatchpr
+```
 
-Output a completion summary to the terminal:
+These check status, fix CI failures, address review comments via `/dkprreview`, and cancel themselves when their respective conditions are met (CI green / all reviews approved).
+
+### 4. Wait Window
+
+Each cycle waits at least `DOYAKEN_COMPLETE_WAIT_MINUTES` minutes (default 30) between outcome checks. You don't sleep — you just stop, and the Stop hook re-injects the audit on the next iteration. The audit checks elapsed time and only authorizes outcome evaluation once the window has elapsed.
+
+### 5. Outcome Evaluation (after wait window)
+
+Check overall PR state:
+
+```bash
+gh pr checks "$PR_NUM"
+gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pulls/$PR_NUM/reviews
+```
+
+- **All CI green AND all configured `request` reviewers approved** → proceed to Step 6 (final verification + close).
+- **New commits were pushed** (e.g., `/dkprreview` addressed comments) → re-request reviewers and re-post the mention comment so reviewers know there's something new. Increment cycle, reset wait window.
+- **Cycle was idle** (no new commits, no new approvals) → increment cycle. If `cycle_count >= DOYAKEN_COMPLETE_MAX_CYCLES`, escalate to user; otherwise keep waiting.
+- **Hard escalation** (3 same-check CI fails, scope change requested, secrets failure, architectural disagreement) → stop and escalate immediately with cited evidence.
+
+### 6. Final Verification
+
+Once Case A in Step 5 is met:
+
+1. **CI**: All checks green (`gh pr checks $PR_NUM` reports all pass).
+2. **Reviews**: All `request` reviewers approved, no unresolved comments.
+3. **Mention reviewers**: Best-effort — if a `mention` reviewer commented with an actionable concern, it should already have been addressed by `/dkprreview`. The mention reviewers don't gate completion via review state.
+4. **Tasks**: All implementation tasks marked completed.
+
+If any condition is not met, return to Step 5 (do not advance to closure).
+
+### 7. Update Ticket
+
+Mark the ticket as Done via the configured tracker (see `doyaken.md § Integrations`). Add a final summary — what was implemented, key decisions, follow-up work. Skip if no tracker configured — the PR is the record.
+
+### 8. Print Summary
 
 ```
 Ticket: <id> — <title>       (or "No ticket — <branch name>")
@@ -45,7 +105,7 @@ Status: Work complete — awaiting merge (user's decision)
 
 Files changed: X
 Lines: +Y / -Z
-Commits: N
+Commits: N (including N_review review-fix commits)
 Tests: M new test cases
 
 Reviews:
@@ -53,37 +113,16 @@ Reviews:
   ...
 
 CI: All checks green (X/X passed)
+Cycles: <cycle_count>
 ```
 
-### 4. Signal Completion
+### 9. Signal Completion
 
-If the phase audit loop is active (`DOYAKEN_LOOP_ACTIVE=1` in environment):
-
-1. Write a completion signal file so the Stop hook detects it reliably (uses `dk_session_id` from `lib/session.sh` — same logic as `phase-loop.sh`):
-   ```bash
-   source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-   mkdir -p "$DK_LOOP_DIR"
-   touch "$(dk_complete_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")"
-   ```
-
-2. Output the completion promise string:
-   ```
-   DOYAKEN_TICKET_COMPLETE
-   ```
-
-Both mechanisms signal the Stop hook that the ticket lifecycle is finished and Claude can stop.
-
-### 5. Worktree Cleanup Reminder
-
-Set a one-shot reminder to prompt for worktree cleanup:
-
-```
-remind me in 10 minutes to check for stale worktrees — run dkls and dkrm for any that are no longer needed
-```
+After all verification passes and the summary is printed, stop. The Stop hook authorizes completion via the standard `.complete` mechanism — emit `DOYAKEN_TICKET_COMPLETE` only when the hook tells you to.
 
 ## Notes
 
-- Do not merge the PR — that's the user's decision.
+- Do not merge the PR — that's the user's decision (autonomous merging is intentionally out of scope).
 - If follow-up work was identified during implementation, mention it in the summary but do not create new tickets unless asked.
-- The ticket should be marked "Done" (if a tracker is available) even if the PR hasn't been merged yet — the work is complete from the agent's perspective.
-- The completion promise (`DOYAKEN_TICKET_COMPLETE`) must only be output AFTER all verification in step 1 passes. Never output it prematurely.
+- The ticket should be marked "Done" (if a tracker is available) once CI and reviews are green; the actual merge happens when a maintainer accepts the PR.
+- Hard escalations (secrets, scope conflict, architectural disagreement, 3+ CI failures on the same check) stop the loop and surface a structured escalation to the user — never auto-resolve these.

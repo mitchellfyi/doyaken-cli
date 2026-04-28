@@ -22,33 +22,42 @@ The `dk` wrapper runs each phase as a separate Claude Code session, auto-advanci
 
 1. Invoke the Skill tool with `skill: "dkimplement"` — work through tasks with TDD discipline.
 2. **[STOP]** if ambiguous requirements, scope changes, or blocked dependencies arise.
-3. `/dkimplement` includes a merged self-review loop (your own inventory + self-reviewer agent) and chains to `/dkreview` as a final gate.
-4. The audit loop (Stop hook) re-runs the review audit on every stop attempt until it returns PASS with zero findings.
-5. **SCOPE**: implementation and self-review ONLY. Do NOT commit, push, or create PRs.
-6. Output `PHASE_2_COMPLETE` when self-review passes and the evidence table shows all criteria MET.
+3. The audit loop verifies all tasks are complete with tests passing and evidence table filled.
+4. **SCOPE**: implementation and testing ONLY. Do NOT commit, push, or create PRs.
+5. Output `PHASE_2_COMPLETE` when all tasks are implemented and the evidence table shows all criteria MET.
 
-### Phase 3: Verify & Commit
+### Phase 3: Review
+
+1. The shell wrapper runs an adversarial review sub-loop — each iteration is a fresh Claude session.
+2. Run `/dkreview`, perform 4-pass manual review (Logic, Structure, Security, Holistic), spawn the self-reviewer agent.
+3. Build merged findings inventory, fix all issues, write review result signal.
+4. The shell tracks consecutive CLEAN results — requires 3 clean passes to advance.
+5. **SCOPE**: review and fix ONLY. Do NOT commit, push, or create PRs.
+6. Output `PHASE_3_COMPLETE` when review is clean.
+
+### Phase 4: Verify & Commit
 
 1. Run `/dkverify` — format, lint, typecheck, generate, test.
 2. Fix any failures. Re-run until all green (max 3 retries per check).
 3. Run `/dkcommit` — atomic conventional commits, push to origin.
-4. Output `PHASE_3_COMPLETE` when all checks pass and code is pushed.
+4. Output `PHASE_4_COMPLETE` when all checks pass and code is pushed.
 
-### Phase 4: PR
+### Phase 5: PR
 
-1. Run `/dkpr` — generate PR description, update tracker if available.
-2. **[STOP]** Present the PR to the user. Wait for approval to mark ready.
-3. On approval: mark ready, request automated reviews if configured.
-4. Output `PHASE_4_COMPLETE` when the user approves.
+1. Run `/dkpr` — generate PR description, create draft PR, attach `request`-type reviewers from `doyaken.md § Reviewers`, update tracker if available.
+2. SCOPE: Do NOT mark the PR ready for review or post `@mention` comments — Phase 6 owns those steps so reviewers are notified at exactly the right moment.
+3. Output `PHASE_5_COMPLETE` when the draft PR is created and reviewers are attached.
 
-### Phase 5: Complete
+### Phase 6: Complete (autonomous)
 
-1. Monitoring loops are already running (launched by `/dkpr` in Phase 4):
-   - `/loop 2m /dkwatchci` — checking CI status, fixing failures
-   - `/loop 5m /dkwatchpr` — checking review comments, addressing feedback
-2. **[STOP]** if a loop escalates (CI failures after 3 attempts, architectural review comments, secrets scan).
-3. When both loops complete, run `/dkcomplete` — verify all green, update tracker to Done (if available), print summary.
-4. Output `DOYAKEN_TICKET_COMPLETE` when everything is verified.
+1. Read `## Reviewers` from `doyaken.md`. On the first cycle: `gh pr ready`, re-sync `request` reviewers (idempotent), post one `@mention` comment listing all `mention` reviewers.
+2. Set up monitoring: `/loop 2m /dkwatchci` and `/loop 5m /dkwatchpr`.
+3. Wait at least `DOYAKEN_COMPLETE_WAIT_MINUTES` minutes (default 30) per cycle. The Stop hook re-injects the audit and only authorizes outcome evaluation once the window has elapsed.
+4. **[STOP]** if a loop escalates (CI failures after 3 attempts, architectural review comments, secrets scan, scope conflict).
+5. After each push: re-request `request` reviewers and post a fresh mention comment so reviewers know there's something new.
+6. After `DOYAKEN_COMPLETE_MAX_CYCLES` (default 3) idle cycles with no progress, escalate to the user.
+7. When CI green AND all `request` reviewers have approved, run `/dkcomplete`'s final verification — update tracker to Done, print summary.
+8. Output `DOYAKEN_TICKET_COMPLETE` once verification passes.
 
 ## Resuming
 
@@ -59,9 +68,9 @@ As a fallback (e.g., when running `/doyaken` interactively without the wrapper),
 1. **Check for existing PR**: `gh pr view --json state,isDraft,statusCheckRollup`
    - No PR → Phase 1 (Plan)
    - Draft PR, no commits → Phase 1 (Plan)
-   - Draft PR with implementation commits → Phase 3 (Verify & Commit)
-   - Ready PR with failing CI → Phase 5 (Complete — monitor and fix)
-   - Ready PR with all checks green → Phase 5 (Complete — finalize)
+   - Draft PR with implementation commits → Phase 4 (Verify & Commit)
+   - Ready PR with failing CI → Phase 6 (Complete — monitor and fix)
+   - Ready PR with all checks green → Phase 6 (Complete — finalize)
 
 2. **Check task list**: If tasks exist from a prior `/dkplan`, offer to resume from the first incomplete task rather than re-planning.
 
@@ -78,10 +87,11 @@ As a fallback (e.g., when running `/doyaken` interactively without the wrapper),
 | 1 | Plan ready | Present plan, wait for approval |
 | 2 | Ambiguous requirement | Present options, ask user to choose |
 | 2 | Scope change needed | Explain impact, ask approval |
-| 4 | PR ready for review | Present summary, ask user to confirm |
-| 5 | CI secrets scan failure | Cancel all loops, alert immediately |
-| 5 | 3 failed CI fix attempts | Cancel loops, escalate with details |
-| 5 | Architectural review comment | Cancel loops, escalate to user |
+| 5 | Draft PR created | Phase 6 takes over automatically |
+| 6 | CI secrets scan failure | Cancel all loops, alert immediately |
+| 6 | 3 failed CI fix attempts | Cancel loops, escalate with details |
+| 6 | Architectural review comment | Cancel loops, escalate to user |
+| 6 | Max cycles reached idle | Escalate to user (no progress) |
 
 ## Autonomous Mode (Phase Audit Loops)
 

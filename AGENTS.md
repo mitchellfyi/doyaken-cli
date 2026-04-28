@@ -25,7 +25,7 @@ hooks/               Claude Code hooks + guard handler
   guards/            Built-in guard rules (markdown with YAML frontmatter)
 lib/                 Shared shell libraries (common, git, session, output, worktree)
 prompts/             Prompt templates for skills/agents
-  phase-audits/      Phase-specific audit prompts (1-5 + prompt-loop)
+  phase-audits/      Phase-specific audit prompts (1-6 + prompt-loop)
 skills/              Lifecycle skills (symlinked to ~/.claude/skills/)
 dk.sh                Main shell functions (zsh only, ~980 lines)
 settings.json        Hook definitions template
@@ -91,6 +91,23 @@ Each skill lives in `skills/<name>/SKILL.md` with markdown content (the YAML fro
 - Skills reference prompts via `@prompts/<file>.md` import syntax
 - Skills are codebase-agnostic — they discover toolchains at runtime
 
+### Vendor skills are NOT bundled
+
+Doyaken does not ship third-party vendor skills (Figma, Asana, Linear, Notion, Slack, HubSpot, Microsoft 365, Gmail, Google Calendar, Fireflies, etc.). These are maintained by their vendors and distributed via Claude's official plugin/MCP integrations.
+
+**Do not commit vendor skills into this repo.** If a vendor skill directory appears in `skills/` (e.g., `skills/figma-*/`), delete it — it was added by a Claude plugin install and should live in the user's `~/.claude/` or be enabled via the official integration, not in Doyaken.
+
+When users need a vendor skill:
+
+| Vendor | How to enable |
+|--------|---------------|
+| Figma  | <https://help.figma.com/hc/en-us/articles/32132100833559-Guide-to-the-Dev-Mode-MCP-Server> |
+| Linear | <https://linear.app/changelog/2025-05-01-mcp> |
+| Asana, Notion, Slack, HubSpot, Microsoft 365, Gmail, Google Calendar, Fireflies | Enable the corresponding integration on <https://claude.ai/settings/connectors> |
+| Other  | Browse the Claude plugin marketplace via `/plugin` inside Claude Code, or check the vendor's docs for their official MCP/skill integration |
+
+The corresponding MCP servers are listed and authenticated through claude.ai or `claude mcp` — they show up as `mcp__claude_ai_<Vendor>__*` tools and are available to Doyaken's skills automatically when enabled.
+
 ## Agent Conventions
 
 Agents live in `agents/*.md` with YAML frontmatter:
@@ -137,7 +154,7 @@ Stored in `prompts/`. Referenced by skills/agents via `@prompts/<file>.md`.
 - `pr-description.md` — PR description template
 - `ticket-instructions.md` — Ticket intake workflow (injected by SessionStart hook)
 - `init-analysis.md` — Codebase analysis prompt (used by `dk init`)
-- `phase-audits/*.md` — Numbered 1-5 matching lifecycle phases, plus `prompt-loop.md`
+- `phase-audits/*.md` — Numbered 1-6 matching lifecycle phases, plus `prompt-loop.md`
 
 ## Key Architecture Concepts
 

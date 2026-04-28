@@ -52,6 +52,8 @@ Identify **unaddressed comments**: comments with no reply from the PR author. Fi
 - Approval comments with no actionable content
 - Bot comments that are purely informational (CI status, coverage reports, deploy previews)
 
+**Important — `mention`-type reviewers from `.doyaken/doyaken.md § Reviewers`**: any reviewer whose Type is `mention` was deliberately invited (we posted an `@<handle>` comment requesting their review). Their substantive feedback IS actionable, even though they're a bot — do NOT classify them as "purely informational". Treat their `mention`-handle responses the same as a human reviewer's. The "purely informational" filter still applies to other bots not listed in the Reviewers section (CI bots, deploy preview bots, etc.).
+
 If there are no unaddressed comments, report that and exit immediately.
 
 ### 2. Understand the Full Change

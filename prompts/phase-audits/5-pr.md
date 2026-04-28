@@ -1,5 +1,7 @@
 Before stopping, audit the pull request quality.
 
+Phase 5 owns: draft PR creation, description, ticket link, attaching `request`-type reviewers from `doyaken.md § Reviewers`. Phase 6 owns: marking ready, posting `@mention` comments, monitoring CI/reviews, addressing comments, closing the ticket. Stay in your scope.
+
 ## Step 1: PR description
 
 Read the PR description you generated and check:
@@ -26,22 +28,33 @@ Check:
 - Is the PR targeting the correct base branch?
 - Are labels or tags applied if the project uses them?
 - Is the ticket linked (if tracker configured)?
+- The PR is still in **draft** state (Phase 6 marks it ready, not Phase 5).
 
-## Step 4: User approval
+## Step 4: Reviewer attachment
 
-Has the user explicitly approved the PR description and confirmed it's ready to be marked for review?
+Read the `## Reviewers` section of `.doyaken/doyaken.md`. For every row whose Type is `request`, confirm the reviewer is attached to the PR:
 
-If the user hasn't responded, wait. Do not proceed without their approval.
+```bash
+PR_NUM=$(gh pr view --json number -q .number)
+gh pr view "$PR_NUM" --json reviewRequests
+```
+
+If any `request` reviewer from the config is missing, attach them now (idempotent):
+
+```bash
+gh pr edit "$PR_NUM" --add-reviewer "<handle-without-leading-@>"
+```
+
+If the `## Reviewers` section is missing or empty (or contains only the `_none_` placeholder), skip this step — the user has chosen not to assign anyone.
+
+Do NOT post `@mention` comments here — those happen in Phase 6.
 
 ## Completion criteria
 
-Only output PHASE_4_COMPLETE when:
+ALL of these must be true before you stop:
 - PR description is clear, complete, and explains what/why
 - PR scope matches the plan — no unrelated changes, nothing missing
-- The user has explicitly approved
+- The PR is still in draft state
+- All `request`-type reviewers from `doyaken.md § Reviewers` are attached to the PR (or the section is empty/`_none_`)
 
-Before outputting PHASE_4_COMPLETE, write the completion signal file so the Stop hook detects it:
-
-```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh" && touch "$(dk_complete_file "$(dk_session_id)")"
-```
+When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions.

@@ -17,6 +17,95 @@ dk init
 dk 999
 ```
 
+## Lifecycle
+
+When you run `dk 999`, Doyaken creates an isolated git worktree and runs Claude through six autonomous phases. Each phase is a separate Claude Code session (`--fork-session`), so every phase starts with a fresh context window. The user is brought into the loop as a configured reviewer in Phase 6 — the autonomous loop waits for their review (and any other configured reviewers) and only closes the ticket once everyone has approved.
+
+```
+dk 999
+  │
+  ├─ Phase 1: Plan          Claude explores codebase, presents approaches, user approves
+  ├─ Phase 2: Implement     TDD implementation, completeness verification
+  ├─ Phase 3: Review        Adversarial code review (3 clean passes, fresh sessions)
+  ├─ Phase 4: Verify        Format, lint, typecheck, test → commit + push
+  ├─ Phase 5: PR            Generate description, create draft PR + attach reviewers
+  └─ Phase 6: Complete      Mark ready, request reviews, monitor CI, address comments,
+                            re-request reviewers each push, close ticket
+```
+
+| Phase | Skills | What Happens | User Action |
+|-------|--------|-------------|-------------|
+| 1. Plan | `/dkplan` | Reads ticket, explores code, presents 2-3 approaches, drafts plan | Approve plan |
+| 2. Implement | `/dkimplement` | TDD per task, evidence table, completeness check | Clarify if needed |
+| 3. Review | `/dkreview` + self-reviewer | Adversarial 4-pass review, 3 consecutive clean passes required | — |
+| 4. Verify & Commit | `/dkverify` + `/dkcommit` | Quality gates, atomic conventional commits, push | — |
+| 5. PR | `/dkpr` | PR description, create draft PR, attach `request`-type reviewers | — |
+| 6. Complete | `/dkcomplete` + `/dkwatchci` + `/dkwatchpr` | Mark ready, request reviews, post `@mention` comments, monitor, address comments, close ticket | **Review the PR** |
+
+### Audit Loop
+
+Each phase (2-6) runs inside an audit loop. When Claude tries to stop, the Stop hook intercepts and injects a phase-specific quality audit. Claude must pass the audit before the hook authorizes completion.
+
+```
+Claude does work → tries to stop
+  │
+  ▼
+Stop hook fires
+  ├─ .complete file exists?  → allow stop, advance to next phase
+  ├─ Max iterations reached? → allow stop (safety net)
+  ├─ Below min audit passes? → BLOCK, inject audit prompt (no completion instructions)
+  └─ At/above min passes?   → BLOCK, inject audit prompt WITH completion instructions
+                                │
+                                ▼
+                              Claude follows audit → fixes issues → tries to stop → loop repeats
+```
+
+### Review Sub-Loop (Phase 3)
+
+Phase 3 uses a **shell-managed sub-loop** on top of the standard audit loop. Each review iteration is a fresh Claude session (`--fork-session`), ensuring each adversarial review starts with a clean context. The shell tracks consecutive CLEAN results:
+
+```
+Shell starts review sub-loop (clean_passes=0)
+  │
+  ▼
+Launch fresh Claude session with Stop hook (MIN_AUDITS=1)
+  ├─ Claude runs /dkreview + 4-pass manual review + self-reviewer agent
+  ├─ Builds merged findings inventory, fixes issues
+  ├─ Writes review result signal: "CLEAN" or "FINDINGS:N"
+  └─ Stop hook verifies, allows completion
+  │
+  ▼
+Shell reads review result
+  ├─ CLEAN → clean_passes++ → if ≥3: advance to Phase 4
+  └─ FINDINGS → clean_passes=0 → fresh session → loop repeats
+```
+
+Each review iteration runs:
+1. `/dkreview` — deterministic + 10-pass semantic review
+2. Manual 4-pass review (Logic, Structure, Security, Holistic)
+3. `self-reviewer` agent — independent adversarial review
+4. Merged findings inventory → batch fix → re-verify
+
+Default: 3 consecutive clean passes required. Override: `DOYAKEN_REVIEW_CLEAN_PASSES=5`.
+
+Claude never learns how to signal completion on its own — the hook provides the `.complete` file path and promise string only after enough clean passes. This prevents premature completion.
+
+### Session Timeout
+
+Default: 24 hours for the entire `dk` run (all phases). Override: `DOYAKEN_SESSION_TIMEOUT=14400` (4h). Set to 0 to disable.
+
+### Escalation
+
+Even in autonomous mode, Claude stops and escalates to the user for:
+- Secrets scan failures (never auto-fix security issues)
+- Architectural review comments (need human judgement)
+- 3+ failed attempts at the same fix (loop is stuck)
+- Scope changes that affect other tickets
+
+The user can always interrupt with Ctrl+C. Between phases, state is saved so `dk 999` or `dk --resume` picks up where it left off.
+
+See [docs/autonomous-mode.md](docs/autonomous-mode.md) for full architecture.
+
 ## What needs `dk init`?
 
 Most Doyaken features work immediately after `dk install` — no per-project setup required:
@@ -24,6 +113,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 | Feature | Needs `dk init`? | Notes |
 |---------|:---:|-------|
 | `dkloop <prompt>` | No | Works in any git repo |
+| `dkcomplete` | No | Works in any git repo with a PR |
 | `/dkloop`, `/dkplan`, `/dkimplement`, etc. | No | Skills work in any Claude Code session |
 | Hooks (guards, commit validation, ticket context) | No | Installed globally by `dk install` |
 | Agents (self-reviewer) | No | Symlinked globally by `dk install` |
@@ -52,15 +142,20 @@ dk config            # Configure integrations (ticket tracker, Figma, Sentry, et
 dk uninit            # Remove Doyaken from current repo
 
 # Worktrees
-dk <number>          # Create worktree, start Claude with ticket context
-dk "<description>"   # Create worktree for a task (no ticket)
+dk <number>          # Create worktree, run full autonomous lifecycle (Plan → Complete)
+dk "<description>"   # Same, for a task without a ticket number
 dk --resume          # Resume a previous session
+dk revert <N> [phase] # Revert worktree to a phase checkpoint
+dk log [session_id]  # Show structured phase execution log
 dkrm <number|name>  # Remove worktree
 dkrm --all          # Remove all worktrees
 dkls                # List active worktrees
 dkcd                # cd to repo root
 dkcd <number|slug>  # cd to a worktree (fuzzy match)
 dkclean             # Prune stale worktrees, gone branches, orphan branches
+
+# Standalone completion (recovery / non-dk PRs)
+dkcomplete           # Run Phase 6 manually on the current branch's PR
 
 # Prompt loop (no worktree or ticket needed)
 dkloop <prompt>     # Run a prompt until fully implemented (from terminal)
@@ -90,7 +185,7 @@ doyaken/
                              # Each skill is a directory containing SKILL.md
     doyaken/                 # Orchestrate full ticket lifecycle
     dkplan/                  # Implementation planning (multi-approach)
-    dkimplement/             # TDD implementation with self-review
+    dkimplement/             # TDD implementation with completeness verification
     dkreview/                # Four-phase agentic review with confidence scoring
     dkverify/                # Discover and run project quality gates
     dkcommit/                # Atomic conventional commits
@@ -123,10 +218,11 @@ doyaken/
     init-analysis.md         # Codebase analysis prompt (used by dk init)
     phase-audits/            # Phase-specific audit prompts (injected by Stop hook)
       1-plan.md              # Plan quality audit
-      2-implement.md         # Implementation audit (loops until PASS)
-      3-verify.md            # Verification + commit audit
-      4-pr.md                # PR quality audit
-      5-complete.md          # Completion criteria audit
+      2-implement.md         # Implementation completeness audit
+      3-review.md            # Adversarial code review audit (shell sub-loop)
+      4-verify.md            # Verification + commit audit
+      5-pr.md                # PR quality audit
+      6-complete.md          # Phase 6 cycle-loop audit (mark ready, monitor, close)
       prompt-loop.md         # Prompt loop audit (used by dkloop)
   dk.sh                      # Shell functions (dk, dkrm, dkls, dkclean, dkloop, doyaken)
   install.sh                 # Quick-start installer (delegates to bin/install.sh)
@@ -146,7 +242,7 @@ doyaken/
 
 Claude Code automatically discovers `CLAUDE.md` files in the project directory and all subdirectories (see [Claude Code docs: CLAUDE.md](https://docs.anthropic.com/en/docs/claude-code/memory#claudemd)). `.doyaken/CLAUDE.md` uses the `@doyaken.md` import directive to pull in the generated project config, so Claude sees it as part of the project context in every session.
 
-## How It Works
+## Internals
 
 ### Init (codebase analysis)
 
@@ -192,28 +288,6 @@ Markdown files with YAML frontmatter. Universal guards (destructive commands, se
 
 `dk.sh` defines `dk`, `dkrm`, `dkls`, `dkclean`, `dkloop`, and `doyaken`. After editing, run `dk reload` to apply.
 
-## Ticket Lifecycle
-
-Run `/doyaken` inside a worktree to kick off the full autonomous workflow:
-
-| Phase | Skills | What Happens | User Action |
-|-------|--------|-------------|-------------|
-| 1. Plan | `/dkplan` | Reads ticket, explores code, presents 2-3 approaches, drafts plan | Approve plan |
-| 2. Implement | `/dkimplement` + `/dkreview` | TDD per task, audit loop until PASS with zero findings | Clarify if needed |
-| 3. Verify & Commit | `/dkverify` + `/dkcommit` | Quality gates, atomic conventional commits, push | — |
-| 4. PR | `/dkpr` | PR description, update tracker | Approve to mark ready |
-| 5. Complete | `/dkwatchci` + `/dkwatchpr` + `/dkcomplete` | Monitor CI/reviews, update tracker, print summary | Escalations only |
-
-### Autonomous Mode
-
-When started via `dk` (number or string), a phase audit loop is active. The Stop hook prevents Claude from stopping prematurely and injects a phase-specific audit prompt that critically reviews the work done. The loop continues until:
-
-- **Completion promise** (`DOYAKEN_TICKET_COMPLETE`) is output — all tasks done, PR merged/approved, checks green
-- **Max iterations** (default 30) reached — safety net for cost control
-- **User interrupts** — always possible
-
-Claude still escalates to the user for: secrets scan failures, architectural review comments, 3+ failed fix attempts, and scope changes. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
-
 ## Confidence Scoring
 
 Self-review findings include a confidence score (0-100). Only findings scoring >= 50 are reported:
@@ -250,6 +324,30 @@ Project-specific guards are generated during `dk init` in `.doyaken/guards/`. Yo
 ### Autonomous mode
 
 Control via environment variables:
-- `DOYAKEN_LOOP_ACTIVE=1` — Enable the phase audit loop (set automatically by `dk`)
-- `DOYAKEN_LOOP_MAX_ITERATIONS=30` — Max iterations before forced stop
-- `DOYAKEN_LOOP_PROMISE=DOYAKEN_TICKET_COMPLETE` — Completion signal string
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DOYAKEN_LOOP_ACTIVE` | `0` | Enable the phase audit loop (set automatically by `dk`) |
+| `DOYAKEN_LOOP_MAX_ITERATIONS` | `30` | Max iterations before forced stop |
+| `DOYAKEN_LOOP_MIN_AUDITS` | Per-phase | Min audit iterations before completion authorized |
+| `DOYAKEN_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
+| `DOYAKEN_PHASE_N_MIN_AUDITS` | — | Per-phase override (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
+| `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive clean review iterations required (Phase 3) |
+| `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before advancing Phase 3 |
+| `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle review cycles before Phase 6 escalates |
+| `DOYAKEN_COMPLETE_WAIT_MINUTES` | `30` | Minimum wait window per Phase 6 cycle (minutes) |
+
+### Reviewers
+
+Phase 6 reads the `## Reviewers` section of `.doyaken/doyaken.md` to decide who to request reviews from. Two assignment types per row:
+
+| Type | Mechanism | Use for |
+|------|-----------|---------|
+| `request` | `gh pr edit --add-reviewer <handle>` | Humans, GitHub Copilot, anything GitHub recognises as a reviewer |
+| `mention` | `@<handle>` posted as a PR comment | AI agents that watch mentions but don't accept native review requests |
+
+Defaults written by `dk config`:
+- The current authenticated GitHub user (auto-detected via `gh api user`) as `request`
+- `Copilot` as `request`
+
+Edit `.doyaken/doyaken.md § Reviewers` directly or rerun `dk config` to change. After each push (review-fix commit), Phase 6 re-requests `request` reviewers and re-posts the `@mention` comment so reviewers know there's something new to look at.

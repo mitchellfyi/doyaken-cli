@@ -51,18 +51,12 @@ If you find issues at any step, fix them and re-audit. Do NOT proceed to step 4 
 
 ### 4. Signal completion
 
-Only after the audit passes, run this bash command:
-
-```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-touch "$(dk_complete_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")"
-echo "PROMPT_COMPLETE"
-```
-
-Then output: `PROMPT_COMPLETE`
+After the audit passes, stop. The Stop hook manages completion — it will provide
+the completion signal file path and promise string after enough quality audit
+passes. Do NOT write any `.complete` files or output promise strings on your own.
 
 ## Notes
 
-- The stop hook will block you from stopping until you write the `.complete` file. If you try to stop early, you'll receive an audit prompt asking you to verify your work.
+- The stop hook will block you from stopping and inject an audit prompt. Follow the audit instructions — the hook provides completion instructions after sufficient clean iterations.
 - If the loop reaches max iterations (default 30), it will allow stopping as a safety net.
 - The `.active` file is cleaned up automatically when the loop completes or reaches max iterations.

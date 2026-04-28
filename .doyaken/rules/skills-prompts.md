@@ -55,4 +55,4 @@ Stored in `prompts/`. Referenced by skills/agents via `@prompts/<file>.md`.
 - `pr-description.md` — PR description template
 - `ticket-instructions.md` — Ticket intake workflow (injected by SessionStart hook)
 - `init-analysis.md` — Codebase analysis prompt (used by `dk init`)
-- `phase-audits/*.md` — Numbered 1-5 matching lifecycle phases, plus `prompt-loop.md`
+- `phase-audits/*.md` — Numbered 1-6 matching lifecycle phases, plus `prompt-loop.md`

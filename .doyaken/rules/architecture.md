@@ -17,7 +17,7 @@ Hooks defined in `settings.json`, referenced by paths to Doyaken scripts:
 
 When `DOYAKEN_LOOP_ACTIVE=1`, the Stop hook intercepts Claude's exit, injects a phase-specific audit prompt, and loops until a `.complete` signal file is written or max iterations (default 30) are reached.
 
-Phases: Plan → Implement → Verify → PR → Complete
+Phases: Plan → Implement → Review → Verify & Commit → PR → Complete
 
 ## Session IDs
 

@@ -79,6 +79,19 @@ Write these files:
 When an integration is "not configured", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.
 
+## Reviewers
+
+Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
+- `request` — `gh pr edit --add-reviewer <handle>` (humans, Copilot, anything GitHub supports)
+- `mention` — `@<handle>` posted as a PR comment (for AI agents that watch mentions)
+
+| Handle | Type | Notes |
+|--------|------|-------|
+| @[auth-user] | request | Authenticated GitHub user (auto-detected by `dk config`) |
+| Copilot | request | GitHub Copilot review |
+
+If the table is empty or only contains `_none_` rows, Phase 6 skips review-request and mention steps. Edit rows directly or rerun `dk config`.
+
 ## Rules
 [Reference any rule files generated in .doyaken/rules/]
 
