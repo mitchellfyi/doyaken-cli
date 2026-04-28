@@ -17,6 +17,18 @@ dk init
 dk 999
 ```
 
+## Why Claude Code, not Codex?
+
+Doyaken is built on Claude Code-specific primitives, not a portable agent abstraction. The lifecycle relies on:
+
+- **Stop hook** — phase audit loops re-inject quality checks until Claude passes them
+- **`--fork-session`** — fresh context window per phase while keeping the named session for `--resume`
+- **Plan mode** — `EnterPlanMode` / `ExitPlanMode` give Phase 1 a read-only quality gate
+- **`--append-system-prompt-file`** — phase scope and completion protocol survive context compaction
+- **Skills, SessionStart hooks, status line, `--from-pr`** — all wired through Claude Code's harness
+
+Codex CLI doesn't currently expose equivalents, so swapping backends would mean re-implementing the audit loop, plan mode, and per-phase context handoff from scratch. Until that lands, `dk` requires the `claude` CLI on your `PATH`.
+
 ## Lifecycle
 
 When you run `dk 999`, Doyaken creates an isolated git worktree and runs Claude through six autonomous phases. Each phase is a separate Claude Code session (`--fork-session`), so every phase starts with a fresh context window. The user is brought into the loop as a configured reviewer in Phase 6 — the autonomous loop waits for their review (and any other configured reviewers) and only closes the ticket once everyone has approved.
