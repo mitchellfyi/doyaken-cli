@@ -171,7 +171,8 @@ dkclean             # Prune stale worktrees, gone branches, orphan branches
 dkcomplete           # Run Phase 6 manually on the current branch's PR
 
 # Standalone review (3-clean-passes loop, no full lifecycle)
-dkreviewloop         # Auto-detect scope (staged → unstaged → unpushed → PR diff) and review
+dkreviewloop         # Shell function — spawns full Claude CLI sessions per pass (terminal)
+/dkreviewloop        # Skill — orchestrates fresh Agent-tool subagents per pass (in-session)
 
 # Prompt loop (no worktree or ticket needed)
 dkloop <prompt>     # Run a prompt until fully implemented (from terminal)
@@ -211,6 +212,7 @@ doyaken/
     dkprreview/              # Critically evaluate and address PR review comments
     dkcomplete/              # Final verification, ticket closure
     dkloop/                  # In-session prompt loop (run until done)
+    dkreviewloop/            # In-session 3-clean-passes review via fresh Agent subagents
   lib/                       # Shared shell library (sourced by dk.sh and hook scripts)
     common.sh                # Constants, bootstrap (sources other lib files)
     git.sh                   # Git helpers (default branch detection, slugify)

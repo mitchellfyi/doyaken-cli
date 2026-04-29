@@ -275,7 +275,7 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 - `__dk_run_phases()` + phase config → `lib/phases.sh` (but uses zsh syntax — would need refactoring to bash-compat, or keep as zsh-only `lib/phases.zsh`)
 - `__dk_show_header()` + `__dk_format_elapsed()` → `lib/display.sh`
 
-**What stays in dk.sh:** Functions that use zsh-specific syntax (`${(j: :)@}`, zsh arrays) or need `unalias/unfunction` re-sourcing guards. The public commands (`dk`, `dkloop`, `dkrm`, `dkls`, `dkclean`, `doyaken`) must stay because they are shell functions loaded into the user's zsh session.
+**What stays in dk.sh:** Functions that use zsh-specific syntax (`${(j: :)@}`, zsh arrays) or need `unalias/unfunction` re-sourcing guards. The public commands (`dk`, `dkloop`, `dkrm`, `dkls`, `dkclean`, `dkcomplete`, `dkreviewloop`, `doyaken`) must stay because they are shell functions loaded into the user's zsh session.
 
 ## Environment Variables
 
