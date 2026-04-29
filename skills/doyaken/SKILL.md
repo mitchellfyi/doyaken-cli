@@ -20,11 +20,12 @@ The `dk` wrapper runs each phase as a separate Claude Code session, auto-advanci
 
 ### Phase 2: Implement
 
-1. Invoke the Skill tool with `skill: "dkimplement"` — work through tasks with TDD discipline.
-2. **[STOP]** if ambiguous requirements, scope changes, or blocked dependencies arise.
-3. The audit loop verifies all tasks are complete with tests passing and evidence table filled.
-4. **SCOPE**: implementation and testing ONLY. Do NOT commit, push, or create PRs.
-5. Output `PHASE_2_COMPLETE` when all tasks are implemented and the evidence table shows all criteria MET.
+1. **Run any deferred ticket setup first.** Plan mode is read-only, so the bootstrap steps from `prompts/ticket-instructions.md` (branch rename, bootstrap push, draft PR, ticket status → In Progress) cannot run during Phase 1. If they have not already been done, run them now.
+2. **Then immediately invoke** the Skill tool with `skill: "dkimplement"` — work through tasks with TDD discipline. Do NOT pause between bootstrap setup and implementation to ask the user for permission; the plan approval was the go-ahead. The user can interrupt at any time if they want to redirect.
+3. **[STOP]** if ambiguous requirements, scope changes, or blocked dependencies arise.
+4. The audit loop verifies all tasks are complete with tests passing and evidence table filled.
+5. **SCOPE**: implementation, testing, and (if not already done) the one-time bootstrap setup from step 1 ONLY. Do NOT commit or push implementation code (Phase 4 owns that), and do NOT update the PR description (Phase 5 owns that).
+6. Output `PHASE_2_COMPLETE` when all tasks are implemented and the evidence table shows all criteria MET.
 
 ### Phase 3: Review
 
