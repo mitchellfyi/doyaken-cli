@@ -7,22 +7,20 @@ IMPORTANT: Follow these steps in order. Use the ticket tracker configured in doy
    - If the tracker supports assignees: check the assignee. If assigned to someone else, STOP and warn. If unassigned, assign to the current user (for Linear: use `save_issue` with `assignee: "me"`).
    - If no tracker is configured: use the branch name `{{BRANCH}}` and the local filesystem for context. Ask the user what they want to work on.
 
-2. Rename the branch and create a draft PR:
+2. Rename and push the branch — **do NOT create the draft PR yet**. The PR is created later by `/dkpr` (Phase 5) once the implementation has been committed. Creating it upfront on an empty branch fails with "No commits between main and …" and forces an empty bootstrap commit; deferring avoids that whole dance.
 
    **If ticket context was found**:
    - Rename to match the ticket's git branch name (returned by the tracker — e.g., Linear's `branchName` field from `get_issue`):
      ```
      git branch -m {{BRANCH}} <suggested-branch-name>
      git push -u origin <suggested-branch-name>
-     gh pr create --draft --title "<type>(<scope>): <ticket-title>" --body "<ticket-url>"
      ```
 
    **If no ticket context**:
    - Keep the current branch name `{{BRANCH}}`.
-   - Push and create a draft PR using the branch name as the title:
+   - Push the branch so the remote tracks it:
      ```
      git push -u origin {{BRANCH}}
-     gh pr create --draft --title "<type>(<scope>): <description from user>" --body ""
      ```
 
 3. Set the ticket status to "In Progress" via the configured tracker. If no tracker, skip.
@@ -37,4 +35,4 @@ IMPORTANT: Follow these steps in order. Use the ticket tracker configured in doy
 
 5. Read the relevant AGENTS.md or README.md for the areas of code involved. Explore the codebase to understand scope and context.
 
-6. Once setup steps 1–5 are complete, continue directly with the active workflow (e.g., `/doyaken`, `/dkplan`, `/dkimplement`, or whatever the user invoked). Do NOT pause to ask for go-ahead — running setup is part of carrying out the user's already-authorised request, and a separate "ready to start?" prompt is unnecessary friction. Print a brief one-line summary of what was set up (branch, PR, ticket status) and then proceed. The user can interrupt at any time if they want to redirect.
+6. Once setup steps 1–5 are complete, continue directly with the active workflow (e.g., `/doyaken`, `/dkplan`, `/dkimplement`, or whatever the user invoked). Do NOT pause to ask for go-ahead — running setup is part of carrying out the user's already-authorised request, and a separate "ready to start?" prompt is unnecessary friction. Print a brief one-line summary of what was set up (branch, ticket status) and then proceed. The user can interrupt at any time if they want to redirect.
