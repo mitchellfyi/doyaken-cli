@@ -49,9 +49,11 @@ skills/              Lifecycle skills (11 total, symlinked to ~/.claude/skills/)
 |-------------|------|--------|
 | Ticket tracker | GitHub Issues (`gh`) | enabled |
 | Design | Figma MCP | not configured |
-| Error monitoring | Sentry MCP | not configured |
+| Error monitoring (Sentry) | Sentry MCP | not configured |
+| Error monitoring (Honeybadger) | Honeybadger MCP | not configured |
 | Deployments | Vercel MCP | not configured |
-| Observability | Grafana MCP | not configured |
+| Observability (Grafana) | Grafana MCP | not configured |
+| Observability (Datadog) | Datadog MCP | not configured |
 
 When an integration is "not configured", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.

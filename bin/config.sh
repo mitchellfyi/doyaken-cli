@@ -65,14 +65,18 @@ ask_yn() {
 
 FIGMA_STATUS="not configured"
 SENTRY_STATUS="not configured"
+HONEYBADGER_STATUS="not configured"
 VERCEL_STATUS="not configured"
 GRAFANA_STATUS="not configured"
+DATADOG_STATUS="not configured"
 
 echo ""
 ask_yn "Figma (design context)?" "n" && FIGMA_STATUS="enabled"
 ask_yn "Sentry (error monitoring)?" "n" && SENTRY_STATUS="enabled"
+ask_yn "Honeybadger (error monitoring)?" "n" && HONEYBADGER_STATUS="enabled"
 ask_yn "Vercel (deployments)?" "n" && VERCEL_STATUS="enabled"
 ask_yn "Grafana (observability)?" "n" && GRAFANA_STATUS="enabled"
+ask_yn "Datadog (observability + APM)?" "n" && DATADOG_STATUS="enabled"
 
 # ── Reviewers ───────────────────────────────────────────────────────────
 #
@@ -150,9 +154,11 @@ INTEGRATIONS="## Integrations
 |-------------|------|--------|
 | Ticket tracker | ${TRACKER_TOOL} | ${TRACKER_STATUS} |
 | Design | Figma MCP | ${FIGMA_STATUS} |
-| Error monitoring | Sentry MCP | ${SENTRY_STATUS} |
+| Error monitoring (Sentry) | Sentry MCP | ${SENTRY_STATUS} |
+| Error monitoring (Honeybadger) | Honeybadger MCP | ${HONEYBADGER_STATUS} |
 | Deployments | Vercel MCP | ${VERCEL_STATUS} |
-| Observability | Grafana MCP | ${GRAFANA_STATUS} |
+| Observability (Grafana) | Grafana MCP | ${GRAFANA_STATUS} |
+| Observability (Datadog) | Datadog MCP | ${DATADOG_STATUS} |
 
 When an integration is \"not configured\", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management."
@@ -207,11 +213,96 @@ echo "Integrations configured:"
 echo "  Ticket tracker: ${TRACKER_TOOL} (${TRACKER_STATUS})"
 [[ "$FIGMA_STATUS" == "enabled" ]] && echo "  Figma: enabled"
 [[ "$SENTRY_STATUS" == "enabled" ]] && echo "  Sentry: enabled"
+[[ "$HONEYBADGER_STATUS" == "enabled" ]] && echo "  Honeybadger: enabled"
 [[ "$VERCEL_STATUS" == "enabled" ]] && echo "  Vercel: enabled"
 [[ "$GRAFANA_STATUS" == "enabled" ]] && echo "  Grafana: enabled"
+[[ "$DATADOG_STATUS" == "enabled" ]] && echo "  Datadog: enabled"
 echo ""
 echo "Reviewers configured:"
 printf '%s' "$REVIEWER_ROWS" | sed 's/^| /  - /; s/ |.*//' | grep -v '^$'
+
+# ── MCP setup hints for newly-enabled integrations ────────────────────────
+#
+# Print the JSON snippet the user needs to add to .mcp.json or
+# ~/.claude/settings.json for each enabled integration. Doyaken does not
+# write these for the user — they require API keys/tokens and the user
+# may want to manage MCP config themselves.
+
+if [[ "$DATADOG_STATUS" == "enabled" ]] || [[ "$HONEYBADGER_STATUS" == "enabled" ]]; then
+  echo ""
+  echo "─── MCP setup ─────────────────────────────────────────────────────────"
+  echo "Add the following to your .mcp.json (project) or ~/.claude/settings.json"
+  echo "(global). Replace placeholders with your real keys/tokens."
+fi
+
+if [[ "$DATADOG_STATUS" == "enabled" ]]; then
+  cat <<'DDEOF'
+
+Datadog MCP (remote, HTTP transport):
+
+  {
+    "mcpServers": {
+      "datadog": {
+        "type": "http",
+        "url": "https://mcp.datadoghq.com",
+        "headers": {
+          "DD_API_KEY": "<your-api-key>",
+          "DD_APPLICATION_KEY": "<your-application-key>"
+        }
+      }
+    }
+  }
+
+  Replace the URL with your regional endpoint if you are not on US1:
+    US1  https://mcp.datadoghq.com
+    US3  https://mcp.us3.datadoghq.com
+    US5  https://mcp.us5.datadoghq.com
+    EU   https://mcp.datadoghq.eu
+    AP1  https://mcp.ap1.datadoghq.com
+    AP2  https://mcp.ap2.datadoghq.com
+
+  API key:    https://app.datadoghq.com/organization-settings/api-keys
+  App key:    https://app.datadoghq.com/organization-settings/application-keys
+  Docs:       https://docs.datadoghq.com/bits_ai/mcp_server/setup/
+DDEOF
+fi
+
+if [[ "$HONEYBADGER_STATUS" == "enabled" ]]; then
+  cat <<'HBEOF'
+
+Honeybadger MCP (local, Docker transport — read-only by default):
+
+  {
+    "mcpServers": {
+      "honeybadger": {
+        "command": "docker",
+        "args": [
+          "run", "-i", "--rm",
+          "-e", "HONEYBADGER_PERSONAL_AUTH_TOKEN",
+          "ghcr.io/honeybadger-io/honeybadger-mcp-server"
+        ],
+        "env": {
+          "HONEYBADGER_PERSONAL_AUTH_TOKEN": "<your-personal-auth-token>"
+        }
+      }
+    }
+  }
+
+  Optional env vars:
+    HONEYBADGER_READ_ONLY  default true; set "false" to enable write ops
+    HONEYBADGER_API_URL    default https://app.honeybadger.io
+
+  Auth token: https://app.honeybadger.io (User Settings → Authentication)
+  Repo:       https://github.com/honeybadger-io/honeybadger-mcp-server
+HBEOF
+fi
+
+if [[ "$DATADOG_STATUS" == "enabled" ]] || [[ "$HONEYBADGER_STATUS" == "enabled" ]]; then
+  echo ""
+  echo "After saving the snippet to .mcp.json, rerun \`dk config\` and accept the"
+  echo "MCP-promotion prompt to mirror the server into ~/.claude/settings.json so"
+  echo "worktrees inherit it."
+fi
 # ── Promote MCP servers to global settings ────────────────────────────
 #
 # Project-level .mcp.json servers require per-directory OAuth. When dk

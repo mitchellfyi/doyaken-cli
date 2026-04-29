@@ -72,9 +72,11 @@ Write these files:
 |-------------|------|--------|
 | Ticket tracker | [Linear MCP / GitHub Issues / none] | [enabled / not configured] |
 | Design | Figma MCP | [enabled / not configured] |
-| Error monitoring | Sentry MCP | [enabled / not configured] |
+| Error monitoring (Sentry) | Sentry MCP | [enabled / not configured] |
+| Error monitoring (Honeybadger) | Honeybadger MCP | [enabled / not configured] |
 | Deployments | Vercel MCP | [enabled / not configured] |
-| Observability | Grafana MCP | [enabled / not configured] |
+| Observability (Grafana) | Grafana MCP | [enabled / not configured] |
+| Observability (Datadog) | Datadog MCP | [enabled / not configured] |
 
 When an integration is "not configured", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.
