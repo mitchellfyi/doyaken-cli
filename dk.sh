@@ -16,6 +16,7 @@
 #   dk --resume             Resume the most recent session
 #   dk --from-pr <N>        Resume session linked to a PR
 #   dkcomplete              Standalone completion workflow (recovery / non-dk PRs)
+#   dkreviewloop            Standalone 3-clean-passes review of staged/unstaged/unpushed/PR diff
 #   dkrm <number|name|--all>  Remove a worktree
 #   dkls                   List worktrees
 #   dkclean                Clean stale worktrees + gone branches
@@ -73,6 +74,9 @@ doyaken() {
       echo ""
       echo "Standalone completion (recovery / non-dk PRs):"
       echo "  dkcomplete             Monitor CI/reviews, address comments, close ticket"
+      echo ""
+      echo "Standalone review (3-clean-passes loop, no full lifecycle needed):"
+      echo "  dkreviewloop           Auto-detect scope (staged → unstaged → unpushed → PR diff) and review"
       echo ""
       echo "Prompt loop:"
       echo "  dkloop <prompt>          Run a prompt until fully implemented"
@@ -1242,6 +1246,185 @@ dkcomplete() {
   rm -f "$(dk_active_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_complete_file "$session_id")" 2>/dev/null
 
   return $exit_code
+}
+
+# ─── dkreviewloop — standalone 3-clean-passes review ─────────────────────
+#
+# Runs the same adversarial review loop dk Phase 3 uses, without requiring
+# the full lifecycle. Scope is auto-detected in this priority order:
+#   1. Staged changes      → git diff --cached
+#   2. Unstaged changes    → git diff
+#   3. Unpushed commits    → git diff @{u}...HEAD
+#   4. PR diff vs default  → git diff origin/<default>...HEAD
+#
+# Each iteration is a fresh Claude session that runs /dkreview, performs
+# the manual review passes, spawns the self-reviewer agent, builds a
+# merged findings inventory, fixes everything, and writes a CLEAN /
+# FINDINGS:N review-result signal. The shell tracks consecutive CLEAN
+# results — DK_REVIEW_CLEAN_PASSES (default 3) in a row to advance,
+# DK_REVIEW_MAX_ITERATIONS (default 10) safety net.
+
+unalias dkreviewloop 2>/dev/null; unfunction dkreviewloop 2>/dev/null
+dkreviewloop() {
+  if ! command -v claude &>/dev/null; then
+    dk_error "Claude Code CLI not found in PATH."
+    dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
+    return 1
+  fi
+
+  if ! git rev-parse --git-dir &>/dev/null; then
+    dk_error "Not in a git repository."
+    return 1
+  fi
+
+  # Detect scope using priority order
+  local scope_name="" diff_cmd="" stat_cmd="" name_cmd=""
+  if ! git diff --cached --quiet 2>/dev/null; then
+    scope_name="staged changes"
+    diff_cmd="git diff --cached"
+    stat_cmd="git diff --cached --stat"
+    name_cmd="git diff --cached --name-only"
+  elif ! git diff --quiet 2>/dev/null; then
+    scope_name="unstaged changes"
+    diff_cmd="git diff"
+    stat_cmd="git diff --stat"
+    name_cmd="git diff --name-only"
+  elif git rev-parse --abbrev-ref --symbolic-full-name '@{u}' &>/dev/null && \
+       [[ -n "$(git log '@{u}..HEAD' --oneline 2>/dev/null)" ]]; then
+    scope_name="unpushed commits (vs upstream)"
+    diff_cmd="git diff @{u}...HEAD"
+    stat_cmd="git diff @{u}...HEAD --stat"
+    name_cmd="git diff @{u}...HEAD --name-only"
+  else
+    local default_branch
+    default_branch=$(dk_default_branch)
+    if [[ -n "$default_branch" ]] && \
+       [[ -n "$(git log "origin/${default_branch}..HEAD" --oneline 2>/dev/null)" ]]; then
+      scope_name="PR diff (vs origin/${default_branch})"
+      diff_cmd="git diff origin/${default_branch}...HEAD"
+      stat_cmd="git diff origin/${default_branch}...HEAD --stat"
+      name_cmd="git diff origin/${default_branch}...HEAD --name-only"
+    fi
+  fi
+
+  if [[ -z "$scope_name" ]]; then
+    dk_error "No changes detected to review."
+    dk_info "Tried in order: staged, unstaged, unpushed, PR diff vs default branch."
+    return 1
+  fi
+
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
+
+  # File count preview (parsed from --stat tail line)
+  local files_changed
+  files_changed=$(eval "$stat_cmd" 2>/dev/null | tail -1 | grep -oE '[0-9]+ files? changed' | grep -oE '[0-9]+' || echo "?")
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  DOYAKEN — dkreviewloop (3-clean-passes review)"
+  echo ""
+  echo "  Branch: ${branch}"
+  echo "  Scope:  ${scope_name} (${files_changed} files)"
+  echo "  Diff:   ${diff_cmd}"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+
+  local session_id
+  session_id=$(dk_session_id)
+
+  local clean_passes=0
+  local review_iteration=0
+  local max_iter="${DOYAKEN_REVIEW_MAX_ITERATIONS:-$DK_REVIEW_MAX_ITERATIONS}"
+  local required_clean="${DOYAKEN_REVIEW_CLEAN_PASSES:-$DK_REVIEW_CLEAN_PASSES}"
+
+  # Reuse the Phase 3 audit prompt — same one dk wrapper Phase 3 uses.
+  local audit_file="$DOYAKEN_DIR/prompts/phase-audits/3-review.md"
+  local audit_prompt=""
+  [[ -f "$audit_file" ]] && audit_prompt=$(cat "$audit_file")
+
+  local session_name
+  session_name="dkreviewloop-$(dk_slugify "$branch")"
+
+  local message="Run an adversarial code review using /dkreview, scoped to **${scope_name}** on branch \`${branch}\`.
+
+IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \`git diff origin/<default>...HEAD\`, override that — use these commands instead:
+
+- Diff:        \`${diff_cmd}\`
+- Stat:        \`${stat_cmd}\`
+- File names:  \`${name_cmd}\`
+
+Follow the audit prompt: run /dkreview, perform the manual passes, spawn the self-reviewer agent, build the merged findings inventory, fix all issues, and write the review result signal file.
+
+If no approved plan / acceptance criteria are available for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them.
+
+SCOPE BOUNDARIES: review and fix the diff above ONLY. Do NOT commit, push, or create PRs.
+
+When the review is clean, stop — the audit loop will verify."
+
+  while [[ $review_iteration -lt $max_iter ]] && [[ $clean_passes -lt $required_clean ]]; do
+    review_iteration=$((review_iteration + 1))
+
+    echo ""
+    echo "  Iteration ${review_iteration}/${max_iter} (${clean_passes}/${required_clean} clean passes)"
+    echo ""
+
+    rm -f "$(dk_review_result_file "$session_id")"
+    mkdir -p "$DK_LOOP_DIR"
+    touch "$(dk_active_file "$session_id")"
+    rm -f "$(dk_complete_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_findings_file "$session_id")"
+
+    # Stop hook config: phase 3, MIN_AUDITS=1
+    __dk_write_state "$(dk_loop_config_file "$session_id")" "3:${DK_PHASE_PROMISES[3]}:${audit_file}:1"
+
+    local claude_args=("${DK_CLAUDE_FLAGS[@]}" -n "$session_name")
+    if [[ $review_iteration -gt 1 ]]; then
+      # Reuse session name across iterations, fresh context window each time
+      claude_args+=(--resume --fork-session)
+    fi
+
+    DOYAKEN_SESSION_ID="$session_id" \
+    DOYAKEN_LOOP_ACTIVE=1 \
+    DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[3]}" \
+    DOYAKEN_LOOP_PROMPT="$audit_prompt" \
+    DOYAKEN_LOOP_PHASE="3" \
+    DOYAKEN_DIR="$DOYAKEN_DIR" \
+    claude "${claude_args[@]}" "$message"
+
+    local exit_code=$?
+
+    rm -f "$(dk_active_file "$session_id")" "$(dk_loop_config_file "$session_id")" "$(dk_loop_file "$session_id")" 2>/dev/null
+
+    if [[ $exit_code -ne 0 ]]; then
+      echo ""
+      dk_info "dkreviewloop interrupted (exit code: $exit_code)."
+      return $exit_code
+    fi
+
+    local result="UNKNOWN"
+    local result_file
+    result_file=$(dk_review_result_file "$session_id")
+    [[ -f "$result_file" ]] && result=$(cat "$result_file" 2>/dev/null || echo "UNKNOWN")
+
+    if [[ "$result" == "CLEAN" ]]; then
+      clean_passes=$((clean_passes + 1))
+      echo "  Iteration ${review_iteration}: CLEAN (${clean_passes}/${required_clean})"
+    else
+      clean_passes=0
+      echo "  Iteration ${review_iteration}: ${result} — resetting clean pass counter"
+    fi
+  done
+
+  rm -f "$(dk_review_result_file "$session_id")" 2>/dev/null
+
+  echo ""
+  if [[ $clean_passes -ge $required_clean ]]; then
+    dk_done "Review complete: ${clean_passes} consecutive clean passes."
+    return 0
+  else
+    dk_info "Review reached max iterations (${max_iter}) with ${clean_passes}/${required_clean} clean passes."
+    return 0
+  fi
 }
 
 # ─── dkrm — remove worktrees ──────────────────────────────────────────────

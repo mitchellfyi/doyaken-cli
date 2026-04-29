@@ -126,6 +126,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 |---------|:---:|-------|
 | `dkloop <prompt>` | No | Works in any git repo |
 | `dkcomplete` | No | Works in any git repo with a PR |
+| `dkreviewloop` | No | Works in any git repo with detectable changes |
 | `/dkloop`, `/dkplan`, `/dkimplement`, etc. | No | Skills work in any Claude Code session |
 | Hooks (guards, commit validation, ticket context) | No | Installed globally by `dk install` |
 | Agents (self-reviewer) | No | Symlinked globally by `dk install` |
@@ -168,6 +169,9 @@ dkclean             # Prune stale worktrees, gone branches, orphan branches
 
 # Standalone completion (recovery / non-dk PRs)
 dkcomplete           # Run Phase 6 manually on the current branch's PR
+
+# Standalone review (3-clean-passes loop, no full lifecycle)
+dkreviewloop         # Auto-detect scope (staged → unstaged → unpushed → PR diff) and review
 
 # Prompt loop (no worktree or ticket needed)
 dkloop <prompt>     # Run a prompt until fully implemented (from terminal)
@@ -298,7 +302,7 @@ Markdown files with YAML frontmatter. Universal guards (destructive commands, se
 
 ### Shell Functions (reload needed)
 
-`dk.sh` defines `dk`, `dkrm`, `dkls`, `dkclean`, `dkloop`, and `doyaken`. After editing, run `dk reload` to apply.
+`dk.sh` defines `dk`, `dkrm`, `dkls`, `dkclean`, `dkloop`, `dkcomplete`, `dkreviewloop`, and `doyaken`. After editing, run `dk reload` to apply.
 
 ## Confidence Scoring
 
