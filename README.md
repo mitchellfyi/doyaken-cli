@@ -202,6 +202,10 @@ Even in autonomous mode, Claude stops and escalates to the user for:
 
 The user can always interrupt with Ctrl+C. Between phases, state is saved so `dk 999` or `dk --resume` picks up where it left off.
 
+If a completed phase leaves the Claude Code screen open, type `/exit` or press
+Ctrl-D. The original `dk` command should then continue to the next phase. If you
+return to a shell prompt and nothing starts, run `dk --resume`.
+
 See [docs/autonomous-mode.md](docs/autonomous-mode.md) for full architecture.
 
 ## What needs `dk init`?

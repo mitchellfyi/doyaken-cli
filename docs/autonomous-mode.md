@@ -239,6 +239,16 @@ Phase state is stored in `~/.claude/.doyaken-phases/`:
 
 The max iterations safety net (default 30) will always allow Claude to stop eventually. If you need to force-stop immediately, press Ctrl+C.
 
+### Phase completes but the Claude screen stays open
+
+Type `/exit` or press Ctrl-D. The original `dk` wrapper should then regain
+control and launch the next phase. If you return to a shell prompt and nothing
+starts, run:
+
+```bash
+dk --resume
+```
+
 ### Loop stops too early
 
 Check that `DOYAKEN_LOOP_ACTIVE=1` is set in the environment. The `dk` command sets this automatically, but manual `claude` invocations don't.

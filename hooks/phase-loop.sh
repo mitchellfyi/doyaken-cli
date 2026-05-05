@@ -89,7 +89,7 @@ COMPLETION_PROMISE="${DOYAKEN_LOOP_PROMISE:-DOYAKEN_TICKET_COMPLETE}"
 COMPLETE_FILE=$(dk_complete_file "$SESSION_ID")
 if [[ -f "$COMPLETE_FILE" ]]; then
   rm -f "$STATE_FILE" "$COMPLETE_FILE" "$ACTIVE_FILE" "$CONFIG_FILE"
-  printf '%s\n' '{"continue":false,"stopReason":"Doyaken phase complete. Returning control to the dk wrapper."}'
+  printf '%s\n' '{"continue":false,"stopReason":"Doyaken phase complete. If this Claude screen stays open, type /exit or press Ctrl-D; the original dk command should then launch the next phase. If you return to the shell and nothing starts, run: dk --resume"}'
   exit 0
 fi
 
@@ -160,7 +160,7 @@ fi
 # cleaning up the state file after reading the iteration count.
 if [[ $ITERATION -gt $MAX_ITERATIONS ]]; then
   rm -f "$ACTIVE_FILE" "$CONFIG_FILE"
-  printf '{"continue":false,"stopReason":"Doyaken phase audit loop reached max iterations (%s). Returning control to the dk wrapper."}\n' "$MAX_ITERATIONS"
+  printf '{"continue":false,"stopReason":"Doyaken phase audit loop reached max iterations (%s). If this Claude screen stays open, type /exit or press Ctrl-D. Then inspect the pause and resume with: dk --resume"}\n' "$MAX_ITERATIONS"
   exit 0
 fi
 
