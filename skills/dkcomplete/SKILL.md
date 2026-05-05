@@ -14,6 +14,13 @@ This skill runs as a **cycle loop** driven by `prompts/phase-audits/6-complete.m
 - Phase 6 of the autonomous lifecycle (invoked by `dk` after Phase 5)
 - Standalone via the `dkcomplete` shell command (recovery / non-`dk` PRs)
 
+## Autonomy Contract
+
+Phase 6 runs unattended until CI is green and configured reviewers approve, or
+until an explicit escalation condition is hit. Do not ask the user whether to
+continue between wait cycles. Waiting for CI/reviewers is handled by the Stop
+hook cycle loop and configured `DOYAKEN_COMPLETE_WAIT_MINUTES`.
+
 ## Steps
 
 ### 1. Read Reviewer Config

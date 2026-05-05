@@ -130,11 +130,13 @@ dk 999
 | Phase | Skills | What Happens | User Action |
 |-------|--------|-------------|-------------|
 | 1. Plan | `/dkplan` | Reads ticket, explores code, presents 2-3 approaches, drafts plan | Approve plan |
-| 2. Implement | `/dkimplement` | TDD per task, evidence table, completeness check | Clarify if needed |
+| 2. Implement | `/dkimplement` | TDD per task, evidence table, completeness check | Only for scope/requirement changes |
 | 3. Review | `/dkreview` + self-reviewer | Adversarial 4-pass review, 3 consecutive clean passes required | — |
 | 4. Verify & Commit | `/dkverify` + `/dkcommit` | Quality gates, atomic conventional commits, push | — |
 | 5. PR | `/dkpr` | PR description, create draft PR, attach `request`-type reviewers | — |
-| 6. Complete | `/dkcomplete` + `/dkwatchci` + `/dkwatchpr` | Mark ready, request reviews, post `@mention` comments, monitor, address comments, close ticket | **Review the PR** |
+| 6. Complete | `/dkcomplete` + `/dkwatchci` + `/dkwatchpr` | Mark ready, request reviews, post `@mention` comments, monitor, address comments, close ticket | Review/approve when configured; respond only to escalations |
+
+After Phase 1 approval, `dk` keeps advancing through Phases 2-5 without asking whether to continue. It stops for human input only when requirements change, credentials/tooling are missing, a destructive git decision is needed, repeated CI failures occur, max audit/review iterations are reached, reviewer feedback needs human judgement, or Phase 6 is waiting for CI/reviewer approval.
 
 ### Audit Loop
 
@@ -195,6 +197,8 @@ Even in autonomous mode, Claude stops and escalates to the user for:
 - Architectural review comments (need human judgement)
 - 3+ failed attempts at the same fix (loop is stuck)
 - Scope changes that affect other tickets
+- Missing credentials/tooling or destructive git operations that require explicit approval
+- Max audit/review iterations without a completion signal
 
 The user can always interrupt with Ctrl+C. Between phases, state is saved so `dk 999` or `dk --resume` picks up where it left off.
 
@@ -449,7 +453,7 @@ Control via environment variables:
 | `DOYAKEN_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
 | `DOYAKEN_PHASE_N_MIN_AUDITS` | — | Per-phase override (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
 | `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive clean review iterations required (Phase 3) |
-| `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before advancing Phase 3 |
+| `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before Phase 3 pauses for intervention |
 | `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle review cycles before Phase 6 escalates |
 | `DOYAKEN_COMPLETE_WAIT_MINUTES` | `30` | Minimum wait window per Phase 6 cycle (minutes) |
 

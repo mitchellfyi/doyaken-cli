@@ -227,7 +227,7 @@ DK_PHASE_PROMISES=(\
 )
 
 DK_PHASE_MESSAGES=(\
-  "Call EnterPlanMode now, then run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval." \
+  "Call EnterPlanMode now, then run /dkplan — gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval. After the user approves the plan, immediately stop this Phase 1 session so the dk wrapper can launch Phase 2 automatically. Do NOT tell the user to run /dkimplement and do NOT wait for another prompt." \
   "The plan is approved. You MUST invoke the Skill tool with skill: \"dkimplement\" to begin implementation. Do NOT implement ad-hoc — the skill enforces TDD and quality gates. SCOPE BOUNDARIES: implementation and testing ONLY. Do NOT commit, push, create branches, or create PRs during this phase — those are handled by later phases. When done, stop — the audit loop will verify your work." \
   "Run an adversarial code review of the implementation. Follow the review audit prompt exactly: run /dkreview, perform the 4-pass manual review (Logic, Structure, Security, Holistic), spawn the self-reviewer agent, build the merged findings inventory, and fix all issues. Write the review result signal file after building the inventory. SCOPE BOUNDARIES: review and fix ONLY. Do NOT commit, push, or create PRs. When review is clean, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dkverify\" to run the quality pipeline (format, lint, typecheck, test). Fix any failures and re-run until all green. Then invoke skill: \"dkcommit\" to commit and push. SCOPE BOUNDARIES: verify and commit ONLY. Do NOT create PRs or modify implementation beyond fixing verify failures. When pushed, stop — the audit loop will verify." \
@@ -311,7 +311,7 @@ __dk_phase_timeout() {
 #   advance  — phase completed successfully (.complete file was written)
 #   timeout  — killed by wall-clock watchdog
 #   interrupt — user sent Ctrl+C (SIGINT)
-#   max-iter — audit loop exhausted without completion (exit 0 but no .complete)
+#   max-iter — audit/review loop exhausted without completion
 #   crash    — unexpected non-zero exit
 __dk_classify_exit() {
   local exit_code="$1" step="$2" session_id="$3"
@@ -330,6 +330,8 @@ __dk_classify_exit() {
       fi
     fi
     echo "advance"
+  elif [[ $exit_code -eq 88 ]]; then
+    echo "max-iter"
   elif [[ $exit_code -eq 143 ]] || [[ $exit_code -eq 137 ]]; then
     echo "timeout"
   elif [[ $exit_code -eq 130 ]]; then
@@ -642,6 +644,30 @@ Do NOT implement skill functionality ad-hoc — invoke the actual skill.
 
 $(__dk_provider_prompt)
 
+## Autonomous Phase Contract
+
+The Doyaken shell wrapper owns phase transitions. After Phase 1 plan approval, run
+all remaining phases unattended until either the lifecycle is complete or a real
+human decision is required.
+
+Do NOT ask the user whether to continue, do NOT ask for permission to start the
+next phase, and do NOT tell the user to run the next skill manually. At normal
+phase completion, stop the current session so the wrapper can launch the next
+phase automatically.
+
+Human input is required only for:
+- Phase 1 plan approval or plan rejection
+- Clarifying questions during planning when requirements cannot be resolved
+- Scope or acceptance-criteria changes after plan approval
+- Destructive git operations, force-push/rebase decisions, or secret handling
+- Missing credentials/tooling the agent cannot configure safely
+- Repeated CI failures, architectural review disputes, or unclear reviewer
+  feedback that cannot be resolved within the approved plan
+- Max audit/review iterations or repeated loop stalls without completion
+- Phase 6 waiting for CI and configured reviewer approval
+
+If none of those applies, keep working autonomously.
+
 ## Scope Boundaries (Phase ${step} ONLY)
 
 ${scope_lines}
@@ -682,7 +708,7 @@ DEOF
 # State is persisted to dk_review_state_file so `dk --resume` can continue where
 # it left off mid-review.
 #
-# Returns 0 on success (enough clean passes or max iterations), non-zero on interrupt.
+# Returns 0 on success (enough clean passes), non-zero on interrupt or max iterations.
 __dk_run_review_loop() {
   local wt_name="$1" wt_dir="$2" session_id="$3"
   local workspace_mode="${4:-worktree}" raw_input="${5:-}"
@@ -776,15 +802,17 @@ __dk_run_review_loop() {
     __dk_write_state "$review_state_file" "${clean_passes}:${review_iteration}"
   done
 
-  # Clean up review state files
-  rm -f "$review_state_file" "$(dk_review_result_file "$session_id")" 2>/dev/null
-
   if [[ $clean_passes -ge $required_clean ]]; then
+    rm -f "$review_state_file" "$(dk_review_result_file "$session_id")" 2>/dev/null
     echo "  Review complete: ${clean_passes} consecutive clean passes achieved."
+    return 0
   else
+    __dk_write_state "$review_state_file" "${clean_passes}:${review_iteration}"
+    rm -f "$(dk_review_result_file "$session_id")" 2>/dev/null
     echo "  Review reached max iterations (${max_review_iterations}) with ${clean_passes}/${required_clean} clean passes."
+    echo "  Pausing before advancing so the review result can be inspected."
+    return 88
   fi
-  return 0
 }
 
 # __dk_run_phases <wt_name> <wt_dir> <default_branch> <start_step> <state_file> <times_file> <resume_hint> [workspace_mode] [session_id] [raw_input]
@@ -846,7 +874,7 @@ __dk_run_phases() {
       # Phase 1: bypassPermissions + EnterPlanMode — read-only without interactive prompts.
       # No stop hook: plan mode's built-in approval is the quality gate.
       claude_args=("${DK_PLAN_FLAGS[@]}" -n "$claude_session_name")
-      claude_args+=(--append-system-prompt "You MUST be in plan mode — if not, call EnterPlanMode immediately.")
+      claude_args+=(--append-system-prompt "You MUST be in plan mode — if not, call EnterPlanMode immediately. Phase 1 handoff is automatic: after ExitPlanMode is approved, stop this Claude Code session immediately so the dk shell wrapper regains control and starts Phase 2. Do NOT say 'run /dkimplement when ready', do NOT ask whether to continue, and do NOT wait for another user prompt.")
       # Resume only if re-entering Phase 1 (prior session exists)
       if [[ -f "$times_file" ]]; then
         claude_args+=(--resume)
@@ -1036,11 +1064,15 @@ __dk_run_phases() {
       "$phase_start_epoch" "$phase_end_epoch" "$duration_s" \
       "$iterations" "$phase_status" "$exit_code"
 
-    # Non-zero exit = user interrupted (Ctrl+C), timeout, or error — save state for resume
-    if [[ $exit_code -ne 0 ]]; then
+    # Anything other than an explicit advance means user input or intervention
+    # is required before the lifecycle can safely continue.
+    if [[ "$phase_status" != "advance" ]]; then
       __dk_write_state "$state_file" "$step"
       echo ""
       case "$phase_status" in
+        max-iter)
+          echo "Paused at Phase ${step}: ${DK_PHASE_NAMES[$step]} (max audit iterations reached)"
+          ;;
         timeout)
           echo "Phase ${step} (${DK_PHASE_NAMES[$step]}) timed out after ${phase_timeout}s."
           ;;
@@ -1061,7 +1093,9 @@ __dk_run_phases() {
       fi
       dk_provider_cleanup_session_state "$session_id"
       [[ -n "$_dk_session_watchdog_pid" ]] && kill "$_dk_session_watchdog_pid" 2>/dev/null
-      return $exit_code
+      local return_code="$exit_code"
+      [[ "$return_code" -eq 0 ]] && return_code=1
+      return "$return_code"
     fi
 
     # Advance to next phase
@@ -1432,7 +1466,7 @@ dkloop() {
   # No stop hook — plan mode's built-in approval is the quality gate.
   local plan_args=("${DK_PLAN_FLAGS[@]}")
   [[ -n "$session_name" ]] && plan_args+=(-n "$session_name")
-  plan_args+=(--append-system-prompt "You are in a dkloop planning session. You MUST be in plan mode — if not, call EnterPlanMode immediately. Your original task prompt is saved at ${prompt_file}. Re-read it with the Read tool if you lose track of the task.")
+  plan_args+=(--append-system-prompt "You are in a dkloop planning session. You MUST be in plan mode — if not, call EnterPlanMode immediately. Your original task prompt is saved at ${prompt_file}. Re-read it with the Read tool if you lose track of the task. After ExitPlanMode is approved, stop this Claude Code session immediately so the dkloop wrapper can launch implementation. Do NOT ask whether to continue and do NOT wait for another user prompt.")
 
   dk_info "Phase: Plan (read-only until approved)"
   DOYAKEN_SESSION_ID="$session_id" \
@@ -1441,7 +1475,7 @@ dkloop() {
 
 ${prompt}
 
-Gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval.
+Gather context, explore the codebase, and create your implementation plan. When the plan is ready, use ExitPlanMode to present it for approval. After approval, stop this session immediately so dkloop can launch implementation automatically.
 $(__dk_provider_prompt)"
 
   local plan_exit=$?
@@ -1472,6 +1506,11 @@ $(__dk_provider_prompt)"
 $(__dk_provider_prompt)"
 
   local exit_code=$?
+  local loop_status="advance"
+  if [[ $exit_code -eq 0 ]] && [[ -f "$(dk_loop_file "$session_id")" ]]; then
+    loop_status="max-iter"
+    exit_code=1
+  fi
 
   # Clean up state files
   rm -f "$(dk_loop_file "$session_id")" \
@@ -1485,7 +1524,11 @@ $(__dk_provider_prompt)"
     dk_done "dkloop complete."
   else
     echo ""
-    dk_info "dkloop interrupted (exit code: $exit_code)."
+    if [[ "$loop_status" == "max-iter" ]]; then
+      dk_info "dkloop paused: max audit iterations reached without completion."
+    else
+      dk_info "dkloop interrupted (exit code: $exit_code)."
+    fi
   fi
 
   return $exit_code
@@ -1554,10 +1597,19 @@ dkcomplete() {
 $(__dk_provider_prompt)"
 
   local exit_code=$?
+  local loop_status="advance"
+  if [[ $exit_code -eq 0 ]] && [[ -f "$(dk_loop_file "$session_id")" ]]; then
+    loop_status="max-iter"
+    exit_code=1
+  fi
 
   # Clean up
   rm -f "$(dk_active_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_complete_file "$session_id")" 2>/dev/null
   dk_provider_cleanup_session_state "$session_id"
+
+  if [[ "$loop_status" == "max-iter" ]]; then
+    dk_info "dkcomplete paused: max audit iterations reached without completion."
+  fi
 
   return $exit_code
 }
@@ -1576,7 +1628,7 @@ $(__dk_provider_prompt)"
 # merged findings inventory, fixes everything, and writes a CLEAN /
 # FINDINGS:N review-result signal. The shell tracks consecutive CLEAN
 # results — DK_REVIEW_CLEAN_PASSES (default 3) in a row to advance,
-# DK_REVIEW_MAX_ITERATIONS (default 10) safety net.
+# DK_REVIEW_MAX_ITERATIONS (default 10) safety net before pausing.
 
 unalias dkreviewloop 2>/dev/null; unfunction dkreviewloop 2>/dev/null
 dkreviewloop() {
@@ -1743,7 +1795,7 @@ $(__dk_provider_prompt)"
     return 0
   else
     dk_info "Review reached max iterations (${max_iter}) with ${clean_passes}/${required_clean} clean passes."
-    return 0
+    return 1
   fi
 }
 

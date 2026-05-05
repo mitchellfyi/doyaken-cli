@@ -100,7 +100,9 @@ fi
 - A reviewer requests a significant **architectural change** (affects multiple files, changes the approach).
 - There's a **disagreement** with a reviewer on the correct approach.
 - A reviewer's comment is **unclear** and you can't determine the right fix.
-- A **human reviewer** explicitly requests changes — address the feedback but flag it for the user's awareness.
+- A **human reviewer** explicitly requests changes that conflict with the approved plan, require scope/architecture judgement, or remain unclear after reading the surrounding code.
+
+Clear, in-scope human feedback should be handled autonomously through `/dkprreview --reply=inline`; do not pause only because the commenter is human.
 
 ## Timeout
 

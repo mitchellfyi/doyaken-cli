@@ -5,7 +5,7 @@ description: "Critically evaluate PR review comments, fix valid issues, push bac
 
 # Skill: dkprreview
 
-Critically evaluate PR review comments — fix what should be fixed, push back on what should not, and escalate what needs human judgement. Always confirm with the user how they want replies delivered (inline on the PR per comment, or just summarised in the terminal).
+Critically evaluate PR review comments — fix what should be fixed, push back on what should not, and escalate what needs human judgement. In autonomous Phase 6/watch mode, use inline replies without asking; standalone invocations may ask how the user wants replies delivered.
 
 ## When to Use
 
@@ -171,15 +171,16 @@ After all fixes are implemented and verified:
    git push
    ```
 
-### 5.5. Confirm Reply Mode
+### 5.5. Resolve Reply Mode
 
-Before posting anything to GitHub, confirm with the user how they want replies delivered.
+Before posting anything to GitHub, resolve how replies should be delivered. Do not ask in autonomous watch mode.
 
 **Resolution order:**
 
 1. **`--reply=` argument** — if the invocation included `--reply=inline` or `--reply=terminal`, use that and skip the question.
 2. **`DOYAKEN_PRREVIEW_REPLY_MODE` env var** — if set to `inline` or `terminal`, use that and skip the question.
-3. **Otherwise, ask via `AskUserQuestion`:**
+3. **Autonomous Phase 6/watch mode** — if invoked by `/dkwatchpr`, `/dkcomplete`, or another unattended loop, default to `inline` and skip the question.
+4. **Otherwise, ask via `AskUserQuestion`:**
 
    Question: "How should I deliver replies to these review comments?"
    - **Inline on the PR (per comment)** — post a reply to each comment via `gh api repos/.../comments/<id>/replies` and `gh api repos/.../issues/<n>/comments`. Each reviewer sees a thread under their own comment. (Recommended)

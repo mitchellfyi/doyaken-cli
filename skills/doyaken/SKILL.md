@@ -21,7 +21,8 @@ The `dk` wrapper runs each phase as a separate Claude Code session, auto-advanci
 1. Run `/dkplan` — gather context from the configured tracker (see doyaken.md § Integrations), draft implementation plan, create tasks.
 2. **[STOP]** Present the plan to the user. Wait for approval.
 3. If the user requests changes, revise and re-present.
-4. Output `PHASE_1_COMPLETE` when the user approves.
+4. When running under the terminal `dk` wrapper, stop the current session immediately after approval so the wrapper can launch Phase 2 automatically. Do not tell the user to run `/dkimplement`.
+5. When running `/doyaken` interactively without the wrapper, output `PHASE_1_COMPLETE` when the user approves.
 
 ### Phase 2: Implement
 
@@ -93,7 +94,8 @@ As a fallback (e.g., when running `/doyaken` interactively without the wrapper),
 | 1 | Plan ready | Present plan, wait for approval |
 | 2 | Ambiguous requirement | Present options, ask user to choose |
 | 2 | Scope change needed | Explain impact, ask approval |
-| 5 | Draft PR created | Phase 6 takes over automatically |
+| 2-5 | Normal phase completion | Stop the session; the wrapper launches the next phase automatically |
+| 5 | Draft PR created | Stop; Phase 6 takes over automatically |
 | 6 | CI secrets scan failure | Cancel all loops, alert immediately |
 | 6 | 3 failed CI fix attempts | Cancel loops, escalate with details |
 | 6 | Architectural review comment | Cancel loops, escalate to user |
@@ -136,5 +138,5 @@ Even in autonomous mode, STOP and escalate to the user for:
 
 - The user can interrupt at any point and the agent should gracefully stop.
 - Each phase naturally flows into the next — no manual invocation needed after `/doyaken`.
-- The agent should provide brief status updates at phase transitions (e.g., "Plan approved. Starting implementation...").
+- The agent should provide brief status updates at phase transitions, but must not wait for the user except at the decision points above.
 - Keep the configured ticket tracker updated throughout (see doyaken.md § Integrations). If no tracker is configured, the conversation and PR serve as the record.

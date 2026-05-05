@@ -55,6 +55,12 @@ The review audit (Phase 3) is the most rigorous — it runs as a shell-managed s
 
 Phase 6 (Complete) is autonomous: it reads `## Reviewers` from `.doyaken/doyaken.md` to know who to request reviews from. The user is brought into the loop as a configured reviewer — the autonomous loop waits at least `DOYAKEN_COMPLETE_WAIT_MINUTES` (default 30) per cycle for reviews to come in, addresses any comments via `/dkprreview`, re-requests reviewers after each push, and closes the ticket once everything is approved and CI is green. After `DOYAKEN_COMPLETE_MAX_CYCLES` (default 3) idle cycles with no progress, it escalates to the user.
 
+After Phase 1 approval, the wrapper advances through normal Phase 2-5
+handoffs without asking whether to continue. A phase pauses only when it hits an
+explicit escalation condition such as missing credentials/tooling, a destructive
+git decision, repeated failed fix attempts, max audit/review iterations, or
+feedback that needs human judgement.
+
 Audit prompts are editable markdown files. Changes take effect on the next loop iteration without reloading shell functions.
 
 ## Activation
@@ -177,6 +183,8 @@ Even in autonomous mode, Claude stops and escalates to the user for:
 - Architectural review comments (need human judgement)
 - 3+ failed attempts at the same fix (loop is stuck)
 - Scope changes that affect other tickets
+- Missing credentials/tooling or destructive git operations that require explicit approval
+- Max audit/review iterations without a completion signal
 
 ### Manual Override
 
@@ -221,7 +229,7 @@ Phase state is stored in `~/.claude/.doyaken-phases/`:
 | `DOYAKEN_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
 | `DOYAKEN_PHASE_N_MIN_AUDITS` | (per-phase) | Per-phase override for min audit iterations (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
 | `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive clean review iterations required to advance Phase 3 |
-| `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before advancing Phase 3 (safety net) |
+| `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before Phase 3 pauses for intervention |
 | `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle cycles before Phase 6 escalates |
 | `DOYAKEN_COMPLETE_WAIT_MINUTES` | `30` | Minimum wait window per Phase 6 cycle (minutes) |
 
