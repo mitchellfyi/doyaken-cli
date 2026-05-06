@@ -599,6 +599,12 @@ advance you to the next phase in this session or pause for a real escalation.
 If the Stop hook hands you a new phase in this same session, that latest
 handoff instruction supersedes the initial phase label and scope section below.
 
+Same-session handoff rules:
+- When a phase is complete, stop once for the Stop hook audit.
+- If the Stop hook gives you the next phase, continue immediately without asking
+  the user.
+- Phase 3 must use /dkreviewloop for the 3-clean-pass review loop.
+
 Human input is required only for:
 - Phase 1 plan approval or plan rejection
 - Clarifying questions during planning when requirements cannot be resolved
@@ -710,7 +716,6 @@ __dk_run_phases_inline() {
   local claude_args=("${DK_CLAUDE_FLAGS[@]}" -n "$claude_session_name")
   [[ $had_times_file -eq 1 ]] && claude_args+=(--resume)
   claude_args+=(--append-system-prompt-file "$ctx_file")
-  claude_args+=(--append-system-prompt "Doyaken is running in same-session phase handoff mode. The Stop hook advances phases inside this Claude session by injecting the next phase instructions. When a phase is complete, stop once; if the Stop hook gives you the next phase, continue immediately without asking the user. Phase 3 must use /dkreviewloop for the 3-clean-pass review loop.")
   claude_args+=(--settings "{\"statusLine\":{\"type\":\"command\",\"command\":\"bash '${DOYAKEN_DIR}/bin/status-line.sh'\"}}")
 
   local message
