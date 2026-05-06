@@ -6,7 +6,7 @@ set -euo pipefail
 
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
 
-SESSION_ID=$(dk_session_id)
+SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
 
 # Phase info
 PHASE="?"

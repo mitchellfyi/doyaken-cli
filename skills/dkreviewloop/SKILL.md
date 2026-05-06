@@ -5,13 +5,13 @@ description: "Run dkreview repeatedly in fresh independent sessions until three 
 
 # Skill: dkreviewloop
 
-Run `/dkreview --single-pass` repeatedly in fresh, independent sessions until **3 clean reports in a row** (max 10 iterations). Lighter-weight standalone alternative to the full dk Phase 3 review.
+Run `/dkreview --single-pass` repeatedly in fresh, independent sessions until **3 clean reports in a row** (max 10 iterations). This is the default in-session review loop used by same-session `dk` Phase 3.
 
 ## When to Use
 
 - When the user invokes `/dkreviewloop`
 - Before committing or pushing significant work, when you want strong confidence the code is clean
-- As an in-session counterpart to the `dkreviewloop` shell function (which spawns full Claude CLI sessions). The shell function is preferred when you can drop to the terminal; this skill is for when you're already inside a Claude Code session and want the same guarantee without exiting.
+- As an in-session counterpart to the `dkreviewloop` shell function (which spawns full Claude CLI sessions). This skill is for when you're already inside a Claude Code session and want the same guarantee without exiting.
 
 ## Why "Fresh Sessions"
 
@@ -81,5 +81,5 @@ If SAFETY-NET-EXIT, list the residual findings the subagents kept reporting so t
 
 - **Fresh sessions matter.** Do not "carry state" across iterations beyond `clean_count` and the diff scope. The orchestrator persists; each review pass must not.
 - **Fixes belong to the orchestrator, reviews belong to subagents.** Subagents that fix things they review make the independence claim weaker. Keep the split clean.
-- For the full dk Phase 3 experience (git checkpoints, audit-prompt enforcement via the Stop hook, `--fork-session` isolation between iterations), prefer the `dkreviewloop` shell function or `dk <ticket>` Phase 3. This skill is the in-session, lighter-weight variant.
+- Same-session `dk <ticket>` Phase 3 uses this skill, with the Stop hook auditing the final `SUCCESS` report. For the legacy shell-managed fresh Claude-session loop, use the `dkreviewloop` shell function or run `DOYAKEN_FRESH_PHASES=1 dk <ticket>`.
 - Do NOT commit, push, or create PRs from this skill. Review and fix only.

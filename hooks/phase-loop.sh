@@ -3,8 +3,8 @@
 #
 # Flow:
 #   1. Claude tries to stop → this hook runs
-#   2. Check .complete file → if found, return continue=false so the CLI exits
-#   3. Check iteration count → if max reached, return continue=false so dk can pause
+#   2. Check .complete file → advance inline or exit for fresh handoff/final done
+#   3. Check iteration count → pause/escalate
 #   4. Check min audit iterations:
 #      a. Below threshold → block stop, inject audit prompt WITHOUT completion instructions
 #      b. At/above threshold → block stop, inject audit prompt WITH completion instructions
@@ -31,10 +31,109 @@ mkdir -p "$DK_LOOP_DIR"
 
 SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
 
+dk_phase_name() {
+  case "$1" in
+    1) printf '%s\n' "Plan" ;;
+    2) printf '%s\n' "Implement" ;;
+    3) printf '%s\n' "Review" ;;
+    4) printf '%s\n' "Verify & Commit" ;;
+    5) printf '%s\n' "PR" ;;
+    6) printf '%s\n' "Complete" ;;
+    *) printf '%s\n' "Unknown" ;;
+  esac
+}
+
+dk_phase_promise() {
+  case "$1" in
+    1) printf '%s\n' "PHASE_1_COMPLETE" ;;
+    2) printf '%s\n' "PHASE_2_COMPLETE" ;;
+    3) printf '%s\n' "PHASE_3_COMPLETE" ;;
+    4) printf '%s\n' "PHASE_4_COMPLETE" ;;
+    5) printf '%s\n' "PHASE_5_COMPLETE" ;;
+    6) printf '%s\n' "DOYAKEN_TICKET_COMPLETE" ;;
+    *) printf '%s\n' "DOYAKEN_TICKET_COMPLETE" ;;
+  esac
+}
+
+dk_phase_audit_file() {
+  local phase="$1" handoff_mode="${2:-fresh}" name
+  case "$phase" in
+    1) name="1-plan" ;;
+    2) name="2-implement" ;;
+    3)
+      if [[ "$handoff_mode" == "inline" ]]; then
+        name="3-review-loop"
+      else
+        name="3-review"
+      fi
+      ;;
+    4) name="4-verify" ;;
+    5) name="5-pr" ;;
+    6) name="6-complete" ;;
+    *) name="" ;;
+  esac
+  [[ -n "$name" ]] && printf '%s\n' "$DOYAKEN_DIR/prompts/phase-audits/${name}.md"
+}
+
+dk_phase_min_audits() {
+  local phase="$1" env_name value
+  env_name="DOYAKEN_PHASE_${phase}_MIN_AUDITS"
+  value="$(printenv "$env_name" 2>/dev/null || true)"
+  if [[ "$value" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$value"
+  else
+    printf '%s\n' "1"
+  fi
+}
+
+dk_inline_phase_message() {
+  case "$1" in
+    2)
+      cat <<'EOF'
+The plan is approved. Invoke the Skill tool with skill: "dkimplement" to begin implementation. Scope: implementation and testing only. Do not commit, push, create branches, or create PRs. When implementation is complete and the audit criteria are met, stop so the Stop hook can advance the lifecycle.
+EOF
+      ;;
+    3)
+      cat <<'EOF'
+Begin Phase 3: Review. Invoke the Skill tool with skill: "dkreviewloop" to run the 3-clean-pass review loop in fresh subagents. Fix any findings it reports, rerun until it reports SUCCESS, then stop so the Stop hook can audit and advance. Scope: review and fix only. Do not commit, push, create branches, or create PRs.
+EOF
+      ;;
+    4)
+      cat <<'EOF'
+Begin Phase 4: Verify & Commit. Invoke the Skill tool with skill: "dkverify" to run the quality pipeline. Fix failures and rerun until green. Then invoke skill: "dkcommit" to commit and push. Do not create PRs. When pushed, stop so the Stop hook can audit and advance.
+EOF
+      ;;
+    5)
+      cat <<'EOF'
+Begin Phase 5: PR. Invoke the Skill tool with skill: "dkpr" to generate the PR description, create the draft PR, and attach configured request reviewers. Do not mark the PR ready, post @mention comments, or modify implementation code. When done, stop so the Stop hook can audit and advance.
+EOF
+      ;;
+    6)
+      cat <<'EOF'
+Begin Phase 6: Complete. Invoke the Skill tool with skill: "dkcomplete". Mark the PR ready, request reviewers, post configured @mention comments, monitor CI/reviews, address comments, and close the ticket when CI is green and configured reviewers approve. Continue unattended until completion or a real escalation condition is hit.
+EOF
+      ;;
+  esac
+}
+
 # Check activation: env var OR .active file (for in-session /dkloop skill)
 ACTIVE_FILE=$(dk_active_file "$SESSION_ID")
 LOOP_ACTIVE="${DOYAKEN_LOOP_ACTIVE:-0}"
 if [[ "$LOOP_ACTIVE" != "1" ]] && [[ ! -f "$ACTIVE_FILE" ]]; then
+  exit 0
+fi
+
+HANDOFF_MODE="${DOYAKEN_PHASE_HANDOFF:-}"
+HANDOFF_MODE_FILE=$(dk_handoff_mode_file "$SESSION_ID")
+if [[ -z "$HANDOFF_MODE" && -f "$HANDOFF_MODE_FILE" ]]; then
+  HANDOFF_MODE=$(cat "$HANDOFF_MODE_FILE" 2>/dev/null || echo "")
+fi
+HANDOFF_MODE="${HANDOFF_MODE:-fresh}"
+PAUSED_FILE=$(dk_paused_file "$SESSION_ID")
+COMPLETE_FILE=$(dk_complete_file "$SESSION_ID")
+
+if [[ -f "$PAUSED_FILE" && ! -f "$COMPLETE_FILE" ]]; then
+  rm -f "$PAUSED_FILE"
   exit 0
 fi
 
@@ -56,11 +155,16 @@ if [[ -f "$CONFIG_FILE" ]]; then
     CONFIG_REST2="${CONFIG_REST#*:}"
     CONFIG_AUDIT_FILE="${CONFIG_REST2%%:*}"
     CONFIG_MIN_AUDITS="${CONFIG_REST2#*:}"
-    DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-$CONFIG_PHASE}"
-    DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-$CONFIG_PROMISE}"
+    if [[ "$HANDOFF_MODE" == "inline" ]]; then
+      DOYAKEN_LOOP_PHASE="$CONFIG_PHASE"
+      DOYAKEN_LOOP_PROMISE="$CONFIG_PROMISE"
+    else
+      DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-$CONFIG_PHASE}"
+      DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-$CONFIG_PROMISE}"
+    fi
     # Use config min_audits if no env override
     [[ "$CONFIG_MIN_AUDITS" =~ ^[0-9]+$ ]] && MIN_AUDIT_ITERATIONS="${DOYAKEN_LOOP_MIN_AUDITS:-$CONFIG_MIN_AUDITS}"
-    if [[ -z "${DOYAKEN_LOOP_PROMPT:-}" ]] && [[ -n "$CONFIG_AUDIT_FILE" ]] && [[ -f "$CONFIG_AUDIT_FILE" ]]; then
+    if { [[ "$HANDOFF_MODE" == "inline" ]] || [[ -z "${DOYAKEN_LOOP_PROMPT:-}" ]]; } && [[ -n "$CONFIG_AUDIT_FILE" ]] && [[ -f "$CONFIG_AUDIT_FILE" ]]; then
       DOYAKEN_LOOP_PROMPT=$(cat "$CONFIG_AUDIT_FILE")
     fi
   fi
@@ -86,9 +190,47 @@ COMPLETION_PROMISE="${DOYAKEN_LOOP_PROMISE:-DOYAKEN_TICKET_COMPLETE}"
 # ONLY after MIN_AUDIT_ITERATIONS passes — audit prompts do NOT contain
 # completion instructions (they were removed to prevent premature completion).
 # See: docs/autonomous-mode.md § Completion Signals
-COMPLETE_FILE=$(dk_complete_file "$SESSION_ID")
 if [[ -f "$COMPLETE_FILE" ]]; then
-  rm -f "$STATE_FILE" "$COMPLETE_FILE" "$ACTIVE_FILE" "$CONFIG_FILE"
+  CURRENT_PHASE="${DOYAKEN_LOOP_PHASE:-0}"
+  rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dk_findings_file "$SESSION_ID")" "$PAUSED_FILE"
+
+  if [[ "$HANDOFF_MODE" == "inline" && "$CURRENT_PHASE" =~ ^[0-9]+$ && "$CURRENT_PHASE" -lt 6 ]]; then
+    NEXT_PHASE=$((CURRENT_PHASE + 1))
+    PHASE_STATE_FILE=$(dk_state_file "$SESSION_ID")
+    printf '%s\n' "$NEXT_PHASE" > "$PHASE_STATE_FILE"
+
+    # Preserve phase checkpoints even though the shell wrapper no longer
+    # regains control between phases in inline mode.
+    if [[ "$NEXT_PHASE" -ge 2 ]] && git rev-parse --git-dir >/dev/null 2>&1; then
+      dk_checkpoint_tag "$NEXT_PHASE" "$(pwd)"
+    fi
+
+    NEXT_AUDIT_FILE=$(dk_phase_audit_file "$NEXT_PHASE" "$HANDOFF_MODE")
+    NEXT_PROMISE=$(dk_phase_promise "$NEXT_PHASE")
+    NEXT_MIN_AUDITS=$(dk_phase_min_audits "$NEXT_PHASE")
+    printf '%s:%s:%s:%s\n' "$NEXT_PHASE" "$NEXT_PROMISE" "$NEXT_AUDIT_FILE" "$NEXT_MIN_AUDITS" > "$CONFIG_FILE"
+    touch "$ACTIVE_FILE"
+
+    {
+      printf '\n%s\n\n' "--- Doyaken Phase Handoff: Phase ${CURRENT_PHASE} complete → Phase ${NEXT_PHASE} ($(dk_phase_name "$NEXT_PHASE")) ---"
+      printf '%s\n\n' "Continue in this same Claude session. Do not ask the user whether to proceed."
+      dk_inline_phase_message "$NEXT_PHASE"
+      printf '\n%s\n' "When Phase ${NEXT_PHASE} is genuinely complete, stop so the Stop hook can audit it."
+    } >&2
+    exit 2
+  fi
+
+  if [[ "$HANDOFF_MODE" == "inline" && "$CURRENT_PHASE" == "6" ]]; then
+    printf '%s\n' "7" > "$(dk_state_file "$SESSION_ID")"
+    rm -f "$ACTIVE_FILE" "$HANDOFF_MODE_FILE" "$PAUSED_FILE"
+    {
+      printf '\n%s\n\n' "--- Doyaken lifecycle complete ---"
+      printf '%s\n' "All phases are complete. Present the final summary to the user, including PR status and any cleanup command."
+    } >&2
+    exit 2
+  fi
+
+  rm -f "$ACTIVE_FILE" "$HANDOFF_MODE_FILE" "$PAUSED_FILE"
   printf '%s\n' '{"continue":false,"stopReason":"Doyaken phase complete. If this Claude screen stays open, type /exit or press Ctrl-D; the original dk command should then launch the next phase. If you return to the shell and nothing starts, run: dk --resume"}'
   exit 0
 fi
@@ -160,6 +302,12 @@ fi
 # cleaning up the state file after reading the iteration count.
 if [[ $ITERATION -gt $MAX_ITERATIONS ]]; then
   rm -f "$ACTIVE_FILE" "$CONFIG_FILE"
+  if [[ "$HANDOFF_MODE" == "inline" ]]; then
+    touch "$PAUSED_FILE"
+    printf '\n%s\n\n' "--- Doyaken phase paused: max audit iterations reached (${MAX_ITERATIONS}) ---" >&2
+    printf '%s\n' "Do not advance to the next phase. Summarize the blocker, current phase, and the exact user decision or intervention needed." >&2
+    exit 2
+  fi
   printf '{"continue":false,"stopReason":"Doyaken phase audit loop reached max iterations (%s). If this Claude screen stays open, type /exit or press Ctrl-D. Then inspect the pause and resume with: dk --resume"}\n' "$MAX_ITERATIONS"
   exit 0
 fi
@@ -190,7 +338,13 @@ if [[ -z "$AUDIT_PROMPT" ]]; then
   case "$LOOP_PHASE" in
     1) AUDIT_FILENAME="1-plan" ;;
     2) AUDIT_FILENAME="2-implement" ;;
-    3) AUDIT_FILENAME="3-review" ;;
+    3)
+      if [[ "$HANDOFF_MODE" == "inline" ]]; then
+        AUDIT_FILENAME="3-review-loop"
+      else
+        AUDIT_FILENAME="3-review"
+      fi
+      ;;
     4) AUDIT_FILENAME="4-verify" ;;
     5) AUDIT_FILENAME="5-pr" ;;
     6) AUDIT_FILENAME="6-complete" ;;

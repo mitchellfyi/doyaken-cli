@@ -7,7 +7,7 @@ set -euo pipefail
 
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
 
-SESSION_ID=$(dk_session_id)
+SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
 CTX_FILE=$(dk_context_file "$SESSION_ID")
 
 # Only output if we're in a Doyaken session with a context file
