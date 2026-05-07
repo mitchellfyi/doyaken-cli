@@ -252,20 +252,16 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "1" ]]; then
   PHASE_READY_FILE=$(dk_phase_ready_file "$SESSION_ID" 1)
   if [[ ! -f "$PHASE_READY_FILE" ]]; then
     rm -f "$COMPLETE_FILE" "$STATE_FILE"
-    printf '\n%s\n\n' "--- Doyaken Phase 1 Gate: plan approval required ---" >&2
-    printf '%s\n' "No audit iteration was counted and no completion signal is available yet." >&2
-    printf '%s\n' "" >&2
     if [[ ! -f "$PHASE_STARTED_FILE" ]]; then
+      printf '\n%s\n\n' "--- Doyaken Phase 1 Gate: dkplan required ---" >&2
+      printf '%s\n' "No audit iteration was counted and no completion signal is available yet." >&2
+      printf '%s\n' "" >&2
       printf '%s\n' "Mandatory next step: invoke the dkplan skill now (Skill tool with skill: \"dkplan\", or /dkplan if slash skills are the available interface)." >&2
       printf '%s\n' "Do not manually fetch the ticket, rename branches, update tracker status, explore code, or draft the plan outside that skill unless the skill explicitly instructs you to." >&2
     else
-      printf '%s\n' "Continue the dkplan workflow. Do not stop until the plan has been presented through ExitPlanMode and the user has approved it." >&2
-      printf '%s\n' "" >&2
-      printf '%s\n' "If the user has already approved the plan, write the Phase 1 approval marker, then stop again:" >&2
-      printf '%s\n' '```bash' >&2
-      printf '%s\n' "source \"\${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh\"" >&2
-      printf '%s\n' "touch \"\$(dk_phase_ready_file \"\${DOYAKEN_SESSION_ID:-\$(dk_session_id)}\" 1)\"" >&2
-      printf '%s\n' '```' >&2
+      printf '\n%s\n\n' "--- Doyaken Phase 1 Gate: dkplan still in progress ---" >&2
+      printf '%s\n' "No audit iteration was counted. Continue dkplan until ExitPlanMode has presented the plan and the user has approved it." >&2
+      printf '%s\n' "After approval only, write the ready marker from dkplan Step 7, then stop once for the audit handoff." >&2
     fi
     printf '%s\n' "" >&2
     exit 2

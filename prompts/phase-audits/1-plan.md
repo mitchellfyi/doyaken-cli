@@ -35,10 +35,12 @@ Before stopping, critically audit your plan:
 6. RISKS — Are unknowns identified?
    - For each risk, is there a mitigation strategy or fallback?
    - Are there questions that need answers before implementation can start?
+   - If a risk affects scope, contracts, observable behaviour, performance, security, or visible UX, has the user answered or explicitly accepted it?
 
 7. ASSUMPTIONS — Has every <100%-confidence assumption been surfaced to the user and answered?
    - List each assumption you made; for each, name the source: "user said X" or "universally safe / fully reversible during implementation".
    - If you cannot name a source for any assumption, you skipped the assumption-surfacing step. Use the `AskUserQuestion` tool now (it works in plan mode) to ask before proceeding.
+   - If the tool/UI limits each question batch, ask another batch after the user answers. The batch limit is not a total limit.
    - Bar: if you cannot answer with 100% confidence from the ticket, codebase, or related docs, ask. Do NOT silently make decisions on the user's behalf — even when the decision seems obvious.
    - Always ask when the unknown affects scope, contracts (types/schemas/APIs), naming of public symbols, observable behaviour, performance budgets, security, or visible UX.
 
@@ -50,6 +52,7 @@ If you find gaps in any of the above, fix them and re-present the plan.
 **Completion criteria** — all must be true before you stop:
 - All acceptance criteria are covered by tasks
 - Edge cases are accounted for
+- Every material risk has a mitigation, fallback, or explicit user acceptance
 - Every <100%-confidence assumption has been surfaced and answered (or labelled "fully reversible during implementation")
 - The user has explicitly approved the plan
 
