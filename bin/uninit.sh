@@ -23,7 +23,16 @@ else
   dk_skip ".doyaken/doyaken.md not found"
 fi
 
-# 2. Remove .doyaken/CLAUDE.md
+# 2. Remove .doyaken/AGENTS.md
+doyaken_agents_md="$repo_root/.doyaken/AGENTS.md"
+if [[ -f "$doyaken_agents_md" ]]; then
+  rm "$doyaken_agents_md"
+  dk_done "Removed .doyaken/AGENTS.md"
+else
+  dk_skip ".doyaken/AGENTS.md not found"
+fi
+
+# 3. Remove .doyaken/CLAUDE.md
 doyaken_claude_md="$repo_root/.doyaken/CLAUDE.md"
 if [[ -f "$doyaken_claude_md" ]]; then
   rm "$doyaken_claude_md"
@@ -32,14 +41,14 @@ else
   dk_skip ".doyaken/CLAUDE.md not found"
 fi
 
-# 3. Note about worktrees
+# 4. Note about worktrees
 worktrees_dir="$repo_root/.doyaken/worktrees"
 if [[ -d "$worktrees_dir" ]] && ls "$worktrees_dir"/*/ &>/dev/null; then
   echo ""
   dk_warn "Active worktrees exist. Clean them up with: dkrm --all"
 fi
 
-# 4. Remove generated config directories (rules/ and guards/ are created by dk init;
+# 5. Remove generated config directories (rules/ and guards/ are created by dk init;
 # hooks/ is NOT part of the per-project structure — it lives in $DOYAKEN_DIR/hooks/)
 for dir in rules guards; do
   if [[ -d "$repo_root/.doyaken/$dir" ]]; then
@@ -48,14 +57,14 @@ for dir in rules guards; do
   fi
 done
 
-# 5. Remove .doyaken/.gitignore (created by init)
+# 6. Remove .doyaken/.gitignore (created by init)
 doyaken_gitignore="$repo_root/.doyaken/.gitignore"
 if [[ -f "$doyaken_gitignore" ]]; then
   rm "$doyaken_gitignore"
   dk_done "Removed .doyaken/.gitignore"
 fi
 
-# 6. Clean up phase and loop state files for THIS repo's worktrees only.
+# 7. Clean up phase and loop state files for THIS repo's worktrees only.
 # State dirs are global (~/.claude/.doyaken-{phases,loops}/), so we must enumerate
 # this repo's worktrees rather than globbing all worktree-* files (which would
 # accidentally delete state for other repos' worktrees).
@@ -75,7 +84,7 @@ for wt_dir in "$repo_root/.doyaken/worktrees"/*/; do
 done
 dk_done "Cleaned up phase and loop state files"
 
-# 7. Clean up .doyaken/ if empty
+# 8. Clean up .doyaken/ if empty
 rmdir "$repo_root/.doyaken" 2>/dev/null && dk_done "Removed empty .doyaken/" || true
 
 echo ""

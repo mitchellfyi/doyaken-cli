@@ -31,7 +31,7 @@ Before evaluating any reviewer comment, gather the project context that lets you
 
 Read in this order — stop when you have enough:
 
-1. `CLAUDE.md` (root and any nested) and `AGENTS.md` — language boundaries, naming, error-handling, architecture rules
+1. `AGENTS.md` and `CLAUDE.md` compatibility pointers (root and any nested) — language boundaries, naming, error-handling, architecture rules
 2. `.doyaken/rules/*.md` referenced from those files
 3. `.doyaken/doyaken.md § Reviewers` — the configured reviewers; mention-type bots' substantive feedback IS actionable (we deliberately invited them)
 4. `prompts/review.md` — the 12-pass criteria; use it to classify the comment's underlying concern (Pass A correctness, Pass C security, etc.)
@@ -133,7 +133,7 @@ For each unaddressed comment, classify it and decide on the action.
 For each Tier 2 comment, assess four criteria:
 
 1. **Correctness impact** — Does this fix an actual bug or prevent a real failure? If yes, lean toward fixing.
-2. **Codebase consistency** — Does the suggestion align with existing patterns in this repo? Read nearby files and the project's conventions (CLAUDE.md, `.doyaken/rules/`). If the suggestion contradicts established patterns, lean toward not fixing.
+2. **Codebase consistency** — Does the suggestion align with existing patterns in this repo? Read nearby files and the project's conventions (AGENTS.md, `.doyaken/rules/`). If the suggestion contradicts established patterns, lean toward not fixing.
 3. **Scope alignment** — Is the change within this PR's scope? If it requires touching files outside the PR or changing the architectural approach, lean toward not fixing (or escalating).
 4. **Effort-to-value ratio** — Trivial fix (< 5 min) with clear value: fix. Significant refactor with debatable benefit: do not fix.
 

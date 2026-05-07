@@ -31,7 +31,7 @@ Explore the repo to understand:
 - Map CI job/step names to local commands
 
 ### Conventions
-- Read existing `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, `.editorconfig`, linter configs
+- Read existing `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.editorconfig`, linter configs
 - Note established patterns in the codebase (naming, file organization, test patterns)
 
 ## Step 2: Integrations
@@ -135,12 +135,18 @@ Message shown when the guard triggers.
 
 Only generate guards that are specific to THIS project. Generic guards (destructive commands, sensitive files, hardcoded secrets) already ship with Doyaken.
 
-## Step 4: Update `.doyaken/CLAUDE.md`
+## Step 4: Update Instruction Entrypoints
 
-Ensure `.doyaken/CLAUDE.md` imports the generated doyaken.md:
+Ensure `.doyaken/AGENTS.md` is the source of truth for generated Doyaken project context and imports the generated doyaken.md:
 
 ```
 @doyaken.md
+```
+
+Ensure `.doyaken/CLAUDE.md` remains a compatibility pointer to `.doyaken/AGENTS.md`:
+
+```
+@AGENTS.md
 ```
 
 ## Guidelines

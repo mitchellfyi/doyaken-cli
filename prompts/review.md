@@ -14,7 +14,7 @@ Before evaluating findings, gather the context needed to judge them. **Skipping 
 
 Read in this order — stop early when you have enough to judge the change:
 
-1. **Project conventions** — `CLAUDE.md`, `AGENTS.md`, and any `.doyaken/rules/*.md` referenced from them. These document language boundaries, naming, error-handling, and architecture rules specific to the repo. A finding that violates one of these has higher confidence; a finding that contradicts one is likely a false positive.
+1. **Project conventions** — `AGENTS.md`, `CLAUDE.md` compatibility pointers, and any `.doyaken/rules/*.md` referenced from them. These document language boundaries, naming, error-handling, and architecture rules specific to the repo. A finding that violates one of these has higher confidence; a finding that contradicts one is likely a false positive.
 2. **Project-specific review criteria** — `.doyaken/doyaken.md` § Reviewers (or other review-criteria sections). Some projects extend or override the defaults below.
 3. **The plan or ticket** — if a plan file or ticket context exists, read the acceptance criteria and the chosen approach. A "missing case" finding is invalid if the case was explicitly out of scope per the plan.
 4. **Similar code in the repo** — for any pattern the change introduces (a new auth check, a new query, a new error type), `Grep` for existing instances. If the codebase already uses pattern X for this scenario in 3+ places, the change should follow X. If X is established and the change introduces Y → finding. If you flag the change as "doesn't match best practice Z" without confirming Z is the project's pattern, that's a false positive.
@@ -157,7 +157,7 @@ Additional:
 - **Lock contention** — coarse locks held across long operations (I/O, network), nested locking with inconsistent ordering (deadlock risk).
 - **Cold start / startup cost** — new code added to a hot startup path? Lazy-load if rarely used.
 
-**Context check:** does the project have established perf budgets (in `CLAUDE.md` or a perf doc)? Findings should reference them.
+**Context check:** does the project have established perf budgets (in `AGENTS.md`, `CLAUDE.md`, or a perf doc)? Findings should reference them.
 
 ## Pass E: Testing
 
@@ -179,7 +179,7 @@ Additional:
 
 ## Pass F: Style & Conventions
 
-Follow the project's established conventions (check CLAUDE.md, AGENTS.md, linter configs, and surrounding code):
+Follow the project's established conventions (check AGENTS.md, CLAUDE.md, linter configs, and surrounding code):
 
 - No dead code, debug logging, commented-out code, or debug artifacts (`console.log`, `print`, `dbg!`, `binding.pry`, `fmt.Println`, etc.)
 - Type safety: avoid escape hatches (language-specific: `any`, `as`, `@ts-ignore`, `unsafe`, `# type: ignore`, `interface{}`/`any` in Go, etc.) without justification
@@ -282,7 +282,7 @@ For changes that modify a public contract (HTTP API, CLI, library API, DB schema
 - **Config schema changes** — required fields added without defaults? Renamed fields without an alias? These break existing deployments.
 - **Feature flags** — risky changes wrapped in a flag with a documented rollout plan?
 
-**Context check:** the project's `CLAUDE.md` may document a breaking-change policy (e.g., semver, calendar versioning, "breaking changes only on major releases"). Apply that policy.
+**Context check:** the project's `AGENTS.md` may document a breaking-change policy (e.g., semver, calendar versioning, "breaking changes only on major releases"). Apply that policy.
 
 ---
 

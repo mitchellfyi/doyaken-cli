@@ -56,7 +56,7 @@ fi
 # Minimal doyaken.md (will be overwritten by codebase analysis if run)
 doyaken_md="$repo_root/.doyaken/doyaken.md"
 if [[ ! -f "$doyaken_md" ]]; then
-  cat > "$doyaken_md" << 'CLAUDEMD'
+  cat > "$doyaken_md" << 'DOYAKENMD'
 # Doyaken
 
 This project uses Doyaken for workflow automation.
@@ -76,25 +76,39 @@ If you're already in a Claude Code session, run `/doyaken` to begin the ticket l
 ## Commands
 
 Run `dk help` in the terminal for all available commands.
-CLAUDEMD
+DOYAKENMD
   dk_done "Created .doyaken/doyaken.md (minimal)"
 else
   dk_ok ".doyaken/doyaken.md already exists"
 fi
 
-# CLAUDE.md with @import
-doyaken_claude_md="$repo_root/.doyaken/CLAUDE.md"
-if [[ -f "$doyaken_claude_md" ]] && grep -qF 'doyaken.md' "$doyaken_claude_md" 2>/dev/null; then
-  dk_ok ".doyaken/CLAUDE.md already imports doyaken.md"
-elif [[ -f "$doyaken_claude_md" ]]; then
-  # File exists but doesn't import doyaken.md — prepend the import
-  { echo '@doyaken.md'; echo ''; cat "$doyaken_claude_md"; } > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
-  dk_done "Added @import to existing .doyaken/CLAUDE.md"
+# AGENTS.md is the source of truth for generated Doyaken project context.
+doyaken_agents_md="$repo_root/.doyaken/AGENTS.md"
+if [[ -f "$doyaken_agents_md" ]] && grep -qF '@doyaken.md' "$doyaken_agents_md" 2>/dev/null; then
+  dk_ok ".doyaken/AGENTS.md already imports doyaken.md"
+elif [[ -f "$doyaken_agents_md" ]]; then
+  # File exists but doesn't import doyaken.md — prepend the import.
+  { printf '@doyaken.md\n\n'; cat "$doyaken_agents_md"; } > "${doyaken_agents_md}.tmp" && mv "${doyaken_agents_md}.tmp" "$doyaken_agents_md"
+  dk_done "Added @import to existing .doyaken/AGENTS.md"
 else
-  cat > "$doyaken_claude_md" << EOF
-@doyaken.md
-EOF
-  dk_done "Created .doyaken/CLAUDE.md with @import"
+  printf '@doyaken.md\n' > "${doyaken_agents_md}.tmp" && mv "${doyaken_agents_md}.tmp" "$doyaken_agents_md"
+  dk_done "Created .doyaken/AGENTS.md with @import"
+fi
+
+# CLAUDE.md remains as a compatibility pointer for Claude Code.
+doyaken_claude_md="$repo_root/.doyaken/CLAUDE.md"
+if [[ -f "$doyaken_claude_md" ]] && grep -qF '@AGENTS.md' "$doyaken_claude_md" 2>/dev/null; then
+  dk_ok ".doyaken/CLAUDE.md already points to AGENTS.md"
+elif [[ -f "$doyaken_claude_md" ]] && [[ "$(sed '/^[[:space:]]*$/d' "$doyaken_claude_md")" == "@doyaken.md" ]]; then
+  printf '@AGENTS.md\n' > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
+  dk_done "Updated .doyaken/CLAUDE.md to point to AGENTS.md"
+elif [[ -f "$doyaken_claude_md" ]]; then
+  # Preserve custom Claude instructions, but route generated context through AGENTS.md.
+  { printf '@AGENTS.md\n\n'; cat "$doyaken_claude_md"; } > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
+  dk_done "Added AGENTS.md pointer to existing .doyaken/CLAUDE.md"
+else
+  printf '@AGENTS.md\n' > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
+  dk_done "Created .doyaken/CLAUDE.md pointing to AGENTS.md"
 fi
 
 echo ""
@@ -177,7 +191,8 @@ echo "Init complete for: $repo_name"
 echo ""
 echo "What happened:"
 echo "  - .doyaken/ created (worktrees, config, gitignored artifacts)"
-echo "  - .doyaken/CLAUDE.md imports .doyaken/doyaken.md"
+echo "  - .doyaken/AGENTS.md imports .doyaken/doyaken.md"
+echo "  - .doyaken/CLAUDE.md points to .doyaken/AGENTS.md"
 if [[ "$CODEX_SKILL_COUNT" -gt 0 ]]; then
   echo "  - ${CODEX_SKILL_COUNT} Doyaken skill link(s) available in $(dk_codex_skills_dir) for Codex CLI"
 fi

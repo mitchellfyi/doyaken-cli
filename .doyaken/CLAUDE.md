@@ -1,1 +1,1 @@
-@doyaken.md
+@AGENTS.md

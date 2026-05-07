@@ -8,7 +8,7 @@ Before reviewing, gather the project context needed to judge findings. Skipping 
 
 Read in this order — stop when you have enough:
 
-1. `CLAUDE.md` (root and any nested), `AGENTS.md`, plus any `.doyaken/rules/*.md` they reference
+1. `AGENTS.md`, `CLAUDE.md` compatibility pointers (root and any nested), plus any `.doyaken/rules/*.md` they reference
 2. `.doyaken/doyaken.md` — especially any `## Reviewers` or project-specific review-criteria sections
 3. The plan file or ticket — what was the intended scope and out-of-scope list?
 4. Recent fix history of touched files: `git log --oneline --since=3.months -- <file>` for each changed file

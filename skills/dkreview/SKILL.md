@@ -49,8 +49,8 @@ Before scope analysis, gather the context you need to judge findings. **Skipping
 
 Read in this order — stop early when you have enough to judge the change:
 
-1. `CLAUDE.md` (root and any nested), `AGENTS.md` — language boundaries, naming, error-handling, architecture rules
-2. `.doyaken/rules/*.md` files referenced from CLAUDE.md / AGENTS.md
+1. `AGENTS.md`, plus `CLAUDE.md` compatibility pointers (root and any nested) — language boundaries, naming, error-handling, architecture rules
+2. `.doyaken/rules/*.md` files referenced from AGENTS.md / CLAUDE.md
 3. `.doyaken/doyaken.md § Reviewers` and any project-specific review-criteria sections — some projects extend or override the defaults
 4. The plan file, ticket, or commit messages — what was the intended scope? What was explicitly out of scope?
 5. Recent fix history of the touched files — `git log --oneline --since=3.months -- <file>` for each deep-review file. Recent `fix:` commits = fragile area, apply extra scrutiny.
@@ -154,7 +154,7 @@ If no risk metadata is available, fall back to the file-based assignment below.
 
 ## Phase 2: Semantic Review
 
-Read the review criteria from `prompts/review.md` for the 12-pass criteria (A-L), the Phase 0 codebase-context preamble, the Observe-Verify-Conclude protocol, and confidence scoring guidelines. Project-specific extensions live in `CLAUDE.md`, `AGENTS.md`, and `.doyaken/doyaken.md`.
+Read the review criteria from `prompts/review.md` for the 12-pass criteria (A-L), the Phase 0 codebase-context preamble, the Observe-Verify-Conclude protocol, and confidence scoring guidelines. Project-specific extensions live in `AGENTS.md`, `CLAUDE.md`, and `.doyaken/doyaken.md`.
 
 ### 2.0 — Cross-File Overview Scan
 

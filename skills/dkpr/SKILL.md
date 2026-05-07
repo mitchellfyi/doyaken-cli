@@ -39,7 +39,7 @@ DEBT_FILE=$(dk_debt_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")
 
 If the file exists and has content, include a "Technical Debt" section in the PR description with the ledger contents. This makes debt visible to reviewers.
 
-Check if the project has a PR description template or prompt (referenced in CLAUDE.md or `.doyaken/doyaken.md`). If so, follow that template.
+Check if the project has a PR description template or prompt (referenced in AGENTS.md, CLAUDE.md, or `.doyaken/doyaken.md`). If so, follow that template.
 
 Otherwise, read the PR description template from the Doyaken prompts directory (`prompts/pr-description.md`) and follow its structure. Fill in every section with specifics from the implementation.
 

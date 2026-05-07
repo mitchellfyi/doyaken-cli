@@ -37,7 +37,8 @@ Per-project (created by `dk init`):
 ```
 .doyaken/
   doyaken.md         Project-specific config (tech stack, quality gates, integrations)
-  CLAUDE.md          @import of doyaken.md (auto-discovered by Claude Code)
+  AGENTS.md          @import of doyaken.md (generated context source of truth)
+  CLAUDE.md          @import of AGENTS.md (Claude Code compatibility pointer)
   rules/             Coding conventions (generated from codebase analysis)
   guards/            Project-specific guard rules (generated)
   worktrees/         Worktree directories (gitignored, ephemeral)
