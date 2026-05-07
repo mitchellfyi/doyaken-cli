@@ -223,6 +223,7 @@ Phase state is stored in `~/.claude/.doyaken-phases/`:
 - One `.phase` file per worktree, tracking which phase is current (1-6; 7 = ticket complete)
 - One `.times` file per worktree, tracking start times for elapsed calculations
 - One `.system-context` file per worktree, used by `--append-system-prompt-file` for compaction resilience (regenerated each phase, cleaned up by `SessionEnd` hook)
+- One `.branch` file per lifecycle session, used by in-place mode to resume on the correct branch after branch renames or shell navigation
 
 UI artifacts are stored separately in `~/.claude/.doyaken-artifacts/` so screenshots, videos, traces, flow scripts, and logs stay out of git.
 

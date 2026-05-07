@@ -237,6 +237,7 @@ fi
 dk_sync_inline_phase_from_state
 
 STATE_FILE=$(dk_loop_file "$SESSION_ID")
+dk_record_session_branch "$SESSION_ID" "$(pwd)" 2>/dev/null || true
 # 30 iterations is tuned for medium-sized features; reduce for simple bugs (10-15).
 # Each iteration = one audit cycle, so 30 is a safety net, not an expected count.
 MAX_ITERATIONS="${DOYAKEN_LOOP_MAX_ITERATIONS:-30}"
@@ -275,9 +276,12 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
   PHASE_BUSY_FILE=$(dk_phase_busy_file "$SESSION_ID" 3)
   if [[ -f "$PHASE_BUSY_FILE" && ! -f "$COMPLETE_FILE" ]]; then
     BUSY_RAW=$(cat "$PHASE_BUSY_FILE" 2>/dev/null || echo "")
-    BUSY_EPOCH="${BUSY_RAW%%[	 ]*}"
-    BUSY_LABEL="${BUSY_RAW#"$BUSY_EPOCH"}"
-    BUSY_LABEL="${BUSY_LABEL#"${BUSY_LABEL%%[!	 ]*}"}"
+    BUSY_EPOCH="$BUSY_RAW"
+    BUSY_LABEL=""
+    if [[ "$BUSY_RAW" == *$'\t'* ]]; then
+      BUSY_EPOCH="${BUSY_RAW%%$'\t'*}"
+      BUSY_LABEL="${BUSY_RAW#*$'\t'}"
+    fi
     [[ "$BUSY_EPOCH" =~ ^[0-9]+$ ]] || BUSY_EPOCH=$(date +%s)
     BUSY_AGE=$(( $(date +%s) - BUSY_EPOCH ))
     BUSY_TIMEOUT="${DOYAKEN_REVIEW_PASS_TIMEOUT:-2700}"

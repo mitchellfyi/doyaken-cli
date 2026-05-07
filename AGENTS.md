@@ -192,7 +192,7 @@ Derived from worktree names (`worktree-<name>`) or branch names (fallback). Used
 
 Each ticket gets its own git worktree in `.doyaken/worktrees/`. The `dk` shell function manages creation, cleanup, and resumption.
 
-Exception: `dk --no-worktree <ticket-or-description>` runs the same phased lifecycle in the current checkout. It still creates or switches to the normal Doyaken lifecycle branch (`worktree-ticket-*` / `worktree-task-*`) from `origin/<default>`; it only skips `git worktree add`.
+Exception: `dk --no-worktree <ticket-or-description>` runs the same phased lifecycle in the current checkout. It still creates or switches to the normal Doyaken lifecycle branch (`worktree-ticket-*` / `worktree-task-*`) from `origin/<default>`; it only skips `git worktree add`. In-place sessions persist their current branch in phase state so resume can switch back or stop rather than continuing on the wrong checkout branch.
 
 ## Quality Gates
 

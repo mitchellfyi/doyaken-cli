@@ -76,6 +76,9 @@ dk_context_file() { echo "${DK_STATE_DIR}/${1}.system-context"; }
 # dk_log_file <session_id> — structured phase execution log (TSV)
 dk_log_file() { echo "${DK_STATE_DIR}/${1}.log"; }
 
+# dk_branch_file <session_id> — branch last used by this lifecycle session
+dk_branch_file() { echo "${DK_STATE_DIR}/${1}.branch"; }
+
 # dk_findings_file <session_id> — findings hash history for stuck loop detection
 dk_findings_file() { echo "${DK_LOOP_DIR}/${1}.findings"; }
 
@@ -134,10 +137,29 @@ dk_log_phase() {
     "$duration_s" "$iterations" "$phase_status" "$exit_code" >> "$log_file"
 }
 
+# dk_record_session_branch <session_id> [repo_dir]
+# Persist the branch used by this lifecycle. In-place sessions need this to
+# resume safely because the checkout can be moved to a different branch between
+# runs. Worktree sessions record it too for diagnostics.
+dk_record_session_branch() {
+  local session_id="$1" repo_dir="${2:-.}" branch branch_file tmp_file
+  [[ -n "$session_id" ]] || return 0
+  branch=$(git -C "$repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  [[ -n "$branch" && "$branch" != "HEAD" ]] || return 0
+
+  branch_file=$(dk_branch_file "$session_id")
+  mkdir -p "$(dirname "$branch_file")"
+  tmp_file="${branch_file}.tmp.$$"
+  if ! printf '%s\n' "$branch" > "$tmp_file" || ! command mv -f "$tmp_file" "$branch_file"; then
+    command rm -f "$tmp_file" 2>/dev/null
+    return 1
+  fi
+}
+
 # dk_cleanup_session <session_id>
 # Remove all loop and phase state files for a session. Safe to call when dirs don't exist.
 dk_cleanup_session() {
   local sid="$1"
   [[ -d "$DK_LOOP_DIR" ]]  && rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" "$(dk_findings_file "$sid")" "$(dk_debt_file "$sid")" "$(dk_loop_config_file "$sid")" "$(dk_handoff_mode_file "$sid")" "$(dk_paused_file "$sid")" "$(dk_review_state_file "$sid")" "$(dk_review_result_file "$sid")" "$(dk_complete_state_file "$sid")" "$(dk_provider_state_file "$sid")" "${DK_LOOP_DIR}/${sid}".phase-*.started "${DK_LOOP_DIR}/${sid}".phase-*.ready "${DK_LOOP_DIR}/${sid}".phase-*.busy 2>/dev/null
-  [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" "$(dk_log_file "$sid")" 2>/dev/null
+  [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" "$(dk_log_file "$sid")" "$(dk_branch_file "$sid")" 2>/dev/null
 }

@@ -6,6 +6,7 @@ set -euo pipefail
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
 
 SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
+dk_record_session_branch "$SESSION_ID" "$(pwd)" 2>/dev/null || true
 
 # Record end time in the times file (complements phase start times written by dk.sh)
 TIMES_FILE=$(dk_times_file "$SESSION_ID")

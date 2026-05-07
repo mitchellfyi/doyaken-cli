@@ -415,6 +415,7 @@ __dk_setup_worktree() {
   # If worktree exists, ensure links are set up (retroactive fix) and return
   if [[ -d "$_dk_wt_dir" ]]; then
     dk_link_claude_to_worktree "$_dk_repo_root" "$_dk_wt_dir"
+    dk_record_session_branch "$_dk_session_id" "$_dk_wt_dir"
     return 0
   fi
 
@@ -436,8 +437,51 @@ __dk_setup_worktree() {
 
   # Share .claude/ config and MCP auth with main repo
   dk_link_claude_to_worktree "$_dk_repo_root" "$_dk_wt_dir"
+  dk_record_session_branch "$_dk_session_id" "$_dk_wt_dir"
 
   return 0
+}
+
+# __dk_restore_in_place_session_branch <session_id> <workspace_name> <workspace_dir> <resume_command>
+# In-place sessions share the user's checkout, so make sure resume continues on
+# the lifecycle branch recorded for this session.
+__dk_restore_in_place_session_branch() {
+  local session_id="$1" wt_name="$2" wt_dir="$3" resume_command="$4"
+  local current_branch has_changes session_branch="" canonical_branch
+
+  current_branch=$(git -C "$wt_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
+  has_changes=0
+  git -C "$wt_dir" status --porcelain 2>/dev/null | head -1 | grep -q . && has_changes=1
+
+  [[ -f "$(dk_branch_file "$session_id")" ]] && session_branch=$(cat "$(dk_branch_file "$session_id")" 2>/dev/null || echo "")
+  canonical_branch="worktree-${wt_name}"
+  if [[ -z "$session_branch" && "$current_branch" != "$canonical_branch" ]] && git -C "$wt_dir" show-ref --verify --quiet "refs/heads/${canonical_branch}" 2>/dev/null; then
+    session_branch="$canonical_branch"
+  fi
+  if [[ -n "$session_branch" && "$current_branch" != "$session_branch" ]]; then
+    if [[ $has_changes -eq 1 ]]; then
+      dk_error "Cannot resume in-place session ${wt_name}: current checkout is on ${current_branch}, but the session branch is ${session_branch}, and there are uncommitted changes."
+      dk_info "Commit or stash the current changes, switch to ${session_branch}, then re-run: ${resume_command}"
+      return 1
+    fi
+    if ! git -C "$wt_dir" show-ref --verify --quiet "refs/heads/${session_branch}" 2>/dev/null; then
+      dk_error "Cannot resume in-place session ${wt_name}: saved branch ${session_branch} no longer exists."
+      dk_info "Restore or check out the lifecycle branch, or remove the stale session state before starting over."
+      return 1
+    fi
+    dk_info "Switching current checkout back to in-place session branch ${session_branch}"
+    if ! git -C "$wt_dir" switch "$session_branch"; then
+      dk_error "Failed to switch to ${session_branch}."
+      return 1
+    fi
+    has_changes=0
+  fi
+
+  if [[ $has_changes -eq 1 ]]; then
+    dk_warn "Current checkout already has changes; in-place mode will include them in the lifecycle scope."
+  fi
+
+  dk_record_session_branch "$session_id" "$wt_dir"
 }
 
 # __dk_setup_in_place <raw_input>
@@ -470,10 +514,8 @@ __dk_setup_in_place() {
 
   if [[ -f "$(dk_state_file "$_dk_session_id")" ]]; then
     dk_info "Using current checkout for existing in-place session ${_dk_wt_name}"
-    if [[ $has_changes -eq 1 ]]; then
-      dk_warn "Current checkout already has changes; in-place mode will include them in the lifecycle scope."
-    fi
-    return 0
+    __dk_restore_in_place_session_branch "$_dk_session_id" "$_dk_wt_name" "$_dk_wt_dir" "dk --no-worktree ${raw_input}"
+    return $?
   fi
 
   if [[ "$current_branch" == "$branch_name" ]]; then
@@ -513,6 +555,7 @@ __dk_setup_in_place() {
     bash "$DOYAKEN_DIR/bin/init.sh" --skip-analysis --skip-config
   fi
 
+  dk_record_session_branch "$_dk_session_id" "$_dk_wt_dir"
   return 0
 }
 
@@ -704,6 +747,7 @@ __dk_run_phases_inline() {
   [[ -f "$times_file" ]] && had_times_file=1
 
   __dk_show_header "$wt_name" "$step" "$wt_dir" "$default_branch" "$session_id" "$workspace_mode"
+  dk_record_session_branch "$session_id" "$wt_dir"
   __dk_write_state "$state_file" "$step"
   __dk_configure_inline_phase "$step" "$session_id"
 
@@ -1000,15 +1044,28 @@ dk() {
       return 1
     fi
 
-    # Reconstruct raw_input for resume message
-    local raw_input="$_dk_wt_name"
-    _dk_default_branch=$(dk_default_branch "$_dk_wt_dir")
+    if [[ "$_dk_workspace_mode" == "in-place" ]]; then
+      __dk_restore_in_place_session_branch "$_dk_session_id" "$_dk_wt_name" "$_dk_wt_dir" "dk --resume" || return 1
+    else
+      dk_record_session_branch "$_dk_session_id" "$_dk_wt_dir"
+    fi
 
-    # Fall through to the phase loop below
+    # Reconstruct the original request for resume prompts. Freeform task
+    # sessions persist the human-readable prompt; ticket sessions fall back to
+    # the stable workspace name.
     local session_id state_file times_file
     session_id="$_dk_session_id"
     state_file=$(dk_state_file "$session_id")
     times_file=$(dk_times_file "$session_id")
+    local raw_input="$_dk_wt_name"
+    local prompt_file
+    prompt_file=$(dk_prompt_file "$session_id")
+    if [[ -s "$prompt_file" ]]; then
+      raw_input=$(cat "$prompt_file" 2>/dev/null || echo "$raw_input")
+    fi
+    _dk_default_branch=$(dk_default_branch "$_dk_wt_dir")
+
+    # Fall through to the phase loop below
     local step=1
     [[ -f "$state_file" ]] && step=$(cat "$state_file" 2>/dev/null)
     [[ "$step" =~ ^[1-7]$ ]] || step=1
@@ -1068,11 +1125,6 @@ dk() {
   state_file=$(dk_state_file "$session_id")
   times_file=$(dk_times_file "$session_id")
 
-  if [[ $_dk_is_task -eq 1 ]]; then
-    mkdir -p "$DK_LOOP_DIR"
-    __dk_write_state "$(dk_prompt_file "$session_id")" "$raw_input"
-  fi
-
   # Save as last session for --resume (atomic write to avoid corruption on interrupt)
   __dk_write_last_session "$_dk_wt_name" "$_dk_wt_dir" "$_dk_workspace_mode"
 
@@ -1091,6 +1143,11 @@ dk() {
       echo "No worktree cleanup is needed for this in-place session."
     fi
     return 0
+  fi
+
+  if [[ $_dk_is_task -eq 1 ]]; then
+    mkdir -p "$DK_LOOP_DIR"
+    __dk_write_state "$(dk_prompt_file "$session_id")" "$raw_input"
   fi
 
   if [[ $step -gt 1 ]]; then
@@ -1959,7 +2016,7 @@ dkclean() {
 
   # 5. Clean up old phase state files (older than 7 days)
   local old_phase_files
-  old_phase_files=$(dk_cleanup_stale_files "$DK_STATE_DIR" "phase times system-context log" 7)
+  old_phase_files=$(dk_cleanup_stale_files "$DK_STATE_DIR" "phase times system-context log branch" 7)
   if [[ "$old_phase_files" -gt 0 ]]; then
     echo "  Cleaned ${old_phase_files} old phase state file(s)"
     cleaned=$((cleaned + old_phase_files))
