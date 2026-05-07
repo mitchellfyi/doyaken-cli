@@ -69,6 +69,27 @@ If you discovered conventions, failure patterns, or interface details during thi
 
 Only add entries that are non-obvious and would save time in future tasks. Skip if nothing noteworthy was discovered.
 
+## Step 6: UI Capture Evidence
+
+If the implementation affects browser UI, run `/dkuicapture` before stopping.
+
+Required evidence for UI-affecting changes:
+
+- Desktop screenshot for each changed representative route/view
+- Mobile screenshot when layout, responsive behavior, shared components, or CSS changed
+- Playwright trace for captured routes/views
+- Video for interactive flows (clicks, forms, navigation, modals, menus, drag/drop, auth, checkout, onboarding, uploads)
+- Console, page, network, and HTTP error logs checked
+- Absolute links to all screenshots/videos/traces/logs included in the evidence table or final Phase 2 summary
+
+Artifacts must live under Doyaken's artifact directory (`${DK_ARTIFACT_DIR:-~/.claude/.doyaken-artifacts}`) and must not be committed or staged.
+
+If the implementation does not affect browser UI, include:
+
+```text
+UI capture: N/A — no UI-affecting files changed
+```
+
 ## Completion Criteria
 
 ALL of these must be true before you stop:
@@ -77,5 +98,6 @@ ALL of these must be true before you stop:
 - All tests pass (run the test suite one final time to confirm)
 - No TODO/FIXME/debugging artifacts remain
 - Any needed `.doyaken/` updates are staged
+- UI capture evidence is linked for UI-affecting changes, or UI capture is explicitly N/A
 
 When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions. The next phase (Review) will perform deep adversarial code review.

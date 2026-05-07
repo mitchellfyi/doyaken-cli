@@ -146,7 +146,7 @@ dk_inline_phase_message() {
   case "$1" in
     2)
       cat <<'EOF'
-The plan is approved. Invoke the Skill tool with skill: "dkimplement" to begin implementation. Scope: implementation and testing only. Do not commit, push, create branches, or create PRs. When implementation is complete and the audit criteria are met, stop so the Stop hook can advance the lifecycle.
+The plan is approved. Invoke the Skill tool with skill: "dkimplement" to begin implementation. Scope: implementation, testing, and UI capture evidence only. For UI-affecting changes, invoke dkuicapture and link screenshots/videos/traces before stopping. Do not commit, push, create branches, or create PRs. When implementation is complete and the audit criteria are met, stop so the Stop hook can advance the lifecycle.
 EOF
       ;;
     3)

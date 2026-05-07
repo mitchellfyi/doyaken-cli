@@ -78,7 +78,12 @@ else
   dk_skip "Codex CLI not found; skipping Codex skills"
 fi
 
-# 4. Merge hooks and settings into ~/.claude/settings.json
+# 4. Install Doyaken-managed browser automation tooling.
+if ! dk_install_ui_capture_tooling; then
+  dk_warn "Continuing install without complete UI capture tooling"
+fi
+
+# 5. Merge hooks and settings into ~/.claude/settings.json
 if [[ -f "$SETTINGS_FILE" ]]; then
   # Use jq if available, otherwise manual merge. Existing settings are always
   # merged through jq so stale/missing Doyaken hook entries are repaired.
@@ -142,7 +147,7 @@ else
   fi
 fi
 
-# 5. Source dk.sh in ~/.zshrc
+# 6. Source dk.sh in ~/.zshrc
 if grep -qE 'doyaken/dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$ZSHRC" 2>/dev/null; then
   # Ensure DOYAKEN_DIR export exists (upgrade path: older installs lack it)
   if ! grep -qE '^export DOYAKEN_DIR=' "$ZSHRC" 2>/dev/null; then
@@ -171,7 +176,7 @@ else
   dk_done "Added DOYAKEN_DIR export and source to ~/.zshrc"
 fi
 
-# 5. Make scripts executable
+# 7. Make scripts executable
 chmod +x "$DOYAKEN_DIR/hooks/"*.sh "$DOYAKEN_DIR/hooks/"*.py "$DOYAKEN_DIR/bin/"*.sh 2>/dev/null
 dk_done "Made scripts executable"
 

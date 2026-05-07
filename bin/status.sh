@@ -67,6 +67,30 @@ else
   echo "  Codex:     CLI not found"
 fi
 
+if dk_ui_capture_playwright_ready; then
+  echo "  UI Tools:  Playwright installed ($(dk_ui_capture_tools_dir))"
+else
+  echo "  UI Tools:  Playwright not installed — run 'dk install'"
+fi
+
+if command -v claude &>/dev/null; then
+  if dk_claude_mcp_server_exists "playwright" && dk_claude_mcp_server_exists "chrome-devtools"; then
+    echo "  Claude MCP: Playwright + Chrome DevTools configured"
+  else
+    echo "  Claude MCP: browser servers incomplete — run 'dk install'"
+  fi
+else
+  echo "  Claude MCP: Claude Code CLI not found"
+fi
+
+if command -v codex &>/dev/null; then
+  if dk_codex_mcp_server_exists "playwright" && dk_codex_mcp_server_exists "chrome-devtools"; then
+    echo "  Codex MCP: Playwright + Chrome DevTools configured"
+  else
+    echo "  Codex MCP: browser servers incomplete — run 'dk install'"
+  fi
+fi
+
 if grep -qE 'doyaken/dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$HOME/.zshrc" 2>/dev/null; then
   echo "  Shell:     sourced in ~/.zshrc"
 else

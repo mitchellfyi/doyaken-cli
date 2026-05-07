@@ -100,7 +100,7 @@ fi
 echo ""
 echo "Skeleton created."
 
-# ── 2. Ensure Codex CLI can discover Doyaken skills ───────────────────
+# ── 2. Ensure global Doyaken tooling is available ─────────────────────
 
 CODEX_SKILL_COUNT=0
 if command -v codex &>/dev/null; then
@@ -110,6 +110,10 @@ if command -v codex &>/dev/null; then
   CODEX_SKILL_COUNT=$(dk_count_codex_doyaken_skills)
 else
   dk_skip "Codex CLI not found; skipping Codex skills"
+fi
+
+if ! dk_install_ui_capture_tooling; then
+  dk_warn "Continuing init without complete UI capture tooling"
 fi
 
 # ── 3. Codebase analysis via Claude Code CLI ──────────────────────────

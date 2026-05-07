@@ -111,6 +111,12 @@ If the final agent result is PASS and the evidence table has zero NOT FOUND entr
 
 After the self-review loop passes (Step 4 produces PASS with zero NOT FOUND entries), run the project's relevant deterministic checks one more time and update the evidence table with final pass/fail status. Do not invoke `/dkreview` from Phase 2; the dedicated Phase 3 `/dkreviewloop` handles adversarial review after implementation is complete.
 
+### 6. UI Capture Evidence
+
+If the change affects browser UI, invoke the `dkuicapture` skill before Phase 2 completes. Capture desktop/mobile screenshots, Playwright traces, and video for interactive flows. Artifacts must stay in Doyaken's artifact directory and must not be committed. Add absolute links to screenshots, videos, traces, and logs to the implementation evidence.
+
+If no browser UI changed, add `UI capture: N/A — no UI-affecting files changed` to the evidence.
+
 ## Scope Boundaries
 
 During implementation (Phase 2), you MUST NOT:
@@ -123,6 +129,7 @@ You SHOULD:
 - Implement all planned tasks with TDD
 - Run quality checks on changed files after each task (format, lint, typecheck)
 - Run the self-review loop (Step 4) and final implementation checks (Step 5)
+- Run `/dkuicapture` for UI-affecting changes and link the artifacts
 - Update `.doyaken/` project docs if your changes require it
 
 ## Notes

@@ -20,12 +20,13 @@ Doyaken is a standalone workflow automation framework for Claude Code. It provid
 ```
 agents/              Sub-agents (symlinked to ~/.claude/agents/)
 bin/                 CLI scripts (install, init, config, status, etc.)
-docs/                Extended documentation (guards, autonomous mode)
+docs/                Extended documentation (guards, autonomous mode, UI capture)
 hooks/               Claude Code hooks + guard handler
   guards/            Built-in guard rules (markdown with YAML frontmatter)
-lib/                 Shared shell libraries (common, codex, git, output, provider, session, worktree)
+lib/                 Shared shell libraries (common, codex, git, output, provider, session, ui-capture, worktree)
 prompts/             Prompt templates for skills/agents
   phase-audits/      Phase-specific audit prompts (1-6 + prompt-loop)
+scripts/             Node/helpers used by Doyaken-managed tooling
 skills/              Lifecycle skills (symlinked to ~/.claude/skills/ and individually to $CODEX_HOME/skills/)
 dk.sh                Main shell functions (zsh only, ~1900 lines)
 settings.json        Hook definitions template
@@ -64,7 +65,7 @@ All scripts use `set -euo pipefail`. Use early returns, not deep nesting.
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
 ```
 
-Sourcing `common.sh` also sources `git.sh`, `session.sh`, `output.sh`, `worktree.sh`, `provider.sh`, and `codex.sh`.
+Sourcing `common.sh` also sources `git.sh`, `session.sh`, `output.sh`, `worktree.sh`, `provider.sh`, `codex.sh`, and `ui-capture.sh`.
 
 ### Output
 
@@ -270,6 +271,7 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 | `provider.sh` | Provider/model profile resolution, launch wrapping, and diagnostics | `dk_provider_apply()`, `dk_provider_claude()`, `dk_provider_command()`, `dk_provider_doctor()` |
 | `session.sh` | Session ID derivation, state file paths | `dk_session_id()`, `dk_provider_state_file()`, `dk_cleanup_session()` |
 | `output.sh` | Formatted user-facing output | `dk_done()`, `dk_ok()`, `dk_warn()`, `dk_error()`, etc. |
+| `ui-capture.sh` | Playwright/UI capture tooling, artifact paths, MCP bootstrap | `dk_install_ui_capture_tooling()`, `dk_ui_capture_run_dir()`, `dk_ui_capture_playwright_ready()` |
 | `worktree.sh` | Worktree management utilities | `dk_wt_branch()`, `dk_wt_remove()`, `dk_cleanup_last_session()`, `dk_cleanup_stale_files()` |
 
 **dk.sh internal structure** (sections in order, approximate):
@@ -303,6 +305,8 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 | `DOYAKEN_DIR` | Installation directory | `$HOME/work/doyaken` |
 | `DK_STATE_DIR` | Phase state directory | `~/.claude/.doyaken-phases` |
 | `DK_LOOP_DIR` | Loop state directory | `~/.claude/.doyaken-loops` |
+| `DK_ARTIFACT_DIR` | Doyaken-generated screenshots, videos, traces, and logs | `~/.claude/.doyaken-artifacts` |
+| `DK_TOOL_DIR` | Doyaken-managed external tooling cache | `~/.claude/.doyaken-tools` |
 | `DOYAKEN_LOOP_ACTIVE` | Enable phase audit loop | unset |
 | `DOYAKEN_LOOP_PHASE` | Current phase (1-6 or "prompt-loop") | unset |
 | `DOYAKEN_PHASE_HANDOFF` | Same-session phase handoff marker (`inline` for `dk`) | unset |
@@ -323,5 +327,6 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 - `.DS_Store`
 - `__pycache__/`, `*.pyc`
 - `.doyaken/worktrees/` (ephemeral)
+- `~/.claude/.doyaken-artifacts/` UI captures (screenshots, videos, traces, logs)
 - `~/.claude/settings.json` (user-specific)
 - Anything containing secrets or credentials

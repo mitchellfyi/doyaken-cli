@@ -46,13 +46,15 @@ Each phase has its own audit prompt in `prompts/phase-audits/`:
 | Phase | Audit File | What It Reviews |
 |-------|-----------|-----------------|
 | 1. Plan | `1-plan.md` | Completeness, edge cases, dependencies, scope, user approval |
-| 2. Implement | `2-implement.md` | Task completion, TDD verification, evidence table |
+| 2. Implement | `2-implement.md` | Task completion, TDD verification, UI capture evidence, evidence table |
 | 3. Review | `3-review-loop.md` | `/dkreviewloop` requiring 3 clean review passes |
 | 4. Verify & Commit | `4-verify.md` | All checks passing, commit quality, pushed to origin |
 | 5. PR | `5-pr.md` | Description quality, scope match, draft PR created with `request` reviewers attached |
 | 6. Complete | `6-complete.md` | Cycle loop: mark ready, request reviewers, post mention comment, monitor, address comments, re-request after each push, close ticket |
 
 The review audit (Phase 3) is the most rigorous. Phase 3 runs `/dkreviewloop`, which spawns fresh review subagents and requires 3 consecutive clean reports.
+
+For browser UI changes, Phase 2 also requires UI capture evidence before handoff to review. `/dkuicapture` stores screenshots, videos, traces, and browser logs under `~/.claude/.doyaken-artifacts/` and links them in the implementation evidence. See [ui-capture.md](ui-capture.md).
 
 Phase 6 (Complete) is autonomous: it reads `## Reviewers` from `.doyaken/doyaken.md` to know who to request reviews from. The user is brought into the loop as a configured reviewer — the autonomous loop waits at least `DOYAKEN_COMPLETE_WAIT_MINUTES` (default 30) per cycle for reviews to come in, addresses any comments via `/dkprreview`, re-requests reviewers after each push, and closes the ticket once everything is approved and CI is green. After `DOYAKEN_COMPLETE_MAX_CYCLES` (default 3) idle cycles with no progress, it escalates to the user.
 
@@ -221,6 +223,8 @@ Phase state is stored in `~/.claude/.doyaken-phases/`:
 - One `.times` file per worktree, tracking start times for elapsed calculations
 - One `.system-context` file per worktree, used by `--append-system-prompt-file` for compaction resilience (regenerated each phase, cleaned up by `SessionEnd` hook)
 
+UI artifacts are stored separately in `~/.claude/.doyaken-artifacts/` so screenshots, videos, traces, flow scripts, and logs stay out of git.
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -237,6 +241,8 @@ Phase state is stored in `~/.claude/.doyaken-phases/`:
 | `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before Phase 3 pauses for intervention |
 | `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle cycles before Phase 6 escalates |
 | `DOYAKEN_COMPLETE_WAIT_MINUTES` | `30` | Minimum wait window per Phase 6 cycle (minutes) |
+| `DK_ARTIFACT_DIR` | `~/.claude/.doyaken-artifacts` | Screenshots, videos, traces, and logs produced by Doyaken |
+| `DK_TOOL_DIR` | `~/.claude/.doyaken-tools` | Doyaken-managed external tooling cache |
 
 ## Troubleshooting
 

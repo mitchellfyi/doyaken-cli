@@ -1,6 +1,6 @@
 # Doyaken
 
-Standalone workflow automation for Claude Code. Autonomous ticket lifecycle, worktree isolation, coding conventions — works with any repo.
+Standalone workflow automation for Claude Code. Doyaken runs a ticket from plan to PR with worktree isolation, quality gates, review loops, and UI capture evidence when browser-facing code changes.
 
 ## Quick Start
 
@@ -18,7 +18,27 @@ dk init
 dk 999
 ```
 
+`dk install` sets up shell functions, Claude hooks, Doyaken skills, Codex skill links when Codex is installed, and browser capture tooling. UI capture uses Playwright in `~/.claude/.doyaken-tools/` and writes screenshots/videos/traces to `~/.claude/.doyaken-artifacts/`, not your repo.
+
+## At a Glance
+
+- `dk 999` creates an isolated worktree and runs six phases: Plan → Implement → Review → Verify & Commit → PR → Complete.
+- Phase 1 asks for plan approval. Later phases continue automatically unless requirements change, tooling is missing, or a review/CI problem needs human judgement.
+- UI changes get visual evidence in Phase 2: desktop/mobile screenshots, Playwright traces, and videos for interactive flows.
+- Phase 3 runs fresh adversarial review passes until the change is clean.
+- Phase 6 marks the PR ready, monitors CI/reviews, addresses feedback, and closes the ticket when approvals and checks are complete.
+
+Read next:
+
+- [Lifecycle](#lifecycle) for the normal ticket flow
+- [UI Capture](#ui-capture) for screenshots, video, traces, and browser logs
+- [What needs `dk init`?](#what-needs-dk-init) for global vs per-repo setup
+- [docs/autonomous-mode.md](docs/autonomous-mode.md) for phase-loop internals
+- [docs/guards.md](docs/guards.md) for hook-based safety rules
+
 ## Why Claude Code, not Codex?
+
+You can skip this section for a first run. It matters when you are choosing provider profiles or trying to reduce Claude Code usage.
 
 Doyaken is built on Claude Code-specific primitives, not a portable agent abstraction. The lifecycle relies on:
 
@@ -119,7 +139,7 @@ If you want the same lifecycle without a separate checkout, run `dk --no-worktre
 dk 999
   │
   ├─ Phase 1: Plan          Claude explores codebase, presents approaches, user approves
-  ├─ Phase 2: Implement     TDD implementation, completeness verification
+  ├─ Phase 2: Implement     TDD implementation, UI capture when relevant, completeness verification
   ├─ Phase 3: Review        Adversarial code review (3 clean passes, fresh subagents)
   ├─ Phase 4: Verify        Format, lint, typecheck, test → commit + push
   ├─ Phase 5: PR            Generate description, create draft PR + attach reviewers
@@ -130,7 +150,7 @@ dk 999
 | Phase | Skills | What Happens | User Action |
 |-------|--------|-------------|-------------|
 | 1. Plan | `/dkplan` | Reads ticket, explores code, presents 2-3 approaches, drafts plan | Approve plan |
-| 2. Implement | `/dkimplement` | TDD per task, evidence table, completeness check | Only for scope/requirement changes |
+| 2. Implement | `/dkimplement` + `/dkuicapture` when UI changed | TDD per task, screenshots/traces/videos for UI work, evidence table, completeness check | Only for scope/requirement changes |
 | 3. Review | `/dkreviewloop` | Fresh review subagents, 3 consecutive clean passes required | — |
 | 4. Verify & Commit | `/dkverify` + `/dkcommit` | Quality gates, atomic conventional commits, push | — |
 | 5. PR | `/dkpr` | PR description, create draft PR, attach `request`-type reviewers | — |
@@ -205,6 +225,28 @@ The user can always interrupt with Ctrl+C. Phase state is saved so `dk 999` or `
 
 See [docs/autonomous-mode.md](docs/autonomous-mode.md) for full architecture.
 
+## UI Capture
+
+For browser UI changes, Phase 2 runs `/dkuicapture` before review. It captures:
+
+- desktop and mobile screenshots
+- Playwright traces for debugging
+- WebM video for interactive flows
+- console, page, network, and HTTP error logs
+
+Artifacts are stored under `~/.claude/.doyaken-artifacts/ui/<session>/` by default and are linked in the implementation evidence. They are not committed.
+
+Run capture manually when needed:
+
+```bash
+bash "$DOYAKEN_DIR/bin/ui-capture.sh" \
+  --url "http://127.0.0.1:3000" \
+  --name "login-flow" \
+  --desktop --mobile --video --trace
+```
+
+See [docs/ui-capture.md](docs/ui-capture.md) for flow scripts, artifact paths, and troubleshooting.
+
 ## What needs `dk init`?
 
 Most Doyaken features work immediately after `dk install` — no per-project setup required:
@@ -216,6 +258,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 | `dkreviewloop` | No | Works in any git repo with detectable changes |
 | `/dkloop`, `/dkplan`, `/dkimplement`, etc. | No | Skills work in any Claude Code session |
 | Codex skill discovery | No | `dk install` links Doyaken skills into `$CODEX_HOME/skills` (default `~/.codex/skills`) when Codex CLI is present |
+| UI capture tooling | No | `dk install` installs Playwright into `~/.claude/.doyaken-tools/` and configures Playwright MCP + Chrome DevTools MCP when CLIs are present |
 | Hooks (guards, commit validation, ticket context) | No | Installed globally by `dk install` |
 | Agents (self-reviewer) | No | Symlinked globally by `dk install` |
 | `dk <number>` / `dk "description"` | No | Worktrees work in any git repo |
@@ -227,6 +270,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 - **Project-specific guards** (`guards/`) — creates guards for files that should never be committed (environment files, generated configs). Without init, only the universal guards (destructive commands, secrets, sensitive files) are active.
 - **Integration config** — configures ticket tracker (Linear, GitHub Issues), Figma, Sentry, etc. Without init, skills skip tracker updates.
 - **Codex skill repair** — if Codex CLI is installed, refreshes Doyaken skill links in `$CODEX_HOME/skills` (default `~/.codex/skills`) without replacing Codex's own system skills.
+- **UI capture repair** — installs/repairs Doyaken-managed Playwright tooling and browser MCP servers without adding dependencies to the project.
 
 In short: everything works without init, but init makes it faster and more accurate by caching project knowledge.
 
@@ -273,6 +317,7 @@ dkloop <prompt>     # Run a prompt until fully implemented (from terminal)
 dk reload            # Reload shell functions after editing dk.sh
 dk provider current  # Show active Claude/Codex/gateway execution profile
 dk provider doctor   # Check subscription-safe provider setup
+bash "$DOYAKEN_DIR/bin/ui-capture.sh" --install-only  # Repair UI capture tooling
 ```
 
 ## Structure
@@ -291,11 +336,13 @@ doyaken/
   docs/                      # Extended documentation
     guards.md                # Guard system (hookify-style rules)
     autonomous-mode.md       # Phase audit loops and autonomous execution
+    ui-capture.md            # Screenshots, videos, traces, and browser logs
   skills/                    # Lifecycle skills -> symlinked to ~/.claude/skills/
                              # Each skill is a directory containing SKILL.md
     doyaken/                 # Orchestrate full ticket lifecycle
     dkplan/                  # Implementation planning (multi-approach)
     dkimplement/             # TDD implementation with completeness verification
+    dkuicapture/             # UI screenshots, traces, videos, and browser error logs
     dkreview/                # Four-phase agentic review with confidence scoring
     dkverify/                # Discover and run project quality gates
     dkcommit/                # Atomic conventional commits
@@ -313,6 +360,7 @@ doyaken/
     provider.sh              # Provider/model profile resolution and diagnostics
     session.sh               # Session ID and state file path helpers
     output.sh                # Formatted output ([done], [ok], [warn], etc.)
+    ui-capture.sh            # Playwright/UI capture tooling and artifact helpers
   hooks/                     # Hook scripts (referenced from ~/.claude/settings.json)
     load-ticket-context.sh   # SessionStart — ticket context + focus area detection
     post-commit-guard.sh     # PostToolUse — commit validation via guards
@@ -339,6 +387,8 @@ doyaken/
       5-pr.md                # PR quality audit
       6-complete.md          # Phase 6 cycle-loop audit (mark ready, monitor, close)
       prompt-loop.md         # Prompt loop audit (used by dkloop)
+  scripts/
+    ui-capture.cjs           # Playwright capture runner used by /dkuicapture
   dk.sh                      # Shell functions (dk, dkrm, dkls, dkclean, dkloop, doyaken)
   install.sh                 # Quick-start installer (delegates to bin/install.sh)
   settings.json              # Hook definitions template
@@ -459,6 +509,8 @@ Control via environment variables:
 | `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before Phase 3 pauses for intervention |
 | `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle review cycles before Phase 6 escalates |
 | `DOYAKEN_COMPLETE_WAIT_MINUTES` | `30` | Minimum wait window per Phase 6 cycle (minutes) |
+| `DK_ARTIFACT_DIR` | `~/.claude/.doyaken-artifacts` | Doyaken-generated screenshots, videos, traces, and logs |
+| `DK_TOOL_DIR` | `~/.claude/.doyaken-tools` | Doyaken-managed external tooling cache, including Playwright |
 
 ### Reviewers
 
