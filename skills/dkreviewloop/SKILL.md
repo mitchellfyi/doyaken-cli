@@ -36,6 +36,23 @@ Print the chosen scope (name + diff command + file count) before spawning the fi
 
 For each iteration (up to **10**), spawn a fresh subagent via the **Agent tool** with `subagent_type: "general-purpose"`. Each Agent invocation is a fresh context window — that is the independence the user wants.
 
+When running inside a `dk` lifecycle (`DOYAKEN_SESSION_ID` is present), mark the
+review pass as in progress before spawning/waiting on each subagent, then remove
+the marker immediately after that subagent returns:
+
+```bash
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
+BUSY_FILE="$(dk_phase_busy_file "$SESSION_ID" 3)"
+printf '%s\t%s\n' "$(date +%s)" "dkreviewloop pass ${ITERATION}/${MAX_ITERATIONS}; clean ${CLEAN_COUNT}/${REQUIRED_CLEAN}" > "$BUSY_FILE"
+# spawn and wait for exactly one fresh review subagent
+rm -f "$BUSY_FILE"
+```
+
+The Stop hook uses this marker to avoid counting audit iterations while a review
+subagent is still running. Do not leave the marker in place after a subagent
+returns, and remove it before printing the final `SUCCESS` or safety-net report.
+
 The subagent's prompt must include:
 
 - The diff command from Step 1 (so the subagent reviews the right scope, not the default `origin/<default>...HEAD`)
@@ -83,3 +100,7 @@ If SAFETY-NET-EXIT, list the residual findings the subagents kept reporting so t
 - **Fixes belong to the orchestrator, reviews belong to subagents.** Subagents that fix things they review make the independence claim weaker. Keep the split clean.
 - Same-session `dk <ticket>` Phase 3 uses this skill, with the Stop hook auditing the final `SUCCESS` report.
 - Do NOT commit, push, or create PRs from this skill. Review and fix only.
+- If you discover commits, pushes, PR creation, or PR updates already happened
+  during Phase 3, stop doing any more of them. Report the ordering violation as
+  a warning, but do not deadlock the review loop on an irreversible past action;
+  the non-negotiable gate is still `SUCCESS` with 3 consecutive clean reports.

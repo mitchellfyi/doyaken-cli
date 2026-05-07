@@ -507,6 +507,7 @@ Control via environment variables:
 | `DOYAKEN_PHASE_N_MIN_AUDITS` | — | Per-phase override (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
 | `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive clean review iterations required (Phase 3) |
 | `DOYAKEN_REVIEW_MAX_ITERATIONS` | `10` | Max review iterations before Phase 3 pauses for intervention |
+| `DOYAKEN_REVIEW_PASS_TIMEOUT` | `2700` | Seconds a Phase 3 review subagent may stay in progress before the lifecycle pauses |
 | `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle review cycles before Phase 6 escalates |
 | `DOYAKEN_COMPLETE_WAIT_MINUTES` | `30` | Minimum wait window per Phase 6 cycle (minutes) |
 | `DK_ARTIFACT_DIR` | `~/.claude/.doyaken-artifacts` | Doyaken-generated screenshots, videos, traces, and logs |
