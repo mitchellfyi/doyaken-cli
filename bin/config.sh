@@ -347,9 +347,15 @@ if [[ -f "$MCP_FILE" ]] && command -v jq &>/dev/null; then
           exit 0
         fi
       fi
-      # Merge .mcp.json servers into global settings.json mcpServers
+      # Merge only new .mcp.json servers into global settings.json mcpServers.
       if merged=$(jq -s '
-        .[0] + {mcpServers: ((.[0].mcpServers // {}) + (.[1].mcpServers // {}))}
+        .[0] + {
+          mcpServers: (
+            (.[0].mcpServers // {}) as $global
+            | (.[1].mcpServers // {}) as $project
+            | $global + ($project | with_entries(.key as $name | select(($global | has($name)) | not)))
+          )
+        }
       ' "$SETTINGS_FILE" "$MCP_FILE" 2>/dev/null) && [[ -n "$merged" ]]; then
         TMPFILE="${SETTINGS_FILE}.tmp.$$"
         if printf '%s\n' "$merged" > "$TMPFILE" && mv "$TMPFILE" "$SETTINGS_FILE"; then
