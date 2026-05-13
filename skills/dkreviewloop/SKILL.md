@@ -19,18 +19,19 @@ A single review pass can convince itself the code is clean — motivated reasoni
 
 ## Steps
 
-### 1. Detect the Diff Scope
+### 1. Detect the Review Scope
 
-Use this priority order to determine what to review. Stop at the first match:
+Review the **full current change set**, not just the first category that happens
+to have changes. Include all of these when present:
 
-1. **Staged changes** — `git diff --cached --quiet` exits non-zero → use `git diff --cached`
-2. **Unstaged changes** — `git diff --quiet` exits non-zero → use `git diff`
-3. **Unpushed commits** — `git log @{u}..HEAD --oneline` is non-empty → use `git diff @{u}...HEAD`
-4. **PR diff vs default** — commits ahead of `origin/<default>` → use `git diff origin/<default>...HEAD`
+- **Committed branch changes** — prefer `git diff origin/<default>...HEAD` when the default branch ref exists, so pushed and unpushed feature-branch commits are both included; use `git diff @{u}...HEAD` only as a fallback when no default-branch ref is available and the branch has unpushed commits
+- **Staged changes** — `git diff --cached`
+- **Unstaged changes** — `git diff`
+- **Untracked files** — `git ls-files --others --exclude-standard`, with contents included via `git diff --no-index -- /dev/null <file>` for each untracked file
 
 If none of these find changes, stop and tell the user there is nothing to review.
 
-Print the chosen scope (name + diff command + file count) before spawning the first subagent.
+Print the scope name, review commands, and unique file count before spawning the first subagent.
 
 ### 2. Spawn Fresh Review Sessions
 
@@ -57,7 +58,7 @@ returns, and remove it before printing the final `SUCCESS` or safety-net report.
 
 The subagent's prompt must include:
 
-- The diff command from Step 1 (so the subagent reviews the right scope, not the default `origin/<default>...HEAD`)
+- The review commands from Step 1 (so the subagent reviews the full current change set, not only the default `origin/<default>...HEAD` diff)
 - An instruction to invoke `/dkreview --single-pass` via the Skill tool
 - A request to report back with: (a) the final result line — `CLEAN`, `PASS WITH WARNINGS`, or `NEEDS ATTENTION` — and (b) any remaining findings that the subagent did not auto-fix
 - A reminder that the subagent should NOT commit, push, or create PRs
@@ -87,7 +88,7 @@ Print a final summary:
 ```
 ## dkreviewloop Result
 
-- Scope:                 {staged | unstaged | unpushed | PR diff}
+- Scope:                 full current change set
 - Iterations:            N / 20
 - Consecutive clean:     M / 3
 - Result:                {SUCCESS | SAFETY-NET-EXIT}

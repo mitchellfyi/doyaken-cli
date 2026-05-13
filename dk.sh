@@ -16,7 +16,7 @@
 #   dk --resume             Resume the most recent session
 #   dk --from-pr <N>        Resume session linked to a PR
 #   dkcomplete              Standalone completion workflow (recovery / non-dk PRs)
-#   dkreviewloop            Standalone 3-clean-passes review of staged/unstaged/unpushed/PR diff
+#   dkreviewloop            Standalone 3-clean-passes review of the full current change set
 #   dkrm <number|name|--all>  Remove a worktree
 #   dkls                   List worktrees
 #   dkclean                Clean stale worktrees + gone branches
@@ -82,7 +82,7 @@ doyaken() {
       echo "  dkcomplete             Monitor CI/reviews, address comments, close ticket"
       echo ""
       echo "Standalone review (3-clean-passes loop, no full lifecycle needed):"
-      echo "  dkreviewloop           Auto-detect scope (staged → unstaged → unpushed → PR diff) and review"
+      echo "  dkreviewloop           Review the full current change set"
       echo ""
       echo "Prompt loop:"
       echo "  dkloop <prompt>          Run a prompt until fully implemented"
@@ -1550,11 +1550,8 @@ $(__dk_provider_prompt)"
 # ─── dkreviewloop — standalone 3-clean-passes review ─────────────────────
 #
 # Runs the same adversarial review loop dk Phase 3 uses, without requiring
-# the full lifecycle. Scope is auto-detected in this priority order:
-#   1. Staged changes      → git diff --cached
-#   2. Unstaged changes    → git diff
-#   3. Unpushed commits    → git diff @{u}...HEAD
-#   4. PR diff vs default  → git diff origin/<default>...HEAD
+# the full lifecycle. Scope is the full current change set: committed branch
+# changes, staged changes, unstaged changes, and untracked files together.
 #
 # Each iteration is a fresh Claude session that runs /dkreview --single-pass, performs
 # the manual review passes, spawns the self-reviewer agent, builds a
@@ -1578,64 +1575,64 @@ dkreviewloop() {
     return 1
   fi
 
-  # Detect scope using priority order
+  # Detect the full current change set instead of prioritizing one category.
   local scope_name="" diff_cmd="" stat_cmd="" name_cmd=""
-  if ! git diff --cached --quiet 2>/dev/null; then
-    scope_name="staged changes"
-    diff_cmd="git diff --cached"
-    stat_cmd="git diff --cached --stat"
-    name_cmd="git diff --cached --name-only"
-  elif ! git diff --quiet 2>/dev/null; then
-    scope_name="unstaged changes"
-    diff_cmd="git diff"
-    stat_cmd="git diff --stat"
-    name_cmd="git diff --name-only"
+  local committed_diff_cmd="" committed_stat_cmd="" committed_name_cmd=""
+  local committed_ref=""
+  local has_committed=0 has_staged=0 has_unstaged=0 has_untracked=0
+  local untracked_count
+  local default_branch
+  default_branch=$(dk_default_branch)
+
+  if [[ -n "$default_branch" ]] && \
+       git rev-parse --verify --quiet "origin/${default_branch}" &>/dev/null && \
+       git merge-base "origin/${default_branch}" HEAD &>/dev/null && \
+       ! git diff --quiet "origin/${default_branch}...HEAD" 2>/dev/null; then
+    has_committed=1
+    committed_ref="origin/${default_branch}...HEAD"
+    committed_diff_cmd="git diff origin/${default_branch}...HEAD"
+    committed_stat_cmd="git diff origin/${default_branch}...HEAD --stat"
+    committed_name_cmd="git diff origin/${default_branch}...HEAD --name-only"
   elif git rev-parse --abbrev-ref --symbolic-full-name '@{u}' &>/dev/null && \
        [[ -n "$(git log '@{u}..HEAD' --oneline 2>/dev/null)" ]]; then
-    scope_name="unpushed commits (vs upstream)"
-    diff_cmd="git diff @{u}...HEAD"
-    stat_cmd="git diff @{u}...HEAD --stat"
-    name_cmd="git diff @{u}...HEAD --name-only"
-  else
-    local default_branch
-    default_branch=$(dk_default_branch)
-    if [[ -n "$default_branch" ]] && \
-       [[ -n "$(git log "origin/${default_branch}..HEAD" --oneline 2>/dev/null)" ]]; then
-      scope_name="PR diff (vs origin/${default_branch})"
-      diff_cmd="git diff origin/${default_branch}...HEAD"
-      stat_cmd="git diff origin/${default_branch}...HEAD --stat"
-      name_cmd="git diff origin/${default_branch}...HEAD --name-only"
-    fi
+    has_committed=1
+    committed_ref="@{u}...HEAD"
+    committed_diff_cmd="git diff @{u}...HEAD"
+    committed_stat_cmd="git diff @{u}...HEAD --stat"
+    committed_name_cmd="git diff @{u}...HEAD --name-only"
+  fi
+
+  git diff --cached --quiet 2>/dev/null || has_staged=1
+  git diff --quiet 2>/dev/null || has_unstaged=1
+  untracked_count=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+  [[ "$untracked_count" =~ ^[0-9]+$ && "$untracked_count" -gt 0 ]] && has_untracked=1
+
+  if [[ $has_committed -eq 1 || $has_staged -eq 1 || $has_unstaged -eq 1 || $has_untracked -eq 1 ]]; then
+    scope_name="full current change set"
+    diff_cmd="{ ${committed_diff_cmd:-:}; git diff --cached; git diff; git ls-files --others --exclude-standard -z | xargs -0 -I{} sh -c 'test -f \"\$1\" && git diff --no-index -- /dev/null \"\$1\" 2>/dev/null || true' sh {}; }"
+    stat_cmd="{ ${committed_stat_cmd:-:}; git diff --cached --stat; git diff --stat; git ls-files --others --exclude-standard | sed 's/^/untracked: /'; }"
+    name_cmd="{ ${committed_name_cmd:-:}; git diff --cached --name-only; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u"
   fi
 
   if [[ -z "$scope_name" ]]; then
     dk_error "No changes detected to review."
-    dk_info "Tried in order: staged, unstaged, unpushed, PR diff vs default branch."
+    dk_info "Checked committed branch changes, staged changes, unstaged changes, and untracked files."
     return 1
   fi
 
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
 
-  # File count preview without eval; branch/ref names are passed as argv.
+  # File count preview for the full current change set without eval.
   local files_changed
-  case "$scope_name" in
-    "staged changes")
-      files_changed=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ') || files_changed="?"
-      ;;
-    "unstaged changes")
-      files_changed=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ') || files_changed="?"
-      ;;
-    "unpushed commits (vs upstream)")
-      files_changed=$(git diff '@{u}...HEAD' --name-only 2>/dev/null | wc -l | tr -d ' ') || files_changed="?"
-      ;;
-    "PR diff"*)
-      files_changed=$(git diff "origin/${default_branch}...HEAD" --name-only 2>/dev/null | wc -l | tr -d ' ') || files_changed="?"
-      ;;
-    *)
-      files_changed="?"
-      ;;
-  esac
+  files_changed=$(
+    {
+      [[ -n "$committed_ref" ]] && git diff "$committed_ref" --name-only 2>/dev/null
+      git diff --cached --name-only 2>/dev/null
+      git diff --name-only 2>/dev/null
+      git ls-files --others --exclude-standard 2>/dev/null
+    } | sort -u | wc -l | tr -d ' '
+  ) || files_changed="?"
   [[ -n "$files_changed" ]] || files_changed="?"
 
   echo ""
@@ -1667,7 +1664,7 @@ dkreviewloop() {
   local message
   message="Run an adversarial code review using /dkreview --single-pass, scoped to **${scope_name}** on branch \`${branch}\`.
 
-IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \`git diff origin/<default>...HEAD\`, override that — use these commands instead:
+IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \`git diff origin/<default>...HEAD\`, override that — use these commands instead. This is the full current change set, including committed branch changes, staged changes, unstaged changes, and untracked files:
 
 - Diff:        \`${diff_cmd}\`
 - Stat:        \`${stat_cmd}\`
@@ -1677,7 +1674,7 @@ Follow the audit prompt: run /dkreview --single-pass, perform the manual passes,
 
 If no approved plan / acceptance criteria are available for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them.
 
-SCOPE BOUNDARIES: review and fix the diff above ONLY. Do NOT commit, push, or create PRs.
+SCOPE BOUNDARIES: review and fix the full current change set above ONLY. Do NOT commit, push, or create PRs.
 
 When the review is clean, stop — the audit loop will verify.
 $(__dk_provider_prompt)"
