@@ -47,12 +47,18 @@ Each phase has its own audit prompt in `prompts/phase-audits/`:
 |-------|-----------|-----------------|
 | 1. Plan | `1-plan.md` | Completeness, edge cases, dependencies, scope, user approval |
 | 2. Implement | `2-implement.md` | Task completion, TDD verification, UI capture evidence, evidence table |
-| 3. Review | `3-review-loop.md` | `/dkreviewloop` requiring 3 clean review passes |
+| 3. Review | `3-review-loop.md` | `/dkreviewloop` requiring 3 clean full-scope review waves |
 | 4. Verify & Commit | `4-verify.md` | All checks passing, commit quality, pushed to origin |
 | 5. PR | `5-pr.md` | Description quality, scope match, draft PR created with `request` reviewers attached |
 | 6. Complete | `6-complete.md` | Cycle loop: mark ready, request reviewers, post mention comment, monitor, address comments, re-request after each push, close ticket |
 
-The review audit (Phase 3) is the most rigorous. Phase 3 runs `/dkreviewloop`, which spawns fresh review subagents and requires 3 consecutive clean reports.
+The review audit (Phase 3) is the most rigorous. Phase 3 runs
+`/dkreviewloop`, which spawns fresh full-scope review waves and requires 3
+consecutive `CLEAN` reports. Each wave builds a compact context pack, runs
+deterministic checks, fans out to read-only specialist reviewers (including
+frontend and devops/CI when relevant), verifies findings, batch-fixes verified
+issues, and rechecks affected surfaces. A wave that fixes anything writes
+`FINDINGS_FIXED:N`, which resets the outer clean counter.
 
 For browser UI changes, Phase 2 also requires UI capture evidence before handoff to review. `/dkuicapture` stores screenshots, videos, traces, and browser logs under `~/.claude/.doyaken-artifacts/` and links them in the implementation evidence. See [ui-capture.md](ui-capture.md).
 
@@ -160,7 +166,8 @@ Long-running sessions (especially Phase 2) can trigger conversation compaction w
 
 Phases hand off inside the same Claude session. The Stop hook updates the phase state/config files, injects the next phase instructions, and exits with the hook-blocking status so Claude keeps working without requiring `/exit` or a manual resume.
 
-Phase 3 still gets independent review coverage because `/dkreviewloop` spawns fresh review subagents.
+Phase 3 still gets independent review coverage because `/dkreviewloop` spawns
+fresh full-scope review waves.
 
 ## Status Line
 
@@ -221,8 +228,9 @@ Loop state is stored in `~/.claude/.doyaken-loops/`:
 - `.watch-lock` — per-watcher overlap lock that bounds one scheduled `/dkwatchci` or `/dkwatchpr` cycle
 - `.phase-1.started` / `.phase-1.ready` — Phase 1 markers written by `dkplan`; the Stop hook does not count plan audit iterations until the approval marker exists
 - `.phase-2.ready` — Phase 2 marker written by `dkimplement` only after every acceptance criterion and verification gate is complete; the Stop hook ignores `PHASE_2_COMPLETE` without it
-- `.phase-3.busy` — Phase 3 marker written by `dkreviewloop` while a review subagent is running; the Stop hook does not count audit iterations while waiting
+- `.phase-3.busy` — Phase 3 marker written by `dkreviewloop` while a review wave is running; the Stop hook does not count audit iterations while waiting
 - `.phase-3.busy-notice` — timestamp used to throttle repeated Phase 3 busy-gate notices while the same review pass is still running
+- `.review-context` — compact context pack shared by one or more Phase 3 review waves
 - The session ID is derived from a stable repo key plus the worktree directory name (stable across branch renames and unique across repos)
 - Loop files are cleaned up on completion, by `dkrm`, and by `dkclean`
 - Old files (7+ days) are pruned by `dkclean`
@@ -247,9 +255,9 @@ UI artifacts are stored separately in `~/.claude/.doyaken-artifacts/` so screens
 | `DOYAKEN_LOOP_PHASE` | (set by wrapper) | Current phase number (1-6) or `prompt-loop`, used to find audit file |
 | `DOYAKEN_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
 | `DOYAKEN_PHASE_N_MIN_AUDITS` | (per-phase) | Per-phase override for min audit iterations (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
-| `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive clean review iterations required to advance Phase 3 |
+| `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive `CLEAN` review waves required to advance Phase 3 |
 | `DOYAKEN_REVIEW_MAX_ITERATIONS` | `20` | Max review iterations before Phase 3 pauses for intervention |
-| `DOYAKEN_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review subagent may stay in progress before the lifecycle pauses |
+| `DOYAKEN_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review wave may stay in progress before the lifecycle pauses |
 | `DOYAKEN_REVIEW_PASS_NOTICE_INTERVAL` | `120` (2m 0s) | Minimum seconds between repeated Phase 3 busy-gate notices for the same review pass |
 | `DOYAKEN_REVIEW_PASS_RECHECK_SECONDS` | `45` (0m 45s) | Seconds the Stop hook quietly polls for a busy Phase 3 review pass to finish before re-blocking |
 | `DOYAKEN_WATCH_CYCLE_TIMEOUT_SECONDS` | `120` (2m 0s) | Maximum runtime budget for one scheduled Phase 6 watcher invocation |

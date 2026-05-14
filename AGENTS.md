@@ -39,6 +39,7 @@ Per-project (created by `dk init`):
   doyaken.md         Project-specific config (tech stack, quality gates, integrations)
   AGENTS.md          @import of doyaken.md (generated context source of truth)
   CLAUDE.md          @import of AGENTS.md (Claude Code compatibility pointer)
+  review-rules.md    Optional path-specific focus for Doyaken review waves
   rules/             Coding conventions (generated from codebase analysis)
   guards/            Project-specific guard rules (generated)
   worktrees/         Worktree directories (gitignored, ephemeral)
@@ -128,6 +129,10 @@ memory: project                   # memory scope
 ---
 ```
 
+Read-only review specialist agents (`agents/review-*.md`) intentionally omit
+project memory so review waves do not create `.claude/agent-memory/` artifacts
+as a side effect.
+
 ## Guard Conventions
 
 Guards are markdown files with YAML frontmatter in `hooks/guards/` (built-in) or `.doyaken/guards/` (project-specific).
@@ -162,6 +167,7 @@ Stored in `prompts/`. Referenced by skills/agents via `@prompts/<file>.md`.
 
 - `guardrails.md` — Implementation discipline (shared across implement/review skills)
 - `review.md` — 12-pass review criteria (A-L) with confidence scoring
+- `review-wave.md` — Review-wave contract and specialist output schema (used by `/dkreview --single-pass` and Phase 3)
 - `commit-format.md` — Conventional Commits specification
 - `pr-description.md` — PR description template
 - `ticket-instructions.md` — Ticket intake workflow (injected by SessionStart hook)
@@ -190,7 +196,7 @@ Seven hooks defined in `settings.json`, referenced by paths to Doyaken scripts:
 
 ### Phase audit loops
 
-When `DOYAKEN_LOOP_ACTIVE=1`, the Stop hook intercepts Claude's exit, injects a phase-specific audit prompt, and loops until a `.complete` signal file is written or max iterations (default 30) are reached. For `dk` lifecycles, the hook advances phases inside the same Claude session by updating phase state/config and injecting the next phase instructions. Phase 1 is gated by `.phase-1.started` / `.phase-1.ready` markers from `dkplan`; the hook does not count plan audit iterations or reveal the completion signal until the approved-plan marker exists. Phase 3 uses `.phase-3.busy` while `/dkreviewloop` is waiting on a review subagent; the hook does not count audit iterations during that wait.
+When `DOYAKEN_LOOP_ACTIVE=1`, the Stop hook intercepts Claude's exit, injects a phase-specific audit prompt, and loops until a `.complete` signal file is written or max iterations (default 30) are reached. For `dk` lifecycles, the hook advances phases inside the same Claude session by updating phase state/config and injecting the next phase instructions. Phase 1 is gated by `.phase-1.started` / `.phase-1.ready` markers from `dkplan`; the hook does not count plan audit iterations or reveal the completion signal until the approved-plan marker exists. Phase 3 uses `.phase-3.busy` while `/dkreviewloop` is waiting on a review wave; the hook does not count audit iterations during that wait.
 
 ### Session IDs
 
@@ -320,7 +326,7 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 | `DOYAKEN_PHASE_HANDOFF` | Same-session phase handoff marker (`inline` for `dk`) | unset |
 | `DOYAKEN_LOOP_PROMISE` | Completion signal string | unset |
 | `DOYAKEN_LOOP_MAX_ITERATIONS` | Max loop iterations | 30 |
-| `DOYAKEN_REVIEW_PASS_TIMEOUT` | Seconds a Phase 3 review subagent may stay in progress before lifecycle pause | 900 (15m 0s) |
+| `DOYAKEN_REVIEW_PASS_TIMEOUT` | Seconds a Phase 3 review wave may stay in progress before lifecycle pause | 900 (15m 0s) |
 | `DOYAKEN_REVIEW_PASS_NOTICE_INTERVAL` | Minimum seconds between repeated Phase 3 busy-gate notices | 120 (2m 0s) |
 | `DOYAKEN_REVIEW_PASS_RECHECK_SECONDS` | Seconds the Stop hook quietly polls for a busy Phase 3 review pass to finish | 45 (0m 45s) |
 | `DOYAKEN_WATCH_CYCLE_TIMEOUT_SECONDS` | Maximum runtime budget for one scheduled Phase 6 watcher invocation | 120 (2m 0s) |

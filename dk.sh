@@ -1,4 +1,4 @@
-# shellcheck shell=bash disable=SC2296
+# shellcheck shell=bash disable=SC1091,SC2296
 # ^ dk.sh is zsh-only; SC2296 suppresses zsh parameter expansion syntax warnings.
 # Doyaken — Shell functions (zsh only)
 #
@@ -241,7 +241,7 @@ DK_PHASE_PROMISES=(\
 DK_PHASE_MESSAGES=(\
   "Call EnterPlanMode now, then immediately invoke the dkplan skill. Do not perform ticket setup, exploration, or planning by hand outside dkplan unless the skill explicitly instructs you to. After the user approves the plan via ExitPlanMode, write the Phase 1 approval marker and stop once so the Stop hook can audit the approved plan and advance to Phase 2 automatically. Do NOT tell the user to run /dkimplement and do NOT wait for another prompt." \
   "The plan is approved. You MUST invoke the Skill tool with skill: \"dkimplement\" to begin implementation. Do NOT implement ad-hoc — the skill enforces TDD and quality gates. For UI-affecting changes, Phase 2 must invoke dkuicapture and link screenshots/videos/traces before stopping. SCOPE BOUNDARIES: implementation, testing, and UI capture evidence ONLY. Do NOT commit, push, create branches, or create PRs during this phase — those are handled by later phases. When done, stop — the audit loop will verify your work." \
-  "Begin Phase 3: Review. Invoke the Skill tool with skill: \"dkreviewloop\" to run the 3-clean-pass review loop. Fix any findings it reports and rerun until it reports SUCCESS. SCOPE BOUNDARIES: review and fix ONLY. Do NOT commit, push, create branches, or create PRs. When the review loop is successful, stop — the audit loop will verify." \
+  "Begin Phase 3: Review. Invoke the Skill tool with skill: \"dkreviewloop\" to run the 3-clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, read-only specialist reviewers, verifier triage, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN. SCOPE BOUNDARIES: review and fix ONLY. Do NOT commit, push, create branches, or create PRs. When the review loop is successful, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dkverify\" to run the quality pipeline (format, lint, typecheck, test). Fix any failures and re-run until all green. Then invoke skill: \"dkcommit\" to commit and push. SCOPE BOUNDARIES: verify and commit ONLY. Do NOT create PRs or modify implementation beyond fixing verify failures. When pushed, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dkpr\" to generate the PR description, create the draft PR, and attach the configured 'request' reviewers from doyaken.md § Reviewers. SCOPE BOUNDARIES: PR creation and description ONLY. Do NOT mark the PR ready for review (Phase 6 owns that), do NOT post @mention comments, do NOT modify implementation code. When done, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dkcomplete\". Phase 6 follows the cycle-loop audit prompt: mark the PR ready, request reviewers from doyaken.md § Reviewers, post @mention comments for mention-type reviewers, launch /loop 2m /dkwatchci and /loop 5m /dkwatchpr, wait DOYAKEN_COMPLETE_WAIT_MINUTES per cycle, address comments via /dkprreview, re-request reviewers after each push, and close the ticket when CI is green and all reviewers have approved. Stop — the audit loop will verify." \
@@ -267,7 +267,7 @@ DK_PHASE_MIN_AUDITS=("1" "1" "1" "1" "1" "1")
 # Review sub-loop configuration.
 # Lifecycle Phase 3 uses the /dkreviewloop skill in the same Claude session.
 # The standalone dkreviewloop shell command also uses these defaults.
-# DK_REVIEW_CLEAN_PASSES: consecutive clean iterations required to advance.
+# DK_REVIEW_CLEAN_PASSES: consecutive CLEAN review waves required to advance.
 # DK_REVIEW_MAX_ITERATIONS: safety net — stop after this many iterations regardless.
 # Override: DOYAKEN_REVIEW_CLEAN_PASSES=5, DOYAKEN_REVIEW_MAX_ITERATIONS=25
 DK_REVIEW_CLEAN_PASSES=3
@@ -902,7 +902,7 @@ __dk_run_phases_inline() {
   local message
   message=$(__dk_phase_message "$step" "$raw_input" "$workspace_mode" "$wt_dir")
   if [[ $step -eq 3 ]]; then
-    message="Begin Phase 3: Review. Invoke the Skill tool with skill: \"dkreviewloop\" to run the 3-clean-pass review loop. Fix any findings it reports and rerun until it reports SUCCESS. Scope boundaries: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance."
+    message="Begin Phase 3: Review. Invoke the Skill tool with skill: \"dkreviewloop\" to run the 3-clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, read-only specialist reviewers, verifier triage, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN. Scope boundaries: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance."
   fi
 
   local session_timeout="${DOYAKEN_SESSION_TIMEOUT:-$DK_SESSION_TIMEOUT}"
@@ -1649,12 +1649,13 @@ $(__dk_provider_prompt)"
 # the full lifecycle. Scope is the full current change set: committed branch
 # changes, staged changes, unstaged changes, and untracked files together.
 #
-# Each iteration is a fresh Claude session that runs /dkreview --single-pass, performs
-# the manual review passes, spawns the self-reviewer agent, builds a
-# merged findings inventory, fixes everything, and writes a CLEAN /
-# FINDINGS:N review-result signal. The shell tracks consecutive CLEAN
-# results — DK_REVIEW_CLEAN_PASSES (default 3) in a row to advance,
-# DK_REVIEW_MAX_ITERATIONS (default 20) safety net before pausing.
+# Each iteration is a fresh Claude session that runs one full review wave:
+# build/refresh a compact context pack, fan out to read-only specialist reviewers,
+# verify and deduplicate findings, batch-fix verified issues, re-check, then write
+# a review-result signal. Only a wave with zero verified findings and zero fixes
+# writes CLEAN; waves that fixed issues reset the clean-pass counter.
+# DK_REVIEW_CLEAN_PASSES (default 3) consecutive CLEAN results advance,
+# DK_REVIEW_MAX_ITERATIONS (default 20) is the safety net before pausing.
 
 unalias dkreviewloop 2>/dev/null; unfunction dkreviewloop 2>/dev/null
 dkreviewloop() {
@@ -1719,6 +1720,9 @@ dkreviewloop() {
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
 
+  local max_iter="${DOYAKEN_REVIEW_MAX_ITERATIONS:-$DK_REVIEW_MAX_ITERATIONS}"
+  local required_clean="${DOYAKEN_REVIEW_CLEAN_PASSES:-$DK_REVIEW_CLEAN_PASSES}"
+
   # File count preview for the full current change set without eval.
   local files_changed
   files_changed=$(
@@ -1733,7 +1737,7 @@ dkreviewloop() {
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  DOYAKEN — dkreviewloop (3-clean-passes review)"
+  echo "  DOYAKEN — dkreviewloop (${required_clean}-clean-pass review)"
   echo ""
   echo "  Branch: ${branch}"
   echo "  Scope:  ${scope_name} (${files_changed} files)"
@@ -1743,11 +1747,25 @@ dkreviewloop() {
 
   local session_id
   session_id=$(dk_session_id)
+  local review_context_file
+  review_context_file=$(dk_review_context_file "$session_id")
+  local pass_complete_file
+  pass_complete_file=$(dk_complete_file "$session_id")
+  local prompt_file
+  prompt_file=$(dk_prompt_file "$session_id")
+  local standalone_review_prompt=0
+  if [[ "${DOYAKEN_LOOP_ACTIVE:-}" != "1" ]]; then
+    standalone_review_prompt=1
+    __dk_write_state "$prompt_file" "Standalone /dkreviewloop invocation for branch ${branch}.
+
+Review scope: full current change set (${files_changed} files).
+
+No ticket, plan, or acceptance criteria were supplied by this wrapper. Mark plan-dependent sections as N/A unless explicit criteria are present in the review-pass prompt."
+  fi
+  rm -f "$review_context_file" 2>/dev/null
 
   local clean_passes=0
   local review_iteration=0
-  local max_iter="${DOYAKEN_REVIEW_MAX_ITERATIONS:-$DK_REVIEW_MAX_ITERATIONS}"
-  local required_clean="${DOYAKEN_REVIEW_CLEAN_PASSES:-$DK_REVIEW_CLEAN_PASSES}"
 
   # Standalone review uses the detailed single-pass adversarial audit.
   local audit_file="$DOYAKEN_DIR/prompts/phase-audits/3-review.md"
@@ -1758,7 +1776,7 @@ dkreviewloop() {
   session_name="dkreviewloop-$(dk_slugify "$branch")"
 
   local message
-  message="Run an adversarial code review using /dkreview --single-pass, scoped to **${scope_name}** on branch \`${branch}\`.
+  message="Run one full Doyaken review wave using /dkreview --single-pass, scoped to **${scope_name}** on branch \`${branch}\`.
 
 IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \`git diff origin/<default>...HEAD\`, override that — use these commands instead. This is the full current change set, including committed branch changes, staged changes, unstaged changes, and untracked files:
 
@@ -1766,13 +1784,21 @@ IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \
 - Stat:        \`${stat_cmd}\`
 - File names:  \`${name_cmd}\`
 
-Follow the audit prompt: run /dkreview --single-pass, perform the manual passes, spawn the self-reviewer agent, build the merged findings inventory, fix all issues, and write the review result signal file.
+Use this review context pack path: \`${review_context_file}\`
+Use this per-pass completion path only after the review result signal and findings hash are written: \`${pass_complete_file}\`
 
-If no approved plan / acceptance criteria are available for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them.
+Follow the audit prompt and \`prompts/review-wave.md\`: first materialize a non-empty context pack, then run deterministic checks, spawn the applicable read-only specialist reviewers with the Agent tool (including frontend and devops/CI when relevant), verify and deduplicate findings, batch-fix verified issues, re-check, and write the review result signal file.
+
+Result semantics:
+- Write \`CLEAN\` only if this wave found zero verified findings and applied zero fixes.
+- Write \`FINDINGS_FIXED:N\` if this wave found and fixed N verified findings; this intentionally resets the outer clean-pass counter.
+- Write \`FINDINGS:N\` or \`BLOCKED:reason\` if issues remain or the wave cannot complete.
+
+If no approved plan / acceptance criteria are explicitly available in this prompt for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them. Do not infer criteria from stale session prompt files, previous conversation turns, session titles, AGENTS instructions, or unrelated ticket context.
 
 SCOPE BOUNDARIES: review and fix the full current change set above ONLY. Do NOT commit, push, or create PRs.
 
-When the review is clean, stop — the audit loop will verify.
+After writing the review result signal and findings hash, touch the per-pass completion path above, output \`${DK_PHASE_PROMISES[3]}\`, and then stop. That completion file only exits this one review-wave pass; it does not make a non-CLEAN result count as clean.
 $(__dk_provider_prompt)"
 
   while [[ $review_iteration -lt $max_iter ]] && [[ $clean_passes -lt $required_clean ]]; do
@@ -1782,7 +1808,7 @@ $(__dk_provider_prompt)"
     echo "  Iteration ${review_iteration}/${max_iter} (${clean_passes}/${required_clean} clean passes)"
     echo ""
 
-    rm -f "$(dk_review_result_file "$session_id")"
+    rm -f "$review_context_file" "$(dk_review_result_file "$session_id")"
     mkdir -p "$DK_LOOP_DIR"
     touch "$(dk_active_file "$session_id")"
     rm -f "$(dk_complete_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_findings_file "$session_id")"
@@ -1798,6 +1824,7 @@ $(__dk_provider_prompt)"
     DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[3]}" \
     DOYAKEN_LOOP_PROMPT="$audit_prompt" \
     DOYAKEN_LOOP_PHASE="3" \
+    DOYAKEN_REVIEW_PASS_ACTIVE=1 \
     DOYAKEN_DIR="$DOYAKEN_DIR" \
     __dk_claude "${claude_args[@]}" "$message"
 
@@ -1813,6 +1840,7 @@ $(__dk_provider_prompt)"
       echo ""
       dk_info "dkreviewloop paused: max audit iterations reached without completion."
       dk_provider_cleanup_session_state "$session_id"
+      [[ $standalone_review_prompt -eq 1 ]] && rm -f "$prompt_file" 2>/dev/null
       return 1
     fi
 
@@ -1820,6 +1848,7 @@ $(__dk_provider_prompt)"
       echo ""
       dk_info "dkreviewloop interrupted (exit code: $exit_code)."
       dk_provider_cleanup_session_state "$session_id"
+      [[ $standalone_review_prompt -eq 1 ]] && rm -f "$prompt_file" 2>/dev/null
       return $exit_code
     fi
 
@@ -1839,6 +1868,7 @@ $(__dk_provider_prompt)"
 
   rm -f "$(dk_review_result_file "$session_id")" 2>/dev/null
   dk_provider_cleanup_session_state "$session_id"
+  [[ $standalone_review_prompt -eq 1 ]] && rm -f "$prompt_file" 2>/dev/null
 
   echo ""
   if [[ $clean_passes -ge $required_clean ]]; then
@@ -2304,7 +2334,7 @@ dkclean() {
   # 7 days gives enough time to resume interrupted sessions while preventing
   # indefinite accumulation. Most tickets complete within a day or two.
   local old_files
-  old_files=$(dk_cleanup_stale_files "$DK_LOOP_DIR" "state complete active prompt config findings debt provider busy busy-notice started ready watch-pause watch-lock" 7)
+  old_files=$(dk_cleanup_stale_files "$DK_LOOP_DIR" "state complete active prompt config findings debt provider review-state review-result review-context busy busy-notice started ready watch-pause watch-lock" 7)
   if [[ "$old_files" -gt 0 ]]; then
     echo "  Cleaned ${old_files} old loop state file(s)"
     cleaned=$((cleaned + old_files))

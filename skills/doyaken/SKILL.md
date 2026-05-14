@@ -37,9 +37,12 @@ The terminal `dk` lifecycle runs phases in the same Claude Code session. Each ph
 ### Phase 3: Review
 
 1. Invoke `/dkreviewloop` to run the adversarial 3-clean-pass review loop.
-2. Each `/dkreviewloop` iteration runs `/dkreview --single-pass` in a fresh review subagent.
-3. Fix all findings, then rerun the loop until it reports `SUCCESS`.
-4. The loop requires 3 consecutive clean reports to advance.
+2. Each `/dkreviewloop` iteration runs one full review wave in a fresh review
+   subagent: context pack, deterministic checks, read-only specialist reviewers,
+   verifier triage, batch fixes, and targeted recheck.
+3. Waves that find and fix issues write `FINDINGS_FIXED:N`, reset the clean
+   counter, and force the next iteration to re-review the full change set.
+4. The loop requires 3 consecutive `CLEAN` reports to advance.
 5. **SCOPE**: review and fix ONLY. Do NOT commit, push, or create PRs.
 6. Output `PHASE_3_COMPLETE` when review is clean.
 

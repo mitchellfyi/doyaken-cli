@@ -1,6 +1,9 @@
 # Implementation Review Criteria
 
-Evaluate every changed file against the passes below. The `/dkreview` skill drives how these passes are applied — this prompt defines the criteria only. These criteria complement the implementation discipline described in `prompts/guardrails.md`.
+Evaluate every changed file against the passes below. The `/dkreview` skill and
+`prompts/review-wave.md` drive how these criteria are applied; this prompt
+defines the criteria only. These criteria complement the implementation
+discipline described in `prompts/guardrails.md`.
 
 For each finding, report: `file:line | pass | severity | confidence | issue | suggested fix`.
 

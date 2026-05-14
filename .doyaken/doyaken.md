@@ -75,6 +75,7 @@ Edit rows directly or rerun `dk config`. Remove a row to skip a reviewer.
 - @rules/shell.md — Shell scripting conventions and language boundaries
 - @rules/skills-prompts.md — Skill, agent, guard, and prompt conventions
 - @rules/architecture.md — Architecture patterns and state management
+- @review-rules.md — Path-specific review focus for Doyaken review waves
 
 ## Workflow
 Run `/doyaken` to begin the autonomous ticket lifecycle.

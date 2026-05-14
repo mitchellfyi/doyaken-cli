@@ -168,7 +168,7 @@ EOF
       ;;
     3)
       cat <<'EOF'
-Begin Phase 3: Review. Invoke the Skill tool with skill: "dkreviewloop" to run the 3-clean-pass review loop in fresh subagents. Fix any findings it reports, rerun until it reports SUCCESS, then stop so the Stop hook can audit and advance. Scope: review and fix only. Do not commit, push, create branches, or create PRs.
+Begin Phase 3: Review. Invoke the Skill tool with skill: "dkreviewloop" to run the 3-clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, read-only specialist reviewers, verifier triage, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN; waves that fix issues write FINDINGS_FIXED:N and reset the counter. Scope: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance.
 EOF
       ;;
     4)
@@ -426,12 +426,33 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
 fi
 
 # Completion detection: The .complete file is the sole mechanism.
-# This hook provides the .complete file path and promise string to Claude
-# ONLY after MIN_AUDIT_ITERATIONS passes — audit prompts do NOT contain
-# completion instructions (they were removed to prevent premature completion).
+# This hook normally provides the .complete file path and promise string to Claude
+# after MIN_AUDIT_ITERATIONS passes. The dkreviewloop per-pass wrapper may provide
+# the pass completion path up front; the review-pass gate below requires a valid
+# review result before accepting it.
 # See: docs/autonomous-mode.md § Completion Signals
 if [[ -f "$COMPLETE_FILE" ]]; then
   CURRENT_PHASE="${DOYAKEN_LOOP_PHASE:-0}"
+
+  if [[ "${DOYAKEN_REVIEW_PASS_ACTIVE:-}" == "1" ]]; then
+    REVIEW_RESULT_FILE=$(dk_review_result_file "$SESSION_ID")
+    REVIEW_RESULT=$(cat "$REVIEW_RESULT_FILE" 2>/dev/null || true)
+    if [[ ! "$REVIEW_RESULT" =~ ^(CLEAN|FINDINGS_FIXED:[0-9]+|FINDINGS:[0-9]+|BLOCKED:.+)$ ]]; then
+      rm -f "$COMPLETE_FILE"
+      printf '\n%s\n\n' "--- Doyaken Review Pass Gate: result signal missing or invalid ---" >&2
+      printf '%s\n' "Completion signal ignored; this review-wave pass must write an allowed result before it can exit." >&2
+      printf '%s\n' "" >&2
+      printf '%s\n' "Write exactly one of these values to the review result file, then touch the completion file again:" >&2
+      printf '%s\n' '```bash' >&2
+      printf '%s\n' "source \"\${DOYAKEN_DIR:-\$HOME/work/doyaken}/lib/common.sh\"" >&2
+      printf '%s\n' "SESSION_ID=\"\${DOYAKEN_SESSION_ID:-\$(dk_session_id)}\"" >&2
+      printf '%s\n' "printf '%s\n' '<CLEAN|FINDINGS_FIXED:N|FINDINGS:N|BLOCKED:reason>' > \"\$(dk_review_result_file \"\$SESSION_ID\")\"" >&2
+      printf '%s\n' "touch \"\$(dk_complete_file \"\$SESSION_ID\")\"" >&2
+      printf '%s\n' '```' >&2
+      printf '%s\n' "" >&2
+      exit 2
+    fi
+  fi
 
   if [[ "$HANDOFF_MODE" == "inline" && "$CURRENT_PHASE" == "2" ]]; then
     PHASE_READY_FILE=$(dk_phase_ready_file "$SESSION_ID" 2)

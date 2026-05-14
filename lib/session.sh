@@ -87,7 +87,7 @@ dk_migrate_legacy_session_state() {
   fi
 
   if [[ -d "$DK_LOOP_DIR" ]]; then
-    for suffix in state complete active prompt findings debt config handoff-mode paused watch-pause ci.watch-lock pr.watch-lock review-state review-result complete-state provider; do
+    for suffix in state complete active prompt findings debt config handoff-mode paused watch-pause ci.watch-lock pr.watch-lock review-state review-result review-context complete-state provider; do
       old_file="${DK_LOOP_DIR}/${legacy_id}.${suffix}"
       new_file="${DK_LOOP_DIR}/${scoped_id}.${suffix}"
       __dk_migrate_legacy_session_file "$old_file" "$new_file" "$scoped_id"
@@ -349,8 +349,11 @@ dk_run_with_timeout() {
 # dk_review_state_file <session_id> — review sub-loop clean pass counter (survives interrupts)
 dk_review_state_file() { echo "${DK_LOOP_DIR}/${1}.review-state"; }
 
-# dk_review_result_file <session_id> — per-iteration review result ("CLEAN" or "FINDINGS:N")
+# dk_review_result_file <session_id> — per-iteration review result
 dk_review_result_file() { echo "${DK_LOOP_DIR}/${1}.review-result"; }
+
+# dk_review_context_file <session_id> — compact context pack for review waves
+dk_review_context_file() { echo "${DK_LOOP_DIR}/${1}.review-context"; }
 
 # dk_complete_state_file <session_id> — Phase 6 cycle bookkeeping ("cycle_count:last_check_epoch")
 # Survives interrupts so resuming Phase 6 picks up the same cycle counter.
@@ -416,7 +419,7 @@ dk_record_session_branch() {
 dk_cleanup_session() {
   local sid="$1"
   if [[ -d "$DK_LOOP_DIR" ]]; then
-    rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" "$(dk_findings_file "$sid")" "$(dk_debt_file "$sid")" "$(dk_loop_config_file "$sid")" "$(dk_handoff_mode_file "$sid")" "$(dk_paused_file "$sid")" "$(dk_watch_pause_file "$sid")" "$(dk_watch_lock_file "$sid" ci)" "$(dk_watch_lock_file "$sid" pr)" "$(dk_review_state_file "$sid")" "$(dk_review_result_file "$sid")" "$(dk_complete_state_file "$sid")" "$(dk_provider_state_file "$sid")" 2>/dev/null
+    rm -f "$(dk_loop_file "$sid")" "$(dk_complete_file "$sid")" "$(dk_active_file "$sid")" "$(dk_prompt_file "$sid")" "$(dk_findings_file "$sid")" "$(dk_debt_file "$sid")" "$(dk_loop_config_file "$sid")" "$(dk_handoff_mode_file "$sid")" "$(dk_paused_file "$sid")" "$(dk_watch_pause_file "$sid")" "$(dk_watch_lock_file "$sid" ci)" "$(dk_watch_lock_file "$sid" pr)" "$(dk_review_state_file "$sid")" "$(dk_review_result_file "$sid")" "$(dk_review_context_file "$sid")" "$(dk_complete_state_file "$sid")" "$(dk_provider_state_file "$sid")" 2>/dev/null
     find "$DK_LOOP_DIR" -maxdepth 1 -type f \( -name "${sid}.phase-*.started" -o -name "${sid}.phase-*.ready" -o -name "${sid}.phase-*.busy" -o -name "${sid}.phase-*.busy-notice" \) -exec rm -f {} + 2>/dev/null || true
   fi
   [[ -d "$DK_STATE_DIR" ]] && rm -f "$(dk_state_file "$sid")" "$(dk_times_file "$sid")" "$(dk_context_file "$sid")" "$(dk_log_file "$sid")" "$(dk_branch_file "$sid")" 2>/dev/null

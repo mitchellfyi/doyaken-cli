@@ -96,6 +96,7 @@ If the table is empty or only contains `_none_` rows, Phase 6 skips review-reque
 
 ## Rules
 [Reference any rule files generated in .doyaken/rules/]
+[Reference `.doyaken/review-rules.md` if generated]
 
 ## Workflow
 Run `/doyaken` to begin the autonomous ticket lifecycle.
@@ -113,6 +114,25 @@ For each significant area (e.g., backend, frontend, shared library), generate a 
 Name them descriptively: `backend.md`, `frontend.md`, `api.md`, `database.md`, etc.
 
 Only generate rules for areas that have enough established patterns to document. Don't generate rules for trivial or obvious things. Each rule file should be genuinely useful for someone working in that area.
+
+### `.doyaken/review-rules.md` (path-specific review focus)
+
+Generate this file when the codebase has meaningful path-specific review focus.
+Use it to tell Doyaken review waves where specialist reviewers should spend
+attention. Include concise sections for applicable areas such as:
+
+- frontend/UI paths: accessibility, responsive layout, state/data contracts,
+  UI capture expectations
+- backend/API paths: authn/authz, input validation, contract compatibility,
+  observability
+- database/migration paths: additive migration safety, indexes, rollback risk,
+  generated types
+- CI/devops paths: workflow triggers, secrets, caches, artifacts, deploy gates
+- shell/tooling paths: shell language boundaries, quoting, cleanup, syntax checks
+- generated/docs paths: freshness checks and stale-documentation risk
+
+Do not duplicate generic review criteria from `prompts/review.md`; capture only
+project-specific focus by path or subsystem.
 
 ### `.doyaken/guards/*.md` (project-specific guards)
 

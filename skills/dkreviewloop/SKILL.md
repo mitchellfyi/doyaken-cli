@@ -1,43 +1,59 @@
 ---
 name: "dkreviewloop"
-description: "Run dkreview repeatedly in fresh independent subagents until three clean reports in a row."
+description: "Run full-scope Doyaken review waves in fresh independent subagents until three clean reports in a row."
 ---
 
 # Skill: dkreviewloop
 
-Run `/dkreview --single-pass` repeatedly in fresh, independent subagents until **3 clean reports in a row** (max 20 iterations). This is the default review loop used by `dk` Phase 3.
+Run `/dkreview --single-pass` as a sequence of fresh full review waves until
+**3 clean reports in a row** (max 20 iterations). This is the default Review
+phase used by `dk`.
 
-## When to Use
+The outer guarantee remains strict: three consecutive full-scope waves must
+write `CLEAN`. A wave that finds and fixes issues writes `FINDINGS_FIXED:N`, so
+the clean counter resets and the next fresh wave re-reviews the full change set.
+
+## When To Use
 
 - When the user invokes `/dkreviewloop`
-- Before committing or pushing significant work, when you want strong confidence the code is clean
-- As an in-session counterpart to the `dkreviewloop` shell function (which spawns full Claude CLI sessions). This skill is for when you're already inside a Claude Code session and want the same guarantee without exiting.
+- Before committing or pushing significant work
+- As the in-session counterpart to the `dkreviewloop` shell function
 
-## Why "Fresh Sessions"
+## Why Fresh Full Waves
 
-A single review pass can convince itself the code is clean — motivated reasoning kicks in right after fixing ("I just fixed it, so it must be fine"). Three **independent** passes, each starting from a blank context, agreeing that the code is clean, is a much stronger signal than one pass that says CLEAN.
+A single reviewer can convince itself that its own fixes are sufficient. Fresh
+waves reduce that motivated-reasoning risk. The improvement here is that each
+wave spends time efficiently: context pack first, deterministic checks first,
+parallel read-only specialist reviewers, verifier triage, batch fixes, and then
+targeted recheck. The outer loop still demands three full clean passes.
 
 ## Steps
 
-### 1. Detect the Review Scope
+### 1. Detect The Review Scope
 
 Review the **full current change set**, not just the first category that happens
 to have changes. Include all of these when present:
 
-- **Committed branch changes** — prefer `git diff origin/<default>...HEAD` when the default branch ref exists, so pushed and unpushed feature-branch commits are both included; use `git diff @{u}...HEAD` only as a fallback when no default-branch ref is available and the branch has unpushed commits
-- **Staged changes** — `git diff --cached`
-- **Unstaged changes** — `git diff`
-- **Untracked files** — `git ls-files --others --exclude-standard`, with contents included via `git diff --no-index -- /dev/null <file>` for each untracked file
+- **Committed branch changes** - prefer `git diff origin/<default>...HEAD` when
+  the default branch ref exists; use `git diff @{u}...HEAD` only as fallback.
+- **Staged changes** - `git diff --cached`
+- **Unstaged changes** - `git diff`
+- **Untracked files** - `git ls-files --others --exclude-standard`, with contents
+  represented by `git diff --no-index -- /dev/null <file>` for each file.
 
-If none of these find changes, stop and tell the user there is nothing to review.
+If there are no changes, stop and tell the user there is nothing to review.
 
-Print the scope name, review commands, and unique file count before spawning the first subagent.
+Print the scope name, review commands, and unique file count before spawning the
+first pass.
 
-### 2. Spawn Fresh Review Sessions
+### 2. Spawn Fresh Review-Wave Sessions
 
-For each iteration (up to **20**), spawn a fresh subagent via the **Agent tool** with `subagent_type: "general-purpose"`. Each Agent invocation is a fresh context window — that is the independence the user wants.
+For each iteration (up to **20**), spawn a fresh subagent via the Agent tool
+with `subagent_type: "general-purpose"`. Each Agent invocation is a fresh
+context window.
 
-Run one review pass at a time and wait for its result before attempting to stop. Do not use the Stop hook as a polling loop for backgrounded review agents. If the interface backgrounds the Agent invocation, use the available agent-management UI/tooling to wait for that specific agent result; do not repeatedly output "waiting" and stop. The Phase 3 busy marker below is only a safety gate to prevent accidental phase advancement while a pass is still running.
+The subagent is a **review-wave orchestrator**. It may fix verified findings, but
+the specialist reviewers it spawns inside the wave must be read-only.
 
 When running inside a `dk` lifecycle (`DOYAKEN_SESSION_ID` is present), mark the
 review pass as in progress before spawning/waiting on each subagent, then remove
@@ -48,62 +64,84 @@ source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
 SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
 BUSY_FILE="$(dk_phase_busy_file "$SESSION_ID" 3)"
 printf '%s\t%s\n' "$(date +%s)" "dkreviewloop pass ${ITERATION}/${MAX_ITERATIONS}; clean ${CLEAN_COUNT}/${REQUIRED_CLEAN}" > "$BUSY_FILE"
-# spawn and wait for exactly one fresh review subagent
+# spawn and wait for exactly one fresh review-wave subagent
 rm -f "$BUSY_FILE" "$(dk_phase_busy_notice_file "$SESSION_ID" 3)"
 ```
 
 The Stop hook uses this marker to avoid counting audit iterations while a review
-subagent is still running. Do not leave the marker in place after a subagent
-returns, and remove it before printing the final `SUCCESS` or safety-net report.
+pass is still running. Do not leave it behind.
 
-The subagent's prompt must include:
+The subagent prompt must include:
 
-- The review commands from Step 1 (so the subagent reviews the full current change set, not only the default `origin/<default>...HEAD` diff)
-- An instruction to invoke `/dkreview --single-pass` via the Skill tool
-- A request to report back with: (a) the final result line — `CLEAN`, `PASS WITH WARNINGS`, or `NEEDS ATTENTION` — and (b) any remaining findings that the subagent did not auto-fix
-- A reminder that the subagent should NOT commit, push, or create PRs
+- the full-scope diff/stat/file-name commands from Step 1
+- the review context pack path from `dk_review_context_file "$SESSION_ID"`
+- an instruction to materialize a non-empty context pack before broad semantic
+  exploration or specialist spawning
+- an instruction to invoke `/dkreview --single-pass`
+- an instruction to follow `prompts/review-wave.md`
+- the specialist roster, including `review-frontend` and `review-devops` when
+  relevant
+- a request to report the final result signal exactly: `CLEAN`,
+  `FINDINGS_FIXED:N`, `FINDINGS:N`, or `BLOCKED:reason`
+- a reminder not to commit, push, create branches, create PRs, update PRs, or
+  request external reviewers
 
-If no plan / acceptance criteria are available, tell the subagent to mark plan-dependent steps (Phase 5 / acceptance criteria, Phase 6 / evidence table from `prompts/phase-audits/3-review.md`) as **N/A** and proceed without them.
+If no plan or acceptance criteria are available, tell the subagent to mark
+criteria-dependent evidence as **N/A** and continue.
+
+Do not let a stale session prompt, previous conversation turn, session title, or
+unrelated ticket file become acceptance criteria for this review scope.
+
+If the Agent tool is unavailable for fresh review-wave sessions, stop with
+`BLOCKED:agent-tool-unavailable`; do not simulate fresh passes in the same
+context.
 
 ### 3. Track Consecutive Clean Passes
 
 After each subagent returns, classify its result:
 
-- **CLEAN** — no findings, or all remaining items are tracked as accepted debt → `clean_count += 1`
-- **PASS WITH WARNINGS** — non-trivial findings remain → `clean_count = 0`
-- **NEEDS ATTENTION** — high-severity findings remain → `clean_count = 0`
+- `CLEAN` - `clean_count += 1`
+- `FINDINGS_FIXED:N` - `clean_count = 0`; immediately run the next fresh
+  full-scope wave
+- `FINDINGS:N` - `clean_count = 0`; fix what is safe in the orchestrator if the
+  pass did not, otherwise stop with the residual findings
+- `BLOCKED:reason` - `clean_count = 0`; stop unless the block can be resolved
+  locally without user judgment
+- missing/unknown result - treat as non-clean and stop if you cannot recover
 
-If the result is non-CLEAN: **fix the findings yourself in this orchestrator session** before spawning the next subagent. The subagent only reviews; the orchestrator owns the fixes so the next subagent sees the corrected state.
+Only `CLEAN` can increment the counter.
 
 ### 4. Exit Conditions
 
-- **Success** — `clean_count >= 3` consecutive clean passes → done.
-- **Safety net** — 20 iterations reached without 3 clean in a row → stop and report partial result. Do not loop forever.
-- **User interrupt** — if the user redirects, halt and surface the current count.
+- **Success** - `clean_count >= 3` consecutive clean waves.
+- **Safety net** - 20 iterations reached without 3 clean waves.
+- **User interrupt** - halt and surface the current count.
 
 ### 5. Report
 
 Print a final summary:
 
-```
+```markdown
 ## dkreviewloop Result
 
-- Scope:                 full current change set
-- Iterations:            N / 20
-- Consecutive clean:     M / 3
-- Result:                {SUCCESS | SAFETY-NET-EXIT}
+- Scope: full current change set
+- Iterations: N / 20
+- Consecutive clean: M / 3
+- Result: SUCCESS | SAFETY-NET-EXIT | BLOCKED
 - Findings fixed this run: K
 ```
 
-If SAFETY-NET-EXIT, list the residual findings the subagents kept reporting so the user can decide whether to accept them as debt or escalate.
+If the loop exits without success, list the residual or recurring findings.
 
 ## Notes
 
-- **Fresh sessions matter.** Do not "carry state" across iterations beyond `clean_count` and the diff scope. The orchestrator persists; each review pass must not.
-- **Fixes belong to the orchestrator, reviews belong to subagents.** Subagents that fix things they review make the independence claim weaker. Keep the split clean.
-- Same-session `dk <ticket>` Phase 3 uses this skill, with the Stop hook auditing the final `SUCCESS` report.
-- Do NOT commit, push, or create PRs from this skill. Review and fix only.
-- If you discover commits, pushes, PR creation, or PR updates already happened
-  during Phase 3, stop doing any more of them. Report the ordering violation as
-  a warning, but do not deadlock the review loop on an irreversible past action;
-  the non-negotiable gate is still `SUCCESS` with 3 consecutive clean reports.
+- Fresh waves matter. Do not carry review conclusions across iterations beyond
+  `clean_count`, scope, and the compact context pack.
+- Specialist reviewers are read-only; wave orchestrators own fixes.
+- Same-session `dk <ticket>` Phase 3 uses this skill, with the Stop hook auditing
+  the final `SUCCESS` report.
+- Do not commit, push, create or update PRs, or request external reviewers from
+  this skill. External review feedback belongs to Phase 5/6 and `/dkprreview`.
+- If commits, pushes, PR creation, or PR updates already happened during Phase 3,
+  report the ordering violation but continue only after `/dkreviewloop` reaches
+  `SUCCESS`.

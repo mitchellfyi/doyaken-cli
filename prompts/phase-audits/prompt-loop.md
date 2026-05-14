@@ -20,15 +20,15 @@ Verify your understanding against the guardrails:
 - Can you answer the five understanding-check questions from `prompts/guardrails.md`?
 - Have you identified the failure modes and resource cleanup needs?
 
-**Session classification:** Run `git diff --name-only` and `git status --porcelain`. If any production code files were created or modified (not just docs/config), this is a **code-change session**. Otherwise it is a **non-code session**. This classification determines whether `/dkreview --single-pass` and the self-reviewer agent run in subsequent steps.
+**Session classification:** Run `git diff --name-only` and `git status --porcelain`. If any production code files were created or modified (not just docs/config), this is a **code-change session**. Otherwise it is a **non-code session**. This classification determines whether the `/dkreview --single-pass` review wave runs in subsequent steps.
 
 ## Step 2: Self-Review via /dkreview --single-pass (code-change sessions only)
 
 **Skip this step if this is a non-code session.**
 
-Run `/dkreview --single-pass` on your changes (if you haven't already since your last code change). This audit loop already owns repetition, so do not invoke `/dkreview` in its default looping mode here.
+Run `/dkreview --single-pass` on your changes (if you haven't already since your last code change). This audit loop already owns repetition, so do not invoke `/dkreview` in its default looping mode here. The single-pass review wave handles deterministic checks, specialist reviewers, verifier triage, batch fixes, and targeted recheck.
 
-Read the report carefully. Do NOT fix anything yet — record all findings for the inventory in Step 5.
+Read the report carefully. If the review wave applied fixes, restart this audit from Step 1 so the acceptance criteria and current diff are fresh. If findings remain, record them for the inventory in Step 5.
 
 ## Step 3: Multi-Perspective Inventory
 
@@ -75,11 +75,12 @@ Run `git diff` against the base branch and review ALL changes together:
 - Code consistent with existing codebase conventions?
 - If you changed a contract (type, API, schema), trace consumers up to 3 hops deep using `Grep` — are all consumers updated?
 
-## Step 4: Independent Self-Reviewer Agent (code-change sessions only)
+## Step 4: Fallback Independent Self-Reviewer Agent (code-change sessions only)
 
 **Skip this step if this is a non-code session.**
+**Skip this step if `/dkreview --single-pass` completed a review wave successfully.**
 
-Spawn the `self-reviewer` agent to get an independent review perspective. Provide:
+If `/dkreview --single-pass` could not run because the Skill tool or specialist reviewers were unavailable, spawn the `self-reviewer` agent to get an independent review perspective. Provide:
 - The acceptance criteria list from Step 1 (copy verbatim)
 - The current branch name and base branch (from `git rev-parse --abbrev-ref HEAD` and the default branch)
 - Which areas of the codebase have changed files (from `git diff --name-only`)
@@ -104,7 +105,7 @@ Total: N findings (X high, Y medium, Z low)
 
 Source values: `dkreview`, `manual`, `agent`.
 If `/dkreview --single-pass` did not run (non-code session), omit that source.
-If the self-reviewer agent was not spawned (non-code session), omit that source.
+If the self-reviewer agent was not spawned, omit that source.
 
 - If the inventory is **empty** → skip to Step 7.
 - If **non-empty** → proceed to Step 6.
@@ -127,7 +128,7 @@ Replace `<sorted list of INV-N descriptions>` with the actual finding descriptio
 2. After ALL fixes are applied:
    - **Code-change sessions:** re-run `/dkreview --single-pass` on the **full scope** (not just modified files).
    - Re-run your manual passes (Step 3) on the **entire change set** — fixes can regress untouched files.
-   - Re-spawn the self-reviewer agent to verify fixes against the FULL change set. **Maximum 3 total agent spawns** (including the initial spawn in Step 4).
+   - Re-spawn the self-reviewer agent only if `/dkreview --single-pass` could not run. **Maximum 3 total fallback agent spawns** (including the initial spawn in Step 4).
 3. If new findings → add to inventory, fix, and re-verify. **Maximum 3 cycles.**
 4. Do NOT proceed with known findings. If findings persist after 3 cycles, continue fixing — the iteration limit in the stop hook is the only safety valve, not this step.
 
@@ -179,11 +180,11 @@ If updates are needed but missing, make them now.
 ALL of these must be true before you stop:
 - Every acceptance criterion from Step 1 has status MET in the evidence table (Step 8)
 - The findings inventory from your last re-verification (Step 6) is empty
-- **Code-change sessions:** `/dkreview --single-pass` result is PASS (not PASS WITH WARNINGS or NEEDS ATTENTION), AND you have run `/dkreview --single-pass` AFTER your most recent code change
+- **Code-change sessions:** `/dkreview --single-pass` result is `CLEAN`, AND you have run `/dkreview --single-pass` AFTER your most recent code change
 - **Code-change sessions:** /dkverify passes — format, lint, typecheck, tests all green (Step 7)
 - Any needed `.doyaken/` updates are applied (Step 9)
 - You have re-verified AFTER your most recent change of any kind
 
-Do NOT stop if any acceptance criterion is NOT MET, any findings remain, `/dkreview --single-pass` is not PASS (for code changes), or /dkverify has failures (for code changes). Fix first, then re-audit from Step 3.
+Do NOT stop if any acceptance criterion is NOT MET, any findings remain, `/dkreview --single-pass` is not `CLEAN` (for code changes), or /dkverify has failures (for code changes). Fix first, then re-audit from Step 3.
 
 When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions after sufficient consecutive clean audit passes.

@@ -25,7 +25,7 @@ dk 999
 - `dk 999` creates an isolated worktree and runs six phases: Plan → Implement → Review → Verify & Commit → PR → Complete.
 - Phase 1 asks for plan approval. Later phases continue automatically unless requirements change, tooling is missing, or a review/CI problem needs human judgement.
 - UI changes get visual evidence in Phase 2: desktop/mobile screenshots, Playwright traces, and videos for interactive flows.
-- Phase 3 runs fresh adversarial review passes until the change is clean.
+- Phase 3 runs fresh adversarial review waves until the change is clean.
 - Phase 6 marks the PR ready, monitors CI/reviews, addresses feedback, and closes the ticket when approvals and checks are complete.
 
 Read next:
@@ -140,7 +140,7 @@ dk 999
   │
   ├─ Phase 1: Plan          Claude explores codebase, presents approaches, user approves
   ├─ Phase 2: Implement     TDD implementation, UI capture when relevant, completeness verification
-  ├─ Phase 3: Review        Adversarial code review (3 clean passes, fresh subagents)
+  ├─ Phase 3: Review        Adversarial review waves (3 clean passes, fresh subagents)
   ├─ Phase 4: Verify        Format, lint, typecheck, test → commit + push
   ├─ Phase 5: PR            Generate description, create draft PR + attach reviewers
   └─ Phase 6: Complete      Mark ready, request reviews, monitor CI, address comments,
@@ -151,7 +151,7 @@ dk 999
 |-------|--------|-------------|-------------|
 | 1. Plan | `/dkplan` | Reads ticket, explores code, presents 2-3 approaches, drafts plan | Approve plan |
 | 2. Implement | `/dkimplement` + `/dkuicapture` when UI changed | TDD per task, screenshots/traces/videos for UI work, evidence table, completeness check | Only for scope/requirement changes |
-| 3. Review | `/dkreviewloop` | Fresh review subagents, 3 consecutive clean passes required | — |
+| 3. Review | `/dkreviewloop` | Fresh full-scope review waves, specialist reviewers, verifier triage, 3 consecutive clean passes required | — |
 | 4. Verify & Commit | `/dkverify` + `/dkcommit` | Quality gates, atomic conventional commits, push | — |
 | 5. PR | `/dkpr` | PR description, create draft PR, attach `request`-type reviewers | — |
 | 6. Complete | `/dkcomplete` + `/dkwatchci` + `/dkwatchpr` | Mark ready, request reviews, post `@mention` comments, monitor, address comments, close ticket | Review/approve when configured; respond only to escalations |
@@ -179,31 +179,42 @@ Stop hook fires
 
 ### Review Sub-Loop (Phase 3)
 
-Phase 3 uses `/dkreviewloop` on top of the standard audit loop. Each review iteration is a fresh subagent context, ensuring each adversarial review starts clean while the main Claude session keeps orchestrating fixes. The loop tracks consecutive CLEAN results:
+Phase 3 uses `/dkreviewloop` on top of the standard audit loop. Each review
+iteration is a fresh full-scope review wave, ensuring each adversarial review
+starts clean while still spending time efficiently. The loop tracks consecutive
+`CLEAN` results:
 
 ```
 Claude starts /dkreviewloop (clean_passes=0)
   │
   ▼
-Launch fresh review subagent
-  ├─ Claude runs /dkreview --single-pass + 4-pass manual review + self-reviewer agent
-  ├─ Builds merged findings inventory, fixes issues
-  ├─ Writes review result signal: "CLEAN" or "FINDINGS:N"
+Launch fresh review-wave subagent
+  ├─ Builds/refreshes a compact review context pack
+  ├─ Runs deterministic checks
+  ├─ Spawns read-only specialist reviewers (correctness, security, contracts,
+  │  tests, architecture, frontend, devops, performance, observability)
+  ├─ Verifies and deduplicates findings, then batch-fixes verified issues
+  ├─ Rechecks affected surfaces
+  ├─ Writes review result signal: "CLEAN", "FINDINGS_FIXED:N", "FINDINGS:N",
+  │  or "BLOCKED:reason"
   └─ Stop hook verifies, allows completion
   │
   ▼
 Loop reads review result
   ├─ CLEAN → clean_passes++ → if ≥3: advance to Phase 4
-  └─ FINDINGS → clean_passes=0 → fresh subagent → loop repeats
+  └─ anything else → clean_passes=0 → fresh full-scope wave → loop repeats
 ```
 
 Each review iteration runs:
-1. `/dkreview --single-pass` — deterministic + 12-pass semantic review
-2. Manual 4-pass review (Logic, Structure, Security, Holistic)
-3. `self-reviewer` agent — independent adversarial review
-4. Merged findings inventory → batch fix → re-verify
+1. `/dkreview --single-pass` - one review wave following `prompts/review-wave.md`
+2. Deterministic checks before semantic review
+3. Read-only specialist reviewers plus `review-verifier`
+4. Verified findings inventory -> batch fix -> targeted recheck
 
-Default: 3 consecutive clean passes required. Override: `DOYAKEN_REVIEW_CLEAN_PASSES=5`.
+Default: 3 consecutive clean passes required. Override:
+`DOYAKEN_REVIEW_CLEAN_PASSES=5`. A wave that finds and fixes issues writes
+`FINDINGS_FIXED:N`, not `CLEAN`, so the next fresh wave must re-review the full
+change set before the counter can advance.
 
 Claude never learns how to signal completion on its own — the hook provides the `.complete` file path and promise string only after Phase 1 approval and enough clean passes. This prevents premature completion.
 
@@ -260,7 +271,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 | Codex skill discovery | No | `dk install` links Doyaken skills into `$CODEX_HOME/skills` (default `~/.codex/skills`) when Codex CLI is present |
 | UI capture tooling | No | `dk install` installs Playwright into `~/.claude/.doyaken-tools/` and configures Playwright MCP + Chrome DevTools MCP when CLIs are present |
 | Hooks (guards, commit validation, ticket context) | No | Installed globally by `dk install` |
-| Agents (self-reviewer) | No | Symlinked globally by `dk install` |
+| Agents (self-reviewer, review specialists) | No | Symlinked globally by `dk install` |
 | `dk <number>` / `dk "description"` | No | Worktrees work in any git repo |
 
 **What `dk init` adds:** It runs Claude Code CLI to analyze your specific codebase and generates project-tailored configuration in `.doyaken/`:
@@ -331,6 +342,7 @@ bash "$DOYAKEN_DIR/bin/ui-capture.sh" --install-only  # Repair UI capture toolin
 doyaken/
   agents/                    # Sub-agents -> symlinked to ~/.claude/agents/
     self-reviewer.md         # Read-only code reviewer with persistent memory
+    review-*.md              # Read-only specialist reviewers + verifier for review waves
   bin/                       # CLI scripts
     install.sh               # Global install
     uninstall.sh             # Global uninstall
@@ -350,7 +362,7 @@ doyaken/
     dkplan/                  # Implementation planning (multi-approach)
     dkimplement/             # TDD implementation with completeness verification
     dkuicapture/             # UI screenshots, traces, videos, and browser error logs
-    dkreview/                # Four-phase agentic review with confidence scoring
+    dkreview/                # Single review wave: context, specialists, verifier, batch fixes
     dkverify/                # Discover and run project quality gates
     dkcommit/                # Atomic conventional commits
     dkpr/                    # PR description, reviews, monitoring
@@ -384,6 +396,7 @@ doyaken/
       sensitive-files.md
       hardcoded-secrets.md
   prompts/                   # Prompts referenced by skills and agents
+    review-wave.md           # ReviewLoop wave contract and specialist output schema
     review.md                # 12-pass review criteria + confidence scoring
     guardrails.md            # AI discipline + implementation principles (referenced by skills)
     pr-description.md        # PR description template
@@ -413,6 +426,7 @@ doyaken/
   doyaken.md                 # Project-specific config (generated by Claude Code CLI)
   AGENTS.md                  # @import of doyaken.md (generated context source of truth)
   CLAUDE.md                  # @import of AGENTS.md (Claude Code compatibility pointer)
+  review-rules.md            # Optional path-specific focus for review waves
   rules/                     # Coding conventions (generated from codebase analysis)
   guards/                    # Project-specific guard rules (generated)
   worktrees/                 # Worktree directories (created by dk)
@@ -521,9 +535,9 @@ Control via environment variables:
 | `DOYAKEN_LOOP_MIN_AUDITS` | Per-phase | Min audit iterations before completion authorized |
 | `DOYAKEN_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
 | `DOYAKEN_PHASE_N_MIN_AUDITS` | — | Per-phase override (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
-| `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive clean review iterations required (Phase 3) |
+| `DOYAKEN_REVIEW_CLEAN_PASSES` | `3` | Consecutive `CLEAN` review waves required (Phase 3) |
 | `DOYAKEN_REVIEW_MAX_ITERATIONS` | `20` | Max review iterations before Phase 3 pauses for intervention |
-| `DOYAKEN_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review subagent may stay in progress before the lifecycle pauses |
+| `DOYAKEN_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review wave may stay in progress before the lifecycle pauses |
 | `DOYAKEN_REVIEW_PASS_NOTICE_INTERVAL` | `120` (2m 0s) | Minimum seconds between repeated Phase 3 busy-gate notices for the same review pass |
 | `DOYAKEN_REVIEW_PASS_RECHECK_SECONDS` | `45` (0m 45s) | Seconds the Stop hook quietly polls for a busy Phase 3 review pass to finish before re-blocking |
 | `DOYAKEN_WATCH_CYCLE_TIMEOUT_SECONDS` | `120` (2m 0s) | Maximum runtime budget for one scheduled Phase 6 watcher invocation |
