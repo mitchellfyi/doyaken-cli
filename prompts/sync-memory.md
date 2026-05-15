@@ -1,7 +1,8 @@
-# DKSync Memory Refresh
+# DKSync Project Context And Memory Refresh
 
-Refresh Doyaken's repo memory by promoting verified observations into
-reviewable `.doyaken/` context files.
+Refresh Doyaken's project context and repo memory by re-reading the current
+codebase and promoting verified observations into reviewable `.doyaken/`
+context files.
 
 The core rule: raw observations are not trusted memory. They become durable only
 after evidence, scope, current-code verification, and a reviewable diff.
@@ -27,7 +28,7 @@ episodes inside the git checkout.
 
 ## Trusted Files
 
-Only these repo files may become trusted memory inputs:
+Only these repo files may become trusted project-context or memory inputs:
 
 - `.doyaken/doyaken.md`
 - `.doyaken/AGENTS.md`
@@ -73,7 +74,29 @@ A memory entry may be loaded only when:
 
 ## Sync Pipeline
 
-### 1. Orient
+### 1. Re-analyze Project Context
+
+Read the current codebase like `dk init` does, then compare it with existing
+Doyaken context. Inspect:
+
+- package manifests, lockfiles, build files, language/runtime config
+- CI workflows and local quality-gate scripts
+- test layout, generated-code patterns, and verification commands
+- architecture docs and important repo-specific conventions
+- recent git history, especially changes that make `.doyaken/` stale
+
+Refresh these files when verified drift is found:
+
+- `.doyaken/doyaken.md`: tech stack, project structure, quality gates,
+  integrations, workflow settings, and rule/memory references.
+- `.doyaken/rules/*.md`: directive repo conventions future agents should obey.
+- `.doyaken/review-rules.md`: path-specific review focus.
+- `.doyaken/guards/*.md`: enforceable project-specific checks.
+
+Do not rewrite files just to rephrase them. Preserve useful human edits and
+make the smallest reviewable update that brings context back in sync.
+
+### 2. Load Existing Doyaken Context
 
 Read current Doyaken context:
 
@@ -84,10 +107,7 @@ Read current Doyaken context:
 - `.doyaken/memory/index.md` and referenced memory files
 - `docs/dksync-memory-plan.md` when available in the Doyaken repo
 
-Also inspect relevant project files: package manifests, CI workflows, test
-layout, architecture docs, and recent git history.
-
-### 2. Observe
+### 3. Observe
 
 Gather raw observations from:
 
@@ -109,7 +129,7 @@ repo, CI, PRs, or review artifacts. If the caller explicitly sets
 `--include-working-tree`, uncommitted changes may support a candidate, but the
 sync report must call that out and the entry should be treated as riskier.
 
-### 3. Choose Memory Domains
+### 4. Choose Memory Domains
 
 Before promoting anything, choose the domain structure that will keep future
 retrieval specific. Start with existing domains from `.doyaken/memory/index.md`.
@@ -132,7 +152,7 @@ does not have a clear domain, reject it until there is enough structure.
 Memory files should live under `.doyaken/memory/domains/<domain>.md`. Keep
 `.doyaken/memory/index.md` as the retrieval map, not the memory store.
 
-### 4. Cluster
+### 5. Cluster
 
 Group observations into candidate lessons. Prefer candidates that recur across
 multiple PRs, commits, files, failures, or review cycles.
@@ -146,7 +166,7 @@ Reject candidates that are:
 - interesting but not actionable
 - missing evidence
 
-### 5. Verify
+### 6. Verify
 
 For each candidate lesson:
 
@@ -160,15 +180,18 @@ For each candidate lesson:
 If a lesson cannot be verified, reject it or mark existing memory
 `Status: needs-recheck`.
 
-### 6. Promote
+### 7. Promote
 
 Promote only verified lessons:
 
+- `.doyaken/doyaken.md`: current project shape, tech stack, quality gates,
+  integrations, and links to generated rules/memory.
 - `.doyaken/memory/domains/*.md`: durable context, decision framework, repeated
   review or verification lesson.
 - `.doyaken/rules/*.md`: active instruction future agents should follow.
 - `.doyaken/guards/*.md`: narrow enforceable detector with acceptable
   false-positive risk.
+- `.doyaken/review-rules.md`: path-specific review focus.
 - candidate skill note: repeatable workflow that deserves its own skill later.
 
 Rules should be short and directive. Memory should preserve why the rule exists,
@@ -187,7 +210,7 @@ Every promoted memory entry must include:
 - `Evidence`
 - `Future agent behavior`
 
-### 7. Update The Index
+### 8. Update The Index
 
 Ensure `.doyaken/memory/index.md` maps memory files and entries to:
 
@@ -207,7 +230,7 @@ The index should contain a concise domain table:
 | review-quality | domains/review-quality.md | PR review, Phase 3, changed review-sensitive paths | active |
 ```
 
-### 8. Report
+### 9. Report
 
 End with a sync report:
 
@@ -233,6 +256,9 @@ Since: <ref/date or N/A>
 ## Retrieval Changes
 - <what will now load differently>
 
+## Project Context Changes
+- <doyaken.md/rule/review-rule/guard drift fixed, or "none">
+
 ## Verification
 - <commands or checks run>
 ```
@@ -248,6 +274,8 @@ broader migration.
 - every promoted memory has status, scope, evidence, recheck condition, and
   future agent behavior
 - rejected observations are listed with reasons
+- verified `.doyaken/doyaken.md`, rules, review-rules, and guard drift is fixed
+  or explicitly reported as unchanged
 - raw observations are not loaded as trusted memory
 - the memory index references every active memory file
 - `--trace-retrieval` would load the promoted memory only for relevant scopes

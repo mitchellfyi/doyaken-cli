@@ -128,7 +128,8 @@ dk_session_id() {
     raw_id="worktree-$(basename "$toplevel")"
   else
     local branch
-    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "default")
+    branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    [[ -n "$branch" ]] || branch="default"
     raw_id="${branch//\//-}"
   fi
   scoped_id=$(dk_scoped_session_id "$raw_id")
@@ -332,7 +333,9 @@ dk_run_with_timeout() {
   fi
 
   marker="${TMPDIR:-/tmp}/doyaken-timeout-${$}-${RANDOM}"
-  "$@" &
+  # Explicit subshell preserves full function execution and exit status when the
+  # command is a shell function with invocation-scoped environment variables.
+  ( "$@" ) &
   cmd_pid=$!
 
   (
@@ -343,11 +346,11 @@ dk_run_with_timeout() {
       sleep 2 2>/dev/null
       dk_kill_process_tree "$cmd_pid" KILL
     fi
-  ) &
+  ) >/dev/null 2>&1 &
   watchdog_pid=$!
 
   cmd_status=0
-  wait "$cmd_pid" || cmd_status=$?
+  wait "$cmd_pid" 2>/dev/null || cmd_status=$?
   kill "$watchdog_pid" 2>/dev/null || true
   wait "$watchdog_pid" 2>/dev/null || true
 

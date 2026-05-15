@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
-# doyaken sync - refresh repo memory/rules from verified observations.
+# doyaken sync - refresh project context and repo memory from current evidence.
 set -euo pipefail
 
 source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
@@ -18,18 +18,33 @@ usage() {
   cat <<'USAGE'
 Usage: dk sync [options]
 
-Refresh Doyaken repo memory by promoting verified observations into .doyaken/.
+Refresh Doyaken project context and repo memory in .doyaken/.
 
 Options:
   --dry-run                         Explain proposed changes without writing files
   --state-dir <path>                Read raw observations/episodes from this directory
   --since <ref|date>                Limit repository/review-history scanning
+  --budget-minutes <n>              Maximum provider runtime (default: 60)
   --no-pr                           Do not create or update a PR
   --trace-retrieval <prompt|path>   Explain which memories would load
   --phase <phase>                   Phase for retrieval tracing
   --include-working-tree            Allow uncommitted changes as promotion evidence
   -h, --help                        Show this help
 USAGE
+}
+
+__dk_sync_project_context_complete() {
+  local root="$1"
+
+  if [[ ! -f "$root/.doyaken/doyaken.md" ]] || ! grep -q '^## Tech Stack' "$root/.doyaken/doyaken.md" 2>/dev/null; then
+    return 1
+  fi
+
+  if [[ ! -d "$root/.doyaken/rules" ]] || [[ -z "$(find "$root/.doyaken/rules" -maxdepth 1 -type f -name '*.md' -print -quit 2>/dev/null)" ]]; then
+    return 1
+  fi
+
+  return 0
 }
 
 DRY_RUN=0
@@ -39,6 +54,7 @@ SINCE=""
 TRACE_RETRIEVAL=""
 PHASE=""
 INCLUDE_WORKING_TREE=0
+SYNC_BUDGET_MINUTES="${DOYAKEN_SYNC_BUDGET_MINUTES:-60}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -58,6 +74,15 @@ while [[ $# -gt 0 ]]; do
     --since)
       [[ $# -ge 2 ]] || { dk_error "--since requires a ref or date"; exit 1; }
       SINCE="$2"
+      shift 2
+      ;;
+    --budget-minutes)
+      [[ $# -ge 2 ]] || { dk_error "--budget-minutes requires a positive integer"; exit 1; }
+      if [[ ! "$2" =~ ^[0-9]+$ ]]; then
+        dk_error "--budget-minutes requires a positive integer"
+        exit 1
+      fi
+      SYNC_BUDGET_MINUTES="$2"
       shift 2
       ;;
     --trace-retrieval)
@@ -103,13 +128,28 @@ repo_name=$(basename "$repo_root")
 echo "Doyaken - Sync: $repo_name"
 echo ""
 
+BASELINE_ANALYSIS_RAN=0
 if [[ ! -d "$repo_root/.doyaken" ]]; then
   if [[ "$READ_ONLY" -eq 1 ]]; then
     dk_info "No .doyaken/ directory found; read-only sync will report the missing scaffold"
   else
-    dk_info "No .doyaken/ directory found; creating the fresh repo scaffold first"
-    bash "$DOYAKEN_DIR/bin/init.sh" --skip-analysis --skip-config
+    dk_info "No .doyaken/ directory found; running baseline project analysis first"
+    bash "$DOYAKEN_DIR/bin/init.sh" --skip-config
+    BASELINE_ANALYSIS_RAN=1
   fi
+fi
+
+if [[ "$READ_ONLY" -eq 0 && "$BASELINE_ANALYSIS_RAN" -eq 0 ]]; then
+  if ! __dk_sync_project_context_complete "$repo_root"; then
+    dk_info "Doyaken project context is incomplete; running baseline project analysis first"
+    bash "$DOYAKEN_DIR/bin/init.sh" --skip-config
+    BASELINE_ANALYSIS_RAN=1
+  fi
+fi
+
+if [[ "$READ_ONLY" -eq 0 && "$BASELINE_ANALYSIS_RAN" -eq 1 ]] && ! __dk_sync_project_context_complete "$repo_root"; then
+  dk_warn "Baseline project analysis did not produce complete .doyaken context; sync will continue with available files."
+  dk_info "Re-run 'dk init --skip-config' after resolving provider or tooling issues."
 fi
 
 if [[ ! -f "$repo_root/.doyaken/memory/index.md" ]]; then
@@ -117,7 +157,8 @@ if [[ ! -f "$repo_root/.doyaken/memory/index.md" ]]; then
     dk_info "Read-only sync would create .doyaken/memory/index.md"
   else
     mkdir -p "$repo_root/.doyaken/memory/domains"
-    cat > "$repo_root/.doyaken/memory/index.md" <<'MEMORYINDEX'
+    memory_index="$repo_root/.doyaken/memory/index.md"
+    cat > "${memory_index}.tmp" <<'MEMORYINDEX'
 # Doyaken Memory Index
 
 No durable repo memory has been promoted yet.
@@ -130,6 +171,7 @@ maintenance runs, or durable workflow lessons create evidence worth preserving.
 | Domain | File | Loads For | Status |
 |--------|------|-----------|--------|
 MEMORYINDEX
+    mv "${memory_index}.tmp" "$memory_index"
     dk_done "Created .doyaken/memory/index.md"
   fi
 fi
@@ -139,6 +181,7 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 1
 fi
 
+dk_info "Preparing DKSync provider session"
 dk_provider_apply
 sync_prompt=$(cat "$DOYAKEN_DIR/prompts/sync-memory.md")
 provider_prompt=$(dk_provider_prompt)
@@ -151,6 +194,7 @@ Dry run: $DRY_RUN
 No PR: $NO_PR
 State dir: ${STATE_DIR:-N/A}
 Since: ${SINCE:-N/A}
+Budget minutes: $SYNC_BUDGET_MINUTES
 Trace retrieval: ${TRACE_RETRIEVAL:-N/A}
 Phase: ${PHASE:-N/A}
 Include working tree evidence: $INCLUDE_WORKING_TREE
@@ -163,18 +207,50 @@ EOF
 SYNC_PROVIDER_SESSION_ID="sync-$(dk_unique_session_id)"
 dk_provider_cleanup_session_state "$SYNC_PROVIDER_SESSION_ID"
 
-DOYAKEN_SESSION_ID="$SYNC_PROVIDER_SESSION_ID" dk_provider_claude -p "${sync_prompt}${provider_prompt}${invocation}" \
+sync_status_before=$(git -C "$repo_root" status --porcelain=v1 -- .doyaken 2>/dev/null || true)
+budget_seconds=0
+if [[ "$SYNC_BUDGET_MINUTES" =~ ^[0-9]+$ && "$SYNC_BUDGET_MINUTES" -gt 0 ]]; then
+  budget_seconds=$((SYNC_BUDGET_MINUTES * 60))
+fi
+
+dk_info "Launching provider: ${DK_PROVIDER_PROFILE_RESOLVED:-unknown} (${DK_PROVIDER_ENGINE:-unknown}), model ${DK_CLAUDE_MODEL}, effort ${DK_CLAUDE_EFFORT}"
+dk_info "Session id: $SYNC_PROVIDER_SESSION_ID"
+dk_info "Re-analyzing current project context, rules, guards, and scoped memory."
+dk_info "Large repos may be quiet while the provider reads context; timeout is ${SYNC_BUDGET_MINUTES} minute(s)."
+
+set +e
+set +o pipefail
+DOYAKEN_SESSION_ID="$SYNC_PROVIDER_SESSION_ID" dk_run_with_timeout "$budget_seconds" dk_provider_claude -p "${sync_prompt}${provider_prompt}${invocation}" \
   --model "$DK_CLAUDE_MODEL" --effort "$DK_CLAUDE_EFFORT" \
-  --dangerously-skip-permissions --permission-mode bypassPermissions
-CLAUDE_EXIT=$?
+  --dangerously-skip-permissions --permission-mode bypassPermissions \
+  --verbose --output-format stream-json --include-partial-messages \
+  | dk_progress_filter
+CLAUDE_EXIT=${PIPESTATUS[0]}
+set -o pipefail
+set -e
+echo ""
 
 dk_provider_cleanup_session_state "$SYNC_PROVIDER_SESSION_ID"
 SYNC_PROVIDER_SESSION_ID=""
 
 if [[ $CLAUDE_EXIT -ne 0 ]]; then
-  echo ""
-  dk_error "Sync exited with code $CLAUDE_EXIT."
+  if [[ $CLAUDE_EXIT -eq 124 ]]; then
+    dk_error "Sync exceeded budget of ${SYNC_BUDGET_MINUTES} minute(s)."
+  else
+    dk_error "Sync exited with code $CLAUDE_EXIT."
+  fi
   exit "$CLAUDE_EXIT"
+fi
+
+sync_status_after=$(git -C "$repo_root" status --porcelain=v1 -- .doyaken 2>/dev/null || true)
+if [[ "$READ_ONLY" -eq 1 ]]; then
+  dk_info "Read-only sync complete; no file changes were expected."
+elif [[ "$sync_status_before" == "$sync_status_after" ]]; then
+  dk_skip "No project context, rule, guard, or durable memory changes were promoted."
+  dk_info "This is normal when DKSync finds no verified drift or repo-wide lesson worth saving."
+else
+  dk_info "Doyaken context changes after sync:"
+  git -C "$repo_root" status --short -- .doyaken | sed 's/^/  /'
 fi
 
 echo ""

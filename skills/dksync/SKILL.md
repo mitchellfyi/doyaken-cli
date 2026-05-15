@@ -1,16 +1,19 @@
 ---
 name: "dksync"
-description: "Refresh Doyaken repo memory and rules by promoting verified observations into reviewable `.doyaken/` context."
+description: "Refresh Doyaken project context, rules, and repo memory by re-analyzing the codebase and promoting verified observations into reviewable `.doyaken/` context."
 ---
 
 # Skill: dksync
 
-Refresh Doyaken's repo memory, rules, guards, and candidate workflow context.
+Refresh Doyaken's project context, repo memory, rules, guards, and candidate
+workflow context.
 
 ## When to Use
 
-- After `dk init` to build or refresh the first memory scaffold.
-- When the user asks to sync, learn, refresh context, or update repo memory.
+- After `dk init` to build or refresh the first project-context and memory
+  scaffold.
+- When the user asks to sync, learn, refresh context, re-analyze the repo, or
+  update repo memory.
 - After repeated review comments, CI failures, or implementation lessons reveal
   a durable repo pattern.
 - Before a background maintenance run that should use the latest repo context.
@@ -22,6 +25,7 @@ Read and follow `prompts/sync-memory.md`. That prompt is the source of truth for
 - raw observations vs trusted memory
 - promotion and rejection criteria
 - `.doyaken/memory/domains/` entry shape
+- baseline codebase re-analysis and `.doyaken/doyaken.md` drift handling
 - retrieval tracing
 - sync reports
 
@@ -38,6 +42,8 @@ Forward any user-provided arguments to the prompt contract:
 - `--no-pr`
 - `--trace-retrieval <prompt-or-path>`
 - `--phase <phase>`
+- `--budget-minutes <n>`
+- `--include-working-tree`
 
 ## Output
 
