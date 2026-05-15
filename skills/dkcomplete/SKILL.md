@@ -39,7 +39,10 @@ Read the `## Reviewers` section of `.doyaken/doyaken.md`. Parse rows into two li
 - `REQUEST_REVIEWERS` — rows where Type is `request`
 - `MENTION_REVIEWERS` — rows where Type is `mention`
 
-Strip leading `@` from handles before passing to `gh pr edit --add-reviewer`. Keep the `@` for `@mention` comments.
+Normalize request reviewer handles with `dk_maintenance_normalize_reviewer`
+before passing to `gh pr edit --add-reviewer`. This strips leading `@` from
+normal usernames but preserves GitHub CLI's special `@copilot` reviewer value.
+Keep the original `@` form for `@mention` comments.
 
 If the section is missing, contains only the `_none_` placeholder, or both lists are empty, log a notice and skip the reviewer-related steps (the user has chosen not to assign anyone).
 
@@ -60,8 +63,10 @@ When setup runs:
 
 2. **Re-sync request reviewers** (idempotent):
    ```bash
+   source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
    for h in "${REQUEST_REVIEWERS[@]}"; do
-     gh pr edit "$PR_NUM" --add-reviewer "${h#@}"
+     reviewer=$(dk_maintenance_normalize_reviewer "$h")
+     gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
    done
    ```
 

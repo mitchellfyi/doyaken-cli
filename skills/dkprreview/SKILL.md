@@ -54,11 +54,34 @@ else
 fi
 ```
 
-If a PR number was provided, fetch the PR's head branch and check it out locally so `git diff` commands work correctly:
+If a PR number was provided, inspect the PR provenance before checkout. Do not
+check out fork PR heads in a privileged session unless the repo explicitly
+configured that trust boundary. Prefer the immutable head SHA over a mutable
+branch ref:
 
 ```bash
-PR_BRANCH=$(gh pr view $PR_NUM --json headRefName -q .headRefName)
+git diff --quiet && git diff --cached --quiet || {
+  echo "Working tree has local changes; stop before checking out PR #$PR_NUM."
+  exit 1
+}
+if [[ -n "$(git status --porcelain=v1 -uall)" ]]; then
+  echo "Working tree has untracked or local changes; stop before checking out PR #$PR_NUM."
+  exit 1
+fi
+IS_CROSS_REPO=$(gh pr view "$PR_NUM" --json isCrossRepository -q .isCrossRepository)
+PR_BRANCH=$(gh pr view "$PR_NUM" --json headRefName -q .headRefName)
+PR_HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
+if [[ "$IS_CROSS_REPO" == "true" && "${DK_ALLOW_FORK_PR_CHECKOUT:-0}" != "1" ]]; then
+  echo "PR #$PR_NUM is from another repository; stop before privileged checkout."
+  exit 1
+fi
 git fetch origin "$PR_BRANCH"
+FETCHED_SHA=$(git rev-parse FETCH_HEAD)
+if [[ "$FETCHED_SHA" != "$PR_HEAD_SHA" ]]; then
+  echo "PR #$PR_NUM moved during checkout; stop and re-run after rechecking provenance."
+  exit 1
+fi
+git checkout -B "$PR_BRANCH" "$PR_HEAD_SHA"
 ```
 
 Fetch all review data:
@@ -163,6 +186,23 @@ If a fix introduces a new issue (breaks a test, causes a type error), resolve it
 
 After all fixes are implemented and verified:
 
+If this is running under `dk maintain respond` and the invocation provides
+`response.md` / `inline-replies.jsonl` artifact paths, do not push and do not
+post GitHub replies directly. Commit local fixes when useful so the DK maintain
+wrapper can detect the new HEAD, then write the publishable response artifacts:
+
+- `response.md`: PR-level sections using `## Fixed`, `## Answered`,
+  `## Not Fixed`, `## Escalated`, `## Verification`, and
+  `## Reviewer Replies`.
+- `inline-replies.jsonl`: one JSON object per inline review-comment reply with
+  `comment_id` and `body`.
+
+Then skip the direct push/reply commands in the rest of this skill; the wrapper
+pushes, posts bounded replies, and re-requests reviewers after the provider
+exits.
+
+Otherwise, for normal Phase 6/manual `/dkprreview` runs:
+
 1. **Group fixes logically** — if all fixes are small and related, use a single commit. If fixes address different concerns (e.g., one is a bug fix, another is a naming change), use separate commits.
 2. **Commit format:** `fix(review): <description>`
    - Single fix: `fix(review): handle nil check in user lookup`
@@ -195,6 +235,10 @@ If the answer is **inline**, proceed to Step 6 as written.
 ### 6. Reply to Comments
 
 (Skip this step if the user chose `terminal` mode in Step 5.5.)
+
+Also skip this step when running under `dk maintain respond`; write
+`response.md` and `inline-replies.jsonl` instead so the wrapper can publish
+safely after rechecking PR provenance.
 
 After pushing (so commit SHAs are available), reply to every unaddressed comment. Use the appropriate API endpoint based on comment type:
 

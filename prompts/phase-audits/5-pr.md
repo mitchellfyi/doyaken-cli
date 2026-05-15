@@ -43,8 +43,13 @@ gh pr view "$PR_NUM" --json reviewRequests
 If any `request` reviewer from the config is missing, attach them now (idempotent):
 
 ```bash
-gh pr edit "$PR_NUM" --add-reviewer "<handle-without-leading-@>"
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+reviewer=$(dk_maintenance_normalize_reviewer "<handle>")
+gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
 ```
+
+Normalize `Copilot`, `@copilot`, or Copilot aliases to `@copilot`. For normal
+GitHub usernames, strip a leading `@` before passing the handle to `gh`.
 
 If the `## Reviewers` section is missing or empty (or contains only the `_none_` placeholder), skip this step — the user has chosen not to assign anyone.
 

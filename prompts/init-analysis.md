@@ -87,6 +87,10 @@ Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
 - `request` — `gh pr edit --add-reviewer <handle>` (humans, Copilot, anything GitHub supports)
 - `mention` — `@<handle>` posted as a PR comment (for AI agents that watch mentions)
 
+When attaching request reviewers, normalize `Copilot`, `@copilot`, or Copilot
+aliases to GitHub CLI's special `@copilot` reviewer value. Strip leading `@`
+from normal GitHub usernames only.
+
 | Handle | Type | Notes |
 |--------|------|-------|
 | @[auth-user] | request | Authenticated GitHub user (auto-detected by `dk config`) |
@@ -103,6 +107,24 @@ If the table is empty or only contains `_none_` rows, Phase 6 skips review-reque
 `.doyaken/memory/index.md` maps durable repo memory to paths, phases, and
 workflows. Agents should load only scoped active entries and verify them against
 current code before relying on them.
+
+## Maintenance
+
+| Setting | Value |
+|---------|-------|
+| enabled | true |
+| branch_prefix | doyaken/maintain/ |
+| label | doyaken-maintenance |
+| default_mode | report |
+| max_prs | 1 |
+| low_risk_fix_categories | docs, rules, guards, memory, tests |
+| copilot_review | true |
+
+`fix-scoped` may only patch the configured low-risk categories above, plus
+verification updates in matching test files, unless a repo maintainer expands
+this table. Publication is handled by the DK maintain
+CLI wrapper after the provider exits so GitHub write credentials are not exposed
+to the agent process.
 
 ## Workflow
 Run `/doyaken` to begin the autonomous ticket lifecycle.

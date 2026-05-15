@@ -45,7 +45,12 @@ Read the `## Reviewers` section from `.doyaken/doyaken.md`. Parse rows where the
 
 ### Request reviewers (`request` type)
 
-For each `request`-type reviewer, call `gh pr edit "$PR_NUM" --add-reviewer "<handle>"` (strip the leading `@` if present — `gh` doesn't want it). This is idempotent — GitHub no-ops if already requested.
+For each `request`-type reviewer, normalize the handle with
+`dk_maintenance_normalize_reviewer` and call
+`gh pr edit "$PR_NUM" --add-reviewer "<normalized-handle>"`. This strips the
+leading `@` for normal usernames, but preserves GitHub CLI's special `@copilot`
+value for Copilot review requests. This is idempotent — GitHub no-ops if
+already requested.
 
 ### Post mention comment (`mention` type)
 
@@ -121,7 +126,7 @@ Update the ticket (if a tracker is configured — see `doyaken.md § Integration
 
 If new commits were pushed during the cycle (`/dkprreview` addressed comments), re-trigger reviewers:
 
-- For each `request` reviewer: `gh pr edit "$PR_NUM" --add-reviewer "<handle>"` again — they get a fresh notification that there's something new.
+- For each `request` reviewer: normalize the handle and run `gh pr edit "$PR_NUM" --add-reviewer "<normalized-handle>"` again — they get a fresh notification that there's something new.
 - For each `mention` reviewer: post a new comment `@<handle> updated — please re-review.`
 
 Increment the cycle counter (use arithmetic, not parameter expansion — `NEW_CYCLE=$((CYCLE + 1))`), reset `LAST_EPOCH` to now, write `"${NEW_CYCLE}:${NOW}"` to the state file. Stop. Next iteration starts a new wait window.

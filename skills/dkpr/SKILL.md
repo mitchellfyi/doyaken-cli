@@ -81,15 +81,18 @@ Before either command, inspect the exact body text. If it contains Claude attrib
 Read the `## Reviewers` section of `.doyaken/doyaken.md`. For every row whose Type column is `request`, attach the reviewer to the draft PR:
 
 ```bash
-gh pr edit "$PR_NUM" --add-reviewer "<handle-without-leading-@>"
+source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+reviewer=$(dk_maintenance_normalize_reviewer "<handle>")
+gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
 ```
 
 Notes:
 - `gh pr edit --add-reviewer` is idempotent — re-running on a PR that already has the reviewer is a no-op.
 - GitHub does NOT send notifications for review requests on a **draft** PR. The notifications fire when Phase 6 marks the PR ready. Attaching reviewers now is purely so they're already in place when the PR goes ready.
+- Normalize `Copilot`, `@copilot`, or Copilot aliases to `@copilot`. GitHub CLI requires the special `@copilot` value for Copilot review requests.
 - Skip rows whose Type is `mention` — those are posted as PR comments by Phase 6, not added as review requests.
 - Skip the placeholder row (`_none_` handle) — it means the user has chosen not to assign anyone.
-- Strip a leading `@` from the handle if present (e.g., `@octocat` → `octocat`). `gh` rejects the `@` prefix.
+- Strip a leading `@` from normal GitHub usernames if present (e.g., `@octocat` → `octocat`). Do not strip `@copilot`.
 
 If the `## Reviewers` section is missing or empty, skip this step entirely.
 

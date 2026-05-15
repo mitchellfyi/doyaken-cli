@@ -272,6 +272,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 | `dkcomplete` | No | Works in any git repo with a PR |
 | `dkreviewloop` | No | Works in any git repo with detectable changes |
 | `dk sync` / `/dksync` | No | Creates missing memory scaffold and refreshes durable repo context |
+| `dk maintain` / `/dkmaintain` | Yes | Requires `.doyaken/` repo context; `dk init --install-maintenance-workflow` can also install the scheduled GitHub workflow |
 | `/dkloop`, `/dkplan`, `/dkimplement`, etc. | No | Skills work in any Claude Code session |
 | Codex skill discovery | No | `dk install` links Doyaken skills into `$CODEX_HOME/skills` (default `~/.codex/skills`) when Codex CLI is present |
 | UI capture tooling | No | `dk install` installs Playwright into `~/.claude/.doyaken-tools/` and configures Playwright MCP + Chrome DevTools MCP when CLIs are present |
@@ -287,6 +288,7 @@ Most Doyaken features work immediately after `dk install` — no per-project set
 - **Integration config** — configures ticket tracker (Linear, GitHub Issues), Figma, Sentry, etc. Without init, skills skip tracker updates.
 - **Codex skill repair** — if Codex CLI is installed, refreshes Doyaken skill links in `$CODEX_HOME/skills` (default `~/.codex/skills`) without replacing Codex's own system skills.
 - **UI capture repair** — installs/repairs Doyaken-managed Playwright tooling and browser MCP servers without adding dependencies to the project.
+- **Optional maintenance workflow** — with `--install-maintenance-workflow`, installs `.github/workflows/dk-maintain.yml` for scheduled report runs plus manually dispatched propose/fix-scoped runs. GitHub-hosted runners also need `DK_MAINTAIN_PROVIDER_SETUP` to install/authenticate the agent provider; write modes need a `DK_MAINTAIN_TOKEN` secret for the separate publish step.
 
 In short: everything works without init, but init makes it faster and more accurate by caching project knowledge.
 
@@ -300,7 +302,11 @@ dk status            # Show what's installed and where
 
 # Per-project
 dk init              # Bootstrap current repo — analyzes codebase, generates config
+dk init --install-maintenance-workflow # Also install DK maintain GitHub workflow
 dk sync              # Refresh repo memory/rules from verified observations
+dk maintain          # Run background maintenance report/propose/fix-scoped modes
+dk maintain install-workflow # Install .github/workflows/dk-maintain.yml
+dk maintain --help   # Show provider, publish, and response options
 dk config            # Configure integrations (ticket tracker, Figma, Sentry, etc.)
 dk uninit            # Remove Doyaken from current repo
 
@@ -454,10 +460,12 @@ doyaken/
 - **Memory index** — creates `.doyaken/memory/index.md` for durable repo lessons promoted by `dk sync`
 - **Guards** — creates guards for files that should never be committed (environment files, generated configs)
 - **Integrations** — asks which integrations to use (ticket tracker, Figma, Sentry, Vercel, Grafana)
+- **Optional maintenance workflow** — installs `.github/workflows/dk-maintain.yml` when `--install-maintenance-workflow` is passed
 
 Flags:
 - `--skip-analysis` — skip codebase analysis (still runs integration config unless `--skip-config` is also set)
 - `--skip-config` — skip integration configuration (run `dk config` later)
+- `--install-maintenance-workflow` — also install `.github/workflows/dk-maintain.yml`
 
 To reconfigure integrations at any time: `dk config`
 

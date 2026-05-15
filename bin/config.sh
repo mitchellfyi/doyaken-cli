@@ -143,6 +143,10 @@ Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
 - \`request\` — \`gh pr edit --add-reviewer <handle>\` (humans, Copilot, anything GitHub supports)
 - \`mention\` — \`@<handle>\` posted as a PR comment (for AI agents that watch mentions)
 
+When attaching request reviewers, Doyaken normalizes \`Copilot\`, \`@copilot\`,
+or Copilot aliases to GitHub CLI's special \`@copilot\` reviewer value. Normal
+GitHub usernames are passed without a leading \`@\`.
+
 | Handle | Type | Notes |
 |--------|------|-------|
 ${REVIEWER_ROWS}

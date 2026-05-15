@@ -16,15 +16,40 @@ __dk_init_cleanup() {
 trap __dk_init_cleanup EXIT
 trap 'printf "\nInterrupted.\n"; exit 130' INT
 
+usage() {
+  cat <<'USAGE'
+Usage: dk init [options]
+
+Bootstrap the current repository with Doyaken project context.
+
+Options:
+  --skip-analysis                    Create/update local files without provider analysis
+  --skip-config                      Skip interactive reviewer/config prompts
+  --install-maintenance-workflow     Install .github/workflows/dk-maintain.yml
+  -h, --help                         Show this help
+USAGE
+}
+
 # Parse all flags upfront so they work independently of each other.
 # (Previously --skip-config was unreachable when --skip-analysis was set
 # because the analysis section exited early before config flag was parsed.)
 SKIP_ANALYSIS=0
 SKIP_CONFIG=0
+INSTALL_MAINTENANCE_WORKFLOW=0
 for arg in "$@"; do
   case "$arg" in
     --skip-analysis) SKIP_ANALYSIS=1 ;;
     --skip-config)   SKIP_CONFIG=1 ;;
+    --install-maintenance-workflow) INSTALL_MAINTENANCE_WORKFLOW=1 ;;
+    -h|--help|help)
+      usage
+      exit 0
+      ;;
+    *)
+      dk_error "Unknown init option: $arg"
+      usage
+      exit 1
+      ;;
   esac
 done
 
@@ -33,7 +58,7 @@ if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
   repo_root=""
 fi
 if [[ -z "$repo_root" ]]; then
-  echo "ERROR: Not in a git repository."
+  dk_error "Not in a git repository."
   exit 1
 fi
 
@@ -79,6 +104,21 @@ If you're already in a Claude Code session, run `/doyaken` to begin the ticket l
 ## Commands
 
 Run `dk help` in the terminal for all available commands.
+
+## Maintenance
+
+| Setting | Value |
+|---------|-------|
+| enabled | true |
+| branch_prefix | doyaken/maintain/ |
+| label | doyaken-maintenance |
+| default_mode | report |
+| max_prs | 1 |
+| low_risk_fix_categories | docs, rules, guards, memory, tests |
+| copilot_review | true |
+
+`fix-scoped` may only patch the low-risk categories listed above unless a repo
+maintainer expands this table.
 DOYAKENMD
   dk_done "Created .doyaken/doyaken.md (minimal)"
 else
@@ -220,6 +260,11 @@ else
   echo "To configure later, run: dk config"
 fi
 
+if [[ $INSTALL_MAINTENANCE_WORKFLOW -eq 1 ]]; then
+  echo ""
+  bash "$DOYAKEN_DIR/bin/maintain.sh" install-workflow
+fi
+
 echo ""
 echo "Init complete for: $repo_name"
 echo ""
@@ -236,6 +281,9 @@ if [[ $SKIP_ANALYSIS -eq 0 ]] && command -v claude &>/dev/null; then
 fi
 if [[ $SKIP_CONFIG -eq 0 ]]; then
   echo "  - Integrations configured (ticket tracker, optional MCPs)"
+fi
+if [[ $INSTALL_MAINTENANCE_WORKFLOW -eq 1 ]]; then
+  echo "  - DK maintain GitHub workflow installed"
 fi
 echo ""
 echo "Next: run 'dk <ticket-number>' to start a worktree, or 'dk --no-worktree <task>' to branch in-place"

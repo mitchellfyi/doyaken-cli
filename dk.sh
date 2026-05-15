@@ -22,6 +22,7 @@
 #   dkclean                Clean stale worktrees + gone branches
 #   dkloop <prompt>         Run a prompt until fully implemented
 #   dk sync                 Refresh repo memory/rules from verified observations
+#   dk maintain             Run background maintenance or install workflow
 
 if [[ -z "${DOYAKEN_DIR:-}" ]]; then
   echo "ERROR: DOYAKEN_DIR not set. Run 'dk install' first." >&2
@@ -43,6 +44,7 @@ doyaken() {
     uninstall) bash "$DOYAKEN_DIR/bin/uninstall.sh" "$@" ;;
     init)      bash "$DOYAKEN_DIR/bin/init.sh" "$@" ;;
     sync)      bash "$DOYAKEN_DIR/bin/sync.sh" "$@" ;;
+    maintain)  bash "$DOYAKEN_DIR/bin/maintain.sh" "$@" ;;
     config)    bash "$DOYAKEN_DIR/bin/config.sh" "$@" ;;
     provider)  dk_provider_command "$@" ;;
     uninit)    bash "$DOYAKEN_DIR/bin/uninit.sh" "$@" ;;
@@ -59,6 +61,7 @@ doyaken() {
       echo "  dk uninstall        Global uninstall"
       echo "  dk init             Bootstrap current repo for Doyaken"
       echo "  dk sync             Refresh repo memory/rules from verified observations"
+      echo "  dk maintain         Run background maintenance or install the GitHub workflow"
       echo "  dk config           Configure integrations (ticket tracker, Figma, etc.)"
       echo "  dk provider         Configure provider/model execution profiles"
       echo "  dk uninit           Remove Doyaken from current repo"
@@ -1113,7 +1116,7 @@ dk() {
     echo "       dk --from-pr <N>   Resume session linked to a PR"
     echo "       dk refine <N|description>  Refine a ticket before implementation"
     echo ""
-    echo "       dk init|sync|config|install|uninstall|uninit|status|reload|help"
+    echo "       dk init|sync|maintain|config|install|uninstall|uninit|status|reload|help"
     return 1
   fi
 
@@ -1148,7 +1151,7 @@ dk() {
 
   # Route management subcommands to doyaken
   case "$1" in
-    init|sync|config|provider|install|uninstall|uninit|status|reload|help|--help|-h|revert|log)
+    init|sync|maintain|config|provider|install|uninstall|uninit|status|reload|help|--help|-h|revert|log)
       doyaken "$@"
       return $?
       ;;

@@ -1,0 +1,290 @@
+# shellcheck shell=bash
+# Doyaken shared library — background maintenance helpers.
+
+DK_MAINTENANCE_DIR="${DK_MAINTENANCE_DIR:-$HOME/.claude/.doyaken-maintenance}"
+dk_maintenance_session_id() {
+  dk_scoped_session_id "maintenance"
+}
+
+dk_maintenance_sanitize_id_component() {
+  local value="$1"
+  value=$(printf '%s' "$value" | LC_ALL=C tr -c 'A-Za-z0-9._-' '-')
+  while [[ "$value" == *".."* ]]; do
+    value="${value//../.}"
+  done
+  while [[ "$value" == .* ]]; do
+    value="${value#.}"
+  done
+  while [[ "$value" == *[-.] ]]; do
+    value="${value%[-.]}"
+  done
+  printf '%s\n' "${value:-x}"
+}
+
+dk_maintenance_validate_run_id() {
+  local run_id="$1"
+  [[ -n "$run_id" ]] || return 1
+  [[ "$run_id" == maintain-* ]] || return 1
+  [[ "$run_id" != *".."* ]] || return 1
+  [[ "$run_id" != *"/"* ]] || return 1
+  [[ "$run_id" != *$'\n'* && "$run_id" != *$'\r'* && "$run_id" != *$'\t'* ]] || return 1
+  [[ "$run_id" =~ ^[A-Za-z0-9._-]+$ ]]
+}
+
+dk_maintenance_run_id() {
+  local random_part run_id sha suffix timestamp
+  timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
+  sha=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+  sha=$(dk_maintenance_sanitize_id_component "$sha")
+  if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
+    suffix="gh-$(dk_maintenance_sanitize_id_component "$GITHUB_RUN_ID")-$(dk_maintenance_sanitize_id_component "${GITHUB_RUN_ATTEMPT:-1}")"
+  elif command -v python3 >/dev/null 2>&1; then
+    random_part=$(python3 -c 'import uuid; print(uuid.uuid4().hex[:8])')
+    suffix="u-${random_part}"
+  else
+    random_part=$(mktemp -u "maintain.XXXXXXXX" 2>/dev/null || echo "$$_${RANDOM}")
+    suffix="tmp-$(dk_maintenance_sanitize_id_component "${random_part##*.}")"
+  fi
+  run_id="maintain-${timestamp}-${sha}-${suffix}"
+  if ! dk_maintenance_validate_run_id "$run_id"; then
+    run_id="maintain-${timestamp}-no-git-fallback"
+  fi
+  printf '%s\n' "$run_id"
+}
+
+dk_maintenance_lock_ttl_seconds() {
+  local ttl="${DOYAKEN_MAINTAIN_LOCK_TTL_SECONDS:-21600}"
+  if [[ "$ttl" =~ ^[0-9]+$ ]]; then
+    echo "$ttl"
+  else
+    echo "21600"
+  fi
+}
+
+dk_maintenance_lock_file() {
+  printf '%s/%s.lock\n' "$DK_MAINTENANCE_DIR" "$1"
+}
+
+dk_maintenance_last_success_file() {
+  printf '%s/%s.last-success\n' "$DK_MAINTENANCE_DIR" "$1"
+}
+
+dk_maintenance_state_file() {
+  printf '%s/%s.state\n' "$DK_MAINTENANCE_DIR" "$1"
+}
+
+dk_maintenance_artifact_dir() {
+  dk_maintenance_validate_run_id "$1" || return 1
+  printf '%s/maintenance/%s\n' "$DK_ARTIFACT_DIR" "$1"
+}
+
+dk_maintenance_report_file() {
+  printf '%s/report.md\n' "$(dk_maintenance_artifact_dir "$1")"
+}
+
+dk_maintenance_lock_acquire() {
+  local session_id="$1" owner="${2:-$$}" lock_file raw epoch now age ttl
+  [[ -n "$session_id" ]] || return 1
+  mkdir -p "$DK_MAINTENANCE_DIR"
+  lock_file=$(dk_maintenance_lock_file "$session_id")
+
+  if ( set -C; printf '%s\t%s\t%s\n' "$(date +%s)" "$$" "$owner" > "$lock_file" ) 2>/dev/null; then
+    return 0
+  fi
+
+  now=$(date +%s)
+  ttl=$(dk_maintenance_lock_ttl_seconds)
+
+  if [[ -f "$lock_file" ]]; then
+    raw=$(cat "$lock_file" 2>/dev/null || echo "")
+    epoch="${raw%%$'\t'*}"
+    if [[ "$epoch" =~ ^[0-9]+$ ]]; then
+      age=$((now - epoch))
+      if [[ "$age" -lt "$ttl" ]]; then
+        return 1
+      fi
+    fi
+  fi
+
+  rm -f "$lock_file" 2>/dev/null || true
+  ( set -C; printf '%s\t%s\t%s\n' "$(date +%s)" "$$" "$owner" > "$lock_file" ) 2>/dev/null
+}
+
+dk_maintenance_lock_release() {
+  local session_id="$1" owner="${2:-}" lock_file raw current_owner
+  [[ -n "$session_id" ]] || return 0
+  lock_file=$(dk_maintenance_lock_file "$session_id")
+  if [[ -n "$owner" && -f "$lock_file" ]]; then
+    raw=$(cat "$lock_file" 2>/dev/null || echo "")
+    current_owner="${raw##*$'\t'}"
+    [[ "$current_owner" == "$owner" ]] || return 0
+  fi
+  rm -f "$lock_file" 2>/dev/null || true
+}
+
+dk_maintenance_write_last_success() {
+  local session_id="$1" run_id="$2" ref target tmp_file
+  [[ -n "$session_id" && -n "$run_id" ]] || return 1
+  dk_maintenance_validate_run_id "$run_id" || return 1
+  mkdir -p "$DK_MAINTENANCE_DIR"
+  ref=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+  target=$(dk_maintenance_last_success_file "$session_id")
+  tmp_file="${target}.tmp.$$"
+  printf 'run_id=%s\nref=%s\nepoch=%s\n' "$run_id" "$ref" "$(date +%s)" > "$tmp_file"
+  mv "$tmp_file" "$target"
+}
+
+dk_maintenance_workflow_template() {
+  printf '%s/templates/github/workflows/dk-maintain.yml\n' "$DOYAKEN_DIR"
+}
+
+dk_maintenance_source_repo() {
+  local override="${DOYAKEN_MAINTAIN_SOURCE_REPO:-}" remote repo
+  if [[ -n "$override" ]]; then
+    printf '%s\n' "$override"
+    return 0
+  fi
+
+  remote=$(git -C "$DOYAKEN_DIR" remote get-url origin 2>/dev/null || echo "")
+  case "$remote" in
+    https://github.com/*/*.git)
+      repo="${remote#https://github.com/}"
+      printf '%s\n' "${repo%.git}"
+      ;;
+    https://github.com/*/*)
+      printf '%s\n' "${remote#https://github.com/}"
+      ;;
+    git@github.com:*/*.git)
+      repo="${remote#git@github.com:}"
+      printf '%s\n' "${repo%.git}"
+      ;;
+    git@github.com:*/*)
+      printf '%s\n' "${remote#git@github.com:}"
+      ;;
+    *)
+      printf '%s\n' "mitchellfyi/doyaken-cli"
+      ;;
+  esac
+}
+
+dk_maintenance_source_ref_fetchable() {
+  local source_repo="$1" ref="$2" remote_url
+  [[ -n "$source_repo" && -n "$ref" ]] || return 1
+  case "$ref" in
+    *$'\n'*|*$'\r'*|*$'\t'*|*' '*|*'~'*|*'^'*|*':'*|*'?'*|*'['*|*\\*)
+      return 1
+      ;;
+  esac
+  remote_url="https://github.com/${source_repo}.git"
+  if [[ "$ref" =~ ^[0-9A-Fa-f]{40,64}$ ]]; then
+    git ls-remote "$remote_url" 2>/dev/null | awk -v want="$ref" '$1 == want { found = 1 } END { exit found ? 0 : 1 }'
+    return $?
+  fi
+  git ls-remote --exit-code "$remote_url" "$ref" >/dev/null 2>&1 ||
+    git ls-remote --exit-code "$remote_url" "refs/heads/${ref}" >/dev/null 2>&1 ||
+    git ls-remote --exit-code "$remote_url" "refs/tags/${ref}" >/dev/null 2>&1
+}
+
+dk_maintenance_source_ref() {
+  local source_repo="${1:-}" override="${DOYAKEN_MAINTAIN_SOURCE_REF:-}" ref tag
+  [[ -n "$source_repo" ]] || source_repo=$(dk_maintenance_source_repo)
+  if [[ -n "$override" ]]; then
+    if ! dk_maintenance_source_ref_fetchable "$source_repo" "$override"; then
+      dk_error "DK maintain source ref is not fetchable from ${source_repo}: ${override}"
+      return 1
+    fi
+    printf '%s\n' "$override"
+    return 0
+  fi
+
+  ref=$(git -C "$DOYAKEN_DIR" branch --show-current 2>/dev/null || echo "")
+  if [[ -n "$ref" ]] && dk_maintenance_source_ref_fetchable "$source_repo" "$ref"; then
+    printf '%s\n' "$ref"
+    return 0
+  fi
+  tag=$(git -C "$DOYAKEN_DIR" describe --tags --exact-match HEAD 2>/dev/null || echo "")
+  if [[ -n "$tag" ]] && dk_maintenance_source_ref_fetchable "$source_repo" "$tag"; then
+    printf '%s\n' "$tag"
+    return 0
+  fi
+  if dk_maintenance_source_ref_fetchable "$source_repo" "main"; then
+    printf '%s\n' "main"
+    return 0
+  fi
+  if dk_maintenance_source_ref_fetchable "$source_repo" "master"; then
+    printf '%s\n' "master"
+    return 0
+  fi
+  dk_error "Could not choose a fetchable DK maintain source ref from ${source_repo}."
+  dk_info "Set DOYAKEN_MAINTAIN_SOURCE_REF to a pushed branch, tag, or advertised SHA."
+  return 1
+}
+
+dk_maintenance_install_workflow() {
+  local repo_root="$1" force="${2:-0}" template target target_dir tmp_file source_repo source_ref
+  [[ -n "$repo_root" ]] || return 1
+  template=$(dk_maintenance_workflow_template)
+  target_dir="$repo_root/.github/workflows"
+  target="$target_dir/dk-maintain.yml"
+
+  if [[ ! -f "$template" ]]; then
+    dk_error "DK maintain workflow template not found: $template"
+    return 1
+  fi
+  if [[ ! -f "$repo_root/.doyaken/doyaken.md" ]]; then
+    dk_error "DK maintain workflow requires Doyaken project context."
+    dk_info "Run 'dk init --install-maintenance-workflow' or 'dk init' before installing the maintenance workflow."
+    return 1
+  fi
+
+  mkdir -p "$target_dir"
+  source_repo=$(dk_maintenance_source_repo)
+  source_ref=$(dk_maintenance_source_ref "$source_repo") || return 1
+  tmp_file="${target}.tmp.$$"
+  python3 - "$template" "$tmp_file" "$source_repo" "$source_ref" <<'PY'
+import sys
+from pathlib import Path
+
+template = Path(sys.argv[1])
+target = Path(sys.argv[2])
+source_repo = sys.argv[3]
+source_ref = sys.argv[4]
+
+content = template.read_text(encoding="utf-8")
+content = content.replace("__DOYAKEN_REPO__", source_repo)
+content = content.replace("__DOYAKEN_REF__", source_ref)
+target.write_text(content, encoding="utf-8")
+PY
+
+  if [[ -f "$target" ]]; then
+    if cmp -s "$tmp_file" "$target"; then
+      rm -f "$tmp_file"
+      dk_ok ".github/workflows/dk-maintain.yml already up to date"
+      return 0
+    fi
+    if [[ "$force" != "1" ]]; then
+      rm -f "$tmp_file"
+      dk_error ".github/workflows/dk-maintain.yml already exists and differs."
+      dk_info "Run 'dk maintain install-workflow --force' to replace it."
+      return 1
+    fi
+  fi
+
+  mv "$tmp_file" "$target"
+  dk_done "Installed .github/workflows/dk-maintain.yml"
+  dk_info "Pinned Doyaken source: ${source_repo}@${source_ref}"
+}
+
+dk_maintenance_normalize_reviewer() {
+  local handle="$1" lower stripped
+  stripped="${handle#@}"
+  lower=$(printf '%s' "$stripped" | tr '[:upper:]' '[:lower:]')
+  case "$lower" in
+    copilot|github-copilot|github-copilot-review)
+      printf '%s\n' "@copilot"
+      ;;
+    *)
+      printf '%s\n' "$stripped"
+      ;;
+  esac
+}

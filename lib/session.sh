@@ -306,6 +306,20 @@ dk_watch_lock_release() {
   rm -f "$(dk_watch_lock_file "$session_id" "$watch_name")" 2>/dev/null || true
 }
 
+dk_kill_process_tree() {
+  local pid="$1" signal="${2:-TERM}" child
+  [[ -n "$pid" && -n "$signal" ]] || return 0
+
+  if command -v pgrep >/dev/null 2>&1; then
+    while IFS= read -r child; do
+      [[ -n "$child" ]] || continue
+      dk_kill_process_tree "$child" "$signal"
+    done < <(pgrep -P "$pid" 2>/dev/null || true)
+  fi
+
+  kill "-$signal" "$pid" 2>/dev/null || true
+}
+
 # dk_run_with_timeout <seconds> <command> [args...] — portable timeout wrapper
 dk_run_with_timeout() {
   local timeout="$1" marker cmd_pid watchdog_pid cmd_status
@@ -325,9 +339,9 @@ dk_run_with_timeout() {
     sleep "$timeout" 2>/dev/null
     if kill -0 "$cmd_pid" 2>/dev/null; then
       : > "$marker"
-      kill "$cmd_pid" 2>/dev/null || true
+      dk_kill_process_tree "$cmd_pid" TERM
       sleep 2 2>/dev/null
-      kill -KILL "$cmd_pid" 2>/dev/null || true
+      dk_kill_process_tree "$cmd_pid" KILL
     fi
   ) &
   watchdog_pid=$!

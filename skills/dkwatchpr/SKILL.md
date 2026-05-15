@@ -103,9 +103,11 @@ PRE_HEAD=$(git rev-parse HEAD)
 # ... /dkprreview runs ...
 POST_HEAD=$(git rev-parse HEAD)
 if [[ "$PRE_HEAD" != "$POST_HEAD" ]]; then
+  source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
   # For each request-type reviewer:
   for h in "${REQUEST_REVIEWERS[@]}"; do
-    gh pr edit "$PR_NUM" --add-reviewer "${h#@}"
+    reviewer=$(dk_maintenance_normalize_reviewer "$h")
+    gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
   done
   # For each mention-type reviewer, post a fresh comment:
   if [[ ${#MENTION_REVIEWERS[@]} -gt 0 ]]; then
