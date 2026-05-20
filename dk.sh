@@ -2225,9 +2225,9 @@ $(__dk_provider_prompt)"
     __dk_write_state "$(dk_loop_config_file "$session_id")" "3:${DK_PHASE_PROMISES[3]}:${audit_file}:1"
 
     local message="${message_template//__REVIEW_PROFILE__/$review_profile}"
-    local exit_code
+    local exit_code=0
     if [[ "$agent_host" == "codex" ]]; then
-      local codex_message
+      local codex_message=""
       codex_message="You are running this Doyaken review-wave pass inside Codex.
 
 Use Codex directly. Do not launch Claude and do not rely on Claude Stop hooks.
@@ -2299,7 +2299,7 @@ ${message}"
     fi
 
     local result="UNKNOWN"
-    local result_file
+    local result_file=""
     result_file=$(dk_review_result_file "$session_id")
     [[ -f "$result_file" ]] && result=$(cat "$result_file" 2>/dev/null || echo "UNKNOWN")
     if [[ "$result" != "CLEAN" && "$result" != BLOCKED:* && "$result" != ESCALATE_THOROUGH:* ]] && \
