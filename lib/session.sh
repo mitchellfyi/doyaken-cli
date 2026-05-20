@@ -314,7 +314,7 @@ dk_loop_config_file() { echo "${DK_LOOP_DIR}/${1}.config"; }
 # dk_handoff_mode_file <session_id> — marker for same-session phase handoff
 dk_handoff_mode_file() { echo "${DK_LOOP_DIR}/${1}.handoff-mode"; }
 
-# dk_paused_file <session_id> — one-shot marker allowing an inline paused session to exit
+# dk_paused_file <session_id> — marker allowing a paused session to exit without success cleanup
 dk_paused_file() { echo "${DK_LOOP_DIR}/${1}.paused"; }
 
 # dk_watch_pause_file <session_id> — marker that scheduled CI/PR watchers should no-op

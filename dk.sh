@@ -1275,6 +1275,23 @@ __dk_run_phases_inline() {
   [[ -f "$state_file" ]] && final_step=$(cat "$state_file" 2>/dev/null || echo "$step")
   [[ "$final_step" =~ ^[0-7]$ ]] || final_step="$step"
 
+  local paused_file
+  paused_file=$(dk_paused_file "$session_id")
+  if [[ -f "$paused_file" ]]; then
+    rm -f \
+      "$(dk_active_file "$session_id")" \
+      "$(dk_loop_config_file "$session_id")" \
+      "$(dk_loop_file "$session_id")" \
+      "$(dk_handoff_mode_file "$session_id")" \
+      "$paused_file" 2>/dev/null
+    dk_provider_cleanup_session_state "$session_id"
+
+    echo ""
+    echo "Paused at Phase ${final_step}: $(__dk_phase_name "$final_step") (manual intervention requested)"
+    echo "Resume with: ${resume_hint}"
+    return 1
+  fi
+
   local loop_file
   loop_file=$(dk_loop_file "$session_id")
   if [[ "$final_step" -lt 7 && -f "$loop_file" ]]; then
@@ -1949,7 +1966,7 @@ dkcomplete() {
   # enforces completion criteria. See: hooks/phase-loop.sh prompt-loop branch.
   mkdir -p "$DK_LOOP_DIR"
   touch "$(dk_active_file "$session_id")"
-  rm -f "$(dk_complete_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_watch_pause_file "$session_id")"
+  rm -f "$(dk_complete_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_paused_file "$session_id")" "$(dk_watch_pause_file "$session_id")"
 
   DOYAKEN_SESSION_ID="$session_id" \
   DOYAKEN_LOOP_ACTIVE=1 \
@@ -1968,12 +1985,18 @@ $(__dk_provider_prompt)"
     loop_status="max-iter"
     exit_code=1
   fi
+  local paused_file complete_paused=0
+  paused_file=$(dk_paused_file "$session_id")
+  [[ -f "$paused_file" ]] && complete_paused=1
 
   # Clean up
-  rm -f "$(dk_active_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_complete_file "$session_id")" 2>/dev/null
+  rm -f "$(dk_active_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_complete_file "$session_id")" "$paused_file" 2>/dev/null
   dk_provider_cleanup_session_state "$session_id"
 
-  if [[ "$loop_status" == "max-iter" ]]; then
+  if [[ $complete_paused -eq 1 ]]; then
+    dk_info "dkcomplete paused before completion; local worktree/branch cleanup was skipped."
+    exit_code=1
+  elif [[ "$loop_status" == "max-iter" ]]; then
     dk_info "dkcomplete paused: max audit iterations reached without completion."
   elif [[ $exit_code -eq 0 && "$cleanup_mode" == "worktree" ]]; then
     __dk_cleanup_completed_workspace "$cleanup_wt_name" "$cleanup_wt_dir" "$cleanup_default_branch" "$cleanup_mode" "$session_id"
@@ -1991,7 +2014,7 @@ $(__dk_provider_prompt)"
 # the full lifecycle. Scope is the full current change set: committed branch
 # changes, staged changes, unstaged changes, and untracked files together.
 #
-# Each iteration is a fresh Claude session that runs one full review wave:
+# Each iteration is a fresh host-agent session that runs one full review wave:
 # build/refresh a compact context pack, run deterministic checks, collect
 # read-only review findings, verify/dedupe, batch-fix, re-check, then write a
 # review-result signal. Only a wave with zero verified findings and zero fixes
@@ -2002,10 +2025,20 @@ unalias dkreviewloop 2>/dev/null; unfunction dkreviewloop 2>/dev/null
 dkreviewloop() {
   __dk_refresh_provider || return 1
 
-  if ! command -v claude &>/dev/null; then
-    dk_error "Claude Code CLI not found in PATH."
-    dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
-    return 1
+  local agent_host
+  agent_host=$(dk_agent_host)
+  if [[ "$agent_host" == "codex" ]]; then
+    if ! command -v codex &>/dev/null; then
+      dk_error "Codex CLI not found in PATH."
+      dk_info "Install Codex and sign in, then try again."
+      return 1
+    fi
+  else
+    if ! command -v claude &>/dev/null; then
+      dk_error "Claude Code CLI not found in PATH."
+      dk_info "Install it from https://docs.anthropic.com/en/docs/claude-code then try again."
+      return 1
+    fi
   fi
 
   if ! git rev-parse --git-dir &>/dev/null; then
@@ -2090,6 +2123,7 @@ dkreviewloop() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "  DOYAKEN — dkreviewloop (${review_profile}, ${required_clean} clean pass(es))"
   echo ""
+  echo "  Agent:  $(dk_agent_host_label)"
   echo "  Branch: ${branch}"
   echo "  Scope:  ${scope_name} (${files_changed} files)"
   echo "  Depth:  ${review_profile} (${required_clean} clean, max ${max_iter} iterations)"
@@ -2175,26 +2209,62 @@ $(__dk_provider_prompt)"
     __dk_write_state "$(dk_loop_config_file "$session_id")" "3:${DK_PHASE_PROMISES[3]}:${audit_file}:1"
 
     local message="${message_template//__REVIEW_PROFILE__/$review_profile}"
-    local pass_session_name="${session_name}-pass-${review_iteration}"
-    local claude_args=("${DK_CLAUDE_FLAGS[@]}" -n "$pass_session_name")
+    local exit_code
+    if [[ "$agent_host" == "codex" ]]; then
+      local codex_message
+      codex_message="You are running this Doyaken review-wave pass inside Codex.
 
-    DOYAKEN_SESSION_ID="$session_id" \
-    DOYAKEN_LOOP_ACTIVE=1 \
-    DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[3]}" \
-    DOYAKEN_LOOP_PROMPT="$audit_prompt" \
-    DOYAKEN_LOOP_PHASE="3" \
-    DOYAKEN_REVIEW_PASS_ACTIVE=1 \
-    DOYAKEN_REVIEW_PROFILE="$review_profile" \
-    DOYAKEN_DIR="$DOYAKEN_DIR" \
-    __dk_claude "${claude_args[@]}" "$message"
+Use Codex directly. Do not launch Claude and do not rely on Claude Stop hooks.
+If an instruction says to run /dkreview --single-pass, implement that by reading
+skills/dkreview/SKILL.md and prompts/review-wave.md and performing the same
+single-pass review-wave contract yourself.
 
-    local exit_code=$?
+Codex mode does not have Claude specialist-agent tools. Do not block solely
+because Claude-specific review agents are unavailable; cover the requested
+review domains yourself within this Codex pass.
+
+Before your final response, you MUST write exactly one allowed result to:
+  $(dk_review_result_file "$session_id")
+
+Then touch:
+  ${pass_complete_file}
+
+Allowed results: CLEAN, FINDINGS_FIXED:N, FINDINGS:N, BLOCKED:reason, ESCALATE_THOROUGH:reason.
+
+${message}"
+
+      DOYAKEN_SESSION_ID="$session_id" \
+      DOYAKEN_LOOP_ACTIVE=1 \
+      DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[3]}" \
+      DOYAKEN_LOOP_PROMPT="$audit_prompt" \
+      DOYAKEN_LOOP_PHASE="3" \
+      DOYAKEN_REVIEW_PASS_ACTIVE=1 \
+      DOYAKEN_REVIEW_PROFILE="$review_profile" \
+      DOYAKEN_DIR="$DOYAKEN_DIR" \
+      dk_provider_codex_exec "$codex_message" "$(pwd)"
+      exit_code=$?
+    else
+      local pass_session_name="${session_name}-pass-${review_iteration}"
+      local claude_args=("${DK_CLAUDE_FLAGS[@]}" -n "$pass_session_name")
+
+      DOYAKEN_SESSION_ID="$session_id" \
+      DOYAKEN_LOOP_ACTIVE=1 \
+      DOYAKEN_LOOP_PROMISE="${DK_PHASE_PROMISES[3]}" \
+      DOYAKEN_LOOP_PROMPT="$audit_prompt" \
+      DOYAKEN_LOOP_PHASE="3" \
+      DOYAKEN_REVIEW_PASS_ACTIVE=1 \
+      DOYAKEN_REVIEW_PROFILE="$review_profile" \
+      DOYAKEN_DIR="$DOYAKEN_DIR" \
+      __dk_claude "${claude_args[@]}" "$message"
+      exit_code=$?
+    fi
+
     local audit_max_iter=0
     if [[ $exit_code -eq 0 ]] && [[ -f "$(dk_loop_file "$session_id")" ]]; then
       audit_max_iter=1
     fi
 
-    rm -f "$(dk_active_file "$session_id")" "$(dk_loop_config_file "$session_id")" "$(dk_loop_file "$session_id")" 2>/dev/null
+    rm -f "$(dk_active_file "$session_id")" "$(dk_loop_config_file "$session_id")" "$(dk_loop_file "$session_id")" "$(dk_complete_file "$session_id")" 2>/dev/null
 
     if [[ $audit_max_iter -eq 1 ]]; then
       echo ""
@@ -2216,6 +2286,14 @@ $(__dk_provider_prompt)"
     local result_file
     result_file=$(dk_review_result_file "$session_id")
     [[ -f "$result_file" ]] && result=$(cat "$result_file" 2>/dev/null || echo "UNKNOWN")
+    if [[ "$result" != "CLEAN" && "$result" != BLOCKED:* && "$result" != ESCALATE_THOROUGH:* ]] && \
+       ! printf '%s\n' "$result" | grep -Eq '^(FINDINGS_FIXED|FINDINGS):[0-9]+$'; then
+      echo ""
+      dk_info "dkreviewloop received invalid review result from ${agent_host}: ${result}"
+      dk_provider_cleanup_session_state "$session_id"
+      [[ $standalone_review_prompt -eq 1 ]] && rm -f "$prompt_file" 2>/dev/null
+      return 1
+    fi
 
     if [[ "$result" == "CLEAN" ]]; then
       clean_passes=$((clean_passes + 1))

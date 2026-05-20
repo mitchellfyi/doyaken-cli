@@ -489,6 +489,58 @@ dk_provider_cleanup_session_state() {
   fi
 }
 
+dk_agent_host() {
+  case "${DOYAKEN_AGENT_HOST:-${DK_AGENT_HOST:-auto}}" in
+    codex|Codex)
+      printf '%s\n' "codex"
+      return 0
+      ;;
+    claude|Claude)
+      printf '%s\n' "claude"
+      return 0
+      ;;
+    auto|"") ;;
+    *)
+      dk_warn "Unknown DOYAKEN_AGENT_HOST '${DOYAKEN_AGENT_HOST:-${DK_AGENT_HOST:-}}'; using auto detection."
+      ;;
+  esac
+
+  if [[ -n "${CODEX_THREAD_ID:-}" || "${CODEX_CI:-}" == "1" || -n "${CODEX_MANAGED_BY_NPM:-}" ]]; then
+    printf '%s\n' "codex"
+    return 0
+  fi
+
+  if [[ -n "${CLAUDE_CODE_SESSION_ID:-}" || -n "${CLAUDE_CODE_SSE_PORT:-}" || -n "${CLAUDECODE:-}" ]]; then
+    printf '%s\n' "claude"
+    return 0
+  fi
+
+  printf '%s\n' "claude"
+}
+
+dk_agent_host_label() {
+  case "$(dk_agent_host)" in
+    codex) printf '%s\n' "Codex" ;;
+    *) printf '%s\n' "Claude" ;;
+  esac
+}
+
+dk_provider_codex_exec() {
+  local prompt="$1" cwd="${2:-}"
+  local codex_args
+
+  [[ -n "$cwd" ]] || cwd=$(pwd)
+  dk_provider_codex_ready_check || return 1
+
+  codex_args=(exec --ignore-user-config --dangerously-bypass-approvals-and-sandbox -C "$cwd")
+  if [[ -n "${DK_CODEX_MODEL:-}" ]]; then
+    codex_args+=(-m "$DK_CODEX_MODEL")
+  fi
+  codex_args+=(-)
+
+  printf '%s\n' "$prompt" | DK_PROVIDER_CODEX_WRAPPER=1 dk_provider_codex "${codex_args[@]}"
+}
+
 dk_provider_apply() {
   local preferred_source="auto" default_profile explicit_engine
   dk_provider_validate_config_files || return 1
@@ -719,6 +771,7 @@ dk_provider_codex() {
   while IFS= read -r provider_override_env_name; do
     [[ -n "$provider_override_env_name" ]] && env_args+=(-u "$provider_override_env_name")
   done < <(dk_provider_claude_override_env_names)
+  env_args+=(-u DK_PROVIDER_CODEX_WRAPPER)
   env "${env_args[@]}" codex "$@"
 }
 

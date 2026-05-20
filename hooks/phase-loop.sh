@@ -256,7 +256,9 @@ if [[ "$HANDOFF_MODE" == "inline" && -f "$PHASE_STATE_FILE" ]]; then
 fi
 
 if [[ -f "$PAUSED_FILE" && ! -f "$COMPLETE_FILE" ]]; then
-  rm -f "$PAUSED_FILE" "$HANDOFF_MODE_FILE"
+  # Leave the paused marker for the wrapper so it can distinguish a
+  # bounded/manual-intervention exit from successful phase completion.
+  rm -f "$HANDOFF_MODE_FILE"
   exit 0
 fi
 
@@ -311,6 +313,44 @@ dk_record_session_branch "$SESSION_ID" "$(pwd)" 2>/dev/null || true
 # Each iteration = one audit cycle, so 30 is a safety net, not an expected count.
 MAX_ITERATIONS="${DOYAKEN_LOOP_MAX_ITERATIONS:-30}"
 COMPLETION_PROMISE="${DOYAKEN_LOOP_PROMISE:-DOYAKEN_TICKET_COMPLETE}"
+
+# Phase 6 has a wall-clock watch window between outcome checks. The agent writes
+# dk_complete_state_file as "cycle:last_check_epoch"; hold the Stop hook quietly
+# until that window matures so the audit loop does not spin and consume tokens.
+if [[ "${DOYAKEN_LOOP_PHASE:-}" == "6" && ! -f "$COMPLETE_FILE" ]]; then
+  COMPLETE_STATE_FILE=$(dk_complete_state_file "$SESSION_ID")
+  if [[ -f "$COMPLETE_STATE_FILE" ]]; then
+    COMPLETE_STATE_RAW=$(cat "$COMPLETE_STATE_FILE" 2>/dev/null || echo "")
+    if [[ "$COMPLETE_STATE_RAW" =~ ^([0-9]+):([0-9]+)$ ]]; then
+      COMPLETE_CYCLE="${BASH_REMATCH[1]}"
+      COMPLETE_LAST_EPOCH="${BASH_REMATCH[2]}"
+      COMPLETE_WAIT_MINUTES="${DOYAKEN_COMPLETE_WAIT_MINUTES:-5}"
+      [[ "$COMPLETE_WAIT_MINUTES" =~ ^[0-9]+$ ]] || COMPLETE_WAIT_MINUTES=5
+      COMPLETE_WAIT_SECONDS=$((COMPLETE_WAIT_MINUTES * 60))
+      if [[ "$COMPLETE_WAIT_SECONDS" -gt 0 ]]; then
+        NOW_EPOCH=$(date +%s)
+        COMPLETE_ELAPSED=$((NOW_EPOCH - COMPLETE_LAST_EPOCH))
+        [[ "$COMPLETE_ELAPSED" -lt 0 ]] && COMPLETE_ELAPSED=0
+        COMPLETE_REMAINING=$((COMPLETE_WAIT_SECONDS - COMPLETE_ELAPSED))
+        if [[ "$COMPLETE_REMAINING" -gt 0 ]]; then
+          printf '\n%s\n\n' "--- Doyaken Phase 6 wait window: cycle ${COMPLETE_CYCLE}, sleeping $(dk_format_duration "$COMPLETE_REMAINING") before next outcome check ---" >&2
+          while [[ "$COMPLETE_REMAINING" -gt 0 ]]; do
+            [[ -f "$PAUSED_FILE" || -f "$COMPLETE_FILE" ]] && break
+            if [[ "$COMPLETE_REMAINING" -gt 30 ]]; then
+              sleep 30
+            else
+              sleep "$COMPLETE_REMAINING"
+            fi
+            NOW_EPOCH=$(date +%s)
+            COMPLETE_ELAPSED=$((NOW_EPOCH - COMPLETE_LAST_EPOCH))
+            [[ "$COMPLETE_ELAPSED" -lt 0 ]] && COMPLETE_ELAPSED=0
+            COMPLETE_REMAINING=$((COMPLETE_WAIT_SECONDS - COMPLETE_ELAPSED))
+          done
+        fi
+      fi
+    fi
+  fi
+fi
 
 # Phase 0 has an external readiness gate: the agent must explicitly mark setup
 # done (after renaming the branch, pushing, and updating tracker status). Block
@@ -473,7 +513,7 @@ if [[ -f "$COMPLETE_FILE" ]]; then
   if [[ "${DOYAKEN_REVIEW_PASS_ACTIVE:-}" == "1" ]]; then
     REVIEW_RESULT_FILE=$(dk_review_result_file "$SESSION_ID")
     REVIEW_RESULT=$(cat "$REVIEW_RESULT_FILE" 2>/dev/null || true)
-    if [[ ! "$REVIEW_RESULT" =~ ^(CLEAN|FINDINGS_FIXED:[0-9]+|FINDINGS:[0-9]+|BLOCKED:.+)$ ]]; then
+    if [[ ! "$REVIEW_RESULT" =~ ^(CLEAN|FINDINGS_FIXED:[0-9]+|FINDINGS:[0-9]+|BLOCKED:.+|ESCALATE_THOROUGH:.+)$ ]]; then
       rm -f "$COMPLETE_FILE"
       printf '\n%s\n\n' "--- Doyaken Review Pass Gate: result signal missing or invalid ---" >&2
       printf '%s\n' "Completion signal ignored; this review-wave pass must write an allowed result before it can exit." >&2
@@ -482,7 +522,7 @@ if [[ -f "$COMPLETE_FILE" ]]; then
       printf '%s\n' '```bash' >&2
       printf '%s\n' "source \"\${DOYAKEN_DIR:-\$HOME/work/doyaken}/lib/common.sh\"" >&2
       printf '%s\n' "SESSION_ID=\"\${DOYAKEN_SESSION_ID:-\$(dk_session_id)}\"" >&2
-      printf '%s\n' "printf '%s\n' '<CLEAN|FINDINGS_FIXED:N|FINDINGS:N|BLOCKED:reason>' > \"\$(dk_review_result_file \"\$SESSION_ID\")\"" >&2
+      printf '%s\n' "printf '%s\n' '<CLEAN|FINDINGS_FIXED:N|FINDINGS:N|BLOCKED:reason|ESCALATE_THOROUGH:reason>' > \"\$(dk_review_result_file \"\$SESSION_ID\")\"" >&2
       printf '%s\n' "touch \"\$(dk_complete_file \"\$SESSION_ID\")\"" >&2
       printf '%s\n' '```' >&2
       printf '%s\n' "" >&2
