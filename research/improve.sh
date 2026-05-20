@@ -102,7 +102,6 @@ You may ONLY propose changes to files matching these patterns:
 - skills/*/SKILL.md
 - prompts/*.md
 - prompts/phase-audits/*.md
-- agents/*.md
 - hooks/guards/*.md
 
 You MUST NOT modify: dx.sh, lib/*.sh, bin/*.sh, hooks/phase-loop.sh, hooks/guard-handler.py, settings.json

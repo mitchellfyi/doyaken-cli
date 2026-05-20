@@ -26,11 +26,11 @@ as `dx sync` unless the user requested `--dry-run` or `--trace-retrieval`:
 ```bash
 repo_root=$(git rev-parse --show-toplevel)
 source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
-dx_bootstrap_agent_tooling "$repo_root" "repair"
+dx_bootstrap_agent_tooling "$repo_root" "install"
 ```
 
 For `--dry-run` or `--trace-retrieval`, use mode `"check"` instead and report
-any drift without repairing it.
+any drift without changing tooling.
 
 Read and follow `prompts/sync-memory.md`. That prompt is the source of truth for:
 

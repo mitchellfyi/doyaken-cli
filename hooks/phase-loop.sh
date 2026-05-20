@@ -176,7 +176,7 @@ EOF
       ;;
     3)
       cat <<'EOF'
-Begin Phase 3: Review. Invoke the Skill tool with skill: "dxreviewloop" to run the 3-clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, read-only specialist reviewers, verifier triage, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN; waves that fix issues write FINDINGS_FIXED:N and reset the counter. Scope: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance.
+Begin Phase 3: Review. Invoke the Skill tool with skill: "dxreviewloop" to run the adaptive clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, domain sweeps, verifier pass, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN; waves that fix issues write FINDINGS_FIXED:N and reset the counter. Scope: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance.
 EOF
       ;;
     4)
@@ -214,7 +214,7 @@ dx_compact_repeat_audit_prompt() {
       printf '%s\n' "- The final verification commands have passed."
       printf '%s\n' "- Port conflicts or unavailable local services have been resolved or worked around locally; future CI is not a substitute for required Phase 2 verification."
       printf '%s\n' "- No TODO/FIXME/HACK, debug output, commented-out code blocks, missing imports, or obvious runtime errors remain."
-      printf '%s\n' "- No Phase 2 background agents or long-running verification commands are still in flight."
+      printf '%s\n' "- No Phase 2 background processes or long-running verification commands are still in flight."
       printf '%s\n' "- Any needed .dex/ updates are made."
       printf '%s\n' "- UI capture evidence is linked for UI-affecting changes, including before/after evidence or a before-unavailable reason, or UI capture is explicitly marked N/A."
       printf '%s\n' "- The Phase 2 ready marker has been written."
@@ -383,7 +383,7 @@ fi
 # Phase 1 has an external approval gate: the plan must be presented through
 # ExitPlanMode and explicitly approved by the user before the audit loop should
 # count iterations or reveal the completion signal. This keeps ordinary
-# planning waits/background-agent pauses from burning the max-iteration budget.
+# planning waits from burning the max-iteration budget.
 if [[ "$HANDOFF_MODE" == "inline" && "${DEX_LOOP_PHASE:-}" == "1" ]]; then
   PHASE_STARTED_FILE=$(dx_phase_started_file "$SESSION_ID" 1)
   PHASE_READY_FILE=$(dx_phase_ready_file "$SESSION_ID" 1)
@@ -539,7 +539,7 @@ if [[ -f "$COMPLETE_FILE" ]]; then
       printf '%s\n' "" >&2
       printf '%s\n' "Before writing the Phase 2 ready marker, confirm every approved task and acceptance criterion is exactly MET, with no DEFERRED/SKIPPED/N/A entries unless the user explicitly approved a plan change." >&2
       printf '%s\n' "All required verification, flake gates, and UI capture evidence must be complete locally. Do not rely on future CI as a substitute for a required Phase 2 check." >&2
-      printf '%s\n' "No Phase 2 background agents or long-running verification commands may still be in flight." >&2
+      printf '%s\n' "No Phase 2 background processes or long-running verification commands may still be in flight." >&2
       printf '%s\n' "" >&2
       printf '%s\n' "If all of that is true, write the ready marker, then stop again for the completion signal:" >&2
       printf '%s\n' '```bash' >&2
@@ -600,14 +600,14 @@ if [[ -f "$COMPLETE_FILE" ]]; then
 fi
 
 # Read current iteration count and timestamp.
-# State file format: "iteration:epoch" (new) or bare "iteration" (legacy).
+# State file format: "iteration:epoch" or bare "iteration".
 ITERATION=0
 LAST_EPOCH=0
 STALL_COUNT=0
 if [[ -f "$STATE_FILE" ]]; then
   RAW=$(cat "$STATE_FILE" 2>/dev/null || echo "0")
   if [[ "$RAW" =~ ^([0-9]+):([0-9]+):?([0-9]*)$ ]]; then
-    # New format: iteration:epoch or iteration:epoch:stall_count
+    # Timestamp format: iteration:epoch or iteration:epoch:stall_count
     ITERATION="${BASH_REMATCH[1]}"
     LAST_EPOCH="${BASH_REMATCH[2]}"
     STALL_COUNT="${BASH_REMATCH[3]:-0}"

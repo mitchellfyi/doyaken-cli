@@ -190,7 +190,7 @@ if [[ "${DEX_SKIP_TOOL_BOOTSTRAP:-0}" == "1" ]]; then
   dx_skip "Skipping Claude/Codex tooling bootstrap (already handled by caller)"
 else
   TOOL_BOOTSTRAP_RAN=1
-  if ! dx_bootstrap_agent_tooling "$repo_root" "repair"; then
+  if ! dx_bootstrap_agent_tooling "$repo_root" "install"; then
     dx_warn "Continuing init without complete Claude/Codex tooling bootstrap"
   fi
 fi
@@ -272,7 +272,7 @@ if [[ "$CODEX_SKILL_COUNT" -gt 0 ]]; then
   echo "  - ${CODEX_SKILL_COUNT} Dex skill link(s) available in $(dx_codex_skills_dir) for Codex CLI"
 fi
 if [[ "$TOOL_BOOTSTRAP_RAN" -eq 1 ]]; then
-  echo "  - Claude/Codex tooling checked and repaired with Dex links, official MCPs, and safe official plugins"
+  echo "  - Claude/Codex tooling installed with Dex links, official MCPs, and safe official plugins"
 fi
 if [[ $SKIP_ANALYSIS -eq 0 ]] && command -v claude &>/dev/null; then
   echo "  - Claude analyzed the codebase and generated project-specific config"

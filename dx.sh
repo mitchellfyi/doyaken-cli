@@ -22,7 +22,7 @@
 #   dxloop <prompt>         Run a prompt until fully implemented
 #   dx sync                 Refresh repo memory/rules from verified observations
 #   dx maintain             Run background maintenance or install workflow
-#   dx tools                Check or repair Claude/Codex tooling bootstrap
+#   dx tools                Check or install Claude/Codex tooling bootstrap
 #   dex                   Alias for dx
 #   dexter                Alias for dx
 
@@ -46,7 +46,6 @@ __dx_cli() {
     uninstall) bash "$DEX_DIR/bin/uninstall.sh" "$@" ;;
     init)      bash "$DEX_DIR/bin/init.sh" "$@" ;;
     sync)      bash "$DEX_DIR/bin/sync.sh" "$@" ;;
-    rename)    bash "$DEX_DIR/bin/rename.sh" "$@" ;;
     maintain)  bash "$DEX_DIR/bin/maintain.sh" "$@" ;;
     tools)     bash "$DEX_DIR/bin/tools.sh" "$@" ;;
     config)    bash "$DEX_DIR/bin/config.sh" "$@" ;;
@@ -61,13 +60,12 @@ __dx_cli() {
       echo "Dex — workflow automation for Claude Code"
       echo ""
       echo "Commands:"
-      echo "  dx install          Global install (skills, agents, hooks, zshrc)"
+      echo "  dx install          Global install (skills, hooks, zshrc)"
       echo "  dx uninstall        Global uninstall"
       echo "  dx init             Bootstrap current repo for Dex"
       echo "  dx sync             Refresh repo memory/rules from verified observations"
-      echo "  dx rename           Migrate temporary legacy Doyaken metadata to Dex"
       echo "  dx maintain         Run background maintenance or install the GitHub workflow"
-      echo "  dx tools            Check or repair Claude/Codex tooling bootstrap"
+      echo "  dx tools            Check or install Claude/Codex tooling bootstrap"
       echo "  dx config           Configure integrations (ticket tracker, Figma, etc.)"
       echo "  dx provider         Configure provider/model execution profiles"
       echo "  dx uninit           Remove Dex from current repo"
@@ -262,7 +260,7 @@ DX_PHASE_PROMISES=(\
 DX_PHASE_MESSAGES=(\
   "Call EnterPlanMode now, then immediately invoke the dxplan skill. Do not perform exploration or planning by hand outside dxplan unless the skill explicitly instructs you to. Ticket setup (branch rename, status update, assignment, push) was already done in Phase 0; if anything looks incomplete (status still Backlog/Todo, no assignee, branch not renamed/pushed), finish it before calling EnterPlanMode. After the user approves the plan via ExitPlanMode, write the Phase 1 approval marker and stop once so the Stop hook can audit the approved plan and advance to Phase 2 automatically. Do NOT tell the user to run /dximplement and do NOT wait for another prompt." \
   "The plan is approved. You MUST invoke the Skill tool with skill: \"dximplement\" to begin implementation. Do NOT implement ad-hoc — the skill enforces TDD and quality gates. For UI-affecting changes, Phase 2 must invoke dxuicapture before UI edits for baseline evidence, then capture after evidence and link the visual manifest/screenshots/videos/traces before stopping. SCOPE BOUNDARIES: implementation, testing, and UI capture evidence ONLY. Do NOT commit, push, create branches, or create PRs during this phase — those are handled by later phases. When done, stop — the audit loop will verify your work." \
-  "Begin Phase 3: Review. Invoke the Skill tool with skill: \"dxreviewloop\" to run the adaptive clean-pass review loop. Each pass is a full review wave: compact context pack, deterministic checks, orchestrator issue harvest, verifier triage when needed, batch fixes, and targeted recheck. Small low-risk changes may use fewer clean passes; high-risk changes must escalate to thorough review. Only waves that find zero verified findings and apply zero fixes count as CLEAN. SCOPE BOUNDARIES: review and fix ONLY. Do NOT commit, push, create branches, or create PRs. When the review loop is successful, stop — the audit loop will verify." \
+  "Begin Phase 3: Review. Invoke the Skill tool with skill: \"dxreviewloop\" to run the adaptive clean-pass review loop. Each pass is a full review wave: compact context pack, deterministic checks, domain issue harvest, verifier pass, batch fixes, and targeted recheck. Small low-risk changes may use fewer clean passes; high-risk changes must escalate to thorough review. Only waves that find zero verified findings and apply zero fixes count as CLEAN. SCOPE BOUNDARIES: review and fix ONLY. Do NOT commit, push, create branches, or create PRs. When the review loop is successful, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dxverify\" to run the quality pipeline (format, lint, typecheck, test). Fix any failures and re-run until all green. Then invoke skill: \"dxcommit\" to commit and push. SCOPE BOUNDARIES: verify and commit ONLY. Do NOT create PRs or modify implementation beyond fixing verify failures. When pushed, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dxpr\" to generate the PR description, prepare any UI visual evidence handoff, create the draft PR, and attach the configured 'request' reviewers from dex.md § Reviewers. SCOPE BOUNDARIES: PR creation, description, and artifact handoff ONLY. Do NOT mark the PR ready for review (Phase 6 owns that), do NOT post @mention comments, do NOT modify implementation code. When done, stop — the audit loop will verify." \
   "Invoke the Skill tool with skill: \"dxcomplete\". Phase 6 follows the cycle-loop audit prompt: mark the PR ready, request reviewers from dex.md § Reviewers, post @mention comments for mention-type reviewers, launch /loop 5m /dxwatchpr, wait DEX_COMPLETE_WAIT_MINUTES per cycle, address CI failures and review comments via the PR watcher, re-request reviewers after each push, and close the ticket when CI is green and all reviewers have approved. If the bounded wait expires, pause with manual follow-up instructions. Stop — the audit loop will verify." \
@@ -579,7 +577,6 @@ __dx_session_id_for_workspace() {
   if [[ "$workspace_mode" == "in-place" ]]; then
     local raw_id="inplace-${wt_name}" scoped_id
     scoped_id=$(dx_scoped_session_id "$raw_id")
-    dx_migrate_legacy_session_state "$raw_id" "$scoped_id" 2>/dev/null || true
     printf '%s\n' "$scoped_id"
   else
     dx_session_id "$wt_name"
@@ -1237,7 +1234,7 @@ __dx_run_phases_inline() {
   local message
   message=$(__dx_phase_message "$step" "$raw_input" "$workspace_mode" "$wt_dir")
   if [[ $step -eq 3 ]]; then
-    message="Begin Phase 3: Review. Invoke the Skill tool with skill: \"dxreviewloop\" to run the adaptive clean-pass review loop. Each pass is a full review wave: compact context pack, deterministic checks, orchestrator issue harvest, verifier triage when needed, batch fixes, and targeted recheck. Small low-risk changes may use fewer clean passes; high-risk changes must escalate to thorough review. Only waves that find zero verified findings and apply zero fixes count as CLEAN. Scope boundaries: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance."
+    message="Begin Phase 3: Review. Invoke the Skill tool with skill: \"dxreviewloop\" to run the adaptive clean-pass review loop. Each pass is a full review wave: compact context pack, deterministic checks, domain issue harvest, verifier pass, batch fixes, and targeted recheck. Small low-risk changes may use fewer clean passes; high-risk changes must escalate to thorough review. Only waves that find zero verified findings and apply zero fixes count as CLEAN. Scope boundaries: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance."
   fi
 
   local session_timeout="${DEX_SESSION_TIMEOUT:-$DX_SESSION_TIMEOUT}"
@@ -2029,7 +2026,7 @@ $(__dx_provider_prompt)"
 # the full lifecycle. Scope is the full current change set when one exists; on
 # a clean branch, the loop falls back to a whole-codebase review.
 #
-# Each iteration is a fresh host-agent session that runs one full review wave:
+# Each iteration is a fresh CLI session that runs one full review wave:
 # build/refresh a compact context pack, run deterministic checks, collect
 # read-only review findings, verify/dedupe, batch-fix, re-check, then write a
 # review-result signal. Only a wave with zero verified findings and zero fixes
@@ -2205,9 +2202,9 @@ Use this review context pack path: \`${review_context_file}\`
 Use this per-pass completion path only after the review result signal and findings hash are written: \`${pass_complete_file}\`
 
 Review depth profile for this pass: \`__REVIEW_PROFILE__\`.
-- \`light\`: deterministic checks, orchestrator issue harvest, verifier only for candidates/escalation risk, batch fix, targeted recheck.
-- \`standard\`: orchestrator issue harvest, targeted specialist reviewers for concrete changed domains, verifier triage.
-- \`thorough\`: full specialist fan-out, verifier triage, batch fix, targeted recheck.
+- \`light\`: deterministic checks, core domain sweep, verifier pass, batch fix, targeted recheck.
+- \`standard\`: core sweep plus targeted domain sweeps for concrete changed surfaces, verifier pass.
+- \`thorough\`: all domain sweeps, verifier pass, batch fix, targeted recheck.
 
 Follow the audit prompt and \`prompts/review-wave.md\`: first materialize a non-empty compact context pack, run deterministic checks, harvest candidate issues according to the depth profile, verify and deduplicate findings, batch-fix verified issues, re-check, and write the review result signal file. Run in the current checkout; do not create or switch branches or worktrees.
 
@@ -2216,7 +2213,7 @@ Result semantics:
 - Write \`FINDINGS_FIXED:N\` if this wave found and fixed N verified findings; this intentionally resets the outer clean-pass counter.
 - Do not stop after only reporting verified findings. Fix safe verified findings before writing the result.
 - Write \`FINDINGS:N\` only if verified findings remain after a concrete local fix attempt is blocked, unsafe, or requires user judgment. Write \`BLOCKED:reason\` if the wave cannot complete.
-- Write \`ESCALATE_THOROUGH:reason\` if the profile is too shallow for the observed risk. Examples: auth/security/data-loss risk, public contract changes, broad dependency impact, complex shell/hooks/CI behavior, unclear acceptance coverage, or the wave/verifier cannot rule out serious issues at the current depth.
+- Write \`ESCALATE_THOROUGH:reason\` if the profile is too shallow for the observed risk. Examples: auth/security/data-loss risk, public contract changes, broad dependency impact, complex shell/hooks/CI behavior, unclear acceptance coverage, or the review wave cannot rule out serious issues at the current depth.
 
 If no approved plan / acceptance criteria are explicitly available in this prompt for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them. Do not infer criteria from stale session prompt files, previous conversation turns, session titles, AGENTS instructions, or unrelated ticket context.
 
@@ -2251,9 +2248,7 @@ If an instruction says to run /dxreview --single-pass, implement that by reading
 skills/dxreview/SKILL.md and prompts/review-wave.md and performing the same
 single-pass review-wave contract yourself.
 
-Codex mode does not have Claude specialist-agent tools. Do not block solely
-because Claude-specific review agents are unavailable; cover the requested
-review domains yourself within this Codex pass.
+Dex review waves cover the requested review domains inside this CLI pass.
 
 Before your final response, you MUST write exactly one allowed result to:
   $(dx_review_result_file "$session_id")

@@ -52,7 +52,7 @@ dx_claude_project_dir() {
 dx_link_claude_to_worktree() {
   local repo_root="$1" wt_dir="$2"
 
-  # 1. Symlink .claude/ (settings.local.json, agent-memory)
+  # 1. Symlink .claude/ (settings.local.json and project-local Claude config)
   if [[ -d "$repo_root/.claude" ]] && [[ ! -e "$wt_dir/.claude" ]]; then
     if ln -s "$repo_root/.claude" "$wt_dir/.claude" 2>/dev/null; then
       dx_info "Linked .claude/ from main repo"

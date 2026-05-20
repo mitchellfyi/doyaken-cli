@@ -75,19 +75,7 @@ Run `git diff` against the base branch and review ALL changes together:
 - Code consistent with existing codebase conventions?
 - If you changed a contract (type, API, schema), trace consumers up to 3 hops deep using `Grep` — are all consumers updated?
 
-## Step 4: Fallback Independent Self-Reviewer Agent (code-change sessions only)
-
-**Skip this step if this is a non-code session.**
-**Skip this step if `/dxreview --single-pass` completed a review wave successfully.**
-
-If `/dxreview --single-pass` could not run because the Skill tool or required specialist/verifier agents were unavailable, spawn the `self-reviewer` agent to get an independent review perspective. Provide:
-- The acceptance criteria list from Step 1 (copy verbatim)
-- The current branch name and base branch (from `git rev-parse --abbrev-ref HEAD` and the default branch)
-- Which areas of the codebase have changed files (from `git diff --name-only`)
-
-The agent reviews independently and produces its own findings report. Do NOT fix anything based on the agent's findings yet — they feed into the merged inventory in Step 5.
-
-## Step 5: Merged Inventory Output
+## Step 4: Merged Inventory Output
 
 Merge findings from all sources into a single inventory. Deduplicate by file:line. Print the complete inventory:
 
@@ -98,17 +86,15 @@ Merge findings from all sources into a single inventory. Deduplicate by file:lin
 |---|-----------|--------|------|----------|-------------|
 | INV-1 | ... | dxreview | A | high | ... |
 | INV-2 | ... | manual | C | medium | ... |
-| INV-3 | ... | agent | B | high | ... |
 
 Total: N findings (X high, Y medium, Z low)
 ```
 
-Source values: `dxreview`, `manual`, `agent`.
+Source values: `dxreview`, `manual`.
 If `/dxreview --single-pass` did not run (non-code session), omit that source.
-If the self-reviewer agent was not spawned, omit that source.
 
-- If the inventory is **empty** → skip to Step 7.
-- If **non-empty** → proceed to Step 6.
+- If the inventory is **empty** → skip to Step 6.
+- If **non-empty** → proceed to Step 5.
 
 ### Findings Hash (for stuck detection)
 
@@ -122,17 +108,16 @@ echo "$FINDINGS_HASH" >> "$(dx_findings_file "${DEX_SESSION_ID:-$(dx_session_id)
 
 Replace `<sorted list of INV-N descriptions>` with the actual finding descriptions from your inventory, sorted alphabetically, one per line. If the inventory is empty, use the string "EMPTY".
 
-## Step 6: Batch Fix and Holistic Re-verification
+## Step 5: Batch Fix and Holistic Re-verification
 
 1. Fix all inventory items in severity order (high → medium → low).
 2. After ALL fixes are applied:
    - **Code-change sessions:** re-run `/dxreview --single-pass` on the **full scope** (not just modified files).
    - Re-run your manual passes (Step 3) on the **entire change set** — fixes can regress untouched files.
-   - Re-spawn the self-reviewer agent only if `/dxreview --single-pass` could not run. **Maximum 3 total fallback agent spawns** (including the initial spawn in Step 4).
 3. If new findings → add to inventory, fix, and re-verify. **Maximum 3 cycles.**
 4. Do NOT proceed with known findings. If findings persist after 3 cycles, continue fixing — the iteration limit in the stop hook is the only safety valve, not this step.
 
-## Step 7: /dxverify Quality Pipeline (code-change sessions only)
+## Step 6: /dxverify Quality Pipeline (code-change sessions only)
 
 **Skip this step if this is a non-code session.**
 
@@ -145,9 +130,9 @@ Run /dxverify to execute the full quality verification pipeline:
 
 If any check fails, fix and re-run (max 3 retries per check type). After 3 failures on the same check, escalate to the user.
 
-All checks must pass before proceeding to Step 8.
+All checks must pass before proceeding to Step 7.
 
-## Step 8: Evidence Table
+## Step 7: Evidence Table
 
 For each acceptance criterion from Step 1, fill in the evidence table:
 
@@ -166,7 +151,7 @@ For each acceptance criterion from Step 1, fill in the evidence table:
 - Prose claims ("I verified this") are NOT evidence. Cite specific locations.
 - Any NOT MET entry blocks completion — go back and implement/test it.
 
-## Step 9: `.dex/` Freshness (if applicable)
+## Step 8: `.dex/` Freshness (if applicable)
 
 If the project has a `.dex/` directory, check whether your changes introduced:
 - New dependencies or tooling changes → `.dex/dex.md` updated?
@@ -182,11 +167,11 @@ Do not create `.dex/learnings.md`; raw observations must be promoted through
 ## Completion Gate
 
 ALL of these must be true before you stop:
-- Every acceptance criterion from Step 1 has status MET in the evidence table (Step 8)
-- The findings inventory from your last re-verification (Step 6) is empty
+- Every acceptance criterion from Step 1 has status MET in the evidence table (Step 7)
+- The findings inventory from your last re-verification (Step 5) is empty
 - **Code-change sessions:** `/dxreview --single-pass` result is `CLEAN`, AND you have run `/dxreview --single-pass` AFTER your most recent code change
-- **Code-change sessions:** /dxverify passes — format, lint, typecheck, tests all green (Step 7)
-- Any needed `.dex/` updates are applied (Step 9)
+- **Code-change sessions:** /dxverify passes — format, lint, typecheck, tests all green (Step 6)
+- Any needed `.dex/` updates are applied (Step 8)
 - You have re-verified AFTER your most recent change of any kind
 
 Do NOT stop if any acceptance criterion is NOT MET, any findings remain, `/dxreview --single-pass` is not `CLEAN` (for code changes), or /dxverify has failures (for code changes). Fix first, then re-audit from Step 3.

@@ -1,588 +1,161 @@
 # Dex
 
-Standalone workflow automation for Claude Code. Dex runs a ticket from plan to PR with worktree isolation, quality gates, review loops, and UI capture evidence when browser-facing code changes.
+Dex turns Claude Code into a ticket-to-PR workflow runner. Give it a ticket
+number or a task description and it plans the work, implements it in an isolated
+branch/worktree, reviews it until clean, verifies it, opens a PR, watches CI and
+review feedback, and cleans up when the PR is ready.
+
+It is built for teams that want AI coding work to finish with the same discipline
+they expect from a senior engineer: scoped plans, local quality gates, review
+loops, evidence for UI changes, clean commits, and PR follow-through.
 
 ## Quick Start
 
 ```bash
-# One-time global install
+# One-time install
 bash ~/work/dex/install.sh
 source ~/.zshrc
 dx status
 
-# Bootstrap a repo (analyzes codebase with Claude Code CLI)
+# In a repository you want Dex to understand
 cd ~/work/myproject
 dx init
 
-# Refresh Dex's repo memory after durable review/CI/workflow lessons emerge
-dx sync
-
-# Start work on a ticket
-dx 999
+# Start a ticket or free-form task
+dx 1234
+dx "add account export"
 ```
 
-`dx` is the canonical command. `dex` and `dexter` are shell aliases for the same command.
+That is the normal path. `dx init` creates `.dex/` project context so future runs
+know your stack, conventions, quality gates, reviewers, guards, and durable
+repo memory.
 
-`dx install` sets up shell functions, Claude hooks, Dex skills/agents, Codex skill links when Codex is installed, browser capture tooling, official OpenAI docs MCP, and a conservative official-plugin bootstrap. UI capture uses Playwright in `~/.claude/.dex-tools/` and writes screenshots/videos/traces to `~/.claude/.dex-artifacts/`, not your repo.
+## Why Use Dex
 
-Temporary migration command: run `dx rename` once in an existing pre-Dex repo to move `.doyaken/` to `.dex/` and rewrite the legacy metadata text. `dx init` and `dx sync` do not perform this migration automatically.
+- **Less babysitting:** Dex advances through plan, implementation, review,
+  verification, PR, and completion without needing a prompt at every step.
+- **Higher trust:** Each phase has a Stop-hook audit. Claude cannot simply claim
+  completion; it must satisfy the gate for the current phase.
+- **Cleaner branches:** Work runs in `.dex/worktrees/` by default, keeping your
+  main checkout usable while tickets progress independently.
+- **Review before PR:** Phase 3 runs fresh full-scope review waves until the
+  resolved clean-pass gate succeeds.
+- **Real verification:** Dex discovers and runs the repo's format, lint,
+  typecheck, generation, and test commands instead of assuming one toolchain.
+- **UI evidence:** Browser-facing changes can capture before/after screenshots,
+  Playwright traces, videos, console logs, and a PR-ready visual manifest.
+- **PR follow-through:** Dex can mark a PR ready, request reviewers, watch CI and
+  review comments, apply fixes, re-request review after pushes, and close the
+  ticket when approved.
 
-## At a Glance
+## How The Loop Works
 
-- `dx 999` creates an isolated worktree and runs six phases: Plan → Implement → Review → Verify & Commit → PR → Complete.
-- `dx sync` refreshes durable repo memory and rules so future agents load the right context without trusting raw observations.
-- Phase 1 asks for plan approval. Later phases continue automatically unless requirements change, tooling is missing, or a review/CI problem needs human judgement.
-- UI changes get before/after visual evidence: desktop/mobile screenshots, Playwright traces, videos for interactive flows, and a local upload manifest for the PR.
-- Phase 3 runs fresh adversarial review waves until the change is clean.
-- Phase 6 marks the PR ready, monitors CI/reviews, addresses feedback, and closes the ticket when approvals and checks are complete.
+```text
+dx 1234
+  |
+  |-- Phase 1: Plan
+  |     Explore the ticket and codebase, propose an approach, wait for approval.
+  |
+  |-- Phase 2: Implement
+  |     Build with tests, capture UI evidence when needed, prove criteria are met.
+  |
+  |-- Phase 3: Review
+  |     Run fresh review-wave CLI sessions until the change is clean.
+  |
+  |-- Phase 4: Verify + Commit
+  |     Run quality gates, create atomic conventional commits, push the branch.
+  |
+  |-- Phase 5: PR
+  |     Create the draft PR with description, reviewer routing, and visual handoff.
+  |
+  `-- Phase 6: Complete
+        Mark ready, watch CI/reviews, address feedback, close the ticket, clean up.
+```
 
-Read next:
+The important piece is the audit loop. When Claude tries to stop, Dex's Stop hook
+checks the phase state and injects the next required audit. Only a passing phase
+can advance. Review waves have their own clean-pass counter: a wave that finds
+and fixes anything writes `FINDINGS_FIXED:N`, resets the counter, and forces a
+fresh full-scope review before Phase 4 can start.
 
-- [Lifecycle](#lifecycle) for the normal ticket flow
-- [UI Capture](#ui-capture) for screenshots, video, traces, and browser logs
-- [What needs `dx init`?](#what-needs-dx-init) for global vs per-repo setup
-- [docs/autonomous-mode.md](docs/autonomous-mode.md) for phase-loop internals
-- [docs/guards.md](docs/guards.md) for hook-based safety rules
+## Common Commands
 
-## Why Claude Code, not Codex?
+```bash
+dx install                 # Install shell functions, hooks, skills, and tooling
+dx status                  # Show global and project setup
+dx init                    # Analyze the current repo and create .dex/
+dx sync                    # Refresh durable repo memory and rules
+dx 1234                    # Run the full lifecycle for a ticket
+dx "task description"      # Run the full lifecycle for a free-form task
+dx --no-worktree 1234      # Run the lifecycle in the current checkout
+dxreviewloop               # Review current changes without the full lifecycle
+dxcomplete                 # Resume PR completion for the current branch
+dx provider current        # Show active Claude/Codex execution profile
+dx tools bootstrap         # Install/refresh browser MCPs, docs MCP, and plugins
+```
 
-You can skip this section for a first run. It matters when you are choosing provider profiles or trying to reduce Claude Code usage.
+`dex` and `dexter` are aliases for `dx`.
 
-Dex is built on Claude Code-specific primitives, not a portable agent abstraction. The lifecycle relies on:
+## Requirements
 
-- **Stop hook** — phase audit loops re-inject quality checks until Claude passes them
-- **same-session phase handoff** — the Stop hook advances phases inside the current Claude session
-- **Plan mode** — `EnterPlanMode` / `ExitPlanMode` give Phase 1 a read-only quality gate
-- **`--append-system-prompt-file`** — phase scope and completion protocol survive context compaction
-- **Skills, SessionStart hooks, status line, `--from-pr`** — all wired through Claude Code's harness
+- Claude Code CLI installed and signed in.
+- A git repository.
+- `jq` for settings merge/uninstall flows.
+- Optional: Codex CLI if you want the `codex-subscription` provider profile.
+- Optional: `shellcheck`, language toolchains, and test tools used by your repo.
 
-Codex CLI doesn't currently expose equivalents, so swapping backends would mean re-implementing the audit loop, plan mode, and per-phase context handoff from scratch. Until that lands, `dx` requires the `claude` CLI on your `PATH`.
+Dex installs Playwright UI-capture tooling into `~/.claude/.dex-tools/` and
+stores screenshots, traces, logs, and videos under `~/.claude/.dex-artifacts/`.
+It does not commit those artifacts.
 
-### Provider profiles
+## Project Context
 
-Claude Code cannot use the OpenAI API or Codex CLI as a backend through settings alone: it speaks Claude Code's Anthropic-compatible API shape and expects Claude Code features such as hooks, skills, sessions, and plan mode. Dex keeps Claude Code as the outer harness and lets you choose how substantive model work is routed.
+`dx init` creates:
 
-Built-in profiles:
+```text
+.dex/
+  dex.md            Project config, gates, reviewers, integrations
+  AGENTS.md         Imports dex.md for agent context
+  CLAUDE.md         Claude Code compatibility pointer
+  review-rules.md   Optional path-specific review focus
+  rules/            Generated coding conventions
+  guards/           Project-specific safety guards
+  memory/           Durable repo memory
+  worktrees/        Ephemeral Dex worktrees
+```
 
-- `claude-subscription` — direct Claude Code using Claude subscription OAuth. This is the default.
-- `codex-subscription` — Claude Code remains the lifecycle harness, but phase prompts delegate substantive coding/review work to the local Codex CLI using ChatGPT subscription auth. The OpenAI Codex Claude Code plugin is optional for slash commands.
+Dex skills are codebase-agnostic. They discover local commands and conventions at
+runtime, then use `.dex/` to avoid rediscovering stable project knowledge on
+every run.
 
-`codex-subscription` reduces Claude Code usage; it is not a zero-Claude fallback. Claude Code still has to start, load hooks/skills, and orchestrate the lifecycle, so a fully exhausted Claude Code quota can still block `dx`.
+## Provider Profiles
+
+Dex keeps Claude Code as the lifecycle harness because it relies on Claude Code
+hooks, skills, plan mode, and same-session handoff. You can still route
+substantive work through supported profiles:
+
+- `claude-subscription` - direct Claude Code via Claude subscription auth.
+- `codex-subscription` - Claude remains the harness while coding/review work is
+  delegated through Dex's Codex wrapper using ChatGPT subscription auth.
 
 ```bash
 dx provider list
-dx provider current
-dx provider doctor
-dx provider use codex-subscription
-dx provider use --repo codex-subscription
-```
-
-For subscription-safe modes, Dex strips Anthropic API, gateway, Bedrock, Vertex, Foundry, OpenAI API/base-url, and Claude model override variables from launched Claude Code and Codex CLI subprocesses. Dex-launched Claude Code sessions use `--dangerously-skip-permissions` with `--permission-mode bypassPermissions`; Codex delegation uses `--dangerously-bypass-approvals-and-sandbox` through the Dex wrapper. `dx provider doctor` warns when environment variables would risk API billing or override profile routing.
-
-`codex-subscription` preflights the local Codex CLI before launching Claude. Delegated work goes through Dex's `bin/dxcodex.sh` wrapper, which enforces `--ignore-user-config` so `~/.codex/config.toml` cannot switch work to a custom/API provider and `--dangerously-bypass-approvals-and-sandbox` so unattended runs do not block on Codex approvals or sandbox prompts. A built-in PreToolUse guard blocks raw Codex agent-work commands such as `codex`, `codex exec`, `codex e`, `codex review`, direct `dx_provider_codex` helper delegation, API-key login forms, shell-nested forms including literal variable-expanded and escape-decoded `bash -c`/`eval`/stdin payloads, generated heredoc scripts, direct executable script paths, readable executed or sourced script files, Python/Node/Ruby/Perl interpreter payloads that launch Codex, fail-closed unresolved/unreadable script paths, launch wrappers such as `nice`, `timeout`, `xargs`, and `find -exec`, package-runner forms such as `npx codex`, `npx -c "codex exec ..."`, `npm exec --call "codex exec ..."`, and `npx @openai/codex@latest`, and non-literal stdin/process-substitution generators piped into shells while this provider profile is active, so delegated work has to pass through the wrapper. The guard reads Dex's current session provider state first when a session id is present, with hook environment/config fallback, so it does not rely only on hook subprocess environment inheritance. Codex must be installed and signed in with ChatGPT. `dx install`, `dx init`, and `dx sync` repair the official OpenAI Codex Claude Code plugin automatically when both Claude Code and Codex are present; run `dx tools bootstrap` to repair it directly.
-
-Manual smoke tests for the Codex delegation path:
-
-```bash
 dx provider use codex-subscription
 dx provider doctor
-
-# In a Claude Code session launched by Dex, this should be blocked by the guard:
-codex exec "review this repository"
-
-# The wrapper should be allowed, including dash-leading prompt text:
-bash "$DEX_DIR/bin/dxcodex.sh" exec -- "- review the current diff"
 ```
 
-For env sanitization, temporarily set `OPENAI_API_KEY` or `ANTHROPIC_BASE_URL`, then run `dx provider doctor`; subscription-safe profiles should report the variable as unsafe until it is unset.
+Subscription-safe profiles strip API-provider environment variables from
+launched subprocesses and require Dex-managed wrappers for delegated Codex work.
 
-Manual evidence captured for this change used `codex-cli 0.128.0`, `Claude Code 2.1.133`, and `ShellCheck 0.11.0`. `dx provider doctor` passed the Claude/Codex CLI, `--ignore-user-config`, `--dangerously-bypass-approvals-and-sandbox`, ChatGPT login, and plugin checks in `codex-subscription` mode. Guard smoke tests blocked raw Codex, helper, package-runner, shell/interpreter/heredoc/generated-script, escape-decoded, and launcher-wrapper delegation paths; allowed Codex help/status and safe print/echo cases; and confirmed the wrapper rejects caller-supplied Codex options. The post-commit guard detected and reported hidden `git commit` after Bash completion through shell, interpreter, generated-script, escape-decoded, and launcher-wrapper paths.
+## Documentation
 
-Custom subscription profiles can be defined globally in `~/.dex/providers.json` or per repo in `.dex/providers.json`. Every custom profile must declare its `engine` and supported `auth` mode. Gateway profiles are custom because they need a real base URL, auth policy, and model id for your gateway; define them globally unless you explicitly opt into a trusted repo profile for one invocation with `DX_ALLOW_REPO_GATEWAY_PROVIDER=1`.
+- [Autonomous mode](docs/autonomous-mode.md) explains phase hooks, state files,
+  review loops, and watcher behavior.
+- [Guards](docs/guards.md) covers hook-based safety rules.
+- [UI capture](docs/ui-capture.md) covers screenshots, traces, videos, and PR
+  visual evidence.
 
-```json
-{
-  "default": "codex-custom",
-  "profiles": {
-    "codex-custom": {
-      "engine": "codex-plugin",
-      "auth": "chatgpt-subscription",
-      "model": "opus",
-      "plan_model": "opus",
-      "effort": "max"
-    },
-    "gateway-local": {
-      "engine": "anthropic-gateway",
-      "auth": "api-token",
-      "base_url": "http://localhost:4000",
-      "auth_env": "LITELLM_MASTER_KEY",
-      "model": "your-gateway-model",
-      "plan_model": "your-gateway-model",
-      "effort": "xhigh"
-    }
-  }
-}
-```
+## Status
 
-Built-in profile names are reserved; custom profiles should use their own names. Omit `codex_model` to let the Codex CLI use its configured default, or set it only to a model id you know your installed Codex CLI supports.
-
-`dx provider use --repo <profile>` can select built-in profiles or subscription-safe profiles defined in that repo's `.dex/providers.json`. Repo defaults are intentionally self-contained and do not depend on profiles that exist only in a user's global config. Repo gateway/API defaults are not auto-activated, and repo configs cannot use common ambient credential env vars such as `GITHUB_TOKEN`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` as gateway auth.
-
-Gateway mode requires a real Anthropic-compatible gateway exposing `/v1/messages`. Dex rejects `https://api.openai.com` as a gateway base URL because the request and streaming schemas are different.
-
-## Lifecycle
-
-When you run `dx 999`, Dex creates an isolated git worktree and runs Claude through six autonomous phases. Those phases advance inside the same Claude session: the Stop hook audits each phase, injects the next phase instructions, and keeps going without requiring `/exit` + `dx --resume`. The user is brought into the loop as a configured reviewer in Phase 6 — the autonomous loop waits for their review (and any other configured reviewers) and only closes the ticket once everyone has approved.
-
-If you want the same lifecycle without a separate checkout, run `dx --no-worktree <ticket-or-description>`. In-place mode still creates or switches to the normal Dex branch (`worktree-ticket-*` / `worktree-task-*`) in the current checkout; it just skips `git worktree add`. Phase 4 commits and pushes that branch. If the current checkout has uncommitted changes and Dex needs to switch/create the lifecycle branch, it stops so you can commit or stash first.
-
-```
-dx 999
-  │
-  ├─ Phase 1: Plan          Claude explores codebase, presents approaches, user approves
-  ├─ Phase 2: Implement     TDD implementation, before/after UI capture when relevant, completeness verification
-  ├─ Phase 3: Review        Adaptive adversarial review waves
-  ├─ Phase 4: Verify        Format, lint, typecheck, test → commit + push
-  ├─ Phase 5: PR            Generate description, prepare visual handoff, create draft PR + attach reviewers
-  └─ Phase 6: Complete      Mark ready, request reviews, watch CI/reviews,
-                            re-request reviewers each push, close ticket, clean up locally
-```
-
-| Phase | Skills | What Happens | User Action |
-|-------|--------|-------------|-------------|
-| 1. Plan | `/dxplan` | Reads ticket, explores code, presents 2-3 approaches, drafts plan | Approve plan |
-| 2. Implement | `/dximplement` + `/dxuicapture` when UI changed | TDD per task, before/after screenshots/traces/videos for UI work, evidence table, completeness check | Only for scope/requirement changes |
-| 3. Review | `/dxreviewloop` | Fresh full-scope review waves, compact context, verifier triage, profile-based clean gate | — |
-| 4. Verify & Commit | `/dxverify` + `/dxcommit` | Quality gates, atomic conventional commits, push | — |
-| 5. PR | `/dxpr` | PR description, visual evidence handoff for UI work, create draft PR, attach `request`-type reviewers | — |
-| 6. Complete | `/dxcomplete` + `/dxwatchpr` | Mark ready, request reviews, post `@mention` comments, monitor CI/reviews, address failures, close ticket, remove local worktree/branch | Review/approve when configured; respond only to escalations |
-
-After Phase 1 approval, `dx` keeps advancing through Phases 2-5 without asking whether to continue. It stops for human input only when requirements change, credentials/tooling are missing, a destructive git decision is needed, repeated CI failures occur, max audit/review iterations are reached, reviewer feedback needs human judgement, or Phase 6 is waiting for CI/reviewer approval.
-
-### Audit Loop
-
-Each phase runs inside an audit loop. Phase 1 still uses Plan Mode for the user approval gate; before the plan has been presented and approved, the Stop hook returns a short planning-gate prompt and does not count an audit iteration or reveal completion instructions. After approval, the Stop hook audits the approved plan and handles the phase handoff. When Claude tries to stop in later phases, the Stop hook injects a phase-specific quality audit. Claude must pass the audit before the hook exposes the completion signal.
-
-```
-Claude does work → tries to stop
-  │
-  ▼
-Stop hook fires
-  ├─ .complete file exists?  → advance to next phase in the same session
-  ├─ Phase 1 plan not approved? → BLOCK, no audit count, no completion instructions
-  ├─ Max iterations reached? → pause for intervention
-  ├─ Below min audit passes? → BLOCK, inject audit prompt (no completion instructions)
-  └─ At/above min passes?   → BLOCK, inject audit prompt WITH completion instructions
-                                │
-                                ▼
-                              Claude follows audit → fixes issues → tries to stop → loop repeats
-```
-
-### Review Sub-Loop (Phase 3)
-
-Phase 3 uses `/dxreviewloop` on top of the standard audit loop. It starts with an
-auto depth profile from the diff: `light` for tiny/docs-only changes, `standard`
-for normal changes, and `thorough` for high-risk or broad changes. Each review
-iteration is a fresh full-scope review wave, ensuring each adversarial review
-starts clean while still spending time efficiently. A wave can write
-`ESCALATE_THOROUGH:reason` if the starting profile is too shallow.
-
-```
-Claude starts /dxreviewloop (clean_passes=0)
-  │
-  ▼
-Launch fresh review-wave subagent
-  ├─ Builds/refreshes a compact review context pack
-  ├─ Runs deterministic checks
-  ├─ Harvests issues in the wave orchestrator
-  │  (plus targeted specialists or full specialist fan-out when needed)
-  ├─ Verifies and deduplicates findings, then batch-fixes verified issues
-  ├─ Rechecks affected surfaces
-  ├─ Writes review result signal: "CLEAN", "FINDINGS_FIXED:N", "FINDINGS:N",
-  │  "BLOCKED:reason", or "ESCALATE_THOROUGH:reason"
-  └─ Stop hook verifies, allows completion
-  │
-  ▼
-Loop reads review result
-  ├─ CLEAN → clean_passes++ → if profile gate met: advance to Phase 4
-  ├─ ESCALATE_THOROUGH → clean_passes=0 → switch to thorough
-  └─ anything else → clean_passes=0 → fresh full-scope wave → loop repeats
-```
-
-Each review iteration runs:
-1. `/dxreview --single-pass` - one review wave following `prompts/review-wave.md`
-2. Deterministic checks before semantic review
-3. Orchestrator issue harvest plus targeted read-only specialists when needed
-4. Verified findings inventory -> batch fix -> targeted recheck
-
-Default: adaptive profile gates (`light`: 1 clean/4 max, `standard`: 2 clean/6
-max, `thorough`: 3 clean/10 max). Override depth with
-`DEX_REVIEW_PROFILE=thorough`, or exact gates with
-`DEX_REVIEW_CLEAN_PASSES=5 DEX_REVIEW_MAX_ITERATIONS=20`. A wave that
-finds and fixes issues writes `FINDINGS_FIXED:N`, not `CLEAN`, so the next fresh
-wave must re-review the full change set before the counter can advance.
-
-Claude never learns how to signal completion on its own — the hook provides the `.complete` file path and promise string only after Phase 1 approval and enough clean passes. This prevents premature completion.
-
-### Session Timeout
-
-Default: 24 hours for the entire `dx` run (all phases). Override: `DEX_SESSION_TIMEOUT=14400` (4h). Set to 0 to disable.
-
-### Escalation
-
-Even in autonomous mode, Claude stops and escalates to the user for:
-- Secrets scan failures (never auto-fix security issues)
-- Architectural review comments (need human judgement)
-- 3+ failed attempts at the same fix (loop is stuck)
-- Scope changes that affect other tickets
-- Missing credentials/tooling or destructive git operations that require explicit approval
-- Max audit/review iterations without a completion signal
-
-The user can always interrupt with Ctrl+C. Phase state is saved so `dx 999` or `dx --resume` picks up where it left off.
-
-See [docs/autonomous-mode.md](docs/autonomous-mode.md) for full architecture.
-
-## UI Capture
-
-For browser UI changes, Phase 2 runs `/dxuicapture` before UI edits and again before review. Phase 5 refreshes after evidence when needed and gives the user local files to upload to the PR. It captures:
-
-- before/after desktop and mobile screenshots
-- Playwright traces for debugging
-- WebM video for interactive flows
-- console, page, network, and HTTP error logs
-- a `visual-evidence.md` manifest with upload-ready local paths
-
-Artifacts are stored under `~/.claude/.dex-artifacts/ui/<session>/` by default and are linked in the implementation evidence. They are not committed. Local paths do not render in GitHub, so users upload before/after screenshots from the manifest to the PR body or a PR comment.
-
-Run capture manually when needed:
-
-```bash
-bash "$DEX_DIR/bin/ui-capture.sh" \
-  --url "http://127.0.0.1:3000" \
-  --name "login-flow" \
-  --desktop --mobile --video --trace
-```
-
-See [docs/ui-capture.md](docs/ui-capture.md) for flow scripts, artifact paths, and troubleshooting.
-
-## What needs `dx init`?
-
-Most Dex features work immediately after `dx install` — no per-project setup required:
-
-| Feature | Needs `dx init`? | Notes |
-|---------|:---:|-------|
-| `dxloop <prompt>` | No | Works in any git repo |
-| `dxcomplete` | No | Works in any git repo with a PR |
-| `dxreviewloop` | No | Works in any git repo with detectable changes |
-| `dx sync` / `/dxsync` | No | Creates missing memory scaffold and refreshes durable repo context |
-| `dx maintain` / `/dxmaintain` | Yes | Requires `.dex/` repo context; `dx init --install-maintenance-workflow` can also install the scheduled GitHub workflow |
-| `/dxloop`, `/dxplan`, `/dximplement`, etc. | No | Skills work in any Claude Code session |
-| Claude/Codex tooling bootstrap | No | `dx install`, `dx init`, and `dx sync` repair Dex links, browser MCPs, official OpenAI docs MCP, and safe official plugins |
-| Codex skill discovery | No | Dex links skills into `$CODEX_HOME/skills` (default `~/.codex/skills`) when Codex CLI is present |
-| UI capture tooling | No | Dex installs Playwright into `~/.claude/.dex-tools/` and configures Playwright MCP + Chrome DevTools MCP when CLIs are present |
-| Hooks (guards, commit validation, ticket context) | No | Installed globally by `dx install` |
-| Agents (self-reviewer, review specialists) | No | Symlinked globally by `dx install` |
-| `dx <number>` / `dx "description"` | No | Worktrees work in any git repo |
-
-**What `dx init` adds:** It runs Claude Code CLI to analyze your specific codebase and generates project-tailored configuration in `.dex/`:
-
-- **Quality gates** (`dex.md`) — discovers your format, lint, typecheck, and test commands from package.json, Makefile, CI config, etc. Without init, skills discover these at runtime (slower, may miss non-obvious commands).
-- **Coding conventions and memory** (`rules/`, `memory/`) — generates rule files from observed patterns and a memory index for durable lessons. Without init/sync, Claude infers conventions from context each time.
-- **Project-specific guards** (`guards/`) — creates guards for files that should never be committed (environment files, generated configs). Without init, only the universal guards (destructive commands, secrets, sensitive files) are active.
-- **Integration config** — configures ticket tracker (Linear, GitHub Issues), Figma, Sentry, etc. Without init, skills skip tracker updates.
-- **Claude/Codex tooling repair** — refreshes Dex Claude skill/agent links, Codex skill links, Dex-managed browser MCPs, official OpenAI docs MCP, and a narrow allowlist of official Claude plugins. Dex auto-installs only the OpenAI Codex plugin when Codex is present, `frontend-design` for detected frontend repos, and language LSP plugins for detected TypeScript/JavaScript, Python, Rust, or Go repos.
-- **Optional maintenance workflow** — with `--install-maintenance-workflow`, installs `.github/workflows/dx-maintain.yml` for scheduled report runs plus manually dispatched propose/fix-scoped runs. GitHub-hosted runners also need `DX_MAINTAIN_PROVIDER_SETUP` to install/authenticate the agent provider; write modes need a `DX_MAINTAIN_TOKEN` secret for the separate publish step.
-
-In short: everything works without init, but init makes it faster and more accurate by caching project knowledge.
-
-## Commands
-
-```bash
-# Global
-dx install           # Link Claude skills/agents, Codex skills, hooks, shell functions
-dx uninstall         # Remove global links, hooks, Codex skill links, and Dex settings
-dx status            # Show what's installed and where
-dx tools             # Check Claude/Codex tooling without changing configuration
-dx tools bootstrap   # Repair Dex links, official MCPs, and safe official plugins
-
-# Per-project
-dx init              # Bootstrap current repo — analyzes codebase, generates config
-dx init --install-maintenance-workflow # Also install DX maintain GitHub workflow
-dx sync              # Refresh repo memory/rules from verified observations
-dx maintain          # Run background maintenance report/propose/fix-scoped modes
-dx maintain install-workflow # Install .github/workflows/dx-maintain.yml
-dx maintain --help   # Show provider, publish, and response options
-dx config            # Configure integrations (ticket tracker, Figma, Sentry, etc.)
-dx uninit            # Remove Dex from current repo
-
-# Worktrees
-dx <number>          # Create worktree, run full autonomous lifecycle (Plan → Complete)
-dx "<description>"   # Same, for a task without a ticket number
-dx --no-worktree <task> # Run the full lifecycle in the current checkout
-dx --resume          # Resume a previous session
-dx revert <N> [phase] # Revert worktree to a phase checkpoint
-dx log [session_id]  # Show structured phase execution log
-dxrm <number|name>  # Remove worktree
-dxrm --all          # Remove all worktrees
-dxls                # List active worktrees
-dxcd                # cd to repo root
-dxcd <number|slug>  # cd to a worktree (fuzzy match)
-dxclean             # Prune stale worktrees, gone branches, orphan branches
-
-# Refinement / architecture mapping
-dx refine <N|description> # Refine a ticket before implementation
-/dxrefine <input>         # In-session refinement workflow
-/dxarchitect [focus]      # Build or refresh .dex/architecture.md
-
-# Standalone completion (recovery / non-dx PRs)
-dxcomplete           # Run Phase 6 manually on the current branch's PR
-
-# Standalone review (adaptive clean-pass loop, no full lifecycle)
-dxreviewloop         # Shell function — spawns full Claude CLI sessions per pass (terminal)
-/dxreviewloop        # Skill — orchestrates fresh Agent-tool subagents per pass (in-session)
-/dxreview            # User-facing alias that dispatches to /dxreviewloop by default
-
-# Prompt loop (no worktree or ticket needed)
-dxloop <prompt>     # Run a prompt until fully implemented (from terminal)
-/dxloop <prompt>    # Same, but from inside an existing Claude Code session
-
-# Maintenance
-dx reload            # Reload shell functions after editing dx.sh
-dx provider current  # Show active Claude/Codex/gateway execution profile
-dx provider doctor   # Check subscription-safe provider setup
-bash "$DEX_DIR/bin/ui-capture.sh" --install-only  # Repair UI capture tooling
-```
-
-## Structure
-
-```
-dex/
-  agents/                    # Sub-agents -> symlinked to ~/.claude/agents/
-    self-reviewer.md         # Read-only code reviewer with persistent memory
-    review-*.md              # Read-only specialist reviewers + verifier for review waves
-  bin/                       # CLI scripts
-    install.sh               # Global install
-    uninstall.sh             # Global uninstall
-    init.sh                  # Per-project bootstrap (uses Claude Code CLI)
-    sync.sh                  # Repo memory/rule refresh
-    uninit.sh                # Per-project removal
-    config.sh                # Integration configuration (ticket tracker, Figma, etc.)
-    status.sh                # Show installation status
-  docs/                      # Extended documentation
-    guards.md                # Guard system (hookify-style rules)
-    autonomous-mode.md       # Phase audit loops and autonomous execution
-    ui-capture.md            # Screenshots, videos, traces, and browser logs
-  skills/                    # Lifecycle skills -> linked into ~/.claude/skills/
-                             # Each skill is a directory containing SKILL.md
-    dex/                 # Orchestrate full ticket lifecycle
-    dxarchitect/             # Build or refresh the C4 architecture map
-    dxsync/                  # Refresh durable repo memory and rules
-    dxrefine/                # Refine tickets into estimated sub-tickets
-    dxplan/                  # Implementation planning (multi-approach)
-    dximplement/             # TDD implementation with completeness verification
-    dxuicapture/             # UI screenshots, traces, videos, and browser error logs
-    dxreview/                # Single review wave: context, harvest, verifier, batch fixes
-    dxverify/                # Discover and run project quality gates
-    dxcommit/                # Atomic conventional commits
-    dxpr/                    # PR description, reviews, monitoring
-    dxwatchpr/              # PR review and CI monitoring via /loop
-    dxprreview/              # Critically evaluate and address PR review comments
-    dxcomplete/              # Final verification, ticket closure
-    dxloop/                  # In-session prompt loop (run until done)
-    dxreviewloop/            # In-session adaptive review via fresh Agent subagents
-  lib/                       # Shared shell library (sourced by dx.sh and hook scripts)
-    common.sh                # Constants, bootstrap (sources other lib files)
-    codex.sh                 # Codex CLI skill-link helpers
-    git.sh                   # Git helpers (default branch detection, slugify)
-    provider.sh              # Provider/model profile resolution and diagnostics
-    session.sh               # Session ID and state file path helpers
-    output.sh                # Formatted output ([done], [ok], [warn], etc.)
-    ui-capture.sh            # Playwright/UI capture tooling and artifact helpers
-  hooks/                     # Hook scripts (referenced from ~/.claude/settings.json)
-    load-ticket-context.sh   # SessionStart — ticket context + focus area detection
-    user-prompt-submit.sh    # UserPromptSubmit — pause scheduled watchers during manual prompts
-    post-commit-guard.sh     # PostToolUse — commit validation via guards
-    guard-handler.py         # PreToolUse — markdown-based guard evaluation
-    phase-loop.sh            # Stop — phase audit loop (quality-gated execution)
-    stop-sound.sh            # Stop — best-effort macOS sound notification
-    pre-compact.sh           # PreCompact — compaction context reminder
-    session-end.sh           # SessionEnd — session cleanup bookkeeping
-    guards/                  # Markdown guard rules (universal)
-      claude-attribution.md
-      destructive-commands.md
-      raw-codex-delegation.md
-      sensitive-files.md
-      hardcoded-secrets.md
-  prompts/                   # Prompts referenced by skills and agents
-    review-wave.md           # ReviewLoop wave contract and specialist output schema
-    review.md                # 12-pass review criteria + confidence scoring
-    guardrails.md            # AI discipline + implementation principles (referenced by skills)
-    pr-description.md        # PR description template
-    commit-format.md         # Conventional commit format + grouping rules
-    ticket-instructions.md   # Ticket intake workflow (injected by SessionStart hook)
-    init-analysis.md         # Codebase analysis prompt (used by dx init)
-    phase-audits/            # Phase-specific audit prompts (injected by Stop hook)
-      1-plan.md              # Plan quality audit
-      2-implement.md         # Implementation completeness audit
-      3-review-loop.md       # Lifecycle review-loop audit
-      3-review.md            # Single-pass adversarial review audit
-      4-verify.md            # Verification + commit audit
-      5-pr.md                # PR quality audit
-      6-complete.md          # Phase 6 cycle-loop audit (mark ready, monitor, close)
-      prompt-loop.md         # Prompt loop audit (used by dxloop)
-  scripts/
-    ui-capture.cjs           # Playwright capture runner used by /dxuicapture
-  dx.sh                      # Shell functions (dx, dxrm, dxls, dxclean, dxloop, dex)
-  install.sh                 # Quick-start installer (delegates to bin/install.sh)
-  settings.json              # Hook definitions template
-```
-
-### Per-project structure (created by `dx init`)
-
-```
-.dex/
-  dex.md                 # Project-specific config (generated by Claude Code CLI)
-  AGENTS.md                  # @import of dex.md (generated context source of truth)
-  CLAUDE.md                  # @import of AGENTS.md (Claude Code compatibility pointer)
-  review-rules.md            # Optional path-specific focus for review waves
-  rules/                     # Coding conventions (generated from codebase analysis)
-  guards/                    # Project-specific guard rules (generated)
-  memory/                    # Durable repo memory index + promoted lessons
-  worktrees/                 # Worktree directories (created by dx)
-```
-
-`.dex/AGENTS.md` is the canonical generated instruction entrypoint and imports `.dex/dex.md`. `.dex/CLAUDE.md` remains as a Claude Code compatibility file that imports `AGENTS.md`, so Claude sees the same project context while Dex keeps one source of truth.
-
-## Internals
-
-### Init (codebase analysis)
-
-`dx init` creates a `.dex/` directory, then uses **Claude Code CLI** to analyze the codebase and generate project-specific configuration:
-
-- **Quality gates** — discovers format, lint, typecheck, test commands from package.json, Makefile, CI config
-- **Coding conventions** — generates rule files from observed patterns in the codebase
-- **Memory index** — creates `.dex/memory/index.md` for durable repo lessons promoted by `dx sync`
-- **Guards** — creates guards for files that should never be committed (environment files, generated configs)
-- **Integrations** — asks which integrations to use (ticket tracker, Figma, Sentry, Vercel, Grafana)
-- **Tooling repair** — checks and repairs Claude/Codex Dex links, official MCPs, and the safe official plugin allowlist
-- **Optional maintenance workflow** — installs `.github/workflows/dx-maintain.yml` when `--install-maintenance-workflow` is passed
-
-Flags:
-- `--skip-analysis` — skip codebase analysis (still runs integration config unless `--skip-config` is also set)
-- `--skip-config` — skip integration configuration (run `dx config` later)
-- `--install-maintenance-workflow` — also install `.github/workflows/dx-maintain.yml`
-
-To reconfigure integrations at any time: `dx config`
-
-### Skills (immediate updates)
-
-Claude skills are linked as `~/.claude/skills/ -> ~/work/dex/skills/` when that path is available. If `~/.claude/skills` is already a directory, `dx install` preserves unrelated skills and installs Dex skill links inside it. Claude Code auto-discovers them as slash commands (`/dex`, `/dxplan`, etc.).
-
-Codex skills are linked individually into `$CODEX_HOME/skills/<skill-name> -> ~/work/dex/skills/<skill-name>` (`CODEX_HOME` defaults to `~/.codex`). Dex does not replace the Codex skills directory, because Codex stores system and plugin skills there too. `dx install`, `dx init`, and `dx sync` repair these links when Codex CLI is present.
-
-Edit a skill file — change takes effect in the next Claude or Codex invocation that loads that skill.
-
-All skills are **codebase-agnostic**. They discover the project's toolchain, conventions, and quality gates from the codebase itself rather than prescribing specific commands.
-
-### Agents (immediate updates)
-
-Agents are symlinked: `~/.claude/agents/ -> ~/work/dex/agents/`. Claude Code auto-discovers them and delegates tasks based on their descriptions.
-
-### Hooks (immediate updates)
-
-Hooks are defined in `~/.claude/settings.json` with paths to Dex scripts (see [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks)). Seven hook types:
-
-| Hook | Event | Script | Purpose |
-|------|-------|--------|---------|
-| SessionStart | Session begins | `load-ticket-context.sh` | Load ticket context, detect focus areas |
-| UserPromptSubmit | User submits a prompt | `user-prompt-submit.sh` | Pause scheduled Phase 6 watchers during manual user work |
-| PreToolUse | Before Bash/Edit/Write | `guard-handler.py` | Block/warn on dangerous patterns |
-| PostToolUse | After Bash (git commit) | `post-commit-guard.sh` | Validate commits via guards |
-| Stop | Claude tries to stop | `phase-loop.sh`, `stop-sound.sh` | Phase audit loop (when active) plus best-effort macOS sound notification |
-| PreCompact | Before compaction | `pre-compact.sh` | Preserve Dex context across compaction |
-| SessionEnd | Session ends | `session-end.sh` | Record session end metadata |
-
-### Guards (immediate updates)
-
-Markdown files with YAML frontmatter. Universal guards (destructive commands, sensitive files, hardcoded secrets) ship with Dex in `hooks/guards/`. Project-specific guards are generated during `dx init` in `.dex/guards/`. See [docs/guards.md](docs/guards.md).
-
-### Shell Functions (reload needed)
-
-`dx.sh` defines `dx`, `dxrm`, `dxls`, `dxclean`, `dxloop`, `dxcomplete`, `dxreviewloop`, and `dex`. After editing, run `dx reload` to apply.
-
-## Confidence Scoring
-
-Self-review findings include a confidence score (0-100). Only findings scoring >= 50 are reported:
-
-| Score | Meaning |
-|-------|---------|
-| 90-100 | Certain — verifiable bug, missing guard |
-| 75-89 | Highly confident — real issue with evidence |
-| 50-74 | Moderately confident — likely issue |
-| 0-49 | Filtered out — noise, pre-existing, or linter territory |
-
-## Adding a New Project
-
-1. `cd` into the repo
-2. `dx init` — analyzes the codebase and generates `.dex/` config
-3. Review the generated config in `.dex/` — edit rules and guards as needed
-4. Commit `.dex/` to the repo (worktree artifacts are gitignored)
-
-To re-run codebase analysis after significant changes:
-```bash
-dx init --skip-config
-```
-
-## Configuration
-
-### Environment
-
-`DEX_DIR` — Override the install location (default: `$HOME/work/dex`). Set before running install or sourcing dx.sh.
-
-`CODEX_HOME` — Override the Codex config root used for Dex skill links (default: `~/.codex`).
-
-`DX_ALLOW_REPO_GATEWAY_PROVIDER=1` — Explicitly allow a trusted repo-local gateway/API provider profile for the current invocation. Prefer global gateway profiles in `~/.dex/providers.json`.
-
-### Guards
-
-Project-specific guards are generated during `dx init` in `.dex/guards/`. You can also add guards manually — see [docs/guards.md](docs/guards.md) for the format and examples.
-
-### Autonomous mode
-
-Control via environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEX_LOOP_ACTIVE` | `0` | Enable the phase audit loop (set automatically by `dx`) |
-| `DEX_LOOP_MAX_ITERATIONS` | `30` | Max iterations before forced stop |
-| `DEX_LOOP_MIN_AUDITS` | Per-phase | Min audit iterations before completion authorized |
-| `DEX_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
-| `DEX_PHASE_N_MIN_AUDITS` | — | Per-phase override (e.g., `DEX_PHASE_2_MIN_AUDITS=5`) |
-| `DEX_REVIEW_PROFILE` | `auto` | Starting Phase 3 review depth: `auto`, `light`, `standard`, or `thorough` |
-| `DEX_REVIEW_CLEAN_PASSES` | profile-based | Exact consecutive `CLEAN` review waves required (overrides profile) |
-| `DEX_REVIEW_MAX_ITERATIONS` | profile-based | Exact max review iterations before Phase 3 pauses (overrides profile) |
-| `DEX_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review wave may stay in progress before the lifecycle pauses |
-| `DEX_REVIEW_PASS_NOTICE_INTERVAL` | `120` (2m 0s) | Minimum seconds between repeated Phase 3 busy-gate notices for the same review pass |
-| `DEX_REVIEW_PASS_RECHECK_SECONDS` | `45` (0m 45s) | Seconds the Stop hook quietly polls for a busy Phase 3 review pass to finish before re-blocking |
-| `DEX_WATCH_CYCLE_TIMEOUT_SECONDS` | `120` (2m 0s) | Maximum runtime budget for one scheduled Phase 6 watcher invocation |
-| `DEX_WATCH_COMMAND_TIMEOUT_SECONDS` | `30` (0m 30s) | Maximum runtime for one GitHub/local shell command inside a watcher cycle |
-| `DEX_WATCH_PAUSE_TTL_SECONDS` | `3600` (60m 0s) | Seconds scheduled Phase 6 watchers stay paused after a direct user prompt; set to 0 for no automatic expiry |
-| `DEX_COMPLETE_MAX_CYCLES` | `3` | Max idle PR watch cycles before Phase 6 pauses for manual follow-up |
-| `DEX_COMPLETE_WAIT_MINUTES` | `5` | Minimum wait window per Phase 6 cycle (minutes) |
-| `DX_ARTIFACT_DIR` | `~/.claude/.dex-artifacts` | Dex-generated screenshots, videos, traces, and logs |
-| `DX_TOOL_DIR` | `~/.claude/.dex-tools` | Dex-managed external tooling cache, including Playwright |
-
-### Reviewers
-
-Phase 6 reads the `## Reviewers` section of `.dex/dex.md` to decide who to request reviews from. Two assignment types per row:
-
-| Type | Mechanism | Use for |
-|------|-----------|---------|
-| `request` | `gh pr edit --add-reviewer <handle>` | Humans, GitHub Copilot, anything GitHub recognises as a reviewer |
-| `mention` | `@<handle>` posted as a PR comment | AI agents that watch mentions but don't accept native review requests |
-
-Defaults written by `dx config`:
-- The current authenticated GitHub user (auto-detected via `gh api user`) as `request`
-- `Copilot` as `request`
-
-Edit `.dex/dex.md § Reviewers` directly or rerun `dx config` to change. After each push (review-fix commit), Phase 6 re-requests `request` reviewers and re-posts the `@mention` comment so reviewers know there's something new to look at.
+Dex is V1 software from Synthetic Industry. It assumes fresh V1 installs and does
+not carry pre-V1 migration paths.

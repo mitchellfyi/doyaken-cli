@@ -1,6 +1,6 @@
 ---
 name: "dxreview"
-description: "Run one full-scope Dex review wave with adaptive depth, verifier triage, and batch fixes."
+description: "Run one full-scope Dex review wave with adaptive depth, verifier pass, and batch fixes."
 ---
 
 # Skill: dxreview
@@ -27,11 +27,10 @@ Follow `prompts/review-wave.md` as the source of truth. In one wave:
 2. Build the compact context pack first in `dx_review_context_file`.
 3. Run deterministic checks before semantic review.
 4. Harvest candidate issues according to the supplied profile:
-   - `light`: orchestrator harvest; run `review-verifier` only if candidates or
-     escalation risk exist
-   - `standard`: orchestrator harvest, targeted specialists for concrete changed
-     domains, plus `review-verifier`
-   - `thorough`: full specialist roster plus `review-verifier`
+   - `light`: core domain sweep
+   - `standard`: core sweep plus targeted domain sweeps for concrete changed
+     surfaces
+   - `thorough`: all domain sweeps across the full caller-supplied scope
 5. Verify, deduplicate, and rank candidate findings before fixing.
 6. Batch-fix all verified findings, then re-run affected checks and targeted
    review once.
@@ -41,9 +40,9 @@ Run in the current checkout. Do not run `dk <ticket-or-description>`, Phase 0
 setup, or any branch/worktree setup from this skill. Do not create, switch,
 rename, or delete branches or worktrees.
 
-Collect all candidate issues before fixing anything. Do not add a separate
-general reviewer just to harvest issues; the fresh review-wave loop already owns
-that pass. The point is one aggressive inventory followed by one batch fix.
+Collect all candidate issues before fixing anything. The fresh review-wave CLI
+session already owns the independent review pass. The point is one aggressive
+inventory followed by one batch fix.
 
 Do not stop after only reporting verified findings. If verified findings are
 safe to fix in scope, fix them, re-run affected checks/review, and write

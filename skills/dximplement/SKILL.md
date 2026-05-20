@@ -80,31 +80,22 @@ When stopping for scope changes, do NOT output a completion promise (e.g., `PHAS
 
 Update the ticket via the configured tracker (see dex.md § Integrations) with the scope change details. If no tracker is configured, inform the user in conversation.
 
-### 4. Self-Review Loop (Merged-Inventory Approach)
+### 4. Implementation Inventory
 
-After all tasks are completed, run a two-perspective review to catch issues you may have missed:
+After all tasks are completed, run a focused implementation inventory to catch
+issues before the dedicated Phase 3 review loop takes over.
 
-**Step 1 — Your own inventory (find only, no fixes):**
+**Step 1 — Build the inventory (find only, no fixes):**
 Walk through all changed files and build a numbered findings list. For each file, check: correctness (try to break it), design (workarounds, complexity), documentation (non-obvious logic explained?), and consistency (patterns match across files). Record each issue as `[INV-N] file:line | description`. Do NOT fix anything yet.
 
-**Step 2 — Independent review via self-reviewer agent:**
-Spawn the `self-reviewer` agent with:
-- The acceptance criteria from the approved plan (copy verbatim)
-- The base branch and current branch name
-- Which areas of the codebase have changed files
+**Step 2 — Batch fix:**
+Fix all items from the inventory in severity order (high first).
 
-The agent reviews independently and produces its own findings report.
+**Step 3 — Re-verify:**
+Re-run the inventory against the FULL change set (not just fixed files). If new
+findings emerge, fix them and re-run the inventory.
 
-**Step 3 — Merge inventories:**
-Combine your findings (Step 1) with the agent's findings (Step 2). Deduplicate by file:line. The union is the master inventory.
-
-**Step 4 — Batch fix:**
-Fix all items from the merged inventory in severity order (high first).
-
-**Step 5 — Re-verify:**
-Re-spawn the self-reviewer agent to verify fixes against the FULL change set (not just fixed files). If new findings emerge, fix and re-spawn. Maximum 3 total agent spawns.
-
-**Step 6 — Evidence table:**
+**Step 4 — Evidence table:**
 Before declaring PASS, produce an acceptance criteria evidence table:
 
 | # | Criterion | Implementation (`file:line`) | Test (`test:line`) | Status |
@@ -116,13 +107,20 @@ Use a plain GitHub Markdown table or short bullets. Do not use Unicode box-drawi
 
 Completion is blocked unless every acceptance criterion and verification gate is exactly `MET`. Treat `NOT MET`, `NOT FOUND`, `DEFERRED`, `SKIPPED`, `BLOCKED`, `N/A`, "CI will cover it", "port busy", "tool unavailable", or equivalent as a blocker unless the user explicitly approved a plan change. If a local port is busy, use another port or stop the conflicting process and rerun the required check; do not defer required Phase 2 verification to future CI.
 
-Before declaring PASS, confirm that no self-reviewer, implementation helper, UI capture, test runner, dev server, or other Phase 2 background process/agent is still in flight.
+Before declaring PASS, confirm that no implementation helper, UI capture, test
+runner, dev server, or other Phase 2 background process is still in flight.
 
-If the final agent result is PASS and the evidence table has zero NOT FOUND entries: implementation is complete. When run via `dx`, the next phase (Review) follows automatically after the Stop hook audits this phase.
+If the final inventory is empty and the evidence table has zero NOT FOUND
+entries: implementation is complete. When run via `dx`, the next phase (Review)
+follows automatically after the Stop hook audits this phase.
 
 ### 5. Final Implementation Checks
 
-After the self-review loop passes (Step 4 produces PASS with zero NOT FOUND entries), run the project's relevant deterministic checks one more time and update the evidence table with final pass/fail status. Do not invoke `/dxreview` from Phase 2; the dedicated Phase 3 `/dxreviewloop` handles adversarial review after implementation is complete.
+After the implementation inventory passes and the evidence table has zero NOT
+FOUND entries, run the project's relevant deterministic checks one more time and
+update the evidence table with final pass/fail status. Do not invoke `/dxreview`
+from Phase 2; the dedicated Phase 3 `/dxreviewloop` handles adversarial review
+after implementation is complete.
 
 ### 6. UI Capture Evidence
 
@@ -147,7 +145,7 @@ When running inside a terminal `dx` lifecycle (`DEX_SESSION_ID` is present), wri
 - No evidence entry is deferred, skipped, blocked, missing, or delegated to future CI unless the user approved a plan change.
 - Final deterministic checks passed locally.
 - Required UI capture evidence is linked, including before/after evidence or a before-unavailable reason, or UI capture is explicitly N/A.
-- No Phase 2 background agents or long-running commands are still in flight.
+- No Phase 2 background processes or long-running commands are still in flight.
 
 ```bash
 source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"

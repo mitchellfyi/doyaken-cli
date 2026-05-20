@@ -148,8 +148,8 @@ Only generate rules for areas that have enough established patterns to document.
 ### `.dex/review-rules.md` (path-specific review focus)
 
 Generate this file when the codebase has meaningful path-specific review focus.
-Use it to tell Dex review waves where specialist reviewers should spend
-attention. Include concise sections for applicable areas such as:
+Use it to tell Dex review waves where domain sweeps should spend attention.
+Include concise sections for applicable areas such as:
 
 - frontend/UI paths: accessibility, responsive layout, state/data contracts,
   UI capture expectations

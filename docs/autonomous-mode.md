@@ -57,8 +57,8 @@ The review audit (Phase 3) is adaptive. Phase 3 runs `/dxreviewloop`, which
 starts from `DEX_REVIEW_PROFILE=auto`: light for tiny/docs-only changes,
 standard for normal changes, and thorough for high-risk or broad changes. Each
 wave builds a compact context pack, runs deterministic checks, harvests issues in
-the fresh wave orchestrator, uses targeted read-only specialists only when the
-profile requires them, verifies findings, batch-fixes verified issues, and
+the fresh wave session, runs targeted domain sweeps when the profile requires
+them, verifies findings, batch-fixes verified issues, and
 rechecks affected surfaces. A wave that fixes anything writes `FINDINGS_FIXED:N`,
 which resets the outer clean counter. A wave can write `ESCALATE_THOROUGH:reason`
 when the profile is too shallow.

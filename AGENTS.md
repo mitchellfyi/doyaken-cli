@@ -13,18 +13,17 @@ Dex is a standalone workflow automation framework for Claude Code. It provides a
   - `hooks/*.sh` — **bash** (`#!/usr/bin/env bash`)
   - `lib/*.sh` — **bash/zsh-compatible** (sourced by both dx.sh and hooks)
 - **Python 3 (stdlib only):** `hooks/guard-handler.py` — guard evaluation, no external dependencies
-- **Markdown + YAML frontmatter:** Skills, agents, guards, prompts, rules
+- **Markdown + YAML frontmatter:** Skills, guards, prompts, rules
 
 ## Directory Structure
 
 ```
-agents/              Sub-agents (symlinked to ~/.claude/agents/)
 bin/                 CLI scripts (install, init, config, status, etc.)
 docs/                Extended documentation (guards, autonomous mode, UI capture)
 hooks/               Claude Code hooks + guard handler
   guards/            Built-in guard rules (markdown with YAML frontmatter)
 lib/                 Shared shell libraries (common, codex, git, output, provider, session, ui-capture, worktree)
-prompts/             Prompt templates for skills/agents
+prompts/             Prompt templates for skills and CLI harness workflows
   phase-audits/      Phase-specific audit prompts (1-6 + prompt-loop)
 scripts/             Node/helpers used by Dex-managed tooling
 skills/              Lifecycle skills (linked into ~/.claude/skills/ and individually to $CODEX_HOME/skills/)
@@ -113,33 +112,13 @@ When users need a vendor skill:
 
 The corresponding MCP servers are listed and authenticated through claude.ai or `claude mcp` — they show up as `mcp__claude_ai_<Vendor>__*` tools and are available to Dex's skills automatically when enabled.
 
-Dex may auto-repair a narrow official tooling allowlist during `dx install`,
+Dex may install a narrow official tooling allowlist during `dx install`,
 `dx init`, and `dx sync`: Dex Claude/Codex skill links, browser MCPs,
 OpenAI docs MCP, the OpenAI Codex Claude plugin when Codex is installed,
 `frontend-design` for detected frontend repos, and official language LSP
 plugins for detected TypeScript/JavaScript, Python, Rust, or Go repos. Do not
 add broad behavior-changing plugins, community marketplaces, or vendor
 integration plugins to the default bootstrap path.
-
-## Agent Conventions
-
-Agents live in `agents/*.md` with YAML frontmatter:
-
-```yaml
----
-name: agent-name
-description: what it does
-tools: Read, Glob, Grep, Bash    # allowed tools
-model: opus                      # model selection
-skills:
-  - dxreview                      # skills it can invoke
-memory: project                   # memory scope
----
-```
-
-Read-only review specialist agents (`agents/review-*.md`) intentionally omit
-project memory so review waves do not create `.claude/agent-memory/` artifacts
-as a side effect.
 
 ## Guard Conventions
 
@@ -171,11 +150,12 @@ env_value: optional-exact-value
 
 ## Prompt Conventions
 
-Stored in `prompts/`. Referenced by skills/agents via `@prompts/<file>.md`.
+Stored in `prompts/`. Referenced by skills and CLI harness prompts via
+`@prompts/<file>.md`.
 
 - `guardrails.md` — Implementation discipline (shared across implement/review skills)
 - `review.md` — 12-pass review criteria (A-L) with confidence scoring
-- `review-wave.md` — Review-wave contract and specialist output schema (used by `/dxreview --single-pass` and Phase 3)
+- `review-wave.md` — Review-wave contract and domain output schema (used by `/dxreview --single-pass` and Phase 3)
 - `commit-format.md` — Conventional Commits specification
 - `pr-description.md` — PR description template
 - `ticket-instructions.md` — Ticket intake workflow (injected by SessionStart hook)

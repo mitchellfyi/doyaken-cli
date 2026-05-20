@@ -1237,7 +1237,7 @@ dx_provider_doctor() {
     if command -v dx_codex_dex_skills_complete >/dev/null 2>&1 && dx_codex_dex_skills_complete; then
       dx_ok "Dex Codex skills linked (${codex_skill_count}/${codex_skill_expected})"
     elif [[ "$codex_skill_count" -gt 0 ]]; then
-      dx_warn "Dex Codex skills are partially linked (${codex_skill_count}/${codex_skill_expected}); run 'dx install' to repair skill links"
+      dx_warn "Dex Codex skills are partially linked (${codex_skill_count}/${codex_skill_expected}); run 'dx install' to reinstall skill links"
     else
       dx_warn "Dex Codex skills are not linked; run 'dx install' to refresh skill links"
     fi
@@ -1249,7 +1249,7 @@ dx_provider_doctor() {
     else
       if [[ $codex_cli_found -eq 1 ]]; then
         dx_warn "OpenAI Codex Claude Code plugin not installed; Codex CLI delegation is still available"
-        dx_info "Repair plugin slash commands with: dx tools bootstrap"
+        dx_info "Install plugin slash commands with: dx tools bootstrap"
       else
         dx_error "OpenAI Codex Claude Code plugin not installed"
         dx_info "Install Codex CLI, then run: dx tools bootstrap"

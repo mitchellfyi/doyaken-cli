@@ -2718,7 +2718,7 @@ COMMIT_REPO=$(__dx_post_commit_is_git_commit "$TOOL_INPUT") || {
 }
 
 # Check if a commit was actually created (exit code 0 means success). Claude
-# hook stdin is authoritative; legacy env is only a no-stdin/non-JSON fallback.
+# hook stdin is authoritative; env is only a no-stdin/non-JSON fallback.
 TOOL_EXIT=""
 HOOK_INPUT_IS_JSON=0
 if [[ -n "$HOOK_INPUT" ]]; then

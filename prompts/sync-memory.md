@@ -105,7 +105,6 @@ Read current Dex context:
 - `.dex/rules/*.md`
 - `.dex/guards/*.md`
 - `.dex/memory/index.md` and referenced memory files
-- `docs/dxsync-memory-plan.md` when available in the Dex repo
 
 ### 3. Observe
 

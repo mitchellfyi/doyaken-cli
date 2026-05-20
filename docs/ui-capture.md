@@ -23,7 +23,7 @@ GitHub does not render local artifact paths as images. Dex gives the user the ma
 
 ## Setup
 
-`dx install`, `dx init`, `dx sync`, and `dx tools bootstrap` install or repair the browser tooling:
+`dx install`, `dx init`, `dx sync`, and `dx tools bootstrap` install the browser tooling:
 
 - Playwright in `~/.claude/.dex-tools/ui-capture/`
 - Playwright MCP for Claude and Codex when those CLIs are installed
@@ -35,7 +35,7 @@ Check status:
 dx status
 ```
 
-Repair manually:
+Install manually:
 
 ```bash
 bash "$DEX_DIR/bin/ui-capture.sh" --install-only

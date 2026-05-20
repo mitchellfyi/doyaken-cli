@@ -15,46 +15,6 @@ dx_claude_dir() {
   printf '%s\n' "$HOME/.claude"
 }
 
-dx_claude_link_repairable() {
-  local current="$1" kind="$2"
-  case "$current" in
-    */dex*/"$kind"|*/dex*/"$kind"/) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-dx_claude_skill_link_repairable() {
-  local current="$1" skill_name="$2"
-  case "$current" in
-    */dex*/skills/"$skill_name"|*/dex*/skills/"$skill_name"/) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-dx_remove_legacy_claude_skill_links() {
-  local skills_dir="$1"
-  [[ -d "$skills_dir" ]] || return 0
-
-  local removed=0
-  local target current skill_name
-  while IFS= read -r target; do
-    [[ -L "$target" ]] || continue
-    skill_name=$(basename "$target")
-    current=$(readlink "$target")
-    case "$skill_name:$current" in
-      dk*:*/doyaken*/skills/*|doyaken:*/doyaken*/skills/*)
-        if rm "$target"; then
-          removed=$((removed + 1))
-        fi
-        ;;
-    esac
-  done < <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type l 2>/dev/null)
-
-  if [[ $removed -gt 0 ]]; then
-    dx_done "Removed ${removed} legacy Doyaken Claude skill link(s)"
-  fi
-}
-
 dx_install_claude_skill_links() {
   local skills_dir="$1"
   if ! mkdir -p "$skills_dir"; then
@@ -62,12 +22,9 @@ dx_install_claude_skill_links() {
     return 1
   fi
 
-  dx_remove_legacy_claude_skill_links "$skills_dir"
-
   local installed=0
   local expected=0
   local failed=0
-  local repaired=0
   local skipped=0
   local skill_dir skill_name target current
   for skill_dir in "$DEX_DIR"/skills/*; do
@@ -80,13 +37,6 @@ dx_install_claude_skill_links() {
       current=$(readlink "$target")
       if [[ "$current" == "$skill_dir" ]]; then
         installed=$((installed + 1))
-      elif dx_claude_skill_link_repairable "$current" "$skill_name"; then
-        if rm "$target" && ln -s "$skill_dir" "$target"; then
-          installed=$((installed + 1))
-          repaired=$((repaired + 1))
-        else
-          failed=$((failed + 1))
-        fi
       else
         dx_warn "${skills_dir}/${skill_name} is a symlink to ${current} — leaving it unchanged"
         skipped=$((skipped + 1))
@@ -104,7 +54,7 @@ dx_install_claude_skill_links() {
   done
 
   if [[ $failed -gt 0 || $skipped -gt 0 || $installed -ne $expected ]]; then
-    dx_warn "Installed ${installed}/${expected} Claude skill link(s); repaired ${repaired}; skipped ${skipped}; failed ${failed}"
+    dx_warn "Installed ${installed}/${expected} Claude skill link(s); skipped ${skipped}; failed ${failed}"
     return 1
   fi
 
@@ -140,8 +90,8 @@ dx_claude_dex_skill_links_complete() {
   [[ "$expected" -gt 0 && "$installed" -eq "$expected" ]]
 }
 
-dx_repair_claude_dex_link() {
-  local kind="$1" target="$2" mode="${3:-repair}"
+dx_install_claude_dex_link() {
+  local kind="$1" target="$2"
   local claude_dir link current
 
   claude_dir=$(dx_claude_dir)
@@ -153,15 +103,6 @@ dx_repair_claude_dex_link() {
     if [[ "$current" == "$target" ]]; then
       dx_ok "${HOME}/.claude/${kind} -> ${target}"
       return 0
-    fi
-
-    if [[ "$mode" == "force" ]] || dx_claude_link_repairable "$current" "$kind"; then
-      if rm "$link" && ln -s "$target" "$link"; then
-        dx_done "Updated ${HOME}/.claude/${kind} -> ${target}"
-        return 0
-      fi
-      dx_warn "Failed to update ${HOME}/.claude/${kind}"
-      return 1
     fi
 
     dx_warn "${HOME}/.claude/${kind} points to ${current}; leaving it unchanged"
@@ -182,8 +123,7 @@ dx_repair_claude_dex_link() {
   return 1
 }
 
-dx_repair_claude_dex_links() {
-  local mode="${1:-repair}"
+dx_install_claude_dex_links() {
   local failed=0 claude_dir skills_link
 
   claude_dir=$(dx_claude_dir)
@@ -192,42 +132,38 @@ dx_repair_claude_dex_links() {
   if [[ -d "$skills_link" && ! -L "$skills_link" ]]; then
     dx_install_claude_skill_links "$skills_link" || failed=1
   else
-    dx_repair_claude_dex_link "skills" "$DEX_DIR/skills" "$mode" || failed=1
+    dx_install_claude_dex_link "skills" "$DEX_DIR/skills" || failed=1
   fi
-  dx_repair_claude_dex_link "agents" "$DEX_DIR/agents" "$mode" || failed=1
 
   return "$failed"
 }
 
 dx_check_claude_dex_links() {
-  local failed=0 claude_dir kind target link current installed expected
+  local failed=0 claude_dir link current installed expected
   claude_dir=$(dx_claude_dir)
 
-  for kind in skills agents; do
-    target="$DEX_DIR/$kind"
-    link="$claude_dir/$kind"
-    if [[ -L "$link" ]]; then
-      current=$(readlink "$link")
-      if [[ "$current" == "$target" ]]; then
-        dx_ok "${HOME}/.claude/${kind} -> ${target}"
-      else
-        dx_warn "${HOME}/.claude/${kind} points to ${current}; expected ${target}"
-        failed=1
-      fi
-    elif [[ "$kind" == "skills" && -d "$link" ]]; then
-      installed=$(dx_count_claude_dex_skill_links "$link")
-      expected=$(dx_count_dex_skills)
-      if [[ "$installed" -eq "$expected" && "$expected" -gt 0 ]]; then
-        dx_ok "${HOME}/.claude/skills has ${installed}/${expected} Dex skill link(s)"
-      else
-        dx_warn "${HOME}/.claude/skills has ${installed}/${expected} Dex skill link(s)"
-        failed=1
-      fi
+  link="$claude_dir/skills"
+  if [[ -L "$link" ]]; then
+    current=$(readlink "$link")
+    if [[ "$current" == "$DEX_DIR/skills" ]]; then
+      dx_ok "${HOME}/.claude/skills -> ${DEX_DIR}/skills"
     else
-      dx_warn "${HOME}/.claude/${kind} is not linked to Dex"
+      dx_warn "${HOME}/.claude/skills points to ${current}; expected ${DEX_DIR}/skills"
       failed=1
     fi
-  done
+  elif [[ -d "$link" ]]; then
+    installed=$(dx_count_claude_dex_skill_links "$link")
+    expected=$(dx_count_dex_skills)
+    if [[ "$installed" -eq "$expected" && "$expected" -gt 0 ]]; then
+      dx_ok "${HOME}/.claude/skills has ${installed}/${expected} Dex skill link(s)"
+    else
+      dx_warn "${HOME}/.claude/skills has ${installed}/${expected} Dex skill link(s)"
+      failed=1
+    fi
+  else
+    dx_warn "${HOME}/.claude/skills is not linked to Dex"
+    failed=1
+  fi
 
   return "$failed"
 }
@@ -692,7 +628,7 @@ dx_check_codex_skill_links() {
 }
 
 dx_bootstrap_agent_tooling() {
-  local root="${1:-}" mode="${2:-repair}" failed=0
+  local root="${1:-}" mode="${2:-install}" failed=0
 
   if [[ "$mode" == "check" ]]; then
     dx_info "Checking Claude/Codex tooling bootstrap"
@@ -704,8 +640,8 @@ dx_bootstrap_agent_tooling() {
     return "$failed"
   fi
 
-  dx_info "Checking and repairing Claude/Codex tooling bootstrap"
-  dx_repair_claude_dex_links "repair" || failed=1
+  dx_info "Installing Claude/Codex tooling bootstrap"
+  dx_install_claude_dex_links || failed=1
 
   if command -v codex >/dev/null 2>&1; then
     dx_install_codex_skills || failed=1

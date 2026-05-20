@@ -61,7 +61,6 @@ ALLOWED_MODIFY_PATTERNS=(
   "skills/*/SKILL.md"
   "prompts/*.md"
   "prompts/phase-audits/*.md"
-  "agents/*.md"
   "hooks/guards/*.md"
   "research/config.sh"
   "research/run.sh"

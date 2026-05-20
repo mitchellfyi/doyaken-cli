@@ -130,10 +130,10 @@ echo ""
 
 if [[ "$READ_ONLY" -eq 1 ]]; then
   if ! dx_bootstrap_agent_tooling "$repo_root" "check"; then
-    dx_warn "Read-only sync found Claude/Codex tooling drift; run 'dx sync' or 'dx tools bootstrap' to repair it."
+    dx_warn "Read-only sync found Claude/Codex tooling drift; run 'dx sync' or 'dx tools bootstrap' to reinstall it."
   fi
 else
-  if ! dx_bootstrap_agent_tooling "$repo_root" "repair"; then
+  if ! dx_bootstrap_agent_tooling "$repo_root" "install"; then
     dx_warn "Continuing sync without complete Claude/Codex tooling bootstrap"
   fi
 fi

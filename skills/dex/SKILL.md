@@ -50,8 +50,8 @@ The terminal `dx` lifecycle runs phases in the same Claude Code session. Each ph
 ### Phase 3: Review
 
 1. Invoke `/dxreviewloop` to run the adaptive adversarial review loop.
-2. Each `/dxreviewloop` iteration runs one full review wave in a fresh review
-   subagent: compact context pack, deterministic checks, issue harvest, verifier
+2. Each `/dxreviewloop` iteration runs one full review wave in a fresh CLI
+   session: compact context pack, deterministic checks, issue harvest, verifier
    triage when needed, batch fixes, and targeted recheck.
 3. Waves that find and fix issues write `FINDINGS_FIXED:N`, reset the clean
    counter, and force the next iteration to re-review the full change set.

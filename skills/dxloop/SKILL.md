@@ -47,10 +47,9 @@ Before signaling completion, critically review your work against the original pr
 1. **Acceptance criteria extraction** — list all requirements from the prompt (explicit and implied)
 2. **/dxreview --single-pass** — run one review wave on your changes (code-change sessions only): compact context pack, deterministic checks, issue harvest, verifier triage, batch fixes, and targeted recheck
 3. **Multi-perspective inventory** — 4-pass manual review (Logic & Correctness, Structure/Design/Documentation, Security, Holistic Consistency & Dependencies)
-4. **Fallback self-reviewer agent** — spawn the `self-reviewer` agent only if the review wave cannot run (code-change sessions only)
-5. **Merged inventory and batch fix** — combine any remaining findings from /dxreview --single-pass, manual passes, and fallback agent; fix in severity order
-6. **/dxverify quality pipeline** — format, lint, typecheck, test (code-change sessions only)
-7. **Evidence table** — trace each requirement to specific `file:line` evidence in code and tests
+4. **Merged inventory and batch fix** — combine any remaining findings from /dxreview --single-pass and manual passes; fix in severity order
+5. **/dxverify quality pipeline** — format, lint, typecheck, test (code-change sessions only)
+6. **Evidence table** — trace each requirement to specific `file:line` evidence in code and tests
 
 If you find issues at any step, fix them and re-audit. Do NOT proceed to step 4 until the audit passes.
 

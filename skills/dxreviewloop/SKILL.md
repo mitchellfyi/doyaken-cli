@@ -17,16 +17,16 @@ phase used by `dx`.
 Do not run `dk <ticket-or-description>`, `dk --no-worktree`, Phase 0 setup, or
 any branch/worktree setup from this skill. Do not create, switch, rename, or
 delete branches or worktrees. "Fresh review-wave session" means a fresh review
-agent/context for the same checkout; it does not mean a fresh git workspace.
+context for the same checkout; it does not mean a fresh git workspace.
 
 ## Profiles
 
 The shell wrapper starts with `DEX_REVIEW_PROFILE` or `auto`:
 
-- `light`: 1 clean pass, max 4 iterations, orchestrator harvest.
-- `standard`: 2 clean passes, max 6 iterations, orchestrator harvest plus
-  targeted specialists.
-- `thorough`: 3 clean passes, max 10 iterations, full specialist roster.
+- `light`: 1 clean pass, max 4 iterations, core domain sweep.
+- `standard`: 2 clean passes, max 6 iterations, core sweep plus targeted domain
+  sweeps.
+- `thorough`: 3 clean passes, max 10 iterations, all domain sweeps.
 
 Exact gates still override profiles:
 
@@ -53,9 +53,8 @@ caller-supplied file inventory commands as the authoritative scope.
 
 ## Per-Pass Contract
 
-Each iteration is a fresh review-wave orchestrator. It must fix verified findings
-that are safe to fix in the caller-supplied scope; specialist/verifier agents it
-invokes are read-only.
+Each iteration is a fresh review-wave CLI session. It must fix verified findings
+that are safe to fix in the caller-supplied scope.
 
 A pass that only reports findings is incomplete. If a wave finds verified issues,
 the orchestrator fixes them, re-runs the affected checks/review, writes
@@ -71,20 +70,19 @@ source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
 BUSY_FILE="$(dx_phase_busy_file "$SESSION_ID" 3)"
 printf '%s\t%s\n' "$(date +%s)" "dxreviewloop pass ${ITERATION}/${MAX_ITERATIONS}; clean ${CLEAN_COUNT}/${REQUIRED_CLEAN}" > "$BUSY_FILE"
-# spawn and wait for exactly one fresh review-wave session
+# launch and wait for exactly one fresh review-wave CLI session
 rm -f "$BUSY_FILE" "$(dx_phase_busy_notice_file "$SESSION_ID" 3)"
 ```
 
-The subagent/session prompt must include the full-scope commands, review profile,
+The review-session prompt must include the full-scope commands, review profile,
 context-pack path from `dx_review_context_file`, result path, and instruction to
 follow `prompts/review-wave.md`.
 
-Do not add a second general reviewer for light/standard mode. The fresh wave
-orchestrator is already the independent reviewer; specialists are reserved for
-targeted or thorough coverage.
+The fresh wave session is already the independent reviewer; profiles determine
+how many domain sweeps it performs.
 
-If fresh review-wave sessions are unavailable, stop with
-`BLOCKED:agent-tool-unavailable`; do not simulate fresh passes in the same
+If fresh review-wave CLI sessions are unavailable, stop with
+`BLOCKED:review-session-unavailable`; do not simulate fresh passes in the same
 context.
 
 ## Counting

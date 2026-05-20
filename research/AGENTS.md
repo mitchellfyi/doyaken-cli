@@ -106,7 +106,7 @@ Single runs vary ±9 points per scenario. For measuring real improvements, compa
 ### DX improvements (commit with test evidence):
 - `prompts/guardrails.md` — implementation discipline criteria
 - `skills/*/SKILL.md` — skill prompts (dximplement, dxverify, etc.)
-- `agents/*.md` — agent behavior instructions
+- `prompts/*.md` and `prompts/phase-audits/*.md` — CLI harness prompts
 
 **CRITICAL: Keep DX prompts language/framework-agnostic.** These prompts are used across ALL languages and frameworks. Do NOT add framework-specific instructions (e.g., "use supertest for Express", "add jest-dom to tsconfig.json types"). Instead, write universal principles that apply regardless of language. If a principle only helps one language/framework, rephrase it as a general rule. Anti-patterns ("don't do X") are valuable when stated as universal principles.
 

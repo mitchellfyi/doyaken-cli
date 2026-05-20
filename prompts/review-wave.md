@@ -8,9 +8,9 @@ resolved profile: `light`, `standard`, or `thorough`.
 ## Rules
 
 - Review the full caller-supplied scope every wave.
-- Build the context pack before broad exploration or specialist/verifier calls.
+- Build the context pack before broad exploration or domain-specific review.
 - Run deterministic checks before semantic review.
-- Specialist/verifier agents are read-only; only the wave orchestrator may edit.
+- The review wave runs in one CLI session.
 - Do not commit, push, create branches, create or update PRs, or poll reviewers.
 - Do not create or switch worktrees or branches. A review wave runs in the
   current checkout; only `dk <ticket-or-description>` owns lifecycle setup.
@@ -77,34 +77,32 @@ when relevant. Mechanical fixes make the wave non-`CLEAN`.
 
 Collect all candidate issues before fixing anything.
 
-- `light`: orchestrator harvest; call `review-verifier` only for candidates or
-  escalation risk.
-- `standard`: orchestrator harvest; targeted specialists for concrete changed
-  domains; then `review-verifier`.
-- `thorough`: full specialist roster; then `review-verifier`.
+- `light`: core domain sweep across correctness, security, contracts, tests, and
+  architecture.
+- `standard`: core sweep plus targeted domain sweeps for concrete changed
+  surfaces.
+- `thorough`: all domain sweeps across the full caller-supplied scope.
 
-The orchestrator harvest covers correctness, security, contracts, tests,
-architecture, performance, and operations. Construct breaking inputs, trace
-direct callers, and filter speculation.
+The wave orchestrator covers all requested domains in the current CLI session.
+Construct breaking inputs, trace direct callers, and filter speculation.
 
-Full roster in `thorough`: `review-correctness`, `review-security`,
-`review-contracts`, `review-tests`, `review-architecture`, plus relevant
-`review-frontend`, `review-devops`, `review-performance`, and
-`review-observability`.
+Full domain roster in `thorough`: correctness, security, contracts, tests,
+architecture, frontend, devops, performance, and observability.
 
-Targeted specialists in `standard`:
+Targeted domain sweeps in `standard`:
 
-- trust boundary/secrets/auth -> `review-security`
-- public API/schema/config/CLI contract -> `review-contracts`
-- acceptance/regression coverage -> `review-tests`
-- abstraction/module boundary -> `review-architecture`
-- UI/browser/client state/routing/accessibility -> `review-frontend`
-- CI/deploy/shell/hooks/package scripts/infra -> `review-devops`
-- hot path/query/cache/large data/rendering -> `review-performance`
-- logs/metrics/traces/health/audit trails -> `review-observability`
+- trust boundary/secrets/auth -> security
+- public API/schema/config/CLI contract -> contracts
+- acceptance/regression coverage -> tests
+- abstraction/module boundary -> architecture
+- UI/browser/client state/routing/accessibility -> frontend
+- CI/deploy/shell/hooks/package scripts/infra -> devops
+- hot path/query/cache/large data/rendering -> performance
+- logs/metrics/traces/health/audit trails -> observability
 
-If a required specialist or verifier is unavailable, write
-`BLOCKED:agent-tool-unavailable`.
+If the current session cannot review a required domain with enough confidence,
+write `ESCALATE_THOROUGH:reason` for depth gaps or `BLOCKED:reason` for missing
+local tooling/context.
 
 Candidate output must be `NO_FINDINGS`, `N/A`, `ESCALATE_THOROUGH:reason`, or
 JSON lines:
@@ -119,10 +117,9 @@ them.
 
 ## 4. Verification
 
-Run `review-verifier` after specialist reports, and in light mode only for
-candidate findings or escalation risk. It dedupes by root cause, re-reads cited
-code, checks project context and accepted debt, rejects weak/stale evidence,
-confirms change relevance, and normalizes severity.
+Run an explicit verifier pass over the candidate inventory. Deduplicate by root
+cause, re-read cited code, check project context and accepted debt, reject
+weak/stale evidence, confirm change relevance, and normalize severity.
 
 Only verified findings may drive fixes. If `ESCALATE_THOROUGH` survives
 verification, write it instead of fixing.
@@ -164,7 +161,7 @@ Final output:
 - Scope: full current change set | entire codebase
 - Profile: light | standard | thorough
 - Context pack: <path>
-- Review coverage: <orchestrator/specialists/verifier run>
+- Review coverage: <profiles/domains/verifier pass run>
 - Deterministic checks: PASS | FAIL | PARTIAL
 - Verified findings: N
 - Fixes applied this wave: N

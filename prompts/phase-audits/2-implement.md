@@ -104,7 +104,7 @@ ALL of these must be true before you stop:
 - All tests pass (run the test suite one final time to confirm)
 - No acceptance criterion or verification gate is deferred, skipped, blocked, or delegated to future CI
 - No TODO/FIXME/debugging artifacts remain
-- No background agents or long-running verification commands started during Phase 2 are still in flight
+- No background processes or long-running verification commands started during Phase 2 are still in flight
 - Any needed `.dex/` updates are staged
 - UI capture evidence is linked for UI-affecting changes, including before/after evidence or a before-unavailable reason, or UI capture is explicitly N/A
 

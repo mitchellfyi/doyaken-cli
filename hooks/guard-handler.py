@@ -3853,9 +3853,8 @@ def check_guards(guards, text):
 def extract_hook_text(raw_input, event_type):
     """Extract guard-checkable text from Claude hook JSON.
 
-    Claude Code sends hook payloads as JSON on stdin. The legacy
-    CLAUDE_TOOL_USE_INPUT path passes plain text for manual tests and older
-    wrappers, so non-JSON input is returned as-is.
+    Claude Code sends hook payloads as JSON on stdin. Manual tests may pass
+    plain text, so non-JSON input is returned as-is.
     """
     if not raw_input.strip():
         return ''

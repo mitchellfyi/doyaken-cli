@@ -46,62 +46,6 @@ dx_scoped_session_id() {
   printf '%s-%s\n' "$(dx_session_repo_key)" "$raw_id"
 }
 
-# __dx_migrate_legacy_session_file <old_path> <new_path> <new_session_id>
-# Move one pre-scoped session file into the current repo scope without
-# overwriting newer scoped state.
-__dx_migrate_legacy_session_file() {
-  local old_path="$1" new_path="$2" new_session_id="$3" tmp_file
-  [[ -f "$old_path" && ! -e "$new_path" ]] || return 0
-
-  if [[ "$old_path" == *.provider ]]; then
-    tmp_file="${new_path}.tmp.$$"
-    if awk -v sid="$new_session_id" '
-      BEGIN { saw_session = 0 }
-      /^session=/ { print "session=" sid; saw_session = 1; next }
-      { print }
-      END { if (!saw_session) print "session=" sid }
-    ' "$old_path" > "$tmp_file" && command mv -f "$tmp_file" "$new_path"; then
-      command rm -f "$old_path" 2>/dev/null || true
-      return 0
-    fi
-    command rm -f "$tmp_file" 2>/dev/null || true
-    return 0
-  fi
-
-  command mv "$old_path" "$new_path" 2>/dev/null || true
-}
-
-# dx_migrate_legacy_session_state <legacy_id> <scoped_id>
-# Upgrade state created before repo-scoped session IDs existed. The legacy files
-# were global, so migrate only when the scoped target does not already exist.
-dx_migrate_legacy_session_state() {
-  local legacy_id="$1" scoped_id="$2" suffix old_file new_file base
-  [[ -n "$legacy_id" && -n "$scoped_id" && "$legacy_id" != "$scoped_id" ]] || return 0
-
-  if [[ -d "$DX_STATE_DIR" ]]; then
-    for suffix in phase times system-context log branch meta; do
-      old_file="${DX_STATE_DIR}/${legacy_id}.${suffix}"
-      new_file="${DX_STATE_DIR}/${scoped_id}.${suffix}"
-      __dx_migrate_legacy_session_file "$old_file" "$new_file" "$scoped_id"
-    done
-  fi
-
-  if [[ -d "$DX_LOOP_DIR" ]]; then
-    for suffix in state complete active prompt findings debt config handoff-mode paused watch-pause ci.watch-lock pr.watch-lock review-state review-result review-context complete-state provider; do
-      old_file="${DX_LOOP_DIR}/${legacy_id}.${suffix}"
-      new_file="${DX_LOOP_DIR}/${scoped_id}.${suffix}"
-      __dx_migrate_legacy_session_file "$old_file" "$new_file" "$scoped_id"
-    done
-
-    while IFS= read -r old_file; do
-      [[ -n "$old_file" && -f "$old_file" ]] || continue
-      base=$(basename "$old_file")
-      new_file="${DX_LOOP_DIR}/${scoped_id}${base#"$legacy_id"}"
-      __dx_migrate_legacy_session_file "$old_file" "$new_file" "$scoped_id"
-    done < <(find "$DX_LOOP_DIR" -maxdepth 1 -type f \( -name "${legacy_id}.phase-*.started" -o -name "${legacy_id}.phase-*.ready" -o -name "${legacy_id}.phase-*.busy" -o -name "${legacy_id}.phase-*.busy-notice" \) -print 2>/dev/null)
-  fi
-}
-
 # dx_session_id [wt_name]
 # Derive a stable session identifier used to key state and loop files.
 #
@@ -118,7 +62,6 @@ dx_session_id() {
   if [[ $# -ge 1 ]]; then
     raw_id="worktree-${1}"
     scoped_id=$(dx_scoped_session_id "$raw_id")
-    dx_migrate_legacy_session_state "$raw_id" "$scoped_id" 2>/dev/null || true
     printf '%s\n' "$scoped_id"
     return
   fi
@@ -133,7 +76,6 @@ dx_session_id() {
     raw_id="${branch//\//-}"
   fi
   scoped_id=$(dx_scoped_session_id "$raw_id")
-  dx_migrate_legacy_session_state "$raw_id" "$scoped_id" 2>/dev/null || true
   printf '%s\n' "$scoped_id"
 }
 

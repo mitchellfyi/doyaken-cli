@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
-# dex tools — inspect or repair Claude/Codex tooling bootstrap.
+# dex tools — inspect or install Claude/Codex tooling bootstrap.
 set -euo pipefail
 
 source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
@@ -9,10 +9,10 @@ usage() {
   cat <<'USAGE'
 Usage: dx tools [command]
 
-Inspect or repair Dex's conservative Claude/Codex tooling bootstrap.
+Inspect or install Dex's conservative Claude/Codex tooling bootstrap.
 
 Commands:
-  bootstrap    Check and repair Dex links, official MCPs, and safe official plugins
+  bootstrap    Install Dex links, official MCPs, and safe official plugins
   doctor       Check tooling state without changing global configuration
   check        Alias for doctor
   -h, --help   Show this help
@@ -31,7 +31,7 @@ case "$cmd" in
   bootstrap)
     echo "Dex - Tools Bootstrap"
     echo ""
-    if ! dx_bootstrap_agent_tooling "$repo_root" "repair"; then
+    if ! dx_bootstrap_agent_tooling "$repo_root" "install"; then
       dx_warn "Tooling bootstrap finished with warnings"
       exit 1
     fi
@@ -42,7 +42,7 @@ case "$cmd" in
     echo "Dex - Tools Doctor"
     echo ""
     if ! dx_bootstrap_agent_tooling "$repo_root" "check"; then
-      dx_warn "Tooling drift detected; run 'dx tools bootstrap' to repair it."
+      dx_warn "Tooling drift detected; run 'dx tools bootstrap' to reinstall it."
       exit 1
     fi
     echo ""

@@ -9,7 +9,6 @@ CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 INSTALL_STATE_FILE="$CLAUDE_DIR/.dex-install-state.json"
 ZSHRC="$HOME/.zshrc"
-LEGACY_MANAGED_WORKTREE_DIRS_JSON=""
 
 __dx_settings_have_dex_hooks() {
   [[ -f "$SETTINGS_FILE" ]] || return 1
@@ -22,12 +21,7 @@ __dx_settings_have_dex_hooks() {
           or contains("$HOME/work/dex/hooks/")
           or contains("$DEX_DIR/hooks/")
           or (contains("export DEX_DIR=") and contains("/hooks/"))
-          or contains($home + "/work/doyaken/hooks/")
-          or contains("$HOME/work/doyaken/hooks/")
-          or contains("$DOYAKEN_DIR/hooks/")
-          or (contains("export DOYAKEN_DIR=") and contains("/hooks/"))
           or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
-          or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/doyaken(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
         );
       [(.hooks // {}) | to_entries[] | .value[]? | .hooks[]? | .command | select(is_dex_cmd)] | length > 0
     ' "$SETTINGS_FILE" >/dev/null 2>&1
@@ -49,7 +43,7 @@ __dx_settings_have_dex_worktree_settings() {
     ' "$INSTALL_STATE_FILE" >/dev/null 2>&1
     return $?
   fi
-  [[ -n "$LEGACY_MANAGED_WORKTREE_DIRS_JSON" ]]
+  return 1
 }
 
 __dx_managed_worktree_dirs_json() {
@@ -57,52 +51,12 @@ __dx_managed_worktree_dirs_json() {
   if [[ -f "$INSTALL_STATE_FILE" ]]; then
     jq -c '(.worktree.managedSymlinkDirectories // []) | if type == "array" then . else [] end' "$INSTALL_STATE_FILE"
   else
-    printf '%s\n' "$LEGACY_MANAGED_WORKTREE_DIRS_JSON"
+    printf '%s\n' "[]"
   fi
-}
-
-__dx_legacy_managed_worktree_dirs_json() {
-  [[ -f "$SETTINGS_FILE" ]] || return 1
-  command -v jq >/dev/null 2>&1 || return 1
-  jq -e --arg dir "$DEX_DIR" --arg home "$HOME" --slurpfile template "$DEX_DIR/settings.json" '
-    def is_dex_cmd:
-      type == "string" and (
-        contains($dir + "/hooks/")
-        or contains($home + "/work/dex/hooks/")
-        or contains("$HOME/work/dex/hooks/")
-        or contains("$DEX_DIR/hooks/")
-        or (contains("export DEX_DIR=") and contains("/hooks/"))
-        or contains($home + "/work/doyaken/hooks/")
-        or contains("$HOME/work/doyaken/hooks/")
-        or contains("$DOYAKEN_DIR/hooks/")
-        or (contains("export DOYAKEN_DIR=") and contains("/hooks/"))
-        or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
-        or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/doyaken(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
-      );
-    def has_dex_hooks:
-      [(.hooks // {}) | to_entries[]? | .value[]? | .hooks[]? | .command | select(is_dex_cmd)] | length > 0;
-    def arrays_equal($left; $right):
-      (($left | sort) == ($right | sort));
-    def contains_all($haystack; $needles):
-      all($needles[]; . as $dir | ($haystack | index($dir)));
-    def current_dirs: ((.worktree.symlinkDirectories // []) | if type == "array" then . else [] end);
-    def template_dirs: (($template[0].worktree.symlinkDirectories // []) | if type == "array" then . else [] end);
-    if has_dex_hooks and (arrays_equal(current_dirs; template_dirs) or contains_all(current_dirs; template_dirs)) then
-      template_dirs
-    else
-      empty
-    end
-  ' "$SETTINGS_FILE" 2>/dev/null
 }
 
 echo "Dex — Global Uninstall"
 echo ""
-
-if LEGACY_MANAGED_WORKTREE_DIRS_JSON=$(__dx_legacy_managed_worktree_dirs_json); then
-  :
-else
-  LEGACY_MANAGED_WORKTREE_DIRS_JSON=""
-fi
 
 # 1. Remove skills symlink (only if it points to Dex)
 if [[ -L "$CLAUDE_DIR/skills" ]]; then
@@ -122,7 +76,7 @@ else
       current=$(readlink "$target")
       skill_name=$(basename "$target")
       case "$skill_name:$current" in
-        *:"$DEX_DIR"/skills/*|dk*:*/doyaken*/skills/*|doyaken:*/doyaken*/skills/*)
+        *:"$DEX_DIR"/skills/*)
           if rm "$target"; then
             removed=$((removed + 1))
           else
@@ -144,25 +98,12 @@ else
   fi
 fi
 
-# 2. Remove agents symlink (only if it points to Dex)
-if [[ -L "$CLAUDE_DIR/agents" ]]; then
-  target=$(readlink "$CLAUDE_DIR/agents")
-  if [[ "$target" == "$DEX_DIR/agents" ]]; then
-    rm "$CLAUDE_DIR/agents"
-    dx_done "Removed ~/.claude/agents symlink"
-  else
-    dx_skip "~/.claude/agents points to $target (not Dex)"
-  fi
-else
-  dx_skip "~/.claude/agents is not a symlink"
-fi
-
-# 3. Remove Codex skill links
+# 2. Remove Codex skill links
 if ! dx_uninstall_codex_skills; then
   dx_warn "Continuing uninstall after incomplete Codex skill cleanup"
 fi
 
-# 4. Remove Dex hooks from settings (preserve non-Dex hooks)
+# 3. Remove Dex hooks from settings (preserve non-Dex hooks)
 if __dx_settings_have_dex_hooks; then
   if command -v jq &>/dev/null; then
     if jq --arg dir "$DEX_DIR" --arg home "$HOME" '
@@ -173,12 +114,7 @@ if __dx_settings_have_dex_hooks; then
           or contains("$HOME/work/dex/hooks/")
           or contains("$DEX_DIR/hooks/")
           or (contains("export DEX_DIR=") and contains("/hooks/"))
-          or contains($home + "/work/doyaken/hooks/")
-          or contains("$HOME/work/doyaken/hooks/")
-          or contains("$DOYAKEN_DIR/hooks/")
-          or (contains("export DOYAKEN_DIR=") and contains("/hooks/"))
           or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
-          or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/doyaken(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
         );
       .hooks |= (
         (. // {})
@@ -205,7 +141,7 @@ else
   dx_skip "No Dex hooks in settings"
 fi
 
-# 5. Remove Dex-managed worktree settings while preserving user entries
+# 4. Remove Dex-managed worktree settings while preserving user entries
 if __dx_settings_have_dex_worktree_settings; then
   managed_dirs_json=$(__dx_managed_worktree_dirs_json)
   if jq --argjson managed_dirs "$managed_dirs_json" '
@@ -225,7 +161,7 @@ else
 fi
 rm -f "$INSTALL_STATE_FILE" 2>/dev/null || true
 
-# 6. Remove source line and Dex comment from zshrc
+# 5. Remove source line and Dex comment from zshrc
 if grep -qE 'dex/dx\.sh|DEX_DIR.*/dx\.sh' "$ZSHRC" 2>/dev/null; then
   # -x matches entire line; removes "# Dex" or "# Dex — ..." exact lines.
   # Also removes the DEX_DIR export and source lines.

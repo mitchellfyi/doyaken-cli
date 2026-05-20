@@ -22,14 +22,14 @@ switch, rename, or delete branches or worktrees.
 4. Build or refresh the review context pack in global Dex state using
    `dx_review_context_file`. This is the first substantive action: write a
    non-empty skeleton pack, `test -s` it, and read back the first 80 lines before
-   broad semantic exploration or specialist spawning.
+   broad semantic exploration or domain-specific review.
 5. Run deterministic checks first.
 6. Harvest candidate issues according to the current review profile:
-   - `light`: orchestrator harvest; verifier only if candidates/escalation risk
-   - `standard`: orchestrator harvest plus targeted specialists for concrete
-     changed domains
-   - `thorough`: full specialist roster
-7. Run `review-verifier` with the Agent tool.
+   - `light`: core domain sweep
+   - `standard`: core sweep plus targeted domain sweeps for concrete changed
+     surfaces
+   - `thorough`: all domain sweeps
+7. Run an explicit verifier pass over candidate findings.
 8. Batch-fix verified findings in severity order.
 9. Re-run deterministic checks and targeted review for changed surfaces.
 10. Write the review result signal.
@@ -64,9 +64,9 @@ tooling/context is missing and cannot be resolved locally, write
 If the current review profile is too shallow for the observed risk, write
 `ESCALATE_THOROUGH:reason` so the outer loop restarts with thorough review.
 
-If the Agent tool is unavailable for specialist review or verifier triage, write
-`BLOCKED:agent-tool-unavailable`; do not simulate the specialist wave inside the
-orchestrator context.
+If the current session cannot review a required domain with enough confidence,
+write `ESCALATE_THOROUGH:reason` for depth gaps or `BLOCKED:reason` for missing
+local tooling/context.
 
 Do not infer acceptance criteria from stale session prompt files, previous
 conversation turns, session titles, AGENTS instructions, or unrelated ticket
@@ -84,7 +84,7 @@ All of these must be true before you stop:
 - The context pack was created or refreshed.
 - Deterministic checks were run or explicitly marked unavailable.
 - Candidate issues were harvested for the current profile, with non-applicable
-  specialist domains marked `N/A`.
+  domains marked `N/A`.
 - Findings were verified before any fix was applied.
 - Verified findings were batch-fixed when safe, then rechecked.
 - The review result signal file contains one allowed result value.

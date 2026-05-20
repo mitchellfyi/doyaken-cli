@@ -44,19 +44,6 @@ else
   echo "  Skills:    NOT INSTALLED"
 fi
 
-if [[ -L "$CLAUDE_DIR/agents" ]]; then
-  target=$(readlink "$CLAUDE_DIR/agents")
-  if [[ "$target" == "$DEX_DIR/agents" ]]; then
-    # Count only .md files (agent definitions), not .DS_Store or other artifacts
-    count=$(find "$target" -mindepth 1 -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-    echo "  Agents:    $count agent(s) symlinked"
-  else
-    echo "  Agents:    WRONG TARGET ($target)"
-  fi
-else
-  echo "  Agents:    NOT INSTALLED"
-fi
-
 if __dx_status_has_dex_hooks; then
   echo "  Hooks:     installed in ~/.claude/settings.json"
 else
