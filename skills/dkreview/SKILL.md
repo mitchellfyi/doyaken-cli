@@ -21,8 +21,9 @@ prefer the loop.
 
 Follow `prompts/review-wave.md` as the source of truth. In one wave:
 
-1. Review the full current change set from caller-supplied diff/stat/name
-   commands, or discover committed, staged, unstaged, and untracked changes.
+1. Review the caller-supplied scope. Usually this is the full current change set
+   from diff/stat/name commands; when no change set exists, `/dkreviewloop`
+   supplies a whole-codebase file inventory instead.
 2. Build the compact context pack first in `dk_review_context_file`.
 3. Run deterministic checks before semantic review.
 4. Harvest candidate issues according to the supplied profile:

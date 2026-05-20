@@ -2,7 +2,7 @@ Before stopping, complete exactly one full Doyaken review wave for the current
 `/dkreviewloop` iteration.
 
 You are in the **Review phase**. Your job in this iteration is to review the
-full current change set, fix verified findings when possible, write the review
+caller-supplied scope, fix verified findings when possible, write the review
 result signal, and then stop so the outer loop can decide whether the clean-pass
 counter advances or resets.
 
@@ -12,7 +12,9 @@ counter advances or resets.
 2. Follow `prompts/review-wave.md` as the source of truth.
 3. Use the full-scope diff/stat/file-name commands supplied by the caller. If any
    other prompt suggests only `origin/<default>...HEAD`, override it with the
-   supplied full-scope commands.
+   supplied full-scope commands. If the caller supplies an entire-codebase
+   inventory because no current change set exists, review that codebase scope
+   and do not stop only because `git diff` is empty.
 4. Build or refresh the review context pack in global Doyaken state using
    `dk_review_context_file`. This is the first substantive action: write a
    non-empty skeleton pack, `test -s` it, and read back the first 80 lines before
@@ -68,7 +70,7 @@ loop detection.
 
 All of these must be true before you stop:
 
-- The full current change set was reviewed.
+- The full caller-supplied scope was reviewed.
 - The context pack was created or refreshed.
 - Deterministic checks were run or explicitly marked unavailable.
 - Candidate issues were harvested for the current profile, with non-applicable

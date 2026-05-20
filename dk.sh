@@ -16,7 +16,7 @@
 #   dk --resume             Resume the most recent session
 #   dk --from-pr <N>        Resume session linked to a PR
 #   dkcomplete              Standalone completion workflow (recovery / non-dk PRs)
-#   dkreviewloop            Standalone adaptive review of the full current change set
+#   dkreviewloop            Standalone adaptive review of changes, or whole codebase if clean
 #   dkrm <number|name|--all>  Remove a worktree
 #   dkls                   List worktrees
 #   dkclean                Clean stale worktrees + gone branches
@@ -91,7 +91,7 @@ doyaken() {
       echo "  dkcomplete             Monitor CI/reviews, address comments, close ticket"
       echo ""
       echo "Standalone review (adaptive clean-pass loop, no full lifecycle needed):"
-      echo "  dkreviewloop           Review the full current change set"
+      echo "  dkreviewloop           Review current changes, or whole codebase if clean"
       echo ""
       echo "Prompt loop:"
       echo "  dkloop <prompt>          Run a prompt until fully implemented"
@@ -2011,8 +2011,8 @@ $(__dk_provider_prompt)"
 # ─── dkreviewloop — standalone adaptive clean-pass review ─────────────────
 #
 # Runs the same adversarial review loop dk Phase 3 uses, without requiring
-# the full lifecycle. Scope is the full current change set: committed branch
-# changes, staged changes, unstaged changes, and untracked files together.
+# the full lifecycle. Scope is the full current change set when one exists; on
+# a clean branch, the loop falls back to a whole-codebase review.
 #
 # Each iteration is a fresh host-agent session that runs one full review wave:
 # build/refresh a compact context pack, run deterministic checks, collect
@@ -2047,11 +2047,14 @@ dkreviewloop() {
   fi
 
   # Detect the full current change set instead of prioritizing one category.
-  local scope_name="" diff_cmd="" stat_cmd="" name_cmd=""
+  local scope_name="" scope_mode="changes" diff_cmd="" stat_cmd="" name_cmd=""
   local committed_diff_cmd="" committed_stat_cmd="" committed_name_cmd=""
   local committed_ref=""
   local has_committed=0 has_staged=0 has_unstaged=0 has_untracked=0
   local untracked_count
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
+  [[ -n "$branch" ]] || branch="HEAD"
   local default_branch
   default_branch=$(dk_default_branch)
 
@@ -2086,13 +2089,13 @@ dkreviewloop() {
   fi
 
   if [[ -z "$scope_name" ]]; then
-    dk_error "No changes detected to review."
-    dk_info "Checked committed branch changes, staged changes, unstaged changes, and untracked files."
-    return 1
+    scope_name="entire codebase"
+    scope_mode="codebase"
+    diff_cmd="git ls-files | sort"
+    stat_cmd="git ls-files | awk '{count++} END {printf \"tracked files: %d\\n\", count+0}'"
+    name_cmd="git ls-files | sort"
+    dk_info "No current change set detected; falling back to an entire-codebase review."
   fi
-
-  local branch
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
 
   local requested_profile="${DOYAKEN_REVIEW_PROFILE:-$DK_REVIEW_PROFILE}"
   local review_profile="$requested_profile"
@@ -2107,16 +2110,20 @@ dkreviewloop() {
   local max_iter="${DOYAKEN_REVIEW_MAX_ITERATIONS:-$(__dk_review_profile_max_iterations "$review_profile")}"
   local required_clean="${DOYAKEN_REVIEW_CLEAN_PASSES:-$(__dk_review_profile_clean_passes "$review_profile")}"
 
-  # File count preview for the full current change set without eval.
+  # File count preview for the review scope without eval.
   local files_changed
-  files_changed=$(
-    {
-      [[ -n "$committed_ref" ]] && git diff "$committed_ref" --name-only 2>/dev/null
-      git diff --cached --name-only 2>/dev/null
-      git diff --name-only 2>/dev/null
-      git ls-files --others --exclude-standard 2>/dev/null
-    } | sort -u | wc -l | tr -d ' '
-  ) || files_changed="?"
+  if [[ "$scope_mode" == "codebase" ]]; then
+    files_changed=$(git ls-files 2>/dev/null | wc -l | tr -d ' ') || files_changed="?"
+  else
+    files_changed=$(
+      {
+        [[ -n "$committed_ref" ]] && git diff "$committed_ref" --name-only 2>/dev/null
+        git diff --cached --name-only 2>/dev/null
+        git diff --name-only 2>/dev/null
+        git ls-files --others --exclude-standard 2>/dev/null
+      } | sort -u | wc -l | tr -d ' '
+    ) || files_changed="?"
+  fi
   [[ -n "$files_changed" ]] || files_changed="?"
 
   echo ""
@@ -2127,7 +2134,7 @@ dkreviewloop() {
   echo "  Branch: ${branch}"
   echo "  Scope:  ${scope_name} (${files_changed} files)"
   echo "  Depth:  ${review_profile} (${required_clean} clean, max ${max_iter} iterations)"
-  echo "  Diff:   ${diff_cmd}"
+  echo "  Input:  ${diff_cmd}"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
@@ -2144,7 +2151,7 @@ dkreviewloop() {
     standalone_review_prompt=1
     __dk_write_state "$prompt_file" "Standalone /dkreviewloop invocation for branch ${branch}.
 
-Review scope: full current change set (${files_changed} files).
+Review scope: ${scope_name} (${files_changed} files).
 
 No ticket, plan, or acceptance criteria were supplied by this wrapper. Mark plan-dependent sections as N/A unless explicit criteria are present in the review-pass prompt."
   fi
@@ -2161,12 +2168,21 @@ No ticket, plan, or acceptance criteria were supplied by this wrapper. Mark plan
   local session_name
   session_name="dkreviewloop-$(dk_slugify "$branch")"
 
+  local scope_source_detail scope_boundary
+  if [[ "$scope_mode" == "codebase" ]]; then
+    scope_source_detail="IMPORTANT: No current change set was found, so this pass is a whole-codebase review. Do not stop because \`git diff\` is empty. Use these commands as the authoritative codebase inventory, then read and review the listed files as needed:"
+    scope_boundary="SCOPE BOUNDARIES: review and fix the entire codebase in this repository. Do NOT commit, push, or create PRs."
+  else
+    scope_source_detail="IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \`git diff origin/<default>...HEAD\`, override that — use these commands instead. This is the full current change set, including committed branch changes, staged changes, unstaged changes, and untracked files:"
+    scope_boundary="SCOPE BOUNDARIES: review and fix the full current change set above ONLY. Do NOT commit, push, or create PRs."
+  fi
+
   local message_template
   message_template="Run one full Doyaken review wave using /dkreview --single-pass, scoped to **${scope_name}** on branch \`${branch}\`.
 
-IMPORTANT: When the audit prompt or /dkreview SKILL.md tells you to scope with \`git diff origin/<default>...HEAD\`, override that — use these commands instead. This is the full current change set, including committed branch changes, staged changes, unstaged changes, and untracked files:
+${scope_source_detail}
 
-- Diff:        \`${diff_cmd}\`
+- Scope input: \`${diff_cmd}\`
 - Stat:        \`${stat_cmd}\`
 - File names:  \`${name_cmd}\`
 
@@ -2188,7 +2204,7 @@ Result semantics:
 
 If no approved plan / acceptance criteria are explicitly available in this prompt for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them. Do not infer criteria from stale session prompt files, previous conversation turns, session titles, AGENTS instructions, or unrelated ticket context.
 
-SCOPE BOUNDARIES: review and fix the full current change set above ONLY. Do NOT commit, push, or create PRs.
+${scope_boundary}
 
 After writing the review result signal and findings hash, touch the per-pass completion path above, output \`${DK_PHASE_PROMISES[3]}\`, and then stop. That completion file only exits this one review-wave pass; it does not make a non-CLEAN result count as clean.
 $(__dk_provider_prompt)"

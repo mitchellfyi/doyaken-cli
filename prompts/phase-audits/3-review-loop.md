@@ -9,7 +9,8 @@ full-scope review waves and requires the resolved profile's clean-pass gate.
 
 All of these must be true before you stop:
 
-- `/dkreviewloop` ran on the full current change set.
+- `/dkreviewloop` ran on the full caller-supplied scope: the current change set,
+  or the entire tracked codebase when no change set exists.
 - The `/dkreviewloop` result is `SUCCESS`.
 - The final result shows the required consecutive clean reports for its resolved
   profile or explicit environment override.

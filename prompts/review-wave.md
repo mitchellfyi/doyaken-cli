@@ -1,12 +1,13 @@
 # Review Wave
 
-One `/dkreviewloop` iteration reviews the full current change set. The outer loop
-sets the required consecutive `CLEAN` waves from the resolved profile: `light`,
-`standard`, or `thorough`.
+One `/dkreviewloop` iteration reviews the caller-supplied scope. This is usually
+the full current change set; when no change set exists, it is the entire tracked
+codebase. The outer loop sets the required consecutive `CLEAN` waves from the
+resolved profile: `light`, `standard`, or `thorough`.
 
 ## Rules
 
-- Review the full current change set every wave.
+- Review the full caller-supplied scope every wave.
 - Build the context pack before broad exploration or specialist/verifier calls.
 - Run deterministic checks before semantic review.
 - Specialist/verifier agents are read-only; only the wave orchestrator may edit.
@@ -153,7 +154,7 @@ Final output:
 ```markdown
 ## Review Wave Result
 
-- Scope: full current change set
+- Scope: full current change set | entire codebase
 - Profile: light | standard | thorough
 - Context pack: <path>
 - Review coverage: <orchestrator/specialists/verifier run>

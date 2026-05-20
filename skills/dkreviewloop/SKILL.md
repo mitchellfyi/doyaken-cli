@@ -30,14 +30,16 @@ defaults unless exact gates were pinned.
 
 ## Scope
 
-Review the full current change set:
+Review the full current change set when one exists:
 
 - committed branch changes, preferably `git diff origin/<default>...HEAD`
 - staged changes via `git diff --cached`
 - unstaged changes via `git diff`
 - untracked files represented with `git diff --no-index -- /dev/null <file>`
 
-If no changes exist, stop and tell the user there is nothing to review.
+If no changes or comparable branch diff exist, default to reviewing the entire
+tracked codebase. Do not stop only because `git diff` is empty; use the
+caller-supplied file inventory commands as the authoritative scope.
 
 ## Per-Pass Contract
 
@@ -84,7 +86,7 @@ Print:
 ```markdown
 ## dkreviewloop Result
 
-- Scope: full current change set
+- Scope: full current change set | entire codebase
 - Profile: light | standard | thorough
 - Iterations: N / max
 - Consecutive clean: M / required
