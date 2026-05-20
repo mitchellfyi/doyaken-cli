@@ -271,7 +271,7 @@ print("missing")
   fi
 }
 
-dk_install_safe_official_claude_plugin() {
+dx_install_safe_official_claude_plugin() {
   local plugin_ref="$1" reason="${2:-official Dex tooling}"
   local plugin_status marketplace
 
