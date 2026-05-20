@@ -27,15 +27,15 @@ dx.sh                Main shell functions (zsh only, ~2800 lines)
 settings.json        Claude Code hook definitions template
 install.sh           Quick-start installer wrapper
 agents/              Sub-agents (symlinked to ~/.claude/agents/)
-bin/                 CLI scripts: install, uninstall, init, uninit, config, status
+bin/                 CLI scripts: install, uninstall, init, uninit, config, status, sync, maintain, log, rename, tools, ui-capture, dxcodex, install-settings, status-line
 docs/                Extended docs: guards, autonomous mode
 hooks/               Claude Code hooks + guard handler
   guards/            Built-in guard rules (5 rules)
-lib/                 Shared shell libraries (8 modules)
+lib/                 Shared shell libraries (10 modules: common, agent-tools, codex, git, maintenance, output, provider, session, ui-capture, worktree)
 prompts/             Prompt templates for skills/agents
   phase-audits/      Phase-specific audit prompts (1-6 + prompt-loop)
 skills/              Lifecycle skills (17 total, linked into ~/.claude/skills/)
-.dex/            Per-project config (this directory)
+.dex/                Per-project config (this directory)
 ```
 
 ## Files to Never Commit
@@ -59,25 +59,53 @@ skills/              Lifecycle skills (17 total, linked into ~/.claude/skills/)
 
 When an integration is "not configured", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.
-
 ## Reviewers
 
 Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
 - `request` — `gh pr edit --add-reviewer <handle>` (humans, Copilot, anything GitHub supports)
 - `mention` — `@<handle>` posted as a PR comment (for AI agents that watch mentions)
 
+When attaching request reviewers, Dex normalizes `Copilot`, `@copilot`,
+or Copilot aliases to GitHub CLI's special `@copilot` reviewer value. Normal
+GitHub usernames are passed without a leading `@`.
+
 | Handle | Type | Notes |
 |--------|------|-------|
-| @mitchellbryson | request | Authenticated GitHub user |
+| @mitchellfyi | request | Authenticated GitHub user |
 | Copilot | request | GitHub Copilot review |
 
 Edit rows directly or rerun `dx config`. Remove a row to skip a reviewer.
-
 ## Rules
 - @rules/shell.md — Shell scripting conventions and language boundaries
 - @rules/skills-prompts.md — Skill, agent, guard, and prompt conventions
 - @rules/architecture.md — Architecture patterns and state management
 - @review-rules.md — Path-specific review focus for Dex review waves
+- @memory/index.md — Durable repo memory index (scope-gated)
+
+## Memory
+`.dex/memory/index.md` maps durable repo memory to paths, phases, and
+workflows. Agents should load only scoped active entries and verify them against
+current code before relying on them.
+
+## Maintenance
+
+| Setting | Value |
+|---------|-------|
+| enabled | true |
+| branch_prefix | dex/maintain/ |
+| label | dex-maintenance |
+| default_mode | report |
+| max_prs | 1 |
+| low_risk_fix_categories | docs, rules, guards, memory, tests |
+| copilot_review | true |
+
+`fix-scoped` may only patch the configured low-risk categories above, plus
+verification updates in matching test files, unless a repo maintainer expands
+this table. Publication is handled by the `dx maintain` CLI wrapper after the
+provider exits so GitHub write credentials are not exposed to the agent
+process.
 
 ## Workflow
 Run `/dex` to begin the autonomous ticket lifecycle.
+Run `/dxsync` or `dx sync` to refresh repo memory after significant repo,
+workflow, review, or CI changes.
