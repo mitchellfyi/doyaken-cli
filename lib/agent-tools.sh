@@ -335,9 +335,9 @@ print("missing")
   fi
 }
 
-dx_install_safe_official_claude_plugin() {
+dk_install_safe_official_claude_plugin() {
   local plugin_ref="$1" reason="${2:-official Dex tooling}"
-  local status marketplace
+  local plugin_status marketplace
 
   if ! dx_safe_official_claude_plugin_allowed "$plugin_ref"; then
     dx_warn "Refusing non-allowlisted Claude plugin: ${plugin_ref}"
@@ -349,8 +349,8 @@ dx_install_safe_official_claude_plugin() {
     return 0
   fi
 
-  status=$(dx_claude_plugin_status "$plugin_ref")
-  case "$status" in
+  plugin_status=$(dx_claude_plugin_status "$plugin_ref")
+  case "$plugin_status" in
     enabled)
       dx_ok "Claude plugin '${plugin_ref}' already enabled"
       return 0
@@ -512,7 +512,7 @@ dx_safe_official_claude_plugins_for_project() {
 }
 
 dx_check_safe_official_claude_plugins() {
-  local root="${1:-}" failed=0 plugin_ref reason status
+  local root="${1:-}" failed=0 plugin_ref reason plugin_status
 
   if ! command -v claude >/dev/null 2>&1; then
     dx_skip "Claude Code CLI not found; skipping Claude plugin check"
@@ -521,11 +521,11 @@ dx_check_safe_official_claude_plugins() {
 
   while IFS=$'\t' read -r plugin_ref reason; do
     [[ -n "$plugin_ref" ]] || continue
-    status=$(dx_claude_plugin_status "$plugin_ref")
-    if [[ "$status" == "enabled" ]]; then
+    plugin_status=$(dx_claude_plugin_status "$plugin_ref")
+    if [[ "$plugin_status" == "enabled" ]]; then
       dx_ok "Claude plugin '${plugin_ref}' enabled"
     else
-      dx_warn "Claude plugin '${plugin_ref}' is ${status}; needed for ${reason}"
+      dx_warn "Claude plugin '${plugin_ref}' is ${plugin_status}; needed for ${reason}"
       failed=1
     fi
   done < <(dx_safe_official_claude_plugins_for_project "$root")
