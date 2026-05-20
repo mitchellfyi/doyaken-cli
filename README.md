@@ -2,8 +2,6 @@
 
 Standalone workflow automation for Claude Code. Dex runs a ticket from plan to PR with worktree isolation, quality gates, review loops, and UI capture evidence when browser-facing code changes.
 
-Dex lives at <https://dexcode.ai> and is owned and run by [Synthetic Industry](https://syntheticindustry.ai/).
-
 ## Quick Start
 
 ```bash
