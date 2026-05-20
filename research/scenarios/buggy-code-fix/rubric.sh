@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Rubric for: buggy-code-fix
 # HARDENED v2: target ~60-75 for typical implementations.
-# Tests that DK can find and fix all 5 bugs, write regression tests,
+# Tests that DX can find and fix all 5 bugs, write regression tests,
 # and produce clean, well-structured code.
 
 rubric_correctness() {

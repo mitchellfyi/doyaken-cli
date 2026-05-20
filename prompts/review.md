@@ -1,6 +1,6 @@
 # Implementation Review Criteria
 
-Evaluate every changed file against the passes below. The `/dkreview` skill and
+Evaluate every changed file against the passes below. The `/dxreview` skill and
 `prompts/review-wave.md` drive how these criteria are applied; this prompt
 defines the criteria only. These criteria complement the implementation
 discipline described in `prompts/guardrails.md`.
@@ -17,9 +17,9 @@ Before evaluating findings, gather the context needed to judge them. **Skipping 
 
 Read in this order — stop early when you have enough to judge the change:
 
-1. **Project conventions** — `AGENTS.md`, `CLAUDE.md` compatibility pointers, and any `.doyaken/rules/*.md` referenced from them. These document language boundaries, naming, error-handling, and architecture rules specific to the repo. A finding that violates one of these has higher confidence; a finding that contradicts one is likely a false positive.
-2. **Scoped repo memory** — if `.doyaken/memory/index.md` exists, read it and load only active memory entries whose scope matches the changed files or review phase. Memory is context, not proof; re-check current code before relying on it.
-3. **Project-specific review criteria** — `.doyaken/doyaken.md` § Reviewers (or other review-criteria sections). Some projects extend or override the defaults below.
+1. **Project conventions** — `AGENTS.md`, `CLAUDE.md` compatibility pointers, and any `.dex/rules/*.md` referenced from them. These document language boundaries, naming, error-handling, and architecture rules specific to the repo. A finding that violates one of these has higher confidence; a finding that contradicts one is likely a false positive.
+2. **Scoped repo memory** — if `.dex/memory/index.md` exists, read it and load only active memory entries whose scope matches the changed files or review phase. Memory is context, not proof; re-check current code before relying on it.
+3. **Project-specific review criteria** — `.dex/dex.md` § Reviewers (or other review-criteria sections). Some projects extend or override the defaults below.
 4. **The plan or ticket** — if a plan file or ticket context exists, read the acceptance criteria and the chosen approach. A "missing case" finding is invalid if the case was explicitly out of scope per the plan.
 5. **Similar code in the repo** — for any pattern the change introduces (a new auth check, a new query, a new error type), `Grep` for existing instances. If the codebase already uses pattern X for this scenario in 3+ places, the change should follow X. If X is established and the change introduces Y → finding. If you flag the change as "doesn't match best practice Z" without confirming Z is the project's pattern, that's a false positive.
 6. **Recent fix history of touched files** — `git log --oneline --since=3.months -- <file>` for each deep-review file. Recent `fix:` commits → fragile area; apply extra scrutiny.
@@ -118,7 +118,7 @@ Trace the code path end-to-end:
 - **Dependency direction** — do dependencies point toward stable abstractions (the project's core types) and away from volatile ones (specific frameworks, vendor SDKs)?
 - **Boundaries** — are external concerns (HTTP, database, filesystem, env vars) isolated behind a thin adapter, or scattered through the business logic?
 
-**Context check:** project-specific architecture rules in `.doyaken/rules/architecture.md` (or equivalent) supersede generic principles. If the project documents a different layering, follow it.
+**Context check:** project-specific architecture rules in `.dex/rules/architecture.md` (or equivalent) supersede generic principles. If the project documents a different layering, follow it.
 
 ## Pass C: Security
 
@@ -142,7 +142,7 @@ Additional:
 - **Input validation at boundaries** — request handlers, queue consumers, file uploads, external API responses. Validate type, range, length, format. Reject early, log the rejection.
 - **Concurrency security** — race conditions in authorization checks (TOCTOU), token reuse windows, double-spend in financial operations.
 
-**Context check:** does the project have a `.doyaken/guards/` rule (or equivalent) that already blocks the pattern? Already-protected paths don't need re-flagging.
+**Context check:** does the project have a `.dex/guards/` rule (or equivalent) that already blocks the pattern? Already-protected paths don't need re-flagging.
 
 ## Pass D: Performance
 
@@ -179,7 +179,7 @@ Additional:
 - **Concurrency tests** for code with shared state — at minimum, run the operation in parallel and assert no inconsistency.
 - **Coverage gaps that matter** — not coverage as a metric (gameable), but: if the change introduces error handling, is there a test that exercises the error path?
 
-**Context check:** does the project have a documented testing style (`.doyaken/rules/testing.md` or equivalent)? Follow it.
+**Context check:** does the project have a documented testing style (`.dex/rules/testing.md` or equivalent)? Follow it.
 
 ## Pass F: Style & Conventions
 
@@ -232,7 +232,7 @@ For each acceptance criterion:
 
 Flag **NOT FOUND** entries as high-severity findings.
 
-Reject prose-only criteria ("works correctly", "is performant") — they should have been rewritten as testable assertions in `/dkplan` Step 2.5. If they slipped through, flag the criterion as un-verifiable.
+Reject prose-only criteria ("works correctly", "is performant") — they should have been rewritten as testable assertions in `/dxplan` Step 2.5. If they slipped through, flag the criterion as un-verifiable.
 
 ## Pass I: Documentation Quality
 

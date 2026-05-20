@@ -7,7 +7,7 @@ Before stopping, audit your ticket bootstrap. Each item below must be verifiable
 
 ## 1. Ticket Read
 
-- The ticket was fetched from the configured tracker (see `.doyaken/doyaken.md` § Integrations).
+- The ticket was fetched from the configured tracker (see `.dex/dex.md` § Integrations).
 - Title, description, acceptance criteria, and **all comments** were read.
 - If no tracker is configured: this step is N/A.
 
@@ -26,17 +26,17 @@ Evidence: tracker output shows the assignee, or N/A.
 - The lifecycle branch was renamed to the tracker's git branch name (e.g. `feat/ENG-999-fix-login`). If no tracker, the lifecycle branch name was kept as-is.
 - The renamed (or kept) branch was pushed to `origin` with upstream tracking (`git push -u origin <branch>`).
 - A draft PR was **not** created (Phase 5 owns that — creating it now would force an empty bootstrap commit).
-- The Doyaken meta sidecar reflects the rename: run
+- The Dex meta sidecar reflects the rename: run
 
   ```bash
-  source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-  SID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
-  dk_meta_write "$SID" "tracker_key=<KEY-N>" "current_branch=$(git rev-parse --abbrev-ref HEAD)"
+  source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+  SID="${DEX_SESSION_ID:-$(dx_session_id)}"
+  dx_meta_write "$SID" "tracker_key=<KEY-N>" "current_branch=$(git rev-parse --abbrev-ref HEAD)"
   ```
 
-  using the tracker's key (e.g. `ENG-999`). This lets future `dk <N>` invocations resume the right worktree even after a rename.
+  using the tracker's key (e.g. `ENG-999`). This lets future `dx <N>` invocations resume the right worktree even after a rename.
 
-Evidence: `git rev-parse --abbrev-ref HEAD` shows the new name; `git ls-remote --heads origin <branch>` confirms the push; `dk_meta_read` shows `tracker_key` and `current_branch`.
+Evidence: `git rev-parse --abbrev-ref HEAD` shows the new name; `git ls-remote --heads origin <branch>` confirms the push; `dx_meta_read` shows `tracker_key` and `current_branch`.
 
 ## 4. Ticket Status → In Progress
 
@@ -65,7 +65,7 @@ If you did any of those, treat them as out-of-scope work for Phase 0 and either 
 
 ## 7. Ready Marker
 
-- The Phase 0 ready marker has been written (`dk_phase_ready_file "$SESSION_ID" 0`).
+- The Phase 0 ready marker has been written (`dx_phase_ready_file "$SESSION_ID" 0`).
 - If you stop before the marker exists, the Stop hook will refuse the handoff and ask you to finish setup.
 
 ## Completion Criteria

@@ -110,19 +110,19 @@ with open('$file', 'w') as f:
 
 # ── Git helpers ────────────────────────────────────────────────────────────
 
-# Current DK commit hash (short)
-dk_commit_hash() {
-  git -C "$DOYAKEN_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown"
+# Current DX commit hash (short)
+dx_commit_hash() {
+  git -C "$DEX_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown"
 }
 
 # Current branch name
-dk_branch() {
-  git -C "$DOYAKEN_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"
+dx_branch() {
+  git -C "$DEX_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"
 }
 
 # Check if on main/master (safety check)
 is_main_branch() {
   local branch
-  branch=$(dk_branch)
+  branch=$(dx_branch)
   [[ "$branch" == "main" || "$branch" == "master" ]]
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Research harness — improvement engine
-# Analyzes test results, uses Claude to propose DK prompt/skill improvements.
+# Analyzes test results, uses Claude to propose DX prompt/skill improvements.
 #
 # Usage:
 #   ./research/improve.sh <run-dir>
@@ -39,9 +39,9 @@ log_step "Analyzing results from: $(basename "$RUN_DIR")"
 # ── Gather failure details ─────────────────────────────────────────────────
 
 # Build the analysis prompt
-ANALYSIS_PROMPT="You are analyzing the results of an AI agent testing harness for Doyaken (DK), a workflow automation framework for Claude Code.
+ANALYSIS_PROMPT="You are analyzing the results of an AI agent testing harness for Dex (DX), a workflow automation framework for Claude Code.
 
-The harness runs DK against predefined scenarios (coding tasks), then scores its output with deterministic rubrics. Your job is to propose specific improvements to DK's skill prompts and audit criteria to improve scores.
+The harness runs DX against predefined scenarios (coding tasks), then scores its output with deterministic rubrics. Your job is to propose specific improvements to DX's skill prompts and audit criteria to improve scores.
 
 ## Current Scores
 
@@ -70,31 +70,31 @@ $(cat "$scenario_dir/rubric-results.json" 2>/dev/null)
 #### Scenario Prompt:
 $(cat "$SCENARIOS_DIR/$scenario/prompt.md" 2>/dev/null || echo "(not found)")
 
-#### DK Output (last 100 lines of stderr, which includes hook/guard messages):
+#### DX Output (last 100 lines of stderr, which includes hook/guard messages):
 $(tail -100 "$scenario_dir/stderr.log" 2>/dev/null || echo "(no stderr)")
 
 "
   fi
 done
 
-# Add current DK skill/prompt content
+# Add current DX skill/prompt content
 ANALYSIS_PROMPT+="
-## Current DK Skill/Prompt Files (these are what you can modify)
+## Current DX Skill/Prompt Files (these are what you can modify)
 
 ### prompts/guardrails.md:
-$(cat "$DOYAKEN_DIR/prompts/guardrails.md" 2>/dev/null || echo "(not found)")
+$(cat "$DEX_DIR/prompts/guardrails.md" 2>/dev/null || echo "(not found)")
 
 ### prompts/phase-audits/prompt-loop.md:
-$(cat "$DOYAKEN_DIR/prompts/phase-audits/prompt-loop.md" 2>/dev/null || echo "(not found)")
+$(cat "$DEX_DIR/prompts/phase-audits/prompt-loop.md" 2>/dev/null || echo "(not found)")
 
-### skills/dkimplement/SKILL.md:
-$(head -100 "$DOYAKEN_DIR/skills/dkimplement/SKILL.md" 2>/dev/null || echo "(not found)")
+### skills/dximplement/SKILL.md:
+$(head -100 "$DEX_DIR/skills/dximplement/SKILL.md" 2>/dev/null || echo "(not found)")
 
-### skills/dkreview/SKILL.md:
-$(head -100 "$DOYAKEN_DIR/skills/dkreview/SKILL.md" 2>/dev/null || echo "(not found)")
+### skills/dxreview/SKILL.md:
+$(head -100 "$DEX_DIR/skills/dxreview/SKILL.md" 2>/dev/null || echo "(not found)")
 
-### skills/dkverify/SKILL.md:
-$(head -100 "$DOYAKEN_DIR/skills/dkverify/SKILL.md" 2>/dev/null || echo "(not found)")
+### skills/dxverify/SKILL.md:
+$(head -100 "$DEX_DIR/skills/dxverify/SKILL.md" 2>/dev/null || echo "(not found)")
 
 ## Constraints
 
@@ -105,11 +105,11 @@ You may ONLY propose changes to files matching these patterns:
 - agents/*.md
 - hooks/guards/*.md
 
-You MUST NOT modify: dk.sh, lib/*.sh, bin/*.sh, hooks/phase-loop.sh, hooks/guard-handler.py, settings.json
+You MUST NOT modify: dx.sh, lib/*.sh, bin/*.sh, hooks/phase-loop.sh, hooks/guard-handler.py, settings.json
 
 ### CRITICAL: Language/Framework Agnosticism
 
-DK prompts (guardrails.md, SKILL.md) must remain **language-agnostic and framework-agnostic**. These prompts are used across ALL coding tasks — Go, Python, Node.js, React, Rust, Java, and any other language.
+DX prompts (guardrails.md, SKILL.md) must remain **language-agnostic and framework-agnostic**. These prompts are used across ALL coding tasks — Go, Python, Node.js, React, Rust, Java, and any other language.
 
 **DO NOT add:**
 - Framework-specific configuration details (e.g., 'in jest.config.js use setupFilesAfterEnv', 'use supertest for Express')
@@ -133,7 +133,7 @@ DK prompts (guardrails.md, SKILL.md) must remain **language-agnostic and framewo
 
 ## Task
 
-Analyze the failures and propose SPECIFIC, TARGETED changes to DK's skill prompts or audit criteria.
+Analyze the failures and propose SPECIFIC, TARGETED changes to DX's skill prompts or audit criteria.
 
 For each proposed change:
 1. Explain WHY the current text causes the failure
@@ -288,7 +288,7 @@ fi
 
 log_success "Proposal validated. Patch ready: $PATCH_FILE"
 echo ""
-echo "To apply:  cd $DOYAKEN_DIR && git apply $PATCH_FILE"
+echo "To apply:  cd $DEX_DIR && git apply $PATCH_FILE"
 echo "To review: cat $PROPOSAL_FILE"
 
 # Output the patch file path for loop.sh

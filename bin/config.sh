@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# doyaken config — configure integrations for the current project
-# Asks which integrations to use and writes the config to .doyaken/doyaken.md.
-# Called by `doyaken init` after codebase analysis, and standalone via `doyaken config`.
+# dex config — configure integrations for the current project
+# Asks which integrations to use and writes the config to .dex/dex.md.
+# Called by `dex init` after codebase analysis, and standalone via `dex config`.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
   repo_root=""
@@ -14,15 +14,15 @@ if [[ -z "$repo_root" ]]; then
   exit 1
 fi
 
-doyaken_md="$repo_root/.doyaken/doyaken.md"
-if [[ ! -f "$doyaken_md" ]]; then
-  echo "ERROR: .doyaken/doyaken.md not found. Run 'dk init' first."
+dex_md="$repo_root/.dex/dex.md"
+if [[ ! -f "$dex_md" ]]; then
+  echo "ERROR: .dex/dex.md not found. Run 'dx init' first."
   exit 1
 fi
 
 # Clean up temp files on exit (normal or interrupt). The awk sections below
 # write to .integrations.tmp / .reviewers.tmp files that must not be left behind.
-trap 'rm -f "${doyaken_md}.integrations.tmp" "${doyaken_md}.reviewers.tmp" "${doyaken_md}.tmp" 2>/dev/null' EXIT
+trap 'rm -f "${dex_md}.integrations.tmp" "${dex_md}.reviewers.tmp" "${dex_md}.tmp" 2>/dev/null' EXIT
 
 echo "Configuring integrations..."
 echo ""
@@ -129,7 +129,7 @@ while true; do
     echo "  Empty handle — skipping."
     continue
   fi
-  REVIEWER_ROWS+="| ${rev_handle} | ${rev_type} | Added via dk config |"$'\n'
+  REVIEWER_ROWS+="| ${rev_handle} | ${rev_type} | Added via dx config |"$'\n'
   echo "  Added: ${rev_handle} (${rev_type})"
 done
 
@@ -143,16 +143,16 @@ Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
 - \`request\` — \`gh pr edit --add-reviewer <handle>\` (humans, Copilot, anything GitHub supports)
 - \`mention\` — \`@<handle>\` posted as a PR comment (for AI agents that watch mentions)
 
-When attaching request reviewers, Doyaken normalizes \`Copilot\`, \`@copilot\`,
+When attaching request reviewers, Dex normalizes \`Copilot\`, \`@copilot\`,
 or Copilot aliases to GitHub CLI's special \`@copilot\` reviewer value. Normal
 GitHub usernames are passed without a leading \`@\`.
 
 | Handle | Type | Notes |
 |--------|------|-------|
 ${REVIEWER_ROWS}
-Edit rows directly or rerun \`dk config\`. Remove a row to skip a reviewer."
+Edit rows directly or rerun \`dx config\`. Remove a row to skip a reviewer."
 
-# ── Write to doyaken.md ──────────────────────────────────────────────────
+# ── Write to dex.md ──────────────────────────────────────────────────
 
 INTEGRATIONS="## Integrations
 
@@ -170,47 +170,47 @@ When an integration is \"not configured\", skip any workflow steps that referenc
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management."
 
 # Write integrations content to a temp file (avoids BSD awk multiline -v bug)
-INTEGRATIONS_TMP="${doyaken_md}.integrations.tmp"
+INTEGRATIONS_TMP="${dex_md}.integrations.tmp"
 printf '%s\n' "$INTEGRATIONS" > "$INTEGRATIONS_TMP"
 
 # Replace existing Integrations section, or append before ## Workflow (or at end)
-if grep -q '^## Integrations' "$doyaken_md" 2>/dev/null; then
+if grep -q '^## Integrations' "$dex_md" 2>/dev/null; then
   # Remove from ## Integrations to the next ## heading (or EOF), insert replacement.
   # Pass the temp file path via env var to avoid awk program string injection.
   _DKTMP="$INTEGRATIONS_TMP" awk '
     /^## Integrations/ { skip=1; while ((getline line < ENVIRON["_DKTMP"]) > 0) print line; next }
     skip && /^## / { skip=0 }
     !skip { print }
-  ' "$doyaken_md" > "${doyaken_md}.tmp" && mv "${doyaken_md}.tmp" "$doyaken_md"
-elif grep -q '^## Workflow' "$doyaken_md" 2>/dev/null; then
+  ' "$dex_md" > "${dex_md}.tmp" && mv "${dex_md}.tmp" "$dex_md"
+elif grep -q '^## Workflow' "$dex_md" 2>/dev/null; then
   # Insert before ## Workflow
   _DKTMP="$INTEGRATIONS_TMP" awk '
     /^## Workflow/ { while ((getline line < ENVIRON["_DKTMP"]) > 0) print line; print "" }
     { print }
-  ' "$doyaken_md" > "${doyaken_md}.tmp" && mv "${doyaken_md}.tmp" "$doyaken_md"
+  ' "$dex_md" > "${dex_md}.tmp" && mv "${dex_md}.tmp" "$dex_md"
 else
   # Append to end
-  printf '\n%s\n' "$INTEGRATIONS" >> "$doyaken_md"
+  printf '\n%s\n' "$INTEGRATIONS" >> "$dex_md"
 fi
 rm -f "$INTEGRATIONS_TMP"
 
 # Write Reviewers section using the same temp+awk pattern
-REVIEWERS_TMP="${doyaken_md}.reviewers.tmp"
+REVIEWERS_TMP="${dex_md}.reviewers.tmp"
 printf '%s\n' "$REVIEWERS" > "$REVIEWERS_TMP"
 
-if grep -q '^## Reviewers' "$doyaken_md" 2>/dev/null; then
+if grep -q '^## Reviewers' "$dex_md" 2>/dev/null; then
   _DKTMP="$REVIEWERS_TMP" awk '
     /^## Reviewers/ { skip=1; while ((getline line < ENVIRON["_DKTMP"]) > 0) print line; next }
     skip && /^## / { skip=0 }
     !skip { print }
-  ' "$doyaken_md" > "${doyaken_md}.tmp" && mv "${doyaken_md}.tmp" "$doyaken_md"
-elif grep -q '^## Workflow' "$doyaken_md" 2>/dev/null; then
+  ' "$dex_md" > "${dex_md}.tmp" && mv "${dex_md}.tmp" "$dex_md"
+elif grep -q '^## Workflow' "$dex_md" 2>/dev/null; then
   _DKTMP="$REVIEWERS_TMP" awk '
     /^## Workflow/ { while ((getline line < ENVIRON["_DKTMP"]) > 0) print line; print "" }
     { print }
-  ' "$doyaken_md" > "${doyaken_md}.tmp" && mv "${doyaken_md}.tmp" "$doyaken_md"
+  ' "$dex_md" > "${dex_md}.tmp" && mv "${dex_md}.tmp" "$dex_md"
 else
-  printf '\n%s\n' "$REVIEWERS" >> "$doyaken_md"
+  printf '\n%s\n' "$REVIEWERS" >> "$dex_md"
 fi
 rm -f "$REVIEWERS_TMP"
 
@@ -230,7 +230,7 @@ printf '%s' "$REVIEWER_ROWS" | sed 's/^| /  - /; s/ |.*//' | grep -v '^$'
 # ── MCP setup hints for newly-enabled integrations ────────────────────────
 #
 # Print the JSON snippet the user needs to add to .mcp.json or
-# ~/.claude/settings.json for each enabled integration. Doyaken does not
+# ~/.claude/settings.json for each enabled integration. Dex does not
 # write these for the user — they require API keys/tokens and the user
 # may want to manage MCP config themselves.
 
@@ -305,13 +305,13 @@ fi
 
 if [[ "$DATADOG_STATUS" == "enabled" ]] || [[ "$HONEYBADGER_STATUS" == "enabled" ]]; then
   echo ""
-  echo "After saving the snippet to .mcp.json, rerun \`dk config\` and accept the"
+  echo "After saving the snippet to .mcp.json, rerun \`dx config\` and accept the"
   echo "MCP-promotion prompt to mirror the server into ~/.claude/settings.json so"
   echo "worktrees inherit it."
 fi
 # ── Promote MCP servers to global settings ────────────────────────────
 #
-# Project-level .mcp.json servers require per-directory OAuth. When dk
+# Project-level .mcp.json servers require per-directory OAuth. When dx
 # creates worktrees, the worktree is a different directory and won't
 # share the main repo's MCP auth. Promoting servers to ~/.claude/settings.json
 # makes auth global so all worktrees inherit it.
@@ -345,9 +345,9 @@ if [[ -f "$MCP_FILE" ]] && command -v jq &>/dev/null; then
         TMPFILE="${SETTINGS_FILE}.tmp.$$"
         if ! printf '%s\n' '{}' > "$TMPFILE" || ! mv "$TMPFILE" "$SETTINGS_FILE"; then
           rm -f "$TMPFILE" 2>/dev/null || true
-          dk_warn "Failed to create settings.json — MCP promotion skipped"
+          dx_warn "Failed to create settings.json — MCP promotion skipped"
           echo ""
-          echo "To reconfigure later, run: dk config"
+          echo "To reconfigure later, run: dx config"
           exit 0
         fi
       fi
@@ -363,19 +363,19 @@ if [[ -f "$MCP_FILE" ]] && command -v jq &>/dev/null; then
       ' "$SETTINGS_FILE" "$MCP_FILE" 2>/dev/null) && [[ -n "$merged" ]]; then
         TMPFILE="${SETTINGS_FILE}.tmp.$$"
         if printf '%s\n' "$merged" > "$TMPFILE" && mv "$TMPFILE" "$SETTINGS_FILE"; then
-          dk_done "Promoted MCP servers to global settings"
+          dx_done "Promoted MCP servers to global settings"
         else
           rm -f "$TMPFILE" 2>/dev/null || true
-          dk_warn "Failed to merge MCP servers — settings.json left unchanged"
+          dx_warn "Failed to merge MCP servers — settings.json left unchanged"
         fi
       else
-        dk_warn "Failed to merge MCP servers — settings.json left unchanged"
+        dx_warn "Failed to merge MCP servers — settings.json left unchanged"
       fi
     else
-      dk_skip "Skipped MCP promotion"
+      dx_skip "Skipped MCP promotion"
     fi
   fi
 fi
 
 echo ""
-echo "To reconfigure later, run: dk config"
+echo "To reconfigure later, run: dx config"

@@ -240,16 +240,16 @@ _verify_go() {
   echo "$score"
 }
 
-# Default issue detection: check if DK's output shows it found and fixed problems
+# Default issue detection: check if DX's output shows it found and fixed problems
 _score_issue_detection_default() {
   local ws="$1" result_dir="$2"
   local score=50  # Neutral baseline
 
   # Check stream output for evidence of self-review and fixing
   if [[ -f "$result_dir/stream.jsonl" ]]; then
-    # Look for patterns indicating DK reviewed its work
+    # Look for patterns indicating DX reviewed its work
     if grep -qE '"name"\s*:\s*"Bash"' "$result_dir/stream.jsonl" 2>/dev/null; then
-      # DK ran commands (likely tests/lint) — that's good
+      # DX ran commands (likely tests/lint) — that's good
       score=$((score + 20))
     fi
     # Look for evidence of iteration (multiple edit rounds)
@@ -275,7 +275,7 @@ _score_llm_judge() {
   sc_dir=$(scenario_dir "$scenario")
   local rubric_llm="$sc_dir/rubric-llm.md"
 
-  # Gather the code DK produced
+  # Gather the code DX produced
   local code_listing=""
   while IFS= read -r f; do
     [[ -f "$ws/$f" ]] || continue

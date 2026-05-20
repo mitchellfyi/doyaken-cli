@@ -2,7 +2,7 @@
 # Rubric for: edge-ambiguous-spec
 # HARDENED v2: target ~60-75 for typical implementations.
 # The prompt is deliberately vague ("Build a rate limiter.").
-# Tests whether DK makes GOOD assumptions, produces professional-grade code,
+# Tests whether DX makes GOOD assumptions, produces professional-grade code,
 # and handles the ambiguity intelligently (not just minimally).
 
 rubric_correctness() {

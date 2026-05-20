@@ -4,7 +4,7 @@ Review, improve, and harden the codebase. Focus your effort where it will have t
 
 Start by understanding the current state of the project:
 
-1. Read the project's AGENTS.md, README, CLAUDE.md, and `.doyaken/doyaken.md` (if they exist) to understand the tech stack, conventions, and quality gates.
+1. Read the project's AGENTS.md, README, CLAUDE.md, and `.dex/dex.md` (if they exist) to understand the tech stack, conventions, and quality gates.
 2. Run `git log --oneline -30` to see recent activity and identify active areas.
 3. Run the project's quality checks (format, lint, typecheck, test) to find existing failures.
 4. Review `git diff` and `git status` for any uncommitted work in progress.

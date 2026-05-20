@@ -6,14 +6,14 @@
 # may be lost. This hook prints a reminder that survives as a compaction instruction.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
-SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
-CTX_FILE=$(dk_context_file "$SESSION_ID")
+SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
+CTX_FILE=$(dx_context_file "$SESSION_ID")
 
-# Only output if we're in a Doyaken session with a context file
+# Only output if we're in a Dex session with a context file
 if [[ -f "$CTX_FILE" ]]; then
-  echo "DOYAKEN COMPACTION NOTICE: After compaction, re-read your system context to re-orient."
-  echo "If repo memory is relevant, re-read .doyaken/memory/index.md and load only scoped active entries."
+  echo "DEX COMPACTION NOTICE: After compaction, re-read your system context to re-orient."
+  echo "If repo memory is relevant, re-read .dex/memory/index.md and load only scoped active entries."
   echo "If you have in-progress tasks, summarise your current position before compaction proceeds."
 fi

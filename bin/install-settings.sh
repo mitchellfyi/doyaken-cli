@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2088,SC1091
-# Install or refresh Doyaken's Claude Code settings entries.
+# Install or refresh Dex's Claude Code settings entries.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 QUIET=0
 for arg in "$@"; do
@@ -14,28 +14,28 @@ done
 
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-INSTALL_STATE_FILE="$CLAUDE_DIR/.doyaken-install-state.json"
+INSTALL_STATE_FILE="$CLAUDE_DIR/.dex-install-state.json"
 mkdir -p "$CLAUDE_DIR"
 
 say_done() {
-  [[ $QUIET -eq 1 ]] || dk_done "$1"
+  [[ $QUIET -eq 1 ]] || dx_done "$1"
 }
 
 say_info() {
-  [[ $QUIET -eq 1 ]] || dk_info "$1"
+  [[ $QUIET -eq 1 ]] || dx_info "$1"
 }
 
 say_error() {
-  [[ $QUIET -eq 1 ]] || dk_error "$1"
+  [[ $QUIET -eq 1 ]] || dx_error "$1"
 }
 
 managed_worktree_dirs_json="[]"
 
-__dk_managed_dirs_from_template() {
+__dx_managed_dirs_from_template() {
   if command -v jq >/dev/null 2>&1; then
-    jq -c '(.worktree.symlinkDirectories // []) | if type == "array" then . else [] end' "$DOYAKEN_DIR/settings.json"
+    jq -c '(.worktree.symlinkDirectories // []) | if type == "array" then . else [] end' "$DEX_DIR/settings.json"
   elif command -v python3 >/dev/null 2>&1; then
-    python3 - "$DOYAKEN_DIR/settings.json" <<'PY'
+    python3 - "$DEX_DIR/settings.json" <<'PY'
 import json
 import sys
 
@@ -49,31 +49,36 @@ PY
   fi
 }
 
-__dk_managed_dirs_added_by_merge() {
+__dx_managed_dirs_added_by_merge() {
   local existing_settings="$1"
   local template_settings="$2"
 
-  jq -s -c --arg dir "$DOYAKEN_DIR" --arg home "$HOME" '
+  jq -s -c --arg dir "$DEX_DIR" --arg home "$HOME" '
     . as $docs |
     def array_or_empty: if type == "array" then . else [] end;
     def arrays_equal($left; $right):
       (($left | sort) == ($right | sort));
     def contains_all($haystack; $needles):
       all($needles[]; . as $dir | ($haystack | index($dir)));
-    def is_doyaken_cmd:
+    def is_dex_cmd:
       type == "string" and (
         contains($dir + "/hooks/")
+        or contains($home + "/work/dex/hooks/")
+        or contains("$HOME/work/dex/hooks/")
+        or contains("$DEX_DIR/hooks/")
+        or (contains("export DEX_DIR=") and contains("/hooks/"))
         or contains($home + "/work/doyaken/hooks/")
         or contains("$HOME/work/doyaken/hooks/")
         or contains("$DOYAKEN_DIR/hooks/")
         or (contains("export DOYAKEN_DIR=") and contains("/hooks/"))
+        or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
         or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/doyaken(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
       );
-    def existing_has_doyaken_hooks:
-      [($docs[0].hooks // {}) | to_entries[]? | .value[]? | .hooks[]? | .command | select(is_doyaken_cmd)] | length > 0;
+    def existing_has_dex_hooks:
+      [($docs[0].hooks // {}) | to_entries[]? | .value[]? | .hooks[]? | .command | select(is_dex_cmd)] | length > 0;
     def existing_dirs: (($docs[0].worktree.symlinkDirectories // []) | array_or_empty);
     def template_dirs: (($docs[1].worktree.symlinkDirectories // []) | array_or_empty);
-    if existing_has_doyaken_hooks and (
+    if existing_has_dex_hooks and (
          arrays_equal(existing_dirs; template_dirs)
          or contains_all(existing_dirs; template_dirs)
        ) then
@@ -84,7 +89,7 @@ __dk_managed_dirs_added_by_merge() {
   ' "$existing_settings" <(printf '%s\n' "$template_settings")
 }
 
-__dk_record_managed_worktree_dirs() {
+__dx_record_managed_worktree_dirs() {
   local dirs_json="$1"
   local tmpfile
 
@@ -94,7 +99,7 @@ __dk_record_managed_worktree_dirs() {
       return 0
     fi
     rm -f "$tmpfile" 2>/dev/null || true
-    say_error "Failed to record Doyaken-managed worktree settings"
+    say_error "Failed to record Dex-managed worktree settings"
     return 1
   fi
 
@@ -119,21 +124,21 @@ __dk_record_managed_worktree_dirs() {
   fi
 
   rm -f "$tmpfile" 2>/dev/null || true
-  say_error "Failed to record Doyaken-managed worktree settings"
+  say_error "Failed to record Dex-managed worktree settings"
   return 1
 }
 
-settings_template=$(<"$DOYAKEN_DIR/settings.json")
-local_settings=${settings_template//\$HOME\/work\/doyaken/$DOYAKEN_DIR}
+settings_template=$(<"$DEX_DIR/settings.json")
+local_settings=${settings_template//\$HOME\/work\/dex/$DEX_DIR}
 
 if [[ -f "$SETTINGS_FILE" ]]; then
   if command -v jq >/dev/null 2>&1; then
-    if ! managed_worktree_dirs_json=$(__dk_managed_dirs_added_by_merge "$SETTINGS_FILE" "$local_settings"); then
+    if ! managed_worktree_dirs_json=$(__dx_managed_dirs_added_by_merge "$SETTINGS_FILE" "$local_settings"); then
       say_error "Failed to inspect existing worktree settings"
       exit 1
     fi
 
-    if merged=$(jq -s --arg dir "$DOYAKEN_DIR" --arg home "$HOME" '
+    if merged=$(jq -s --arg dir "$DEX_DIR" --arg home "$HOME" '
       def append_unique($base; $add):
         reduce (($add // [])[]) as $item (($base // []); if index($item) then . else . + [$item] end);
       def merge_worktree($existing; $template):
@@ -143,13 +148,18 @@ if [[ -f "$SETTINGS_FILE" ]]; then
           else
             .
           end;
-      def is_doyaken_cmd:
+      def is_dex_cmd:
         type == "string" and (
           contains($dir + "/hooks/")
+          or contains($home + "/work/dex/hooks/")
+          or contains("$HOME/work/dex/hooks/")
+          or contains("$DEX_DIR/hooks/")
+          or (contains("export DEX_DIR=") and contains("/hooks/"))
           or contains($home + "/work/doyaken/hooks/")
           or contains("$HOME/work/doyaken/hooks/")
           or contains("$DOYAKEN_DIR/hooks/")
           or (contains("export DOYAKEN_DIR=") and contains("/hooks/"))
+          or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
           or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/doyaken(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
         );
       .[0] + {hooks: (reduce (.[1].hooks | to_entries[]) as $e (
@@ -157,7 +167,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
         .[$e.key] = (
           [
             (.[$e.key] // [])[]
-            | .hooks = ([.hooks[]? | select((.command | is_doyaken_cmd) | not)])
+            | .hooks = ([.hooks[]? | select((.command | is_dex_cmd) | not)])
             | select((.hooks // []) | length > 0)
           ]
           + $e.value
@@ -166,7 +176,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
     ' "$SETTINGS_FILE" <(printf '%s\n' "$local_settings")) && [[ -n "$merged" ]]; then
       tmpfile="${SETTINGS_FILE}.tmp.$$"
       if printf '%s\n' "$merged" > "$tmpfile" && mv "$tmpfile" "$SETTINGS_FILE"; then
-        __dk_record_managed_worktree_dirs "$managed_worktree_dirs_json" || exit 1
+        __dx_record_managed_worktree_dirs "$managed_worktree_dirs_json" || exit 1
         say_done "Merged hooks and worktree settings into ~/.claude/settings.json"
       else
         rm -f "$tmpfile" 2>/dev/null || true
@@ -175,11 +185,11 @@ if [[ -f "$SETTINGS_FILE" ]]; then
       fi
     else
       say_error "Failed to merge settings — settings.json left unchanged"
-      [[ $QUIET -eq 1 ]] || printf '        Add settings manually from %s/settings.json\n' "$DOYAKEN_DIR"
+      [[ $QUIET -eq 1 ]] || printf '        Add settings manually from %s/settings.json\n' "$DEX_DIR"
       exit 1
     fi
   else
-    say_error "jq is required to merge Doyaken hooks into existing ~/.claude/settings.json"
+    say_error "jq is required to merge Dex hooks into existing ~/.claude/settings.json"
     say_info "Add these settings to ~/.claude/settings.json manually:"
     if [[ $QUIET -ne 1 ]]; then
       printf '\n%s\n\n' "$local_settings"
@@ -189,8 +199,8 @@ if [[ -f "$SETTINGS_FILE" ]]; then
 else
   tmpfile="${SETTINGS_FILE}.tmp.$$"
   if printf '%s\n' "$local_settings" > "$tmpfile" && mv "$tmpfile" "$SETTINGS_FILE"; then
-    managed_worktree_dirs_json=$(__dk_managed_dirs_from_template)
-    __dk_record_managed_worktree_dirs "$managed_worktree_dirs_json" || exit 1
+    managed_worktree_dirs_json=$(__dx_managed_dirs_from_template)
+    __dx_record_managed_worktree_dirs "$managed_worktree_dirs_json" || exit 1
     say_done "Created ~/.claude/settings.json with hooks and worktree settings"
   else
     rm -f "$tmpfile" 2>/dev/null || true

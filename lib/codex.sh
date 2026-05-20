@@ -1,35 +1,61 @@
 # shellcheck shell=bash
-# Doyaken helpers for Codex CLI integration.
+# Dex helpers for Codex CLI integration.
 
-dk_codex_skills_dir() {
+dx_codex_skills_dir() {
   printf '%s\n' "${CODEX_HOME:-$HOME/.codex}/skills"
 }
 
-dk_count_doyaken_skills() {
+dx_count_dex_skills() {
   local count=0
   local skill_dir
-  for skill_dir in "$DOYAKEN_DIR"/skills/*; do
+  for skill_dir in "$DEX_DIR"/skills/*; do
     [[ -d "$skill_dir" && -f "$skill_dir/SKILL.md" ]] || continue
     count=$((count + 1))
   done
   printf '%s\n' "$count"
 }
 
-dk_codex_skill_link_repairable() {
+dx_codex_skill_link_repairable() {
   local current="$1" skill_name="$2"
   case "$current" in
-    */doyaken*/skills/"$skill_name"|*/doyaken*/skills/"$skill_name"/) return 0 ;;
+    */dex*/skills/"$skill_name"|*/dex*/skills/"$skill_name"/) return 0 ;;
     *) return 1 ;;
   esac
 }
 
-dk_install_codex_skills() {
+dx_remove_legacy_codex_skill_links() {
+  local codex_dir="$1"
+  [[ -d "$codex_dir" ]] || return 0
+
+  local removed=0
+  local target current skill_name
+  while IFS= read -r target; do
+    [[ -L "$target" ]] || continue
+    skill_name=$(basename "$target")
+    current=$(readlink "$target")
+    case "$skill_name:$current" in
+      dk*:*/doyaken*/skills/*|doyaken:*/doyaken*/skills/*)
+        if rm "$target"; then
+          removed=$((removed + 1))
+        fi
+        ;;
+    esac
+  done < <(find "$codex_dir" -mindepth 1 -maxdepth 1 -type l 2>/dev/null)
+
+  if [[ $removed -gt 0 ]]; then
+    dx_done "Removed ${removed} legacy Doyaken Codex skill link(s)"
+  fi
+}
+
+dx_install_codex_skills() {
   local codex_dir
-  codex_dir=$(dk_codex_skills_dir)
+  codex_dir=$(dx_codex_skills_dir)
   if ! mkdir -p "$codex_dir"; then
-    dk_warn "Could not create ${codex_dir}; skipping Codex skill links"
+    dx_warn "Could not create ${codex_dir}; skipping Codex skill links"
     return 1
   fi
+
+  dx_remove_legacy_codex_skill_links "$codex_dir"
 
   local installed=0
   local expected=0
@@ -37,7 +63,7 @@ dk_install_codex_skills() {
   local repaired=0
   local skipped=0
   local skill_dir skill_name target current
-  for skill_dir in "$DOYAKEN_DIR"/skills/*; do
+  for skill_dir in "$DEX_DIR"/skills/*; do
     [[ -d "$skill_dir" && -f "$skill_dir/SKILL.md" ]] || continue
     expected=$((expected + 1))
     skill_name=$(basename "$skill_dir")
@@ -47,7 +73,7 @@ dk_install_codex_skills() {
       current=$(readlink "$target")
       if [[ "$current" == "$skill_dir" ]]; then
         installed=$((installed + 1))
-      elif dk_codex_skill_link_repairable "$current" "$skill_name"; then
+      elif dx_codex_skill_link_repairable "$current" "$skill_name"; then
         if rm "$target" && ln -s "$skill_dir" "$target"; then
           installed=$((installed + 1))
           repaired=$((repaired + 1))
@@ -55,11 +81,11 @@ dk_install_codex_skills() {
           failed=$((failed + 1))
         fi
       else
-        dk_warn "${codex_dir}/${skill_name} is a symlink to ${current} — leaving it unchanged"
+        dx_warn "${codex_dir}/${skill_name} is a symlink to ${current} — leaving it unchanged"
         skipped=$((skipped + 1))
       fi
     elif [[ -e "$target" ]]; then
-      dk_warn "${codex_dir}/${skill_name} exists and is not a symlink — leaving it unchanged"
+      dx_warn "${codex_dir}/${skill_name} exists and is not a symlink — leaving it unchanged"
       skipped=$((skipped + 1))
     else
       if ln -s "$skill_dir" "$target"; then
@@ -71,16 +97,16 @@ dk_install_codex_skills() {
   done
 
   if [[ $failed -gt 0 || $skipped -gt 0 || $installed -ne $expected ]]; then
-    dk_warn "Installed ${installed}/${expected} Codex skill link(s); repaired ${repaired}; skipped ${skipped}; failed ${failed}"
+    dx_warn "Installed ${installed}/${expected} Codex skill link(s); repaired ${repaired}; skipped ${skipped}; failed ${failed}"
     return 1
   else
-    dk_done "Installed ${installed}/${expected} Doyaken skill link(s) for Codex CLI"
+    dx_done "Installed ${installed}/${expected} Dex skill link(s) for Codex CLI"
   fi
 }
 
-dk_count_codex_doyaken_skills() {
+dx_count_codex_dex_skills() {
   local codex_dir
-  codex_dir=$(dk_codex_skills_dir)
+  codex_dir=$(dx_codex_skills_dir)
   [[ -d "$codex_dir" ]] || {
     printf '%s\n' "0"
     return 0
@@ -88,7 +114,7 @@ dk_count_codex_doyaken_skills() {
 
   local count=0
   local skill_dir skill_name target current
-  for skill_dir in "$DOYAKEN_DIR"/skills/*; do
+  for skill_dir in "$DEX_DIR"/skills/*; do
     [[ -d "$skill_dir" && -f "$skill_dir/SKILL.md" ]] || continue
     skill_name=$(basename "$skill_dir")
     target="$codex_dir/$skill_name"
@@ -100,18 +126,18 @@ dk_count_codex_doyaken_skills() {
   printf '%s\n' "$count"
 }
 
-dk_codex_doyaken_skills_complete() {
+dx_codex_dex_skills_complete() {
   local expected installed
-  expected=$(dk_count_doyaken_skills)
-  installed=$(dk_count_codex_doyaken_skills)
+  expected=$(dx_count_dex_skills)
+  installed=$(dx_count_codex_dex_skills)
   [[ "$expected" -gt 0 && "$installed" -eq "$expected" ]]
 }
 
-dk_uninstall_codex_skills() {
+dx_uninstall_codex_skills() {
   local codex_dir
-  codex_dir=$(dk_codex_skills_dir)
+  codex_dir=$(dx_codex_skills_dir)
   [[ -d "$codex_dir" ]] || {
-    dk_skip "${codex_dir} does not exist"
+    dx_skip "${codex_dir} does not exist"
     return 0
   }
 
@@ -121,25 +147,25 @@ dk_uninstall_codex_skills() {
   while IFS= read -r target; do
     current=$(readlink "$target")
     skill_name=$(basename "$target")
-    if [[ "$current" == "$DOYAKEN_DIR"/skills/* ]] || dk_codex_skill_link_repairable "$current" "$skill_name"; then
+    if [[ "$current" == "$DEX_DIR"/skills/* ]] || dx_codex_skill_link_repairable "$current" "$skill_name"; then
       if [[ -e "$current" ]] && [[ ! -d "$current" ]]; then
         continue
       fi
         if rm "$target"; then
           removed=$((removed + 1))
         else
-          dk_warn "Could not remove ${target}"
+          dx_warn "Could not remove ${target}"
           failed=$((failed + 1))
         fi
     fi
   done < <(find "$codex_dir" -mindepth 1 -maxdepth 1 -type l 2>/dev/null)
 
   if [[ $failed -gt 0 ]]; then
-    dk_warn "Removed ${removed} Doyaken Codex skill link(s); failed ${failed}"
+    dx_warn "Removed ${removed} Dex Codex skill link(s); failed ${failed}"
     return 1
   elif [[ $removed -gt 0 ]]; then
-    dk_done "Removed ${removed} Doyaken Codex skill link(s)"
+    dx_done "Removed ${removed} Dex Codex skill link(s)"
   else
-    dk_skip "No Doyaken Codex skill links found"
+    dx_skip "No Dex Codex skill links found"
   fi
 }

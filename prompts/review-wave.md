@@ -1,6 +1,6 @@
 # Review Wave
 
-One `/dkreviewloop` iteration reviews the caller-supplied scope. This is usually
+One `/dxreviewloop` iteration reviews the caller-supplied scope. This is usually
 the full current change set; when no change set exists, it is the entire tracked
 codebase. The outer loop sets the required consecutive `CLEAN` waves from the
 resolved profile: `light`, `standard`, or `thorough`.
@@ -40,12 +40,12 @@ Only `CLEAN` increments the outer clean counter. Every other result resets it.
 
 ## 1. Context Pack
 
-Create or refresh the context pack in global Doyaken state:
+Create or refresh the context pack in global Dex state:
 
 ```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
-REVIEW_CONTEXT_FILE="$(dk_review_context_file "$SESSION_ID")"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
+REVIEW_CONTEXT_FILE="$(dx_review_context_file "$SESSION_ID")"
 mkdir -p "$(dirname "$REVIEW_CONTEXT_FILE")"
 ```
 
@@ -149,11 +149,11 @@ context pack and final report.
 ## 6. Result Signal
 
 ```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
-echo "<result>" > "$(dk_review_result_file "$SESSION_ID")"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
+echo "<result>" > "$(dx_review_result_file "$SESSION_ID")"
 FINDINGS_HASH=$(printf '%s\n' "<sorted verified finding descriptions or EMPTY>" | shasum -a 256 | cut -c1-16)
-echo "$FINDINGS_HASH" >> "$(dk_findings_file "$SESSION_ID")"
+echo "$FINDINGS_HASH" >> "$(dx_findings_file "$SESSION_ID")"
 ```
 
 Final output:

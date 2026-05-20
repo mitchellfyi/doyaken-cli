@@ -8,7 +8,7 @@ Confirm every quality gate passed:
 - Typecheck: PASS? If not, fix type errors.
 - Tests: ALL passing? No skipped tests, no flaky failures? If any test was skipped or failed intermittently, investigate and fix the root cause.
 
-Run /dkverify if you haven't already, or if you've made changes since the last run.
+Run /dxverify if you haven't already, or if you've made changes since the last run.
 
 ## Step 2: Commit quality
 
@@ -21,12 +21,12 @@ Review your commit history (`git log --oneline origin/<default-branch>..HEAD`):
   - Debug logs or temporary files
   - Files containing secrets or credentials
 
-## Step 2.5: `.doyaken/` in commits
+## Step 2.5: `.dex/` in commits
 
-Check if `.doyaken/` files were modified during implementation:
-- If yes, ensure they're committed (ideally in a separate `docs(.doyaken): sync project config` commit).
-- If `.doyaken/` changes are mixed into code commits, split them out.
-- If `.doyaken/` changes are unstaged/uncommitted, stage and commit them now.
+Check if `.dex/` files were modified during implementation:
+- If yes, ensure they're committed (ideally in a separate `docs(.dex): sync project config` commit).
+- If `.dex/` changes are mixed into code commits, split them out.
+- If `.dex/` changes are unstaged/uncommitted, stage and commit them now.
 
 ## Step 3: Diff review
 
@@ -47,7 +47,7 @@ ALL of these must be true before you stop:
 - All quality checks pass (format, lint, typecheck, tests)
 - Commits are clean and atomic with conventional messages
 - No unwanted files in the diff
-- Any `.doyaken/` changes are committed cleanly
+- Any `.dex/` changes are committed cleanly
 - Code is pushed to origin successfully
 
 When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions.

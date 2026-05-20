@@ -3,11 +3,11 @@
 set -euo pipefail
 
 play_stop_sound() {
-  [[ "${DOYAKEN_STOP_SOUND:-1}" != "0" ]] || return 0
+  [[ "${DEX_STOP_SOUND:-1}" != "0" ]] || return 0
   [[ "$(uname -s 2>/dev/null || true)" == "Darwin" ]] || return 0
   command -v afplay >/dev/null 2>&1 || return 0
 
-  local sound="${DOYAKEN_STOP_SOUND_FILE:-}"
+  local sound="${DEX_STOP_SOUND_FILE:-}"
   if [[ -z "$sound" ]]; then
     local sounds=()
     local candidate

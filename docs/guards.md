@@ -1,6 +1,6 @@
 # Guards
 
-Doyaken uses markdown-based guard rules to block or warn about dangerous patterns before they happen. Guards are evaluated by `hooks/guard-handler.py` on PreToolUse (before Bash/Edit/Write). Post-commit validation (after git commit) is handled by `hooks/post-commit-guard.sh`, which checks conventional commit format and then delegates to `guard-handler.py` for markdown-based guard evaluation of committed files.
+Dex uses markdown-based guard rules to block or warn about dangerous patterns before they happen. Guards are evaluated by `hooks/guard-handler.py` on PreToolUse (before Bash/Edit/Write). Post-commit validation (after git commit) is handled by `hooks/post-commit-guard.sh`, which checks conventional commit format and then delegates to `guard-handler.py` for markdown-based guard evaluation of committed files.
 
 These are Claude Code hooks — see [Claude Code hooks documentation](https://docs.anthropic.com/en/docs/claude-code/hooks) for how hooks integrate with the tool lifecycle.
 
@@ -15,8 +15,8 @@ These are Claude Code hooks — see [Claude Code hooks documentation](https://do
 ## Guard File Format
 
 Guards are markdown files with YAML frontmatter, stored in:
-- `hooks/guards/*.md` — built-in guards (ship with Doyaken)
-- `.doyaken/guards/*.md` — project-specific guards (per-repo)
+- `hooks/guards/*.md` — built-in guards (ship with Dex)
+- `.dex/guards/*.md` — project-specific guards (per-repo)
 
 ```markdown
 ---
@@ -49,7 +49,7 @@ Supports **markdown** formatting.
 
 When using `env_value` values that look like booleans (`true`, `false`, `yes`, `no`), quote them so the simple frontmatter parser keeps them as strings.
 
-For `env_var: DK_PROVIDER_ENGINE`, `guard-handler.py` treats the current Doyaken session provider state as authoritative when `DOYAKEN_SESSION_ID` is present, then falls back to the hook environment and provider config defaults. Without an explicit session id, a hook-provided `DK_PROVIDER_ENGINE` value wins over any launch-scoped fallback state so stale state files cannot silently expand provider-scoped guards.
+For `env_var: DX_PROVIDER_ENGINE`, `guard-handler.py` treats the current Dex session provider state as authoritative when `DEX_SESSION_ID` is present, then falls back to the hook environment and provider config defaults. Without an explicit session id, a hook-provided `DX_PROVIDER_ENGINE` value wins over any launch-scoped fallback state so stale state files cannot silently expand provider-scoped guards.
 
 ### Event Types
 
@@ -65,22 +65,22 @@ For `env_var: DK_PROVIDER_ENGINE`, `guard-handler.py` treats the current Doyaken
 | Guard | Event | Action | What It Catches |
 |-------|-------|--------|----------------|
 | `block-destructive-commands` | bash | block | `rm -rf /`, `rm -rf /*`, `rm -rf ~`, `rm -rf ~/.`, `rm -rf ~/*`, `rm -rf ~+`, `rm -rf ~+/*`, `rm -rf $HOME`, `rm -rf $HOME/.`, `rm -rf $HOME/*`, `rm -rf $PWD`, `rm -rf $PWD/.`, `rm -rf $PWD/*`, `rm -rf .`, `rm -rf ./`, `rm -rf ./.`, `rm -rf *`, `rm -rf ./*`, including parameter-expanded equivalents, split/reordered flags, common wrappers, and shell-nested `bash -c`/`eval` payloads (but NOT `rm -rf /tmp` or `rm -rf ./build`), `dd if=`, `mkfs`, `format` |
-| `block-claude-attribution` | bash | block | PR and commit commands containing Claude generated-by/co-author attribution; use Doyaken attribution instead |
-| `block-raw-codex-delegation` | bash | block | Raw Codex agent-work commands while the resolved provider engine is `codex-plugin`, including `codex`, `codex exec`, `codex e`, `codex review`, direct `dk_provider_codex` helper delegation, API-key login forms, shell-nested forms including literal variable-expanded and escape-decoded `bash -c`/`eval`/stdin payloads, generated heredoc scripts, direct executable script paths, readable executed or sourced script files, Python/Node/Ruby/Perl interpreter payloads that launch Codex, launch wrappers such as `nice`, `timeout`, `xargs`, and `find -exec`, and fail-closed shell execution from unresolved/unreadable script paths or unknown stdin/process-substitution producers; also blocks versioned/scoped package-runner forms such as `npx @openai/codex@latest` and runner shell payloads such as `npx -c "codex exec ..."` and `npm exec --call "codex exec ..."`; use `bin/dkcodex.sh` instead |
+| `block-claude-attribution` | bash | block | PR and commit commands containing Claude generated-by/co-author attribution; use Dex attribution instead |
+| `block-raw-codex-delegation` | bash | block | Raw Codex agent-work commands while the resolved provider engine is `codex-plugin`, including `codex`, `codex exec`, `codex e`, `codex review`, direct `dx_provider_codex` helper delegation, API-key login forms, shell-nested forms including literal variable-expanded and escape-decoded `bash -c`/`eval`/stdin payloads, generated heredoc scripts, direct executable script paths, readable executed or sourced script files, Python/Node/Ruby/Perl interpreter payloads that launch Codex, launch wrappers such as `nice`, `timeout`, `xargs`, and `find -exec`, and fail-closed shell execution from unresolved/unreadable script paths or unknown stdin/process-substitution producers; also blocks versioned/scoped package-runner forms such as `npx @openai/codex@latest` and runner shell payloads such as `npx -c "codex exec ..."` and `npm exec --call "codex exec ..."`; use `bin/dxcodex.sh` instead |
 | `warn-sensitive-files` | commit | warn | `.env`, credentials, keys, certs in commits |
 | `warn-hardcoded-secrets` | file | warn | `API_KEY = "..."`, `ACCESS_KEY`, `JWT_SECRET`, and other credential patterns in code |
 
 Note: Conventional commit format validation is handled by `hooks/post-commit-guard.sh` directly (not via guards) because commit events combine file paths and the message into a single text, making it impossible to write a guard pattern that targets only the commit message.
 
-Project-specific guards (e.g., framework-specific endpoint checks, worktree config protection) are generated during `dk init` in `.doyaken/guards/` within the repo.
+Project-specific guards (e.g., framework-specific endpoint checks, worktree config protection) are generated during `dx init` in `.dex/guards/` within the repo.
 
 ## Adding Project-Specific Guards
 
-Create a `.md` file in `.doyaken/guards/`:
+Create a `.md` file in `.dex/guards/`:
 
 ```bash
 # Example: block force-push in this repo
-cat > .doyaken/guards/no-force-push.md << 'EOF'
+cat > .dex/guards/no-force-push.md << 'EOF'
 ---
 name: no-force-push
 enabled: true
@@ -95,7 +95,7 @@ Use `git push --force-with-lease` instead for safer force-pushing.
 EOF
 ```
 
-Guards in `.doyaken/guards/` are repo-specific and take effect immediately — no restart needed.
+Guards in `.dex/guards/` are repo-specific and take effect immediately — no restart needed.
 
 ## Disabling a Guard
 
@@ -126,16 +126,16 @@ Guards use Python regex (`re.MULTILINE`). Matching is case-insensitive by defaul
 ```bash
 # Test a bash guard
 printf '%s\n' '{"tool_input":{"command":"rm -rf /"}}' \
-  | DOYAKEN_GUARD_EVENT=bash python3 hooks/guard-handler.py
+  | DEX_GUARD_EVENT=bash python3 hooks/guard-handler.py
 echo "Exit: $?"
 
 # Test a file guard
 printf '%s\n' '{"tool_input":{"file_path":"app.py","content":"API_KEY = \"secret123\""}}' \
-  | DOYAKEN_GUARD_EVENT=file python3 hooks/guard-handler.py
+  | DEX_GUARD_EVENT=file python3 hooks/guard-handler.py
 echo "Exit: $?"
 
 # Test a commit guard
-DOYAKEN_GUARD_EVENT=commit CLAUDE_TOOL_USE_INPUT=$'config.toml\nfeat: add api' python3 hooks/guard-handler.py
+DEX_GUARD_EVENT=commit CLAUDE_TOOL_USE_INPUT=$'config.toml\nfeat: add api' python3 hooks/guard-handler.py
 echo "Exit: $?"
 ```
 

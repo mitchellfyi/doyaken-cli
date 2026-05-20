@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Research harness — suite runner
-# Runs DK against scenarios, scores output, records results.
+# Runs DX against scenarios, scores output, records results.
 #
 # Usage:
 #   ./research/run.sh                          # Run all scenarios
@@ -26,7 +26,7 @@ source "$SCRIPT_DIR/lib/report.sh"
 # ── Parse arguments ────────────────────────────────────────────────────────
 SCENARIO_FILTER=""
 SKIP_LLM=""
-EXEC_MODE="dkloop"
+EXEC_MODE="dxloop"
 ITERATION="0"
 
 while [[ $# -gt 0 ]]; do
@@ -71,13 +71,13 @@ mkdir -p "$RUN_DIR"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  DK AUTORESEARCH — Suite Run"
+echo "  DX AUTORESEARCH — Suite Run"
 echo ""
 echo "  Run ID:    $RUN_ID"
 echo "  Iteration: $ITERATION"
-echo "  DK commit: $(dk_commit_hash)"
+echo "  DX commit: $(dx_commit_hash)"
 echo "  Model:     $CLAUDE_MODEL"
-echo "  Mode:      ${EXEC_MODE:-dkloop}"
+echo "  Mode:      ${EXEC_MODE:-dxloop}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -121,7 +121,7 @@ for scenario in "${SCENARIOS[@]}"; do
   # 1. Create fresh workspace
   workspace_create "$scenario" > /dev/null
 
-  # 2. Execute DK (exit code unused — scoring proceeds regardless of execution outcome)
+  # 2. Execute DX (exit code unused — scoring proceeds regardless of execution outcome)
   capture_run "$scenario" "$local_result_dir" "$EXEC_MODE" || true
 
   # 3. Score the output

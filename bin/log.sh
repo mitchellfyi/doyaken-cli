@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# dk log — Pretty-print structured phase execution logs.
+# dx log — Pretty-print structured phase execution logs.
 #
 # Usage:
-#   dk log                  Show logs for all recent sessions
-#   dk log <session_id>     Show log for a specific session
+#   dx log                  Show logs for all recent sessions
+#   dx log <session_id>     Show log for a specific session
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,14 +34,14 @@ format_status() {
 main() {
   local session_filter="${1:-}"
 
-  if [[ ! -d "$DK_STATE_DIR" ]]; then
+  if [[ ! -d "$DX_STATE_DIR" ]]; then
     echo "No phase logs found."
     return 0
   fi
 
   local found=0
 
-  for log_file in "$DK_STATE_DIR"/*.log; do
+  for log_file in "$DX_STATE_DIR"/*.log; do
     [[ -f "$log_file" ]] || continue
 
     # Extract session_id from filename

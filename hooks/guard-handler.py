@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Doyaken Guard Handler — evaluates markdown-based guard rules.
+Dex Guard Handler — evaluates markdown-based guard rules.
 
 Reads Claude Code hook payload JSON from stdin. Also supports
 CLAUDE_TOOL_USE_INPUT as a plain-text/manual-test fallback.
 
 Reads guard files from:
-  1. $DOYAKEN_DIR/hooks/guards/*.md  (built-in guards)
-  2. .doyaken/guards/*.md            (project-specific guards)
+  1. $DEX_DIR/hooks/guards/*.md  (built-in guards)
+  2. .dex/guards/*.md            (project-specific guards)
 
 Each guard is a markdown file with YAML frontmatter:
 
@@ -108,10 +108,10 @@ def parse_guard(filepath):
 def load_guards(event_type):
     """Load all enabled guards for a given event type."""
     guards = []
-    doyaken_dir = os.environ.get('DOYAKEN_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    dex_dir = os.environ.get('DEX_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     # Built-in guards
-    builtin_dir = os.path.join(doyaken_dir, 'hooks', 'guards')
+    builtin_dir = os.path.join(dex_dir, 'hooks', 'guards')
     if os.path.isdir(builtin_dir):
         for f in sorted(glob.glob(os.path.join(builtin_dir, '*.md'))):
             g = parse_guard(f)
@@ -130,7 +130,7 @@ def load_guards(event_type):
         ).strip()
     except Exception:
         project_root = os.getcwd()
-    project_dir = os.path.join(project_root, '.doyaken', 'guards')
+    project_dir = os.path.join(project_root, '.dex', 'guards')
     if os.path.isdir(project_dir):
         for f in sorted(glob.glob(os.path.join(project_dir, '*.md'))):
             g = parse_guard(f)
@@ -179,7 +179,7 @@ def provider_repo_root():
     root = git_toplevel()
     if not root:
         return ''
-    marker = os.sep + '.doyaken' + os.sep + 'worktrees' + os.sep
+    marker = os.sep + '.dex' + os.sep + 'worktrees' + os.sep
     if marker in root:
         root = root.split(marker, 1)[0]
     return root
@@ -189,11 +189,11 @@ def provider_repo_config_path():
     root = provider_repo_root()
     if not root:
         return ''
-    return os.path.join(root, '.doyaken', 'providers.json')
+    return os.path.join(root, '.dex', 'providers.json')
 
 
 def provider_global_config_path():
-    return os.path.expanduser('~/.doyaken/providers.json')
+    return os.path.expanduser('~/.dex/providers.json')
 
 
 def provider_repo_session_key():
@@ -236,7 +236,7 @@ def provider_profile_engine(path, profile, repo_scoped=False):
     engine = profile_data.get('engine', '')
     if engine not in PROVIDER_ENGINES:
         return ''
-    if repo_scoped and engine == 'anthropic-gateway' and os.environ.get('DK_ALLOW_REPO_GATEWAY_PROVIDER', '') != '1':
+    if repo_scoped and engine == 'anthropic-gateway' and os.environ.get('DX_ALLOW_REPO_GATEWAY_PROVIDER', '') != '1':
         return ''
     return engine
 
@@ -250,12 +250,12 @@ def provider_default_engine(path, repo_scoped=False):
 
 
 def provider_session_id():
-    session_id = os.environ.get('DOYAKEN_SESSION_ID', '')
+    session_id = os.environ.get('DEX_SESSION_ID', '')
     if session_id:
         return session_id
     root = git_toplevel()
     if root:
-        marker = os.sep + '.doyaken' + os.sep + 'worktrees' + os.sep
+        marker = os.sep + '.dex' + os.sep + 'worktrees' + os.sep
         if marker in root:
             return provider_scoped_session_id(f"worktree-{os.path.basename(root)}")
     try:
@@ -269,11 +269,11 @@ def provider_session_id():
 
 
 def provider_session_engine():
-    explicit_session_id = os.environ.get('DOYAKEN_SESSION_ID', '')
+    explicit_session_id = os.environ.get('DEX_SESSION_ID', '')
     session_id = provider_session_id()
     if not session_id:
         return ''
-    loop_dir = os.environ.get('DK_LOOP_DIR') or os.path.expanduser('~/.claude/.doyaken-loops')
+    loop_dir = os.environ.get('DX_LOOP_DIR') or os.path.expanduser('~/.claude/.dex-loops')
     state_file = os.path.join(loop_dir, f'{session_id}.provider')
     engine = ''
     state_session = ''
@@ -295,7 +295,7 @@ def provider_session_engine():
         return ''
     if explicit_session_id and state_session and state_session != explicit_session_id:
         return ''
-    if not explicit_session_id and os.environ.get('DK_PROVIDER_ENGINE', ''):
+    if not explicit_session_id and os.environ.get('DX_PROVIDER_ENGINE', ''):
         return ''
     return engine
 
@@ -307,11 +307,11 @@ def resolved_provider_engine():
 
     repo_config = provider_repo_config_path()
     global_config = provider_global_config_path()
-    explicit_profile = os.environ.get('DK_PROVIDER_PROFILE', '')
+    explicit_profile = os.environ.get('DX_PROVIDER_PROFILE', '')
     if explicit_profile:
         if explicit_profile in PROVIDER_BUILTIN_ENGINES:
             return PROVIDER_BUILTIN_ENGINES[explicit_profile]
-        # Mirror dk_provider_apply: explicit custom profiles prefer global user
+        # Mirror dx_provider_apply: explicit custom profiles prefer global user
         # config, then repo-local config.
         global_engine = provider_profile_engine(global_config, explicit_profile)
         if global_engine:
@@ -330,7 +330,7 @@ def resolved_provider_engine():
 
 
 def resolved_guard_environment_value(env_var):
-    if env_var == 'DK_PROVIDER_ENGINE':
+    if env_var == 'DX_PROVIDER_ENGINE':
         return resolved_provider_engine()
     return ''
 
@@ -347,7 +347,7 @@ def guard_environment_matches(guard):
         return True
 
     env_name = str(env_var)
-    if env_name == 'DK_PROVIDER_ENGINE':
+    if env_name == 'DX_PROVIDER_ENGINE':
         actual = provider_session_engine() or os.environ.get(env_name, '') or resolved_guard_environment_value(env_name)
     else:
         actual = os.environ.get(env_name, '') or resolved_guard_environment_value(env_name)
@@ -562,8 +562,8 @@ def is_codex_package_token(token):
     return codex_package_basename(token) == 'codex'
 
 
-def doyaken_root():
-    return os.environ.get('DOYAKEN_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def dex_root():
+    return os.environ.get('DEX_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def apply_literal_variables(value, variables=None):
@@ -599,11 +599,11 @@ def apply_parameter_expansion_defaults(value):
 
 
 def resolve_shell_path(path, variables=None, cwd=None):
-    root = doyaken_root()
+    root = dex_root()
     path = apply_literal_variables(path, variables)
     path = apply_parameter_expansion_defaults(path)
-    path = re.sub(r'\$\{DOYAKEN_DIR:-[^}]*\}', root, path)
-    path = path.replace('${DOYAKEN_DIR}', root).replace('$DOYAKEN_DIR', root)
+    path = re.sub(r'\$\{DEX_DIR:-[^}]*\}', root, path)
+    path = path.replace('${DEX_DIR}', root).replace('$DEX_DIR', root)
     path = os.path.expanduser(os.path.expandvars(path))
     if '$' in path or '`' in path:
         return ''
@@ -612,17 +612,17 @@ def resolve_shell_path(path, variables=None, cwd=None):
     return os.path.abspath(os.path.join(cwd or os.getcwd(), path))
 
 
-def is_doyaken_codex_wrapper(path, variables=None, cwd=None):
+def is_dex_codex_wrapper(path, variables=None, cwd=None):
     resolved = resolve_shell_path(path, variables, cwd)
     if not resolved:
         return False
-    expected = os.path.abspath(os.path.join(doyaken_root(), 'bin', 'dkcodex.sh'))
+    expected = os.path.abspath(os.path.join(dex_root(), 'bin', 'dxcodex.sh'))
     return os.path.realpath(resolved) == os.path.realpath(expected)
 
 
 def read_shell_file(path, variables=None, cwd=None):
     resolved = resolve_shell_path(path, variables, cwd)
-    if not resolved or is_doyaken_codex_wrapper(path, variables, cwd):
+    if not resolved or is_dex_codex_wrapper(path, variables, cwd):
         return ''
     try:
         with open(resolved, 'r', encoding='utf-8', errors='replace') as f:
@@ -633,7 +633,7 @@ def read_shell_file(path, variables=None, cwd=None):
 
 
 def shell_file_body_status(path, variables=None, cwd=None):
-    if is_doyaken_codex_wrapper(path, variables, cwd):
+    if is_dex_codex_wrapper(path, variables, cwd):
         return '', 'wrapper'
     resolved = resolve_shell_path(path, variables, cwd)
     if not resolved:
@@ -872,7 +872,7 @@ WRAPPER_COMMANDS = {'command', 'builtin'}
 EVAL_COMMANDS = {'eval'}
 SOURCE_COMMANDS = {'source', '.'}
 ASSIGNMENT_BUILTINS = {'export', 'readonly', 'declare', 'typeset', 'local'}
-CODEX_HELPER_COMMANDS = {'dk_provider_codex', '__dk_provider_codex_raw'}
+CODEX_HELPER_COMMANDS = {'dx_provider_codex', '__dx_provider_codex_raw'}
 DIRECT_CODEX_RUNNERS = {'npx', 'bunx', 'uvx'}
 PACKAGE_MANAGER_RUNNERS = {
     'npm': {'exec', 'x'},
@@ -2521,7 +2521,7 @@ def direct_script_command_is_blocked(command_token, generated_scripts, variables
     script_path = expand_executable_script(command_token, variables)
     if script_path is UNKNOWN_SHELL_STDIN:
         return True
-    if not script_path or is_doyaken_codex_wrapper(script_path, variables, cwd):
+    if not script_path or is_dex_codex_wrapper(script_path, variables, cwd):
         return False
 
     generated_body = generated_script_for_path(generated_scripts, script_path, variables, cwd)
@@ -3815,7 +3815,7 @@ def check_guards(guards, text):
         # contributed by anyone in a repo. A 2-second alarm prevents pathological
         # backtracking from hanging the hook. When the alarm fires, the signal
         # handler raises TimeoutError in the main thread, interrupting re.search.
-        # signal.alarm is Unix-only; Doyaken targets macOS/Linux exclusively.
+        # signal.alarm is Unix-only; Dex targets macOS/Linux exclusively.
         # See: https://docs.python.org/3/library/signal.html#signal.alarm
         _prev_handler = signal.signal(signal.SIGALRM, _timeout_handler)
         signal.alarm(2)
@@ -3916,7 +3916,7 @@ def hook_event_name_for_guard_event(event_type):
 
 def main():
     # Flow: read tool input from env → determine event type → load matching
-    # guards from built-in (hooks/guards/) and project (.doyaken/guards/) dirs
+    # guards from built-in (hooks/guards/) and project (.dex/guards/) dirs
     # → check each guard's regex against the input → print warnings/blocks
     # → exit 2 if any blocking guard triggered, 0 otherwise.
     # See: docs/guards.md for full guard system documentation.
@@ -3924,7 +3924,7 @@ def main():
     tool_input = stdin_input if stdin_input.strip() else os.environ.get('CLAUDE_TOOL_USE_INPUT', '')
 
     # Determine event type from environment
-    event_type = os.environ.get('DOYAKEN_GUARD_EVENT', 'bash')
+    event_type = os.environ.get('DEX_GUARD_EVENT', 'bash')
 
     guards = load_guards(event_type)
     if not guards:

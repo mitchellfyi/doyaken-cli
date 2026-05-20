@@ -16,10 +16,10 @@ safety_check_branch() {
 }
 
 # safety_check_clean
-# Abort if there are uncommitted changes in the DK repo.
+# Abort if there are uncommitted changes in the DX repo.
 safety_check_clean() {
-  if [[ -n "$(git -C "$DOYAKEN_DIR" status --porcelain 2>/dev/null)" ]]; then
-    log_error "DK repo has uncommitted changes. Commit or stash them first."
+  if [[ -n "$(git -C "$DEX_DIR" status --porcelain 2>/dev/null)" ]]; then
+    log_error "DX repo has uncommitted changes. Commit or stash them first."
     return 1
   fi
 }
@@ -28,24 +28,24 @@ safety_check_clean() {
 # Create a git tag before applying improvements.
 safety_tag_checkpoint() {
   local iter="$1"
-  local tag="dk-research/pre-iter-${iter}"
-  git -C "$DOYAKEN_DIR" tag -f "$tag" HEAD 2>/dev/null
+  local tag="dx-research/pre-iter-${iter}"
+  git -C "$DEX_DIR" tag -f "$tag" HEAD 2>/dev/null
   log_info "Tagged checkpoint: $tag"
 }
 
 # safety_revert_to_checkpoint <iteration>
-# Revert DK repo to the checkpoint tag for a given iteration.
+# Revert DX repo to the checkpoint tag for a given iteration.
 safety_revert_to_checkpoint() {
   local iter="$1"
-  local tag="dk-research/pre-iter-${iter}"
+  local tag="dx-research/pre-iter-${iter}"
 
-  if ! git -C "$DOYAKEN_DIR" rev-parse --verify "$tag" &>/dev/null; then
+  if ! git -C "$DEX_DIR" rev-parse --verify "$tag" &>/dev/null; then
     log_error "Checkpoint tag $tag not found"
     return 1
   fi
 
   log_warn "Reverting to checkpoint: $tag"
-  git -C "$DOYAKEN_DIR" reset --hard "$tag" 2>/dev/null
+  git -C "$DEX_DIR" reset --hard "$tag" 2>/dev/null
   log_success "Reverted to $tag"
 }
 
@@ -175,10 +175,10 @@ sys.exit(0)
 }
 
 # safety_cleanup_tags
-# Remove all dk-research tags.
+# Remove all dx-research tags.
 safety_cleanup_tags() {
-  git -C "$DOYAKEN_DIR" tag -l "dk-research/*" | while read -r tag; do
-    git -C "$DOYAKEN_DIR" tag -d "$tag" 2>/dev/null
+  git -C "$DEX_DIR" tag -l "dx-research/*" | while read -r tag; do
+    git -C "$DEX_DIR" tag -d "$tag" 2>/dev/null
   done
   log_info "Cleaned up research tags"
 }

@@ -19,19 +19,19 @@
 #   The promise string (e.g., PHASE_1_COMPLETE) is not parsed by the hook.
 #
 # Activated by:
-#   - DOYAKEN_LOOP_ACTIVE=1 in environment (set by dk/dkloop wrappers)
-#   - .active signal file in DK_LOOP_DIR (created by /dkloop skill for in-session use)
+#   - DEX_LOOP_ACTIVE=1 in environment (set by dx/dxloop wrappers)
+#   - .active signal file in DX_LOOP_DIR (created by /dxloop skill for in-session use)
 # Deactivated by: .complete file or max iterations
 #
 # See: docs/autonomous-mode.md for full architecture documentation
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-mkdir -p "$DK_LOOP_DIR"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+mkdir -p "$DX_LOOP_DIR"
 
-SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
+SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
 
-dk_phase_name() {
+dx_phase_name() {
   case "$1" in
     0) printf '%s\n' "Setup" ;;
     1) printf '%s\n' "Plan" ;;
@@ -44,7 +44,7 @@ dk_phase_name() {
   esac
 }
 
-dk_phase_promise() {
+dx_phase_promise() {
   case "$1" in
     0) printf '%s\n' "PHASE_0_COMPLETE" ;;
     1) printf '%s\n' "PHASE_1_COMPLETE" ;;
@@ -52,12 +52,12 @@ dk_phase_promise() {
     3) printf '%s\n' "PHASE_3_COMPLETE" ;;
     4) printf '%s\n' "PHASE_4_COMPLETE" ;;
     5) printf '%s\n' "PHASE_5_COMPLETE" ;;
-    6) printf '%s\n' "DOYAKEN_TICKET_COMPLETE" ;;
-    *) printf '%s\n' "DOYAKEN_TICKET_COMPLETE" ;;
+    6) printf '%s\n' "DEX_TICKET_COMPLETE" ;;
+    *) printf '%s\n' "DEX_TICKET_COMPLETE" ;;
   esac
 }
 
-dk_phase_audit_file() {
+dx_phase_audit_file() {
   local phase="$1" name
   case "$phase" in
     0) name="0-setup" ;;
@@ -69,12 +69,12 @@ dk_phase_audit_file() {
     6) name="6-complete" ;;
     *) name="" ;;
   esac
-  [[ -n "$name" ]] && printf '%s\n' "$DOYAKEN_DIR/prompts/phase-audits/${name}.md"
+  [[ -n "$name" ]] && printf '%s\n' "$DEX_DIR/prompts/phase-audits/${name}.md"
 }
 
-dk_phase_min_audits() {
+dx_phase_min_audits() {
   local phase="$1" env_name value
-  env_name="DOYAKEN_PHASE_${phase}_MIN_AUDITS"
+  env_name="DEX_PHASE_${phase}_MIN_AUDITS"
   value="$(printenv "$env_name" 2>/dev/null || true)"
   if [[ "$value" =~ ^[0-9]+$ ]]; then
     printf '%s\n' "$value"
@@ -83,12 +83,12 @@ dk_phase_min_audits() {
   fi
 }
 
-dk_reverse_file_lines() {
+dx_reverse_file_lines() {
   local file="$1"
   awk '{ lines[NR] = $0 } END { for (i = NR; i >= 1; i--) print lines[i] }' "$file"
 }
 
-dk_phase_iteration_count() {
+dx_phase_iteration_count() {
   local state_file="$1" raw iterations
   raw=$(cat "$state_file" 2>/dev/null || echo "0")
   iterations="${raw%%:*}"
@@ -99,7 +99,7 @@ dk_phase_iteration_count() {
   fi
 }
 
-dk_format_duration() {
+dx_format_duration() {
   local seconds="$1" minutes remainder
   if [[ ! "$seconds" =~ ^[0-9]+$ ]]; then
     printf '%s\n' "$seconds"
@@ -111,93 +111,93 @@ dk_format_duration() {
   printf '%dm %ds\n' "$minutes" "$remainder"
 }
 
-dk_phase_start_epoch() {
+dx_phase_start_epoch() {
   local phase="$1" times_file
-  times_file=$(dk_times_file "$SESSION_ID")
+  times_file=$(dx_times_file "$SESSION_ID")
   if [[ -f "$times_file" ]]; then
     awk -F: -v phase="$phase" '$1 == phase { start=$2 } END { if (start != "") print start }' "$times_file"
   fi
 }
 
-dk_record_phase_result() {
+dx_record_phase_result() {
   local phase="$1" status="$2" exit_code="$3" start_epoch end_epoch duration iterations
   [[ "$phase" =~ ^[0-6]$ ]] || return 0
   end_epoch=$(date +%s)
-  start_epoch=$(dk_phase_start_epoch "$phase")
+  start_epoch=$(dx_phase_start_epoch "$phase")
   [[ "$start_epoch" =~ ^[0-9]+$ ]] || start_epoch="$end_epoch"
   duration=$((end_epoch - start_epoch))
-  iterations=$(dk_phase_iteration_count "$STATE_FILE")
-  dk_log_phase "$SESSION_ID" "$phase" "$(dk_phase_name "$phase")" "$start_epoch" "$end_epoch" "$duration" "$iterations" "$status" "$exit_code"
+  iterations=$(dx_phase_iteration_count "$STATE_FILE")
+  dx_log_phase "$SESSION_ID" "$phase" "$(dx_phase_name "$phase")" "$start_epoch" "$end_epoch" "$duration" "$iterations" "$status" "$exit_code"
 }
 
-dk_start_phase_timer() {
+dx_start_phase_timer() {
   local phase="$1" times_file
-  times_file=$(dk_times_file "$SESSION_ID")
+  times_file=$(dx_times_file "$SESSION_ID")
   mkdir -p "$(dirname "$times_file")"
   printf '%s:%s\n' "$phase" "$(date +%s)" >> "$times_file"
 }
 
-# Claude hook subprocesses can inherit stale DOYAKEN_LOOP_PHASE values from the
+# Claude hook subprocesses can inherit stale DEX_LOOP_PHASE values from the
 # original launch. In inline mode, the phase file is the lifecycle source of
 # truth after handoffs, so use it to recover before applying phase-specific gates.
-dk_sync_inline_phase_from_state() {
+dx_sync_inline_phase_from_state() {
   [[ "$HANDOFF_MODE" == "inline" ]] || return 0
 
   local phase_file phase phase_min audit_file
-  phase_file=$(dk_state_file "$SESSION_ID")
+  phase_file=$(dx_state_file "$SESSION_ID")
   [[ -f "$phase_file" ]] || return 0
 
   phase=$(cat "$phase_file" 2>/dev/null || echo "")
   [[ "$phase" =~ ^[0-6]$ ]] || return 0
-  [[ "${DOYAKEN_LOOP_PHASE:-}" == "$phase" ]] && return 0
+  [[ "${DEX_LOOP_PHASE:-}" == "$phase" ]] && return 0
 
-  DOYAKEN_LOOP_PHASE="$phase"
-  DOYAKEN_LOOP_PROMISE=$(dk_phase_promise "$phase")
-  phase_min=$(dk_phase_min_audits "$phase")
-  MIN_AUDIT_ITERATIONS="${DOYAKEN_LOOP_MIN_AUDITS:-$phase_min}"
+  DEX_LOOP_PHASE="$phase"
+  DEX_LOOP_PROMISE=$(dx_phase_promise "$phase")
+  phase_min=$(dx_phase_min_audits "$phase")
+  MIN_AUDIT_ITERATIONS="${DEX_LOOP_MIN_AUDITS:-$phase_min}"
 
-  audit_file=$(dk_phase_audit_file "$phase")
+  audit_file=$(dx_phase_audit_file "$phase")
   if [[ -n "$audit_file" && -f "$audit_file" ]]; then
-    DOYAKEN_LOOP_PROMPT=$(cat "$audit_file")
+    DEX_LOOP_PROMPT=$(cat "$audit_file")
   fi
 }
 
-dk_inline_phase_message() {
+dx_inline_phase_message() {
   case "$1" in
     1)
       cat <<'EOF'
-Phase 0 setup is complete (branch renamed and pushed, ticket assigned, status set to In Progress). Begin Phase 1: Plan. Call EnterPlanMode now, then immediately invoke the Skill tool with skill: "dkplan". Do not redo ticket setup unless something is clearly missing. After the user approves the plan via ExitPlanMode, write the Phase 1 approval marker and stop so the Stop hook can audit and advance.
+Phase 0 setup is complete (branch renamed and pushed, ticket assigned, status set to In Progress). Begin Phase 1: Plan. Call EnterPlanMode now, then immediately invoke the Skill tool with skill: "dxplan". Do not redo ticket setup unless something is clearly missing. After the user approves the plan via ExitPlanMode, write the Phase 1 approval marker and stop so the Stop hook can audit and advance.
 EOF
       ;;
     2)
       cat <<'EOF'
-The plan is approved. Invoke the Skill tool with skill: "dkimplement" to begin implementation. Scope: implementation, testing, and UI capture evidence only. For UI-affecting changes, invoke dkuicapture before UI edits for baseline evidence, then capture after evidence and link the visual manifest/screenshots/videos/traces before stopping. Do not commit, push, create branches, or create PRs. When implementation is complete and the audit criteria are met, stop so the Stop hook can advance the lifecycle.
+The plan is approved. Invoke the Skill tool with skill: "dximplement" to begin implementation. Scope: implementation, testing, and UI capture evidence only. For UI-affecting changes, invoke dxuicapture before UI edits for baseline evidence, then capture after evidence and link the visual manifest/screenshots/videos/traces before stopping. Do not commit, push, create branches, or create PRs. When implementation is complete and the audit criteria are met, stop so the Stop hook can advance the lifecycle.
 EOF
       ;;
     3)
       cat <<'EOF'
-Begin Phase 3: Review. Invoke the Skill tool with skill: "dkreviewloop" to run the 3-clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, read-only specialist reviewers, verifier triage, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN; waves that fix issues write FINDINGS_FIXED:N and reset the counter. Scope: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance.
+Begin Phase 3: Review. Invoke the Skill tool with skill: "dxreviewloop" to run the 3-clean-pass review loop. Each pass is a full review wave: context pack, deterministic checks, read-only specialist reviewers, verifier triage, batch fixes, and targeted recheck. Only waves that find zero verified findings and apply zero fixes count as CLEAN; waves that fix issues write FINDINGS_FIXED:N and reset the counter. Scope: review and fix only; do not commit, push, create branches, or create PRs. When the review loop is successful, stop so the Stop hook can audit and advance.
 EOF
       ;;
     4)
       cat <<'EOF'
-Begin Phase 4: Verify & Commit. Invoke the Skill tool with skill: "dkverify" to run the quality pipeline. Fix failures and rerun until green. Then invoke skill: "dkcommit" to commit and push. Do not create PRs. When pushed, stop so the Stop hook can audit and advance.
+Begin Phase 4: Verify & Commit. Invoke the Skill tool with skill: "dxverify" to run the quality pipeline. Fix failures and rerun until green. Then invoke skill: "dxcommit" to commit and push. Do not create PRs. When pushed, stop so the Stop hook can audit and advance.
 EOF
       ;;
     5)
       cat <<'EOF'
-Begin Phase 5: PR. Invoke the Skill tool with skill: "dkpr" to generate the PR description, prepare any UI visual evidence handoff, create the draft PR, and attach configured request reviewers. Do not mark the PR ready, post @mention comments, or modify implementation code. When done, stop so the Stop hook can audit and advance.
+Begin Phase 5: PR. Invoke the Skill tool with skill: "dxpr" to generate the PR description, prepare any UI visual evidence handoff, create the draft PR, and attach configured request reviewers. Do not mark the PR ready, post @mention comments, or modify implementation code. When done, stop so the Stop hook can audit and advance.
 EOF
       ;;
     6)
       cat <<'EOF'
-Begin Phase 6: Complete. Invoke the Skill tool with skill: "dkcomplete". Mark the PR ready, request reviewers, post configured @mention comments, monitor CI/reviews through /dkwatchpr, address failures, and close the ticket when CI is green and configured reviewers approve. Do not merge the PR. Continue unattended until completion, the bounded watch window expires, or a real escalation condition is hit.
+Begin Phase 6: Complete. Invoke the Skill tool with skill: "dxcomplete". Mark the PR ready, request reviewers, post configured @mention comments, monitor CI/reviews through /dxwatchpr, address failures, and close the ticket when CI is green and configured reviewers approve. Do not merge the PR. Continue unattended until completion, the bounded watch window expires, or a real escalation condition is hit.
 EOF
       ;;
   esac
 }
 
-dk_compact_repeat_audit_prompt() {
+dx_compact_repeat_audit_prompt() {
   local phase="$1" audit_file="${2:-}"
 
   case "$phase" in
@@ -215,7 +215,7 @@ dk_compact_repeat_audit_prompt() {
       printf '%s\n' "- Port conflicts or unavailable local services have been resolved or worked around locally; future CI is not a substitute for required Phase 2 verification."
       printf '%s\n' "- No TODO/FIXME/HACK, debug output, commented-out code blocks, missing imports, or obvious runtime errors remain."
       printf '%s\n' "- No Phase 2 background agents or long-running verification commands are still in flight."
-      printf '%s\n' "- Any needed .doyaken/ updates are made."
+      printf '%s\n' "- Any needed .dex/ updates are made."
       printf '%s\n' "- UI capture evidence is linked for UI-affecting changes, including before/after evidence or a before-unavailable reason, or UI capture is explicitly marked N/A."
       printf '%s\n' "- The Phase 2 ready marker has been written."
       printf '%s\n' ""
@@ -227,30 +227,30 @@ dk_compact_repeat_audit_prompt() {
   esac
 }
 
-# Check activation: env var OR .active file (for in-session /dkloop skill)
-ACTIVE_FILE=$(dk_active_file "$SESSION_ID")
-LOOP_ACTIVE="${DOYAKEN_LOOP_ACTIVE:-0}"
+# Check activation: env var OR .active file (for in-session /dxloop skill)
+ACTIVE_FILE=$(dx_active_file "$SESSION_ID")
+LOOP_ACTIVE="${DEX_LOOP_ACTIVE:-0}"
 if [[ "$LOOP_ACTIVE" != "1" ]] && [[ ! -f "$ACTIVE_FILE" ]]; then
   exit 0
 fi
 
-HANDOFF_MODE="${DOYAKEN_PHASE_HANDOFF:-}"
-HANDOFF_MODE_FILE=$(dk_handoff_mode_file "$SESSION_ID")
+HANDOFF_MODE="${DEX_PHASE_HANDOFF:-}"
+HANDOFF_MODE_FILE=$(dx_handoff_mode_file "$SESSION_ID")
 if [[ -z "$HANDOFF_MODE" && -f "$HANDOFF_MODE_FILE" ]]; then
   HANDOFF_MODE=$(cat "$HANDOFF_MODE_FILE" 2>/dev/null || echo "")
 fi
-PAUSED_FILE=$(dk_paused_file "$SESSION_ID")
-COMPLETE_FILE=$(dk_complete_file "$SESSION_ID")
-PHASE_STATE_FILE=$(dk_state_file "$SESSION_ID")
+PAUSED_FILE=$(dx_paused_file "$SESSION_ID")
+COMPLETE_FILE=$(dx_complete_file "$SESSION_ID")
+PHASE_STATE_FILE=$(dx_state_file "$SESSION_ID")
 
 # After inline Phase 6 completes, the Claude process can still carry stale
-# DOYAKEN_LOOP_ACTIVE/DOYAKEN_LOOP_PHASE env vars until the user closes the
+# DEX_LOOP_ACTIVE/DEX_LOOP_PHASE env vars until the user closes the
 # session. The phase state file is authoritative; phase 7 means the lifecycle is
 # done and the Stop hook must not re-enter an earlier gate.
 if [[ "$HANDOFF_MODE" == "inline" && -f "$PHASE_STATE_FILE" ]]; then
   PHASE_STATE=$(cat "$PHASE_STATE_FILE" 2>/dev/null || echo "")
   if [[ "$PHASE_STATE" == "7" ]]; then
-    rm -f "$ACTIVE_FILE" "$HANDOFF_MODE_FILE" "$PAUSED_FILE" "$COMPLETE_FILE" "$(dk_loop_file "$SESSION_ID")" "$(dk_loop_config_file "$SESSION_ID")" "$(dk_findings_file "$SESSION_ID")" "$(dk_prompt_file "$SESSION_ID")" "${DK_LOOP_DIR}/${SESSION_ID}".phase-*.started "${DK_LOOP_DIR}/${SESSION_ID}".phase-*.ready "${DK_LOOP_DIR}/${SESSION_ID}".phase-*.busy "${DK_LOOP_DIR}/${SESSION_ID}".phase-*.busy-notice 2>/dev/null
+    rm -f "$ACTIVE_FILE" "$HANDOFF_MODE_FILE" "$PAUSED_FILE" "$COMPLETE_FILE" "$(dx_loop_file "$SESSION_ID")" "$(dx_loop_config_file "$SESSION_ID")" "$(dx_findings_file "$SESSION_ID")" "$(dx_prompt_file "$SESSION_ID")" "${DX_LOOP_DIR}/${SESSION_ID}".phase-*.started "${DX_LOOP_DIR}/${SESSION_ID}".phase-*.ready "${DX_LOOP_DIR}/${SESSION_ID}".phase-*.busy "${DX_LOOP_DIR}/${SESSION_ID}".phase-*.busy-notice 2>/dev/null
     exit 0
   fi
 fi
@@ -263,14 +263,14 @@ if [[ -f "$PAUSED_FILE" && ! -f "$COMPLETE_FILE" ]]; then
 fi
 
 # Read phase configuration from .config file when env vars are not inherited.
-# dk.sh writes this file before launching Claude for phases 1-6. Format:
+# dx.sh writes this file before launching Claude for phases 1-6. Format:
 # "phase_number:promise_string:audit_file_path:min_audits"
 # Env vars take priority (belt-and-suspenders with file-based activation).
 # IMPORTANT: This block MUST run before the .active file defaults below,
 # because .active defaults set prompt-loop mode which would shadow the
 # correct phase values from .config.
-MIN_AUDIT_ITERATIONS="${DOYAKEN_LOOP_MIN_AUDITS:-1}"
-CONFIG_FILE=$(dk_loop_config_file "$SESSION_ID")
+MIN_AUDIT_ITERATIONS="${DEX_LOOP_MIN_AUDITS:-1}"
+CONFIG_FILE=$(dx_loop_config_file "$SESSION_ID")
 CONFIG_AUDIT_FILE=""
 if [[ -f "$CONFIG_FILE" ]]; then
   CONFIG_RAW=$(cat "$CONFIG_FILE" 2>/dev/null || echo "")
@@ -282,49 +282,49 @@ if [[ -f "$CONFIG_FILE" ]]; then
     CONFIG_AUDIT_FILE="${CONFIG_REST2%%:*}"
     CONFIG_MIN_AUDITS="${CONFIG_REST2#*:}"
     if [[ "$HANDOFF_MODE" == "inline" ]]; then
-      DOYAKEN_LOOP_PHASE="$CONFIG_PHASE"
-      DOYAKEN_LOOP_PROMISE="$CONFIG_PROMISE"
+      DEX_LOOP_PHASE="$CONFIG_PHASE"
+      DEX_LOOP_PROMISE="$CONFIG_PROMISE"
     else
-      DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-$CONFIG_PHASE}"
-      DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-$CONFIG_PROMISE}"
+      DEX_LOOP_PHASE="${DEX_LOOP_PHASE:-$CONFIG_PHASE}"
+      DEX_LOOP_PROMISE="${DEX_LOOP_PROMISE:-$CONFIG_PROMISE}"
     fi
     # Use config min_audits if no env override
-    [[ "$CONFIG_MIN_AUDITS" =~ ^[0-9]+$ ]] && MIN_AUDIT_ITERATIONS="${DOYAKEN_LOOP_MIN_AUDITS:-$CONFIG_MIN_AUDITS}"
-    if { [[ "$HANDOFF_MODE" == "inline" ]] || [[ -z "${DOYAKEN_LOOP_PROMPT:-}" ]]; } && [[ -n "$CONFIG_AUDIT_FILE" ]] && [[ -f "$CONFIG_AUDIT_FILE" ]]; then
-      DOYAKEN_LOOP_PROMPT=$(cat "$CONFIG_AUDIT_FILE")
+    [[ "$CONFIG_MIN_AUDITS" =~ ^[0-9]+$ ]] && MIN_AUDIT_ITERATIONS="${DEX_LOOP_MIN_AUDITS:-$CONFIG_MIN_AUDITS}"
+    if { [[ "$HANDOFF_MODE" == "inline" ]] || [[ -z "${DEX_LOOP_PROMPT:-}" ]]; } && [[ -n "$CONFIG_AUDIT_FILE" ]] && [[ -f "$CONFIG_AUDIT_FILE" ]]; then
+      DEX_LOOP_PROMPT=$(cat "$CONFIG_AUDIT_FILE")
     fi
   fi
 fi
 
-# If activated via .active file only (in-session /dkloop with no .config file),
+# If activated via .active file only (in-session /dxloop with no .config file),
 # default to prompt-loop mode. The .active file is a touch file — it doesn't
-# carry data. When a .config file exists (dk phase workflow), the values above
+# carry data. When a .config file exists (dx phase workflow), the values above
 # take precedence.
 if [[ -f "$ACTIVE_FILE" ]]; then
-  DOYAKEN_LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-prompt-loop}"
-  DOYAKEN_LOOP_PROMISE="${DOYAKEN_LOOP_PROMISE:-PROMPT_COMPLETE}"
+  DEX_LOOP_PHASE="${DEX_LOOP_PHASE:-prompt-loop}"
+  DEX_LOOP_PROMISE="${DEX_LOOP_PROMISE:-PROMPT_COMPLETE}"
 fi
 
-dk_sync_inline_phase_from_state
+dx_sync_inline_phase_from_state
 
-STATE_FILE=$(dk_loop_file "$SESSION_ID")
-dk_record_session_branch "$SESSION_ID" "$(pwd)" 2>/dev/null || true
+STATE_FILE=$(dx_loop_file "$SESSION_ID")
+dx_record_session_branch "$SESSION_ID" "$(pwd)" 2>/dev/null || true
 # 30 iterations is tuned for medium-sized features; reduce for simple bugs (10-15).
 # Each iteration = one audit cycle, so 30 is a safety net, not an expected count.
-MAX_ITERATIONS="${DOYAKEN_LOOP_MAX_ITERATIONS:-30}"
-COMPLETION_PROMISE="${DOYAKEN_LOOP_PROMISE:-DOYAKEN_TICKET_COMPLETE}"
+MAX_ITERATIONS="${DEX_LOOP_MAX_ITERATIONS:-30}"
+COMPLETION_PROMISE="${DEX_LOOP_PROMISE:-DEX_TICKET_COMPLETE}"
 
 # Phase 6 has a wall-clock watch window between outcome checks. The agent writes
-# dk_complete_state_file as "cycle:last_check_epoch"; hold the Stop hook quietly
+# dx_complete_state_file as "cycle:last_check_epoch"; hold the Stop hook quietly
 # until that window matures so the audit loop does not spin and consume tokens.
-if [[ "${DOYAKEN_LOOP_PHASE:-}" == "6" && ! -f "$COMPLETE_FILE" ]]; then
-  COMPLETE_STATE_FILE=$(dk_complete_state_file "$SESSION_ID")
+if [[ "${DEX_LOOP_PHASE:-}" == "6" && ! -f "$COMPLETE_FILE" ]]; then
+  COMPLETE_STATE_FILE=$(dx_complete_state_file "$SESSION_ID")
   if [[ -f "$COMPLETE_STATE_FILE" ]]; then
     COMPLETE_STATE_RAW=$(cat "$COMPLETE_STATE_FILE" 2>/dev/null || echo "")
     if [[ "$COMPLETE_STATE_RAW" =~ ^([0-9]+):([0-9]+)$ ]]; then
       COMPLETE_CYCLE="${BASH_REMATCH[1]}"
       COMPLETE_LAST_EPOCH="${BASH_REMATCH[2]}"
-      COMPLETE_WAIT_MINUTES="${DOYAKEN_COMPLETE_WAIT_MINUTES:-5}"
+      COMPLETE_WAIT_MINUTES="${DEX_COMPLETE_WAIT_MINUTES:-5}"
       [[ "$COMPLETE_WAIT_MINUTES" =~ ^[0-9]+$ ]] || COMPLETE_WAIT_MINUTES=5
       COMPLETE_WAIT_SECONDS=$((COMPLETE_WAIT_MINUTES * 60))
       if [[ "$COMPLETE_WAIT_SECONDS" -gt 0 ]]; then
@@ -333,7 +333,7 @@ if [[ "${DOYAKEN_LOOP_PHASE:-}" == "6" && ! -f "$COMPLETE_FILE" ]]; then
         [[ "$COMPLETE_ELAPSED" -lt 0 ]] && COMPLETE_ELAPSED=0
         COMPLETE_REMAINING=$((COMPLETE_WAIT_SECONDS - COMPLETE_ELAPSED))
         if [[ "$COMPLETE_REMAINING" -gt 0 ]]; then
-          printf '\n%s\n\n' "--- Doyaken Phase 6 wait window: cycle ${COMPLETE_CYCLE}, sleeping $(dk_format_duration "$COMPLETE_REMAINING") before next outcome check ---" >&2
+          printf '\n%s\n\n' "--- Dex Phase 6 wait window: cycle ${COMPLETE_CYCLE}, sleeping $(dx_format_duration "$COMPLETE_REMAINING") before next outcome check ---" >&2
           while [[ "$COMPLETE_REMAINING" -gt 0 ]]; do
             [[ -f "$PAUSED_FILE" || -f "$COMPLETE_FILE" ]] && break
             if [[ "$COMPLETE_REMAINING" -gt 30 ]]; then
@@ -356,11 +356,11 @@ fi
 # done (after renaming the branch, pushing, and updating tracker status). Block
 # the stop until the ready marker exists so an early "I'm done" cannot skip
 # bootstrap. Mirrors Phase 1/Phase 2 gates below.
-if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "0" ]]; then
-  PHASE_READY_FILE=$(dk_phase_ready_file "$SESSION_ID" 0)
+if [[ "$HANDOFF_MODE" == "inline" && "${DEX_LOOP_PHASE:-}" == "0" ]]; then
+  PHASE_READY_FILE=$(dx_phase_ready_file "$SESSION_ID" 0)
   if [[ ! -f "$PHASE_READY_FILE" ]]; then
     rm -f "$COMPLETE_FILE" "$STATE_FILE"
-    printf '\n%s\n\n' "--- Doyaken Phase 0 Gate: ticket setup required ---" >&2
+    printf '\n%s\n\n' "--- Dex Phase 0 Gate: ticket setup required ---" >&2
     printf '%s\n' "No audit iteration was counted and no completion signal is available yet." >&2
     printf '%s\n' "" >&2
     printf '%s\n' "Phase 0 owns ticket bootstrap. Before you can advance to planning, all of these must be true:" >&2
@@ -372,8 +372,8 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "0" ]]; then
     printf '%s\n' "" >&2
     printf '%s\n' "When all of the above is done, write the Phase 0 ready marker and stop once:" >&2
     printf '%s\n' '```bash' >&2
-    printf '%s\n' "source \"\${DOYAKEN_DIR:-\$HOME/work/doyaken}/lib/common.sh\"" >&2
-    printf '%s\n' "touch \"\$(dk_phase_ready_file \"\${DOYAKEN_SESSION_ID:-\$(dk_session_id)}\" 0)\"" >&2
+    printf '%s\n' "source \"\${DEX_DIR:-\$HOME/work/dex}/lib/common.sh\"" >&2
+    printf '%s\n' "touch \"\$(dx_phase_ready_file \"\${DEX_SESSION_ID:-\$(dx_session_id)}\" 0)\"" >&2
     printf '%s\n' '```' >&2
     printf '%s\n' "" >&2
     exit 2
@@ -384,31 +384,31 @@ fi
 # ExitPlanMode and explicitly approved by the user before the audit loop should
 # count iterations or reveal the completion signal. This keeps ordinary
 # planning waits/background-agent pauses from burning the max-iteration budget.
-if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "1" ]]; then
-  PHASE_STARTED_FILE=$(dk_phase_started_file "$SESSION_ID" 1)
-  PHASE_READY_FILE=$(dk_phase_ready_file "$SESSION_ID" 1)
+if [[ "$HANDOFF_MODE" == "inline" && "${DEX_LOOP_PHASE:-}" == "1" ]]; then
+  PHASE_STARTED_FILE=$(dx_phase_started_file "$SESSION_ID" 1)
+  PHASE_READY_FILE=$(dx_phase_ready_file "$SESSION_ID" 1)
   if [[ ! -f "$PHASE_READY_FILE" ]]; then
     rm -f "$COMPLETE_FILE" "$STATE_FILE"
     if [[ ! -f "$PHASE_STARTED_FILE" ]]; then
-      printf '\n%s\n\n' "--- Doyaken Phase 1 Gate: dkplan required ---" >&2
+      printf '\n%s\n\n' "--- Dex Phase 1 Gate: dxplan required ---" >&2
       printf '%s\n' "No audit iteration was counted and no completion signal is available yet." >&2
       printf '%s\n' "" >&2
-      printf '%s\n' "Mandatory next step: invoke the dkplan skill now (Skill tool with skill: \"dkplan\", or /dkplan if slash skills are the available interface)." >&2
+      printf '%s\n' "Mandatory next step: invoke the dxplan skill now (Skill tool with skill: \"dxplan\", or /dxplan if slash skills are the available interface)." >&2
       printf '%s\n' "Do not manually fetch the ticket, rename branches, update tracker status, explore code, or draft the plan outside that skill unless the skill explicitly instructs you to." >&2
     else
-      printf '\n%s\n\n' "--- Doyaken Phase 1 Gate: dkplan still in progress ---" >&2
-      printf '%s\n' "No audit iteration was counted. Continue dkplan until ExitPlanMode has presented the plan and the user has approved it." >&2
-      printf '%s\n' "After approval only, write the ready marker from dkplan Step 7, then stop once for the audit handoff." >&2
+      printf '\n%s\n\n' "--- Dex Phase 1 Gate: dxplan still in progress ---" >&2
+      printf '%s\n' "No audit iteration was counted. Continue dxplan until ExitPlanMode has presented the plan and the user has approved it." >&2
+      printf '%s\n' "After approval only, write the ready marker from dxplan Step 7, then stop once for the audit handoff." >&2
     fi
     printf '%s\n' "" >&2
     exit 2
   fi
 fi
 
-if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
-  PHASE_BUSY_FILE=$(dk_phase_busy_file "$SESSION_ID" 3)
+if [[ "$HANDOFF_MODE" == "inline" && "${DEX_LOOP_PHASE:-}" == "3" ]]; then
+  PHASE_BUSY_FILE=$(dx_phase_busy_file "$SESSION_ID" 3)
   if [[ -f "$PHASE_BUSY_FILE" && ! -f "$COMPLETE_FILE" ]]; then
-    PHASE_BUSY_NOTICE_FILE=$(dk_phase_busy_notice_file "$SESSION_ID" 3)
+    PHASE_BUSY_NOTICE_FILE=$(dx_phase_busy_notice_file "$SESSION_ID" 3)
     BUSY_RAW=$(cat "$PHASE_BUSY_FILE" 2>/dev/null || echo "")
     BUSY_EPOCH="$BUSY_RAW"
     BUSY_LABEL=""
@@ -418,20 +418,20 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
     fi
     [[ "$BUSY_EPOCH" =~ ^[0-9]+$ ]] || BUSY_EPOCH=$(date +%s)
     BUSY_AGE=$(( $(date +%s) - BUSY_EPOCH ))
-    BUSY_TIMEOUT="${DOYAKEN_REVIEW_PASS_TIMEOUT:-900}"
+    BUSY_TIMEOUT="${DEX_REVIEW_PASS_TIMEOUT:-900}"
 
     if [[ "$BUSY_TIMEOUT" =~ ^[0-9]+$ && "$BUSY_TIMEOUT" -gt 0 && "$BUSY_AGE" -gt "$BUSY_TIMEOUT" ]]; then
       rm -f "$ACTIVE_FILE" "$CONFIG_FILE" "$PHASE_BUSY_FILE" "$PHASE_BUSY_NOTICE_FILE"
-      dk_record_phase_result "3" "review-pass-timeout" "89"
+      dx_record_phase_result "3" "review-pass-timeout" "89"
       touch "$PAUSED_FILE"
-      printf '\n%s\n\n' "--- Doyaken phase paused: review pass timeout reached ($(dk_format_duration "$BUSY_AGE")/$(dk_format_duration "$BUSY_TIMEOUT")) ---" >&2
+      printf '\n%s\n\n' "--- Dex phase paused: review pass timeout reached ($(dx_format_duration "$BUSY_AGE")/$(dx_format_duration "$BUSY_TIMEOUT")) ---" >&2
       printf '%s\n' "Do not advance to the next phase. Summarize the in-flight review pass, current clean-pass count, and whether the user wants to retry, reduce review depth, or continue with documented risk." >&2
       exit 2
     fi
 
     rm -f "$STATE_FILE"
 
-    BUSY_NOTICE_INTERVAL="${DOYAKEN_REVIEW_PASS_NOTICE_INTERVAL:-120}"
+    BUSY_NOTICE_INTERVAL="${DEX_REVIEW_PASS_NOTICE_INTERVAL:-120}"
     [[ "$BUSY_NOTICE_INTERVAL" =~ ^[0-9]+$ ]] || BUSY_NOTICE_INTERVAL=120
     SHOULD_PRINT_BUSY_NOTICE=1
 
@@ -452,7 +452,7 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
     fi
 
     if [[ $SHOULD_PRINT_BUSY_NOTICE -eq 0 ]]; then
-      BUSY_RECHECK_SECONDS="${DOYAKEN_REVIEW_PASS_RECHECK_SECONDS:-45}"
+      BUSY_RECHECK_SECONDS="${DEX_REVIEW_PASS_RECHECK_SECONDS:-45}"
       [[ "$BUSY_RECHECK_SECONDS" =~ ^[0-9]+$ ]] || BUSY_RECHECK_SECONDS=45
       if [[ "$BUSY_RECHECK_SECONDS" -gt 0 ]]; then
         BUSY_POLL_DEADLINE=$(( $(date +%s) + BUSY_RECHECK_SECONDS ))
@@ -468,16 +468,16 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
 
       if [[ ! -f "$PHASE_BUSY_FILE" ]]; then
         rm -f "$PHASE_BUSY_NOTICE_FILE"
-        printf '\n%s\n\n' "--- Doyaken Phase 3 Gate: review pass finished ---" >&2
-        printf '%s\n' "The busy marker cleared while the Stop hook was waiting. Continue dkreviewloop with the returned review result before stopping again." >&2
+        printf '\n%s\n\n' "--- Dex Phase 3 Gate: review pass finished ---" >&2
+        printf '%s\n' "The busy marker cleared while the Stop hook was waiting. Continue dxreviewloop with the returned review result before stopping again." >&2
         exit 2
       fi
 
       BUSY_AGE=$(( $(date +%s) - BUSY_EPOCH ))
       if [[ -n "$BUSY_LABEL" && "$BUSY_LABEL" != "$BUSY_RAW" ]]; then
-        printf '\n--- Doyaken Phase 3 Gate: still waiting on %s (%s/%s timeout) ---\n\n' "$BUSY_LABEL" "$(dk_format_duration "$BUSY_AGE")" "$(dk_format_duration "$BUSY_TIMEOUT")" >&2
+        printf '\n--- Dex Phase 3 Gate: still waiting on %s (%s/%s timeout) ---\n\n' "$BUSY_LABEL" "$(dx_format_duration "$BUSY_AGE")" "$(dx_format_duration "$BUSY_TIMEOUT")" >&2
       else
-        printf '\n--- Doyaken Phase 3 Gate: review pass still running (%s/%s timeout) ---\n\n' "$(dk_format_duration "$BUSY_AGE")" "$(dk_format_duration "$BUSY_TIMEOUT")" >&2
+        printf '\n--- Dex Phase 3 Gate: review pass still running (%s/%s timeout) ---\n\n' "$(dx_format_duration "$BUSY_AGE")" "$(dx_format_duration "$BUSY_TIMEOUT")" >&2
       fi
     fi
 
@@ -487,15 +487,15 @@ if [[ "$HANDOFF_MODE" == "inline" && "${DOYAKEN_LOOP_PHASE:-}" == "3" ]]; then
         command rm -f "$BUSY_NOTICE_TMP" 2>/dev/null
       fi
 
-      printf '\n%s\n\n' "--- Doyaken Phase 3 Gate: review pass in progress ---" >&2
-      printf '%s\n' "No audit iteration was counted and no completion signal is available while dkreviewloop is waiting on a review pass." >&2
+      printf '\n%s\n\n' "--- Dex Phase 3 Gate: review pass in progress ---" >&2
+      printf '%s\n' "No audit iteration was counted and no completion signal is available while dxreviewloop is waiting on a review pass." >&2
       if [[ -n "$BUSY_LABEL" && "$BUSY_LABEL" != "$BUSY_RAW" ]]; then
         printf '%s\n' "" >&2
         printf 'Current review work: %s\n' "$BUSY_LABEL" >&2
       fi
       printf '%s\n' "" >&2
-      printf 'This wait-state notice is throttled to once every %s unless the review pass changes or times out.\n' "$(dk_format_duration "$BUSY_NOTICE_INTERVAL")" >&2
-      printf 'Continue waiting for the current review pass. If this exceeds %s, Doyaken will pause Phase 3 for intervention. Do not commit, push, create a PR, or start later lifecycle phases from Phase 3.\n' "$(dk_format_duration "$BUSY_TIMEOUT")" >&2
+      printf 'This wait-state notice is throttled to once every %s unless the review pass changes or times out.\n' "$(dx_format_duration "$BUSY_NOTICE_INTERVAL")" >&2
+      printf 'Continue waiting for the current review pass. If this exceeds %s, Dex will pause Phase 3 for intervention. Do not commit, push, create a PR, or start later lifecycle phases from Phase 3.\n' "$(dx_format_duration "$BUSY_TIMEOUT")" >&2
     fi
     exit 2
   fi
@@ -503,27 +503,27 @@ fi
 
 # Completion detection: The .complete file is the sole mechanism.
 # This hook normally provides the .complete file path and promise string to Claude
-# after MIN_AUDIT_ITERATIONS passes. The dkreviewloop per-pass wrapper may provide
+# after MIN_AUDIT_ITERATIONS passes. The dxreviewloop per-pass wrapper may provide
 # the pass completion path up front; the review-pass gate below requires a valid
 # review result before accepting it.
 # See: docs/autonomous-mode.md § Completion Signals
 if [[ -f "$COMPLETE_FILE" ]]; then
-  CURRENT_PHASE="${DOYAKEN_LOOP_PHASE:-0}"
+  CURRENT_PHASE="${DEX_LOOP_PHASE:-0}"
 
-  if [[ "${DOYAKEN_REVIEW_PASS_ACTIVE:-}" == "1" ]]; then
-    REVIEW_RESULT_FILE=$(dk_review_result_file "$SESSION_ID")
+  if [[ "${DEX_REVIEW_PASS_ACTIVE:-}" == "1" ]]; then
+    REVIEW_RESULT_FILE=$(dx_review_result_file "$SESSION_ID")
     REVIEW_RESULT=$(cat "$REVIEW_RESULT_FILE" 2>/dev/null || true)
     if [[ ! "$REVIEW_RESULT" =~ ^(CLEAN|FINDINGS_FIXED:[0-9]+|FINDINGS:[0-9]+|BLOCKED:.+|ESCALATE_THOROUGH:.+)$ ]]; then
       rm -f "$COMPLETE_FILE"
-      printf '\n%s\n\n' "--- Doyaken Review Pass Gate: result signal missing or invalid ---" >&2
+      printf '\n%s\n\n' "--- Dex Review Pass Gate: result signal missing or invalid ---" >&2
       printf '%s\n' "Completion signal ignored; this review-wave pass must write an allowed result before it can exit." >&2
       printf '%s\n' "" >&2
       printf '%s\n' "Write exactly one of these values to the review result file, then touch the completion file again:" >&2
       printf '%s\n' '```bash' >&2
-      printf '%s\n' "source \"\${DOYAKEN_DIR:-\$HOME/work/doyaken}/lib/common.sh\"" >&2
-      printf '%s\n' "SESSION_ID=\"\${DOYAKEN_SESSION_ID:-\$(dk_session_id)}\"" >&2
-      printf '%s\n' "printf '%s\n' '<CLEAN|FINDINGS_FIXED:N|FINDINGS:N|BLOCKED:reason|ESCALATE_THOROUGH:reason>' > \"\$(dk_review_result_file \"\$SESSION_ID\")\"" >&2
-      printf '%s\n' "touch \"\$(dk_complete_file \"\$SESSION_ID\")\"" >&2
+      printf '%s\n' "source \"\${DEX_DIR:-\$HOME/work/dex}/lib/common.sh\"" >&2
+      printf '%s\n' "SESSION_ID=\"\${DEX_SESSION_ID:-\$(dx_session_id)}\"" >&2
+      printf '%s\n' "printf '%s\n' '<CLEAN|FINDINGS_FIXED:N|FINDINGS:N|BLOCKED:reason|ESCALATE_THOROUGH:reason>' > \"\$(dx_review_result_file \"\$SESSION_ID\")\"" >&2
+      printf '%s\n' "touch \"\$(dx_complete_file \"\$SESSION_ID\")\"" >&2
       printf '%s\n' '```' >&2
       printf '%s\n' "" >&2
       exit 2
@@ -531,10 +531,10 @@ if [[ -f "$COMPLETE_FILE" ]]; then
   fi
 
   if [[ "$HANDOFF_MODE" == "inline" && "$CURRENT_PHASE" == "2" ]]; then
-    PHASE_READY_FILE=$(dk_phase_ready_file "$SESSION_ID" 2)
+    PHASE_READY_FILE=$(dx_phase_ready_file "$SESSION_ID" 2)
     if [[ ! -f "$PHASE_READY_FILE" ]]; then
       rm -f "$COMPLETE_FILE"
-      printf '\n%s\n\n' "--- Doyaken Phase 2 Gate: implementation readiness marker missing ---" >&2
+      printf '\n%s\n\n' "--- Dex Phase 2 Gate: implementation readiness marker missing ---" >&2
       printf '%s\n' "Completion signal ignored; Phase 2 did not advance." >&2
       printf '%s\n' "" >&2
       printf '%s\n' "Before writing the Phase 2 ready marker, confirm every approved task and acceptance criterion is exactly MET, with no DEFERRED/SKIPPED/N/A entries unless the user explicitly approved a plan change." >&2
@@ -543,8 +543,8 @@ if [[ -f "$COMPLETE_FILE" ]]; then
       printf '%s\n' "" >&2
       printf '%s\n' "If all of that is true, write the ready marker, then stop again for the completion signal:" >&2
       printf '%s\n' '```bash' >&2
-      printf '%s\n' "source \"\${DOYAKEN_DIR:-\$HOME/work/doyaken}/lib/common.sh\"" >&2
-      printf '%s\n' "touch \"\$(dk_phase_ready_file \"\${DOYAKEN_SESSION_ID:-\$(dk_session_id)}\" 2)\"" >&2
+      printf '%s\n' "source \"\${DEX_DIR:-\$HOME/work/dex}/lib/common.sh\"" >&2
+      printf '%s\n' "touch \"\$(dx_phase_ready_file \"\${DEX_SESSION_ID:-\$(dx_session_id)}\" 2)\"" >&2
       printf '%s\n' '```' >&2
       printf '%s\n' "" >&2
       exit 2
@@ -553,49 +553,49 @@ if [[ -f "$COMPLETE_FILE" ]]; then
 
   if [[ "$HANDOFF_MODE" == "inline" && "$CURRENT_PHASE" =~ ^[0-9]+$ && "$CURRENT_PHASE" -lt 6 ]]; then
     NEXT_PHASE=$((CURRENT_PHASE + 1))
-    dk_record_phase_result "$CURRENT_PHASE" "advance" "0"
-    rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dk_findings_file "$SESSION_ID")" "$PAUSED_FILE" "$(dk_phase_started_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_ready_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_busy_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_busy_notice_file "$SESSION_ID" "$CURRENT_PHASE")"
+    dx_record_phase_result "$CURRENT_PHASE" "advance" "0"
+    rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dx_findings_file "$SESSION_ID")" "$PAUSED_FILE" "$(dx_phase_started_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_ready_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_busy_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_busy_notice_file "$SESSION_ID" "$CURRENT_PHASE")"
 
-    PHASE_STATE_FILE=$(dk_state_file "$SESSION_ID")
+    PHASE_STATE_FILE=$(dx_state_file "$SESSION_ID")
     printf '%s\n' "$NEXT_PHASE" > "$PHASE_STATE_FILE"
 
     # Preserve phase checkpoints at same-session phase boundaries.
     if [[ "$NEXT_PHASE" -ge 2 ]] && git rev-parse --git-dir >/dev/null 2>&1; then
-      dk_checkpoint_tag "$NEXT_PHASE" "$(pwd)"
+      dx_checkpoint_tag "$NEXT_PHASE" "$(pwd)"
     fi
 
-    dk_start_phase_timer "$NEXT_PHASE"
+    dx_start_phase_timer "$NEXT_PHASE"
 
-    NEXT_AUDIT_FILE=$(dk_phase_audit_file "$NEXT_PHASE")
-    NEXT_PROMISE=$(dk_phase_promise "$NEXT_PHASE")
-    NEXT_MIN_AUDITS=$(dk_phase_min_audits "$NEXT_PHASE")
+    NEXT_AUDIT_FILE=$(dx_phase_audit_file "$NEXT_PHASE")
+    NEXT_PROMISE=$(dx_phase_promise "$NEXT_PHASE")
+    NEXT_MIN_AUDITS=$(dx_phase_min_audits "$NEXT_PHASE")
     printf '%s:%s:%s:%s\n' "$NEXT_PHASE" "$NEXT_PROMISE" "$NEXT_AUDIT_FILE" "$NEXT_MIN_AUDITS" > "$CONFIG_FILE"
     touch "$ACTIVE_FILE"
 
     {
-      printf '\n%s\n\n' "--- Doyaken Phase Handoff: Phase ${CURRENT_PHASE} complete → Phase ${NEXT_PHASE} ($(dk_phase_name "$NEXT_PHASE")) ---"
+      printf '\n%s\n\n' "--- Dex Phase Handoff: Phase ${CURRENT_PHASE} complete → Phase ${NEXT_PHASE} ($(dx_phase_name "$NEXT_PHASE")) ---"
       printf '%s\n\n' "Continue in this same Claude session. Do not ask the user whether to proceed."
-      dk_inline_phase_message "$NEXT_PHASE"
+      dx_inline_phase_message "$NEXT_PHASE"
       printf '\n%s\n' "When Phase ${NEXT_PHASE} is genuinely complete, stop so the Stop hook can audit it."
     } >&2
     exit 2
   fi
 
   if [[ "$HANDOFF_MODE" == "inline" && "$CURRENT_PHASE" == "6" ]]; then
-    dk_record_phase_result "$CURRENT_PHASE" "advance" "0"
-    rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dk_findings_file "$SESSION_ID")" "$PAUSED_FILE" "$(dk_prompt_file "$SESSION_ID")" "$(dk_phase_started_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_ready_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_busy_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_busy_notice_file "$SESSION_ID" "$CURRENT_PHASE")"
-    printf '%s\n' "7" > "$(dk_state_file "$SESSION_ID")"
+    dx_record_phase_result "$CURRENT_PHASE" "advance" "0"
+    rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dx_findings_file "$SESSION_ID")" "$PAUSED_FILE" "$(dx_prompt_file "$SESSION_ID")" "$(dx_phase_started_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_ready_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_busy_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_busy_notice_file "$SESSION_ID" "$CURRENT_PHASE")"
+    printf '%s\n' "7" > "$(dx_state_file "$SESSION_ID")"
     rm -f "$ACTIVE_FILE" "$HANDOFF_MODE_FILE" "$PAUSED_FILE"
     {
-      printf '\n%s\n\n' "--- Doyaken lifecycle complete ---"
+      printf '\n%s\n\n' "--- Dex lifecycle complete ---"
       printf '%s\n' "All phases are complete. Present the final summary to the user, including PR status and any cleanup command."
     } >&2
     exit 2
   fi
 
-  rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dk_findings_file "$SESSION_ID")" "$PAUSED_FILE" "$(dk_phase_started_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_ready_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_busy_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dk_phase_busy_notice_file "$SESSION_ID" "$CURRENT_PHASE")"
+  rm -f "$STATE_FILE" "$COMPLETE_FILE" "$CONFIG_FILE" "$(dx_findings_file "$SESSION_ID")" "$PAUSED_FILE" "$(dx_phase_started_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_ready_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_busy_file "$SESSION_ID" "$CURRENT_PHASE")" "$(dx_phase_busy_notice_file "$SESSION_ID" "$CURRENT_PHASE")"
   rm -f "$ACTIVE_FILE" "$HANDOFF_MODE_FILE" "$PAUSED_FILE"
-  printf '%s\n' '{"continue":false,"stopReason":"Doyaken loop complete."}'
+  printf '%s\n' '{"continue":false,"stopReason":"Dex loop complete."}'
   exit 0
 fi
 
@@ -622,8 +622,8 @@ NOW_EPOCH=$(date +%s)
 # Stall detection — if the time between consecutive iterations exceeds the
 # threshold, the loop may be stuck on a fundamentally broken problem.
 # Inspired by autoresearch's NaN/exploding-loss early termination.
-STALL_TIMEOUT="${DOYAKEN_LOOP_STALL_TIMEOUT:-300}"  # default: 5 minutes
-STALL_ESCALATE_AFTER="${DOYAKEN_LOOP_STALL_ESCALATE:-3}"  # escalate after N stalls
+STALL_TIMEOUT="${DEX_LOOP_STALL_TIMEOUT:-300}"  # default: 5 minutes
+STALL_ESCALATE_AFTER="${DEX_LOOP_STALL_ESCALATE:-3}"  # escalate after N stalls
 IS_STALLED=0
 if [[ $LAST_EPOCH -gt 0 ]] && [[ $STALL_TIMEOUT -gt 0 ]]; then
   ELAPSED=$((NOW_EPOCH - LAST_EPOCH))
@@ -639,7 +639,7 @@ fi
 # iterations. Claude writes a findings hash after each review cycle (see
 # prompts/phase-audits/2-implement.md). If the same hash appears 3+ consecutive
 # times, the loop is semantically stuck on the same issues.
-FINDINGS_FILE=$(dk_findings_file "$SESSION_ID")
+FINDINGS_FILE=$(dx_findings_file "$SESSION_ID")
 SEMANTIC_STUCK=0
 if [[ -f "$FINDINGS_FILE" ]]; then
   LAST_HASH=$(tail -1 "$FINDINGS_FILE" 2>/dev/null || echo "")
@@ -652,7 +652,7 @@ if [[ -f "$FINDINGS_FILE" ]]; then
       else
         break
       fi
-    done < <(dk_reverse_file_lines "$FINDINGS_FILE" 2>/dev/null)
+    done < <(dx_reverse_file_lines "$FINDINGS_FILE" 2>/dev/null)
     if [[ $REPEAT_COUNT -ge 3 ]]; then
       SEMANTIC_STUCK=1
     fi
@@ -667,14 +667,14 @@ fi
 if [[ $ITERATION -gt $MAX_ITERATIONS ]]; then
   rm -f "$ACTIVE_FILE" "$CONFIG_FILE"
   if [[ "$HANDOFF_MODE" == "inline" ]]; then
-    CURRENT_PHASE="${DOYAKEN_LOOP_PHASE:-0}"
-    dk_record_phase_result "$CURRENT_PHASE" "max-iter" "88"
+    CURRENT_PHASE="${DEX_LOOP_PHASE:-0}"
+    dx_record_phase_result "$CURRENT_PHASE" "max-iter" "88"
     touch "$PAUSED_FILE"
-    printf '\n%s\n\n' "--- Doyaken phase paused: max audit iterations reached (${MAX_ITERATIONS}) ---" >&2
+    printf '\n%s\n\n' "--- Dex phase paused: max audit iterations reached (${MAX_ITERATIONS}) ---" >&2
     printf '%s\n' "Do not advance to the next phase. Summarize the blocker, current phase, and the exact user decision or intervention needed." >&2
     exit 2
   fi
-  printf '{"continue":false,"stopReason":"Doyaken audit loop reached max iterations (%s). Inspect the pause and resume when ready."}\n' "$MAX_ITERATIONS"
+  printf '{"continue":false,"stopReason":"Dex audit loop reached max iterations (%s). Inspect the pause and resume when ready."}\n' "$MAX_ITERATIONS"
   exit 0
 fi
 
@@ -691,15 +691,15 @@ fi
 
 # Resolve the audit prompt — injected into stderr so Claude sees it on its next turn.
 # Three sources, checked in priority order:
-#   1. DOYAKEN_LOOP_PROMPT env var — set by dk.sh wrapper per-phase (preloaded from file)
-#   2. Phase audit file from prompts/phase-audits/<name>.md — looked up via DOYAKEN_LOOP_PHASE
-#      (used by in-session activations like /dkloop where the env var isn't set)
+#   1. DEX_LOOP_PROMPT env var — set by dx.sh wrapper per-phase (preloaded from file)
+#   2. Phase audit file from prompts/phase-audits/<name>.md — looked up via DEX_LOOP_PHASE
+#      (used by in-session activations like /dxloop where the env var isn't set)
 #   3. Generic fallback — hardcoded prompt below, used when neither source is available
-AUDIT_PROMPT="${DOYAKEN_LOOP_PROMPT:-}"
+AUDIT_PROMPT="${DEX_LOOP_PROMPT:-}"
 AUDIT_SOURCE_FILE="${CONFIG_AUDIT_FILE:-}"
 
 if [[ -z "$AUDIT_PROMPT" ]]; then
-  LOOP_PHASE="${DOYAKEN_LOOP_PHASE:-}"
+  LOOP_PHASE="${DEX_LOOP_PHASE:-}"
   # Map phase number to audit file basename (must match actual filenames)
   AUDIT_FILENAME=""
   case "$LOOP_PHASE" in
@@ -712,7 +712,7 @@ if [[ -z "$AUDIT_PROMPT" ]]; then
     6) AUDIT_FILENAME="6-complete" ;;
     prompt-loop) AUDIT_FILENAME="prompt-loop" ;;
   esac
-  AUDIT_FILE="$DOYAKEN_DIR/prompts/phase-audits/${AUDIT_FILENAME}.md"
+  AUDIT_FILE="$DEX_DIR/prompts/phase-audits/${AUDIT_FILENAME}.md"
   if [[ -n "$AUDIT_FILENAME" ]] && [[ -f "$AUDIT_FILE" ]]; then
     AUDIT_SOURCE_FILE="$AUDIT_FILE"
     AUDIT_PROMPT=$(cat "$AUDIT_FILE")
@@ -720,7 +720,7 @@ if [[ -z "$AUDIT_PROMPT" ]]; then
 fi
 
 if [[ -z "$AUDIT_SOURCE_FILE" ]]; then
-  AUDIT_SOURCE_FILE=$(dk_phase_audit_file "${DOYAKEN_LOOP_PHASE:-}" 2>/dev/null || true)
+  AUDIT_SOURCE_FILE=$(dx_phase_audit_file "${DEX_LOOP_PHASE:-}" 2>/dev/null || true)
 fi
 
 if [[ -z "$AUDIT_PROMPT" ]]; then
@@ -734,7 +734,7 @@ If something needs work, fix it and try again."
 fi
 
 echo "" >&2
-if [[ "${DOYAKEN_LOOP_PHASE:-}" == "prompt-loop" ]]; then
+if [[ "${DEX_LOOP_PHASE:-}" == "prompt-loop" ]]; then
   echo "--- Prompt Loop: iteration $ITERATION/$MAX_ITERATIONS ---" >&2
 else
   echo "--- Phase Audit: iteration $ITERATION/$MAX_ITERATIONS ---" >&2
@@ -742,8 +742,8 @@ fi
 echo "" >&2
 
 # Re-inject the original prompt so Claude doesn't lose it after context compaction.
-# The prompt file is written by dkloop in dk.sh before launching Claude.
-PROMPT_FILE=$(dk_prompt_file "$SESSION_ID")
+# The prompt file is written by dxloop in dx.sh before launching Claude.
+PROMPT_FILE=$(dx_prompt_file "$SESSION_ID")
 if [[ -f "$PROMPT_FILE" ]]; then
   printf '%s\n' "## Original Task Prompt" >&2
   printf '%s\n' "" >&2
@@ -758,7 +758,7 @@ fi
 if [[ $IS_STALLED -eq 1 ]] && [[ $STALL_COUNT -ge $STALL_ESCALATE_AFTER ]]; then
   printf '%s\n' "## STUCK LOOP DETECTED (stalled $STALL_COUNT times)" >&2
   printf '%s\n' "" >&2
-  printf '%s\n' "You appear to be stuck in a loop. The last $STALL_COUNT iterations each took longer than $(dk_format_duration "$STALL_TIMEOUT") without making progress." >&2
+  printf '%s\n' "You appear to be stuck in a loop. The last $STALL_COUNT iterations each took longer than $(dx_format_duration "$STALL_TIMEOUT") without making progress." >&2
   printf '%s\n' "" >&2
   printf '%s\n' "MANDATORY: Read prompts/failure-recovery.md and run the failure analysis." >&2
   printf '%s\n' "You MUST choose a different recovery strategy. Do NOT retry the same approach." >&2
@@ -779,7 +779,7 @@ if [[ $SEMANTIC_STUCK -eq 1 ]]; then
   printf '%s\n' "" >&2
 fi
 
-if [[ $ITERATION -gt 1 ]] && dk_compact_repeat_audit_prompt "${DOYAKEN_LOOP_PHASE:-}" "$AUDIT_SOURCE_FILE" >&2; then
+if [[ $ITERATION -gt 1 ]] && dx_compact_repeat_audit_prompt "${DEX_LOOP_PHASE:-}" "$AUDIT_SOURCE_FILE" >&2; then
   :
 else
   printf '%s\n' "$AUDIT_PROMPT" >&2

@@ -1,15 +1,15 @@
 # shellcheck shell=bash
-# Doyaken shared library — formatted output helpers
+# Dex shared library — formatted output helpers
 
-dk_done()  { printf '[done]  %s\n' "$*"; }
-dk_ok()    { printf '[ok]    %s\n' "$*"; }
-dk_warn()  { printf '[warn]  %s\n' "$*" >&2; }
-dk_skip()  { printf '[skip]  %s\n' "$*"; }
-dk_info()  { printf '[info]  %s\n' "$*"; }
-dk_error() { printf '[error] %s\n' "$*" >&2; }
+dx_done()  { printf '[done]  %s\n' "$*"; }
+dx_ok()    { printf '[ok]    %s\n' "$*"; }
+dx_warn()  { printf '[warn]  %s\n' "$*" >&2; }
+dx_skip()  { printf '[skip]  %s\n' "$*"; }
+dx_info()  { printf '[info]  %s\n' "$*"; }
+dx_error() { printf '[error] %s\n' "$*" >&2; }
 
-# dk_format_duration <seconds> — format a numeric duration as "Xm Ys".
-dk_format_duration() {
+# dx_format_duration <seconds> — format a numeric duration as "Xm Ys".
+dx_format_duration() {
   local seconds="$1" minutes remainder
   if [[ ! "$seconds" =~ ^[0-9]+$ ]]; then
     printf '%s\n' "$seconds"
@@ -21,22 +21,22 @@ dk_format_duration() {
   printf '%dm %ds\n' "$minutes" "$remainder"
 }
 
-# dk_progress_filter — parse Claude Code CLI stream-json output and display
+# dx_progress_filter — parse Claude Code CLI stream-json output and display
 # human-readable progress lines showing which tools are being invoked.
 #
 # Claude's stream-json format emits one JSON object per line. Each "assistant"
 # message contains content blocks: tool_use (with name/input), text, thinking.
 # This filter watches for new tool_use blocks and prints a formatted line:
 #   [....]  Reading src/foo.ts
-#   [done]  Writing .doyaken/rules/backend.md
+#   [done]  Writing .dex/rules/backend.md
 #   [....]  Thinking...
 #
 # Uses \r\033[K (carriage return + clear line) to overwrite ephemeral lines.
 # The --include-partial-messages flag on Claude CLI is required for real-time
 # progress — without it, tool blocks only appear after the full response.
 #
-# Usage: claude -p --verbose --output-format stream-json --include-partial-messages "..." | dk_progress_filter
-dk_progress_filter() {
+# Usage: claude -p --verbose --output-format stream-json --include-partial-messages "..." | dx_progress_filter
+dx_progress_filter() {
   local repo_root
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
   # Inline Python parses Claude's stream-json output format. Each line is a JSON object.
@@ -91,7 +91,7 @@ for line in sys.stdin:
             # \\r\\033[K clears any ephemeral 'Thinking...' line
             prefix = '\r\033[K'
             first = False
-            if name in ('Write', 'Edit') and '.doyaken/' in (inp.get('file_path') or ''):
+            if name in ('Write', 'Edit') and '.dex/' in (inp.get('file_path') or ''):
                 print(f'{prefix}[done]  Writing {detail}')
             elif name == 'Read':
                 print(f'{prefix}[....]  Reading {detail}')

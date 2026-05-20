@@ -77,9 +77,9 @@ function writeLines(filePath, lines) {
 }
 
 function playwrightModule() {
-  const toolsDir = process.env.DK_UI_CAPTURE_TOOLS_DIR;
+  const toolsDir = process.env.DX_UI_CAPTURE_TOOLS_DIR;
   if (!toolsDir) {
-    throw new Error('DK_UI_CAPTURE_TOOLS_DIR is not set');
+    throw new Error('DX_UI_CAPTURE_TOOLS_DIR is not set');
   }
   return require(path.join(toolsDir, 'node_modules', 'playwright'));
 }

@@ -1,8 +1,8 @@
 # Background Maintenance Agent Plan
 
-This document refines the first autonomous Doyaken agent that can run overnight
+This document refines the first autonomous Dex agent that can run overnight
 or in the background. It depends on the memory and sync model described in
-`docs/dksync-memory-plan.md`.
+`docs/dxsync-memory-plan.md`.
 
 The goal is not to create an agent that opens lots of speculative cleanup PRs.
 The goal is to create a high-signal maintenance scout that uses durable repo
@@ -14,16 +14,16 @@ Status: implementation started. The first CLI, skill, prompt, and installable
 GitHub workflow surfaces exist in this branch; this document remains the
 planning record for rollout hardening and future expansion.
 
-Architecture map status: `.doyaken/architecture.md` is not present in this repo
-yet. This refinement therefore uses the current repo layout, `.doyaken/rules/`,
-`.doyaken/memory/`, and existing Doyaken lifecycle docs as the component map. Run
-`/dkarchitect` before creating formal tracked sub-tickets that require C4 domain
+Architecture map status: `.dex/architecture.md` is not present in this repo
+yet. This refinement therefore uses the current repo layout, `.dex/rules/`,
+`.dex/memory/`, and existing Dex lifecycle docs as the component map. Run
+`/dxarchitect` before creating formal tracked sub-tickets that require C4 domain
 labels.
 
 Relevant durable memory:
 
 - `M-002`: lifecycle phases own their outputs strictly.
-- `M-004`: Doyaken-owned global state must be tracked separately from user
+- `M-004`: Dex-owned global state must be tracked separately from user
   state.
 - `M-006`: skills and prompts must stay codebase-agnostic and discover tooling
   at runtime.
@@ -34,18 +34,18 @@ Relevant GitHub/Copilot facts as of 2026-05-15:
 
 - GitHub organization workflow templates live in a `.github` repository under
   `workflow-templates/`, with a matching `.properties.json` metadata file; a
-  workflow template can use `$default-branch` as a placeholder. For Doyaken's
+  workflow template can use `$default-branch` as a placeholder. For Dex's
   per-repo install flow, shipping a local template and copying it to
-  `.github/workflows/dk-maintain.yml` is the more direct first version.
+  `.github/workflows/dx-maintain.yml` is the more direct first version.
 - `gh pr edit <number> --add-reviewer @copilot` requests Copilot code review.
-  The GitHub CLI also supports `--add-assignee @copilot`, but Doyaken should
-  use reviewer request by default so Doyaken remains the PR owner.
+  The GitHub CLI also supports `--add-assignee @copilot`, but Dex should
+  use reviewer request by default so Dex remains the PR owner.
 - Copilot can be configured to review draft pull requests, and automatic
   re-review on new pushes depends on repository/organization Copilot settings.
-  Doyaken should still explicitly re-request review after it pushes fixes.
+  Dex should still explicitly re-request review after it pushes fixes.
 - Events created with the default GitHub Actions `GITHUB_TOKEN` generally do
   not trigger follow-up workflows, except `workflow_dispatch` and
-  `repository_dispatch`. A GitHub App token or PAT is needed when Doyaken wants
+  `repository_dispatch`. A GitHub App token or PAT is needed when Dex wants
   PR creation, pushes, review requests, and comments to trigger normal
   downstream automation.
 - PR-level comments trigger `issue_comment`; review submissions trigger
@@ -70,11 +70,11 @@ References:
 
 ## Problem Statement
 
-Doyaken now has a repo memory model, but no autonomous consumer that turns that
+Dex now has a repo memory model, but no autonomous consumer that turns that
 memory into scheduled maintenance work. The background agent should run a
 bounded maintenance loop that:
 
-1. refreshes context with `dk sync`;
+1. refreshes context with `dx sync`;
 2. selects a small number of risk surfaces from memory, git history, CI, and
    review signals;
 3. runs deterministic checks before semantic review;
@@ -86,11 +86,11 @@ Success means a team can schedule the agent in `report` mode without trusting it
 to change production code, then gradually enable draft PR modes as the reports
 prove useful.
 
-## Relationship To DKSync
+## Relationship To DXSync
 
-`dk sync` is the first phase. It keeps repo context fresh and promotes durable,
-evidenced lessons into `.doyaken/memory/`, `.doyaken/rules/`, or
-`.doyaken/guards/`.
+`dx sync` is the first phase. It keeps repo context fresh and promotes durable,
+evidenced lessons into `.dex/memory/`, `.dex/rules/`, or
+`.dex/guards/`.
 
 The background maintenance agent is the second phase. It uses synced context to
 decide where to look, what risks matter, and which findings are worth turning
@@ -99,11 +99,11 @@ into reports or PRs.
 The default scheduled flow should be:
 
 ```bash
-dk sync --since <last-successful-maintenance-run-or-explicit-ref>
-dk maintain --mode report --nightly
+dx sync --since <last-successful-maintenance-run-or-explicit-ref>
+dx maintain --mode report --nightly
 ```
 
-`dk maintain` is the preferred command name because it covers manual, nightly,
+`dx maintain` is the preferred command name because it covers manual, nightly,
 and scheduled operation without implying a specific time of day.
 
 ## Goals
@@ -135,14 +135,14 @@ and scheduled operation without implying a specific time of day.
 V1 should add a standalone command and an in-session skill:
 
 ```bash
-dk maintain [--mode report|propose|fix-scoped] [--nightly]
-dk maintain [--focus <domain-or-path>] [--since <ref|date>]
-dk maintain [--budget-minutes <n>] [--max-surfaces <n>] [--max-prs <n>]
-dk maintain [--no-sync] [--no-pr] [--dry-run]
-dk maintain install-workflow [--force]
-dk maintain respond --pr <number> [--event <review|comment|review-comment>]
-dk maintain publish --state-file <path>
-dk maintain publish-response --state-file <path>
+dx maintain [--mode report|propose|fix-scoped] [--nightly]
+dx maintain [--focus <domain-or-path>] [--since <ref|date>]
+dx maintain [--budget-minutes <n>] [--max-surfaces <n>] [--max-prs <n>]
+dx maintain [--no-sync] [--no-pr] [--dry-run]
+dx maintain install-workflow [--force]
+dx maintain respond --pr <number> [--event <review|comment|review-comment>]
+dx maintain publish --state-file <path>
+dx maintain publish-response --state-file <path>
 ```
 
 Proposed files:
@@ -150,27 +150,27 @@ Proposed files:
 | Surface | Proposed path | Responsibility |
 |---------|---------------|----------------|
 | Shell command | `bin/maintain.sh` | Parse flags, prepare run state, launch provider prompt |
-| zsh entry point | `dk.sh` | Expose `dk maintain` and keep re-sourcing safety |
-| Skill | `skills/dkmaintain/SKILL.md` | In-session maintenance workflow |
+| zsh entry point | `dx.sh` | Expose `dx maintain` and keep re-sourcing safety |
+| Skill | `skills/dxmaintain/SKILL.md` | In-session maintenance workflow |
 | Prompt | `prompts/maintain.md` | Provider-neutral loop contract |
 | Shared helpers | `lib/maintenance.sh` | Run ids, locks, artifact paths, config defaults |
-| GitHub workflow template | `templates/github/workflows/dk-maintain.yml` | Thin scheduled/event wrapper that runs the CLI |
-| Workflow installer | `bin/maintain-workflow.sh` or `bin/maintain.sh install-workflow` | Copy/update `.github/workflows/dk-maintain.yml` in the target repo |
+| GitHub workflow template | `templates/github/workflows/dx-maintain.yml` | Thin scheduled/event wrapper that runs the CLI |
+| Workflow installer | `bin/maintain-workflow.sh` or `bin/maintain.sh install-workflow` | Copy/update `.github/workflows/dx-maintain.yml` in the target repo |
 | Docs | `docs/background-maintenance-agent-plan.md` | Refinement and rollout plan |
 
 The command should not be folded into the six-phase ticket lifecycle. It is a
 separate maintenance lifecycle that may create a draft PR, but it starts from a
 maintenance report rather than a user ticket.
 
-The workflow must stay thin. Workflow YAML should install Doyaken, set up
-authentication, call `dk maintain`, and upload/report artifacts. Skill prompts
+The workflow must stay thin. Workflow YAML should install Dex, set up
+authentication, call `dx maintain`, and upload/report artifacts. Skill prompts
 and CLI commands remain the source of behavior so the same maintenance flow is
 usable manually, inside an agent session, and from GitHub Actions.
 
-GitHub Actions jobs normally run bash, while `dk.sh` is zsh-only. The workflow
+GitHub Actions jobs normally run bash, while `dx.sh` is zsh-only. The workflow
 should therefore invoke a bash-compatible script such as
-`bash "$DOYAKEN_DIR/bin/maintain.sh" ...` or a future standalone executable
-wrapper, not depend on the interactive `dk` zsh function being sourced.
+`bash "$DEX_DIR/bin/maintain.sh" ...` or a future standalone executable
+wrapper, not depend on the interactive `dx` zsh function being sourced.
 
 ## Trust Modes
 
@@ -179,7 +179,7 @@ Autonomy should increase gradually:
 | Mode | Allowed writes | PR creation | Default for scheduled runs |
 |------|----------------|-------------|----------------------------|
 | `report` | External report artifact only | No PRs | Yes |
-| `propose` | Draft PR for `.doyaken/` docs, rules, memory, or guards | Draft PRs only | No |
+| `propose` | Draft PR for `.dex/` docs, rules, memory, or guards | Draft PRs only | No |
 | `fix-scoped` | Configured low-risk file categories plus tests | Draft PRs only | No |
 | `trusted-maintenance` | Broader configured maintenance boundaries | Draft PRs only, no merge | No |
 
@@ -189,18 +189,18 @@ created.
 
 ## Component Map
 
-Because `.doyaken/architecture.md` is absent, these domains use current repo
+Because `.dex/architecture.md` is absent, these domains use current repo
 component boundaries instead of canonical C4 names.
 
 | Component | Existing paths | Current responsibility | Impact |
 |-----------|----------------|------------------------|--------|
-| Project context and memory | `.doyaken/memory/`, `.doyaken/rules/`, `.doyaken/guards/`, `bin/sync.sh`, `skills/dksync/`, `prompts/sync-memory.md` | Store durable repo context and promote verified learning | Heavy |
-| CLI command surface | `dk.sh`, `bin/*.sh`, `lib/common.sh` | Expose Doyaken commands and shared shell bootstrapping | Heavy |
+| Project context and memory | `.dex/memory/`, `.dex/rules/`, `.dex/guards/`, `bin/sync.sh`, `skills/dxsync/`, `prompts/sync-memory.md` | Store durable repo context and promote verified learning | Heavy |
+| CLI command surface | `dx.sh`, `bin/*.sh`, `lib/common.sh` | Expose Dex commands and shared shell bootstrapping | Heavy |
 | Provider and state libraries | `lib/provider.sh`, `lib/session.sh`, `lib/output.sh`, `lib/worktree.sh` | Launch providers and keep state outside the repo | Medium |
-| Review system | `skills/dkreview/`, `skills/dkreviewloop/`, `prompts/review-wave.md`, `prompts/review.md` | Run deterministic-plus-semantic review waves | Medium |
-| Verification system | `skills/dkverify/`, `prompts/failure-recovery.md` | Discover and run project quality gates | Medium |
-| PR and watcher system | `skills/dkpr/`, `skills/dkcomplete/`, `skills/dkwatchpr/` | Create PRs, monitor CI, and respond to review feedback | Light in V1, Medium later |
-| GitHub workflow integration | `templates/github/workflows/`, `.github/workflows/dk-maintain.yml`, future workflow installer | Schedule maintenance and trigger one-shot PR feedback responses | Heavy |
+| Review system | `skills/dxreview/`, `skills/dxreviewloop/`, `prompts/review-wave.md`, `prompts/review.md` | Run deterministic-plus-semantic review waves | Medium |
+| Verification system | `skills/dxverify/`, `prompts/failure-recovery.md` | Discover and run project quality gates | Medium |
+| PR and watcher system | `skills/dxpr/`, `skills/dxcomplete/`, `skills/dxwatchpr/` | Create PRs, monitor CI, and respond to review feedback | Light in V1, Medium later |
+| GitHub workflow integration | `templates/github/workflows/`, `.github/workflows/dx-maintain.yml`, future workflow installer | Schedule maintenance and trigger one-shot PR feedback responses | Heavy |
 | Hook system | `settings.json`, `hooks/*.sh`, `hooks/guard-handler.py` | Guard commands, preserve context, pause watcher overlap | Light in V1 |
 | Documentation | `docs/*.md`, `README.md` | Explain behavior, rollout, and manual operation | Medium |
 
@@ -211,12 +211,12 @@ stage has explicit inputs, outputs, budgets, and failure behavior.
 
 1. **Preflight and locking**
    - Confirm the repo is clean or create an isolated worktree.
-   - Acquire a per-repo maintenance lock under external Doyaken state.
+   - Acquire a per-repo maintenance lock under external Dex state.
    - Refuse overlapping scheduled runs for the same repo.
 
 2. **Context refresh**
-   - Run `dk sync` unless `--no-sync` is set.
-   - Load `.doyaken/memory/index.md` first, then only scoped active memory.
+   - Run `dx sync` unless `--no-sync` is set.
+   - Load `.dex/memory/index.md` first, then only scoped active memory.
    - Treat memory as context to verify, not proof.
 
 3. **Risk-surface selection**
@@ -226,12 +226,12 @@ stage has explicit inputs, outputs, budgets, and failure behavior.
    - Record why each surface was selected.
 
 4. **Deterministic checks**
-   - Reuse the `dkverify` discovery model where possible.
+   - Reuse the `dxverify` discovery model where possible.
    - Prefer commands that match selected surfaces.
    - Enforce per-command and total runtime budgets.
 
 5. **Semantic review**
-   - Run a focused review pass modeled on `dkreviewloop`, but scoped to selected
+   - Run a focused review pass modeled on `dxreviewloop`, but scoped to selected
      surfaces rather than the full ticket diff.
    - Build context first, run deterministic checks first, and require evidence
      before reporting findings.
@@ -248,7 +248,7 @@ stage has explicit inputs, outputs, budgets, and failure behavior.
    - Run focused review on any diff.
    - Write a report artifact every time.
    - Open at most the configured number of draft PRs.
-   - Label maintenance PRs, for example `doyaken-maintenance`, so event-driven
+   - Label maintenance PRs, for example `dex-maintenance`, so event-driven
      workflows can distinguish them from human-authored PRs.
    - Request Copilot review on opened draft PRs with
      `gh pr edit <number> --add-reviewer @copilot` when enabled. Optionally add
@@ -260,13 +260,13 @@ stage has explicit inputs, outputs, budgets, and failure behavior.
    - Record last successful run ref/time so local/persistent runners can choose
      better future `--since` defaults; hosted scheduled workflows need
      cache/artifact persistence before they can reuse that state across runs.
-   - Send durable learning candidates through `dk sync`; do not write raw
+   - Send durable learning candidates through `dx sync`; do not write raw
      observations directly into trusted memory.
 
 9. **PR feedback response**
    - For maintenance PRs only, react to `issue_comment`,
      `pull_request_review`, and `pull_request_review_comment` events.
-   - Run a one-shot `dk maintain respond --pr <number>` command that gives the
+   - Run a one-shot `dx maintain respond --pr <number>` command that gives the
      provider pinned PR context and structured response artifact paths.
    - Fix valid comments locally, write bounded reply artifacts, and let the
      wrapper recheck PR provenance before pushing commits or publishing replies.
@@ -277,18 +277,18 @@ stage has explicit inputs, outputs, budgets, and failure behavior.
 
 ## State And Artifacts
 
-Run state should stay outside the repository, following existing Doyaken phase
+Run state should stay outside the repository, following existing Dex phase
 and artifact patterns.
 
 Proposed defaults:
 
 ```text
-~/.claude/.doyaken-maintenance/
+~/.claude/.dex-maintenance/
   <session-id>.lock
   <session-id>.last-success   # local/persistent runners; hosted runners need cache/artifact persistence
   <session-id>.state
 
-~/.claude/.doyaken-artifacts/maintenance/
+~/.claude/.dex-artifacts/maintenance/
   <run-id>/
     report.md
     commands.log
@@ -297,13 +297,13 @@ Proposed defaults:
 ```
 
 State files are operational metadata, not durable memory. Durable lessons must
-be promoted through `dk sync` into a reviewable repo diff.
+be promoted through `dx sync` into a reviewable repo diff.
 
 ## Configuration Surface
 
 V1 can start with flags and conservative defaults. A later version should add a
-repo config section, either in `.doyaken/doyaken.md` or a dedicated
-`.doyaken/maintenance.md`.
+repo config section, either in `.dex/dex.md` or a dedicated
+`.dex/maintenance.md`.
 
 Candidate config:
 
@@ -315,15 +315,15 @@ maintenance:
   max_surfaces: 5
   max_prs: 1
   install_github_workflow: false
-  github_workflow_name: DK maintain
-  github_label: doyaken-maintenance
+  github_workflow_name: DX maintain
+  github_label: dex-maintenance
   copilot_review: true
   copilot_assignee: false
-  token_secret: DK_MAINTAIN_TOKEN
+  token_secret: DX_MAINTAIN_TOKEN
   safe_fix_categories:
     - docs
     - tests
-    - doyaken-context
+    - dex-context
   focus_domains:
     - review-quality
     - workflow-operations
@@ -331,22 +331,22 @@ maintenance:
 ```
 
 Keep provider launch, worktree handling, and external state path defaults aligned
-with existing Doyaken libraries instead of creating separate conventions.
+with existing Dex libraries instead of creating separate conventions.
 
 ## GitHub Workflow Template
 
-Yes: Doyaken should ship an installable GitHub workflow template called
-`DK maintain`.
+Yes: Dex should ship an installable GitHub workflow template called
+`DX maintain`.
 
 There are two distribution shapes:
 
-- **Per-repo install**: Doyaken ships
-  `templates/github/workflows/dk-maintain.yml`, and `dk maintain
-  install-workflow` copies it to `.github/workflows/dk-maintain.yml` in the
-  target repo. This fits `dk init` and normal Doyaken install flows.
+- **Per-repo install**: Dex ships
+  `templates/github/workflows/dx-maintain.yml`, and `dx maintain
+  install-workflow` copies it to `.github/workflows/dx-maintain.yml` in the
+  target repo. This fits `dx init` and normal Dex install flows.
 - **Organization template**: an organization can also publish the same workflow
-  under `.github/workflow-templates/dk-maintain.yml` with matching metadata, but
-  that packaging is intentionally deferred until Doyaken ships an org-template
+  under `.github/workflow-templates/dx-maintain.yml` with matching metadata, but
+  that packaging is intentionally deferred until Dex ships an org-template
   layout. The first implementation only installs directly into a target repo.
 
 The per-repo installer should be explicit, not automatic by default, because the
@@ -354,9 +354,9 @@ workflow needs write permissions and may consume provider/GitHub minutes. Good
 entry points:
 
 ```bash
-dk init --install-maintenance-workflow
-dk maintain install-workflow
-dk maintain install-workflow --force
+dx init --install-maintenance-workflow
+dx maintain install-workflow
+dx maintain install-workflow --force
 ```
 
 The installed workflow should have one name but two jobs:
@@ -364,8 +364,8 @@ The installed workflow should have one name but two jobs:
 1. **Nightly maintenance job**
    - Triggers on `schedule` and `workflow_dispatch`.
    - Checks out the default branch.
-   - Bootstraps Doyaken from the source repo/ref pinned by the installer.
-   - Runs an optional `DK_MAINTAIN_PROVIDER_SETUP` secret before provider use
+   - Bootstraps Dex from the source repo/ref pinned by the installer.
+   - Runs an optional `DX_MAINTAIN_PROVIDER_SETUP` secret before provider use
      through stdin, not shell argv; if no provider is available, it writes a
      skipped report instead of failing noisily on every schedule.
    - Runs the bash-compatible sync script and maintain script.
@@ -377,25 +377,25 @@ The installed workflow should have one name but two jobs:
    - Triggers on `issue_comment`, `pull_request_review`, and
      `pull_request_review_comment`.
    - Runs a deterministic preflight before checkout/provider setup and proceeds
-     only for trusted comments on PRs labeled `doyaken-maintenance` and
-     branches matching a Doyaken maintenance branch prefix.
+     only for trusted comments on PRs labeled `dex-maintenance` and
+     branches matching a Dex maintenance branch prefix.
    - Checks out the immutable PR head SHA only after confirming the PR is a
-     same-repository Doyaken maintenance PR. Fork PR response is out of scope
+     same-repository Dex maintenance PR. Fork PR response is out of scope
      for V1.
-   - Runs `dk maintain respond --pr <number> --event <event-kind>`.
-   - Delegates comment handling to `dkprreview` so every comment receives either
+   - Runs `dx maintain respond --pr <number> --event <event-kind>`.
+   - Delegates comment handling to `dxprreview` so every comment receives either
      a fix, an inline answer, or an escalation.
 
 Skeleton:
 
 ```yaml
-name: DK maintain
+name: DX maintain
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Doyaken maintenance mode
+        description: Dex maintenance mode
         required: false
         default: report
         type: choice
@@ -417,7 +417,7 @@ permissions:
   {}
 
 concurrency:
-  group: dk-maintain-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: dx-maintain-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -429,14 +429,14 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Install Doyaken
+      - name: Install Dex
         run: |
-          # Replace with the installed Doyaken bootstrap command.
+          # Replace with the installed Dex bootstrap command.
           bash install.sh
-      - name: Run DK maintain
+      - name: Run DX maintain
         run: |
           # Provider job has no GitHub write token; it uploads report/patch state.
-          bash "$DOYAKEN_DIR/bin/maintain.sh" --nightly --mode "$MODE" --defer-publish "$STATE_FILE"
+          bash "$DEX_DIR/bin/maintain.sh" --nightly --mode "$MODE" --defer-publish "$STATE_FILE"
 
   publish:
     needs: nightly
@@ -450,10 +450,10 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Publish deferred maintenance PR
         env:
-          DK_MAINTAIN_TOKEN: ${{ secrets.DK_MAINTAIN_TOKEN }}
+          DX_MAINTAIN_TOKEN: ${{ secrets.DX_MAINTAIN_TOKEN }}
         run: |
-          # Fresh trusted Doyaken checkout applies the uploaded patch/state.
-          bash "$DOYAKEN_DIR/bin/maintain.sh" publish --state-file "$STATE_FILE"
+          # Fresh trusted Dex checkout applies the uploaded patch/state.
+          bash "$DEX_DIR/bin/maintain.sh" publish --state-file "$STATE_FILE"
 
   respond:
     if: ${{ (github.event_name == 'issue_comment' && github.event.issue.pull_request) || github.event_name == 'pull_request_review' || github.event_name == 'pull_request_review_comment' }}
@@ -463,13 +463,13 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Install Doyaken
+      - name: Install Dex
         run: |
           bash install.sh
       - name: Respond to maintenance PR feedback
         run: |
           # Response provider job has no GitHub write token; it uploads patch/reply state.
-          bash "$DOYAKEN_DIR/bin/maintain.sh" respond --pr "$PR_NUM" --trusted-preflight --defer-publish "$STATE_FILE"
+          bash "$DEX_DIR/bin/maintain.sh" respond --pr "$PR_NUM" --trusted-preflight --defer-publish "$STATE_FILE"
 
   publish-response:
     needs: respond
@@ -482,9 +482,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Publish maintenance PR response
         env:
-          GH_TOKEN: ${{ secrets.DK_MAINTAIN_TOKEN }}
+          GH_TOKEN: ${{ secrets.DX_MAINTAIN_TOKEN }}
         run: |
-          bash "$DOYAKEN_DIR/bin/maintain.sh" publish-response --state-file "$STATE_FILE"
+          bash "$DEX_DIR/bin/maintain.sh" publish-response --state-file "$STATE_FILE"
 ```
 
 The skeleton shows intent, not final syntax. The shipped template keeps
@@ -501,14 +501,14 @@ inside the repo when workflow permissions allow it, but it does not trigger most
 follow-up workflows from events it creates and should not be exposed to report
 mode agents. The workflow should therefore support:
 
-- `DK_MAINTAIN_TOKEN`: optional PAT or GitHub App installation token for teams
+- `DX_MAINTAIN_TOKEN`: optional PAT or GitHub App installation token for teams
   that want downstream CI/review workflows to trigger normally.
 - no token fallback for report mode; report and dry-run launches scrub GitHub
   write credentials before invoking the provider.
 - write-capable workflow runs split provider and publication into separate jobs:
   provider jobs do not receive GitHub write-token environment variables and
   upload bounded patch/state artifacts; publish-only jobs use a fresh trusted
-  Doyaken checkout plus `DK_MAINTAIN_TOKEN` to apply the patch, push, open or
+  Dex checkout plus `DX_MAINTAIN_TOKEN` to apply the patch, push, open or
   update PRs, request reviewers, and post response comments.
 - clear report output when token permissions prevent branch push, PR creation,
   reviewer request, or comment reply.
@@ -517,16 +517,16 @@ mode agents. The workflow should therefore support:
 
 When maintenance opens a draft PR, it should:
 
-1. add a `doyaken-maintenance` label;
+1. add a `dex-maintenance` label;
 1. add a provenance marker to the PR body that ties the branch run id to the
-   Doyaken-created PR;
-2. request configured `request` reviewers from `.doyaken/doyaken.md`;
+   Dex-created PR;
+2. request configured `request` reviewers from `.dex/dex.md`;
 3. request Copilot review with `gh pr edit <number> --add-reviewer @copilot`
    when Copilot review is enabled;
 4. optionally add Copilot as assignee with
    `gh pr edit <number> --add-assignee @copilot` only if the repo config
    explicitly chooses Copilot cloud-agent ownership;
-5. re-request Copilot and other configured reviewers after every Doyaken push.
+5. re-request Copilot and other configured reviewers after every Dex push.
 
 Reviewer parsing should normalize `Copilot`, `@copilot`, and other configured
 aliases to the GitHub CLI special value `@copilot`. Do not strip the `@` from
@@ -534,7 +534,7 @@ this special value even though normal GitHub usernames should be passed without
 the leading `@`.
 
 Do not rely only on repository automatic Copilot review settings. Automatic
-review of drafts and new pushes is configurable, so Doyaken should explicitly
+review of drafts and new pushes is configurable, so Dex should explicitly
 request the review it needs.
 
 ## Loop Strategy
@@ -544,7 +544,7 @@ CLI, and the CLI should run bounded internal loops.
 
 V1 needs two loop shapes:
 
-1. **Pre-publish loop inside `dk maintain`**
+1. **Pre-publish loop inside `dx maintain`**
    - Run deterministic checks.
    - Patch only eligible findings.
    - Run focused semantic review on the generated diff.
@@ -554,15 +554,15 @@ V1 needs two loop shapes:
 2. **Event-driven feedback loop after PR creation**
    - Do not run a long-lived watcher in GitHub Actions.
    - Let GitHub events trigger one-shot response jobs.
-   - Each job runs `dk maintain respond --pr <number>`, giving the provider
+   - Each job runs `dx maintain respond --pr <number>`, giving the provider
      pre-collected review context while withholding GitHub write credentials.
    - The provider job writes bounded patch/reply artifacts. A separate publish
-     job with a fresh trusted Doyaken checkout pushes valid fixes, posts
+     job with a fresh trusted Dex checkout pushes valid fixes, posts
      bounded structured response summaries and inline review-comment replies,
      and re-requests reviewers; the next reviewer comment/review triggers
      another one-shot response.
 
-This keeps the reusable behavior in Doyaken skills/prompts while allowing GitHub
+This keeps the reusable behavior in Dex skills/prompts while allowing GitHub
 Actions to provide scheduling and event delivery.
 
 ## Skill And Prompt Layering
@@ -576,12 +576,12 @@ prompt -> skill -> CLI command -> scheduled/event workflow
 Each layer should add orchestration, not duplicate the previous layer:
 
 - `prompts/maintain.md` defines the provider-neutral maintenance contract.
-- `skills/dkmaintain/SKILL.md` makes the flow usable inside an agent session.
-- `bin/maintain.sh` and `dk maintain` make the same flow runnable from a shell,
+- `skills/dxmaintain/SKILL.md` makes the flow usable inside an agent session.
+- `bin/maintain.sh` and `dx maintain` make the same flow runnable from a shell,
   cron, or CI.
-- `templates/github/workflows/dk-maintain.yml` schedules and routes events to
+- `templates/github/workflows/dx-maintain.yml` schedules and routes events to
   the CLI.
-- `dk maintain respond` reuses `skills/dkprreview/SKILL.md` rather than
+- `dx maintain respond` reuses `skills/dxprreview/SKILL.md` rather than
   creating a second comment-review framework.
 
 Maintenance tasks can then become domain-specific prompt modules without
@@ -590,12 +590,12 @@ becoming separate products. Candidate modules:
 | Module | Purpose | Reuses |
 |--------|---------|--------|
 | `maintain-risk-selection` | Pick surfaces from memory, git history, CI, reviews | `sync-memory.md`, memory index |
-| `maintain-deterministic-checks` | Choose and run bounded checks | `dkverify`, `failure-recovery.md` |
-| `maintain-review` | Focused self-review before publish | `dkreview`, `review-wave.md` |
-| `maintain-pr-publication` | Draft PR body, labels, reviewers, Copilot | `dkpr`, `pr-description.md` |
-| `maintain-pr-response` | Inline replies and fixes for review feedback | `dkprreview`, `dkwatchpr` |
+| `maintain-deterministic-checks` | Choose and run bounded checks | `dxverify`, `failure-recovery.md` |
+| `maintain-review` | Focused self-review before publish | `dxreview`, `review-wave.md` |
+| `maintain-pr-publication` | Draft PR body, labels, reviewers, Copilot | `dxpr`, `pr-description.md` |
+| `maintain-pr-response` | Inline replies and fixes for review feedback | `dxprreview`, `dxwatchpr` |
 
-Avoid creating a new prompt for a domain if an existing Doyaken skill already
+Avoid creating a new prompt for a domain if an existing Dex skill already
 owns the behavior. Extend the existing skill when the behavior is the same
 workflow in a new context; add a new prompt only when maintenance needs a
 different contract or output schema.
@@ -611,8 +611,8 @@ The agent may open a draft PR only when at least one of these is true:
 
 Every maintenance PR should be identifiable as agent-owned maintenance work:
 
-- branch prefix such as `doyaken/maintain/<run-id>`;
-- label such as `doyaken-maintenance`;
+- branch prefix such as `dex/maintain/<run-id>`;
+- label such as `dex-maintenance`;
 - draft status by default;
 - PR body section listing the maintenance run id, selected surfaces, memory/rules
   consulted, deterministic checks, focused review result, and token mode;
@@ -632,14 +632,14 @@ The agent should not open a PR for:
 Every run should end with a compact artifact:
 
 ```markdown
-# Doyaken Maintenance Report
+# Dex Maintenance Report
 
 Run: 2026-05-15 nightly
 Mode: report
 Repo: owner/repo
 Base: main@abc123
 Sync: completed at main@abc123
-Workflow: DK maintain
+Workflow: DX maintain
 Token mode: GitHub App token
 
 ## Checked
@@ -693,24 +693,24 @@ The first version needs strict safety controls:
   it.
 - Do not let workflow event payload text become executable shell or untrusted
   prompt instructions. Treat PR comments as review input only after the PR is
-  confirmed as a Doyaken maintenance PR.
+  confirmed as a Dex maintenance PR.
 - Do not check out or push to fork PR heads from the feedback workflow in V1.
 
-Durable lessons discovered by a maintenance run should become `dk sync`
+Durable lessons discovered by a maintenance run should become `dx sync`
 candidates, not direct trusted-memory edits.
 
 ## Design Patterns
 
 | Pattern | Why it fits | Proposed location | Sub-tickets |
 |---------|-------------|-------------------|-------------|
-| Pipeline | The run has ordered, budgeted stages with explicit handoff data | `prompts/maintain.md`, `skills/dkmaintain/SKILL.md` | 1, 4, 5 |
+| Pipeline | The run has ordered, budgeted stages with explicit handoff data | `prompts/maintain.md`, `skills/dxmaintain/SKILL.md` | 1, 4, 5 |
 | Strategy | Risk selectors and action policies vary by repo and mode | `lib/maintenance.sh`, prompt sections | 3, 10 |
 | Adapter | GitHub/CI/review signals should degrade when integrations are missing | `prompts/maintain.md`, future helper scripts | 3, 7, 8 |
 | Memento | Last run refs, locks, reports, and run metadata are external resumable state | `lib/maintenance.sh` | 2 |
 | Chain of Responsibility | Findings move through evidence gates before report, patch, or PR | `prompts/maintain.md` | 5, 8 |
-| Template Method | The GitHub workflow is a thin reusable wrapper around CLI-owned behavior | `templates/github/workflows/dk-maintain.yml` | 6 |
+| Template Method | The GitHub workflow is a thin reusable wrapper around CLI-owned behavior | `templates/github/workflows/dx-maintain.yml` | 6 |
 
-Rejected alternative: a seventh normal Doyaken phase. Maintenance starts from
+Rejected alternative: a seventh normal Dex phase. Maintenance starts from
 repo risk scanning rather than a user ticket, so it should not inherit phase
 ownership, approval, and PR expectations from the ticket lifecycle.
 
@@ -718,8 +718,8 @@ ownership, approval, and PR expectations from the ticket lifecycle.
 
 ### Command And State
 
-1. `dk maintain --mode report --dry-run` exits successfully in a fresh repo with
-   `.doyaken/` context and writes no repo changes.
+1. `dx maintain --mode report --dry-run` exits successfully in a fresh repo with
+   `.dex/` context and writes no repo changes.
 2. A second scheduled run for the same repo exits with an overlap message while
    the first run lock is active.
 3. Run state appears only under the configured external maintenance/artifact
@@ -748,21 +748,21 @@ ownership, approval, and PR expectations from the ticket lifecycle.
 ### PR Modes
 
 1. In `report` mode, no branch push or PR creation command runs.
-2. In `propose --no-pr`, eligible `.doyaken/` changes remain local and the
+2. In `propose --no-pr`, eligible `.dex/` changes remain local and the
    report says a PR was suppressed by configuration.
 3. In PR-enabled mode, the agent creates at most `--max-prs` draft PRs.
 4. A code PR includes failing-before/passing-after evidence or is blocked.
 
 ### GitHub Workflow
 
-1. `dk maintain install-workflow` creates
-   `.github/workflows/dk-maintain.yml` only when the user opts in.
-2. The installed workflow is named `DK maintain` and includes
+1. `dx maintain install-workflow` creates
+   `.github/workflows/dx-maintain.yml` only when the user opts in.
+2. The installed workflow is named `DX maintain` and includes
    `workflow_dispatch`, `schedule`, `issue_comment`, `pull_request_review`, and
    `pull_request_review_comment` triggers.
-3. The nightly job calls Doyaken's bash-compatible sync and maintain scripts; it
+3. The nightly job calls Dex's bash-compatible sync and maintain scripts; it
    does not duplicate the maintenance prompt in YAML.
-4. The feedback job runs only for Doyaken maintenance PRs and refuses unrelated
+4. The feedback job runs only for Dex maintenance PRs and refuses unrelated
    PR comments.
 5. If a token lacks `contents: write`, `pull-requests: write`, or `issues:
    write`, the run reports the missing permission and does not silently skip PR
@@ -776,7 +776,7 @@ ownership, approval, and PR expectations from the ticket lifecycle.
 ### PR Feedback Response
 
 1. A PR-level comment triggers a one-shot response run through `issue_comment`
-   only when it explicitly mentions `@doyaken` or `dk maintain`.
+   only when it explicitly mentions `@dex` or `dx maintain`.
 2. An inline review comment triggers a one-shot response run through
    `pull_request_review_comment`.
 3. A submitted review triggers a one-shot response run through
@@ -788,16 +788,16 @@ ownership, approval, and PR expectations from the ticket lifecycle.
 
 ## Proposed Sub-Tickets
 
-These are sized for future `dk <subticket>` lifecycles. Domains use current repo
+These are sized for future `dx <subticket>` lifecycles. Domains use current repo
 component names because the C4 architecture map is absent.
 
 1. **Add maintenance command scaffold**
    - Domain: CLI command surface
-   - Scope: add `dk maintain`, `bin/maintain.sh`, `/dkmaintain`, and
+   - Scope: add `dx maintain`, `bin/maintain.sh`, `/dxmaintain`, and
      `prompts/maintain.md` in report-only dry-run form, including a respond
      subcommand placeholder.
    - Depends-on: -
-   - Primary paths: `dk.sh`, `bin/maintain.sh`, `skills/dkmaintain/SKILL.md`,
+   - Primary paths: `dx.sh`, `bin/maintain.sh`, `skills/dxmaintain/SKILL.md`,
      `prompts/maintain.md`
    - Size: M
    - Pattern: Pipeline
@@ -816,17 +816,17 @@ component names because the C4 architecture map is absent.
    - Scope: select bounded surfaces from memory scopes, recent git history,
      changed hot spots, and optional integration signals.
    - Depends-on: 1, 2
-   - Primary paths: `prompts/maintain.md`, `skills/dkmaintain/SKILL.md`,
+   - Primary paths: `prompts/maintain.md`, `skills/dxmaintain/SKILL.md`,
      optional helper in `lib/maintenance.sh`
    - Size: M
    - Pattern: Strategy
 
 4. **Integrate bounded deterministic checks**
    - Domain: Verification system
-   - Scope: reuse `dkverify` discovery ideas to run scoped checks with command
+   - Scope: reuse `dxverify` discovery ideas to run scoped checks with command
      budgets, logging, unavailable-signal reporting, and failure triage.
    - Depends-on: 1, 2, 3
-   - Primary paths: `skills/dkverify/SKILL.md`, `prompts/maintain.md`,
+   - Primary paths: `skills/dxverify/SKILL.md`, `prompts/maintain.md`,
      `prompts/failure-recovery.md`
    - Size: M
    - Pattern: Pipeline
@@ -836,19 +836,19 @@ component names because the C4 architecture map is absent.
    - Scope: adapt review-wave discipline for selected surfaces and require
      evidence gates before reporting, patching, or PR creation.
    - Depends-on: 3, 4
-   - Primary paths: `skills/dkreview*/SKILL.md`, `prompts/review-wave.md`,
+   - Primary paths: `skills/dxreview*/SKILL.md`, `prompts/review-wave.md`,
      `prompts/maintain.md`
    - Size: M
    - Pattern: Chain of Responsibility
 
-6. **Add installable DK maintain GitHub workflow**
+6. **Add installable DX maintain GitHub workflow**
    - Domain: GitHub workflow integration
-   - Scope: ship `templates/github/workflows/dk-maintain.yml` and an explicit
+   - Scope: ship `templates/github/workflows/dx-maintain.yml` and an explicit
      install command that copies the workflow into `.github/workflows/`; defer
      organization workflow-template packaging until a matching template layout
      exists.
    - Depends-on: 1, 2
-   - Primary paths: `templates/github/workflows/dk-maintain.yml`,
+   - Primary paths: `templates/github/workflows/dx-maintain.yml`,
      `bin/maintain.sh`, `docs/background-maintenance-agent-plan.md`
    - Size: M
    - Pattern: Template Method
@@ -856,24 +856,24 @@ component names because the C4 architecture map is absent.
 7. **Enable draft PR publication and Copilot review request**
    - Domain: PR and watcher system
    - Scope: allow `propose` mode to open at most one draft PR for verified
-     `.doyaken/` memory, rule, guard, or doc updates; label it
-     `doyaken-maintenance`; request Copilot review when configured; normalize
+     `.dex/` memory, rule, guard, or doc updates; label it
+     `dex-maintenance`; request Copilot review when configured; normalize
      Copilot reviewer handles to `@copilot`.
    - Depends-on: 1, 2, 5
-   - Primary paths: `skills/dkpr/SKILL.md`, `skills/dkcommit/SKILL.md`,
-     `prompts/pr-description.md`, `prompts/maintain.md`, `.doyaken/doyaken.md`
+   - Primary paths: `skills/dxpr/SKILL.md`, `skills/dxcommit/SKILL.md`,
+     `prompts/pr-description.md`, `prompts/maintain.md`, `.dex/dex.md`
    - Size: M
    - Pattern: Adapter
 
 8. **Add event-driven PR feedback response**
    - Domain: PR and watcher system
-   - Scope: implement `dk maintain respond --pr <number>` as a one-shot workflow
-     bridge that delegates to `/dkprreview --reply=inline`, replies to every
+   - Scope: implement `dx maintain respond --pr <number>` as a one-shot workflow
+     bridge that delegates to `/dxprreview --reply=inline`, replies to every
      comment, pushes valid fixes, and re-requests reviewers after pushes.
    - Depends-on: 1, 2, 6, 7
-   - Primary paths: `bin/maintain.sh`, `skills/dkmaintain/SKILL.md`,
-     `skills/dkprreview/SKILL.md`, `skills/dkwatchpr/SKILL.md`,
-     `templates/github/workflows/dk-maintain.yml`
+   - Primary paths: `bin/maintain.sh`, `skills/dxmaintain/SKILL.md`,
+     `skills/dxprreview/SKILL.md`, `skills/dxwatchpr/SKILL.md`,
+     `templates/github/workflows/dx-maintain.yml`
    - Size: M
    - Pattern: Adapter
 
@@ -890,10 +890,10 @@ component names because the C4 architecture map is absent.
 10. **Add scoped fix categories after reports prove useful**
    - Domain: CLI command surface
    - Scope: implement `fix-scoped` for configured low-risk categories such as
-     docs, tests, `.doyaken/` context, and CI metadata.
+     docs, tests, `.dex/` context, and CI metadata.
    - Depends-on: 4, 5, 7, 8
-   - Primary paths: `bin/maintain.sh`, `skills/dkmaintain/SKILL.md`,
-     `prompts/maintain.md`, `.doyaken/doyaken.md`
+   - Primary paths: `bin/maintain.sh`, `skills/dxmaintain/SKILL.md`,
+     `prompts/maintain.md`, `.dex/dex.md`
    - Size: L
    - Pattern: Strategy
 
@@ -937,8 +937,8 @@ Per-domain rollup:
 | Scheduled runs overlap with manual work or each other | Medium | High | External locks, watcher pause markers, clean worktree preflight | State owner |
 | Deterministic checks run too long or consume too much budget | Medium | Medium | Per-command timeout, total budget, scoped checks first | Verification owner |
 | Draft PRs bundle unrelated changes | Medium | Medium | `max-prs`, one finding family per PR, focused review before publish | PR owner |
-| Workflow responds to unrelated or untrusted PR comments | Medium | High | Require `doyaken-maintenance` label, branch prefix, PR-body provenance marker, pinned head SHA checkout, and same-repo checks before writes | Workflow owner |
-| `GITHUB_TOKEN` push does not trigger downstream CI/review automation | High | Medium | Require `DK_MAINTAIN_TOKEN` GitHub App/PAT for write modes and report token mode explicitly | Workflow owner |
+| Workflow responds to unrelated or untrusted PR comments | Medium | High | Require `dex-maintenance` label, branch prefix, PR-body provenance marker, pinned head SHA checkout, and same-repo checks before writes | Workflow owner |
+| `GITHUB_TOKEN` push does not trigger downstream CI/review automation | High | Medium | Require `DX_MAINTAIN_TOKEN` GitHub App/PAT for write modes and report token mode explicitly | Workflow owner |
 | Copilot does not review drafts or new pushes in a repo's current policy | Medium | Medium | Explicitly request/re-request `@copilot` and surface Copilot review status in the report | PR owner |
 | Provider-specific hooks become required for correctness | Low | Medium | Prompt-level pre/post instructions are canonical; hooks are accelerators | Skill/prompt owner |
 | Safe fix categories are too broad | Medium | High | Delay `fix-scoped` until report/propose data proves categories safe | Maintainer/user |
@@ -948,19 +948,19 @@ Per-domain rollup:
 Use a temporary fixture repo and this repo.
 
 1. **Report-only smoke test**
-   - Run `dk maintain --mode report --dry-run --max-surfaces 2`.
+   - Run `dx maintain --mode report --dry-run --max-surfaces 2`.
    - Expected: no repo diff, report lists selected surfaces, commands, skipped
      integrations, and no PR action.
 
 2. **Memory retrieval scope test**
    - Create or use memory domains with distinct path scopes.
-   - Run `dk maintain --focus review-quality --dry-run`.
+   - Run `dx maintain --focus review-quality --dry-run`.
    - Expected: only review-quality memory is loaded; unrelated domains are not
      cited as active context.
 
 3. **No working-tree evidence test**
    - Add an uncommitted change that appears to create a maintenance finding.
-   - Run `dk maintain --mode report --dry-run`.
+   - Run `dx maintain --mode report --dry-run`.
    - Expected: the CLI refuses to run and asks for `--include-working-tree`.
      Re-run with `--include-working-tree`; the report may inspect the local
      evidence but must mark it as untrusted local evidence.
@@ -974,14 +974,14 @@ Use a temporary fixture repo and this repo.
    - Expected: timeout is captured in the report and the process exits cleanly.
 
 6. **Propose no-PR test**
-   - Run a scenario that would produce a `.doyaken/` update with
+   - Run a scenario that would produce a `.dex/` update with
      `--mode propose --no-pr`.
    - Expected: changes are isolated to the maintenance worktree, the report says
      PR creation was suppressed, and no push/PR command ran.
 
 7. **Lock test**
    - Create a fake active maintenance lock for the repo session id.
-   - Run `dk maintain --nightly`.
+   - Run `dx maintain --nightly`.
    - Expected: the command exits with an overlap message and does not start a
      second run.
 
@@ -991,12 +991,12 @@ Use a temporary fixture repo and this repo.
      memory/rules consulted, verification evidence, and deliberate non-changes.
 
 9. **Workflow install test**
-   - Run `dk maintain install-workflow` in a fixture repo before and after
-     `dk init`.
+   - Run `dx maintain install-workflow` in a fixture repo before and after
+     `dx init`.
    - Expected before init: the command refuses installation and tells the user
-     to run `dk init`.
-   - Expected: `.github/workflows/dk-maintain.yml` is created with name
-     `DK maintain`, explicit permissions, concurrency, schedule/dispatch
+     to run `dx init`.
+   - Expected: `.github/workflows/dx-maintain.yml` is created with name
+     `DX maintain`, explicit permissions, concurrency, schedule/dispatch
      triggers, and review/comment event triggers.
 
 10. **Copilot request test**
@@ -1006,56 +1006,56 @@ Use a temporary fixture repo and this repo.
      reviewer; if the request fails, the report records the exact `gh` error.
 
 11. **Feedback response trigger test**
-   - Add a PR-level comment containing `@doyaken` or `dk maintain`, an inline
+   - Add a PR-level comment containing `@dex` or `dx maintain`, an inline
      review comment, and a submitted review to a labeled maintenance PR.
    - Expected: each eligible event launches a one-shot response run; ordinary
      PR-level comments and unrelated PRs do not trigger writes.
 
 12. **Inline reply/fix test**
    - Add one actionable review comment and one out-of-scope comment.
-   - Expected: Doyaken fixes the actionable comment, pushes once, replies inline
+   - Expected: Dex fixes the actionable comment, pushes once, replies inline
      with the commit SHA, explains the non-fix inline or escalates, and
      re-requests configured reviewers.
 
 ## Open Questions
 
-1. Should `dk maintain` always run `dk sync` first, or only when the memory index
+1. Should `dx maintain` always run `dx sync` first, or only when the memory index
    is stale? Owner: maintainer.
-2. Should report artifacts live only under `DK_ARTIFACT_DIR`, or should scheduled
+2. Should report artifacts live only under `DX_ARTIFACT_DIR`, or should scheduled
    runs optionally publish GitHub issues/comments? Owner: maintainer/team.
 3. What first `fix-scoped` categories are safe enough: docs, tests,
-   `.doyaken/` context, CI metadata, dependency metadata? Owner: maintainer.
-4. Should `dk init` offer the workflow install interactively, or should workflow
-   install stay behind an explicit `dk maintain install-workflow` command?
+   `.dex/` context, CI metadata, dependency metadata? Owner: maintainer.
+4. Should `dx init` offer the workflow install interactively, or should workflow
+   install stay behind an explicit `dx maintain install-workflow` command?
    Owner: maintainer.
 5. What budget presets should larger repos use beyond the V1 default 60-minute
    local budget and 100-minute workflow budget? Owner: maintainer.
 6. Should report mode also move to a disposable worktree, or is in-place
    read-only execution with mutation detection sufficient? Owner: maintainer.
-7. How should formal sub-ticket domains be renamed after `/dkarchitect` creates
-   `.doyaken/architecture.md`? Owner: refinement follow-up.
-8. Should `DK_MAINTAIN_TOKEN` be a PAT or a GitHub App installation token in
+7. How should formal sub-ticket domains be renamed after `/dxarchitect` creates
+   `.dex/architecture.md`? Owner: refinement follow-up.
+8. Should `DX_MAINTAIN_TOKEN` be a PAT or a GitHub App installation token in
    the recommended setup? V1 requires the secret for PR-writing modes and does
    not fall back to `github.token`. Owner: maintainer/security.
 9. Should Copilot be only a requested reviewer, or should repos be allowed to
    opt into `@copilot` assignee/coding-agent ownership for maintenance PRs?
    Owner: maintainer/team.
-10. Should the final implementation use one `DK maintain` workflow with two jobs,
+10. Should the final implementation use one `DX maintain` workflow with two jobs,
    or split scheduled maintenance and PR feedback into separate workflow files?
    Owner: workflow owner.
 
 ## Decision Log
 
-- 2026-05-15: Chose `dk maintain` as the primary command name.
+- 2026-05-15: Chose `dx maintain` as the primary command name.
 - 2026-05-15: Kept maintenance separate from the normal six-phase ticket
   lifecycle.
 - 2026-05-15: Defaulted scheduled runs to `report` mode with no PR creation.
-- 2026-05-15: Required external run state and reviewable `dk sync` promotion for
+- 2026-05-15: Required external run state and reviewable `dx sync` promotion for
   durable memory.
-- 2026-05-15: Flagged missing `.doyaken/architecture.md`; formal C4 domain
-  mapping should follow `/dkarchitect`.
+- 2026-05-15: Flagged missing `.dex/architecture.md`; formal C4 domain
+  mapping should follow `/dxarchitect`.
 - 2026-05-15: Added an installable GitHub Actions workflow direction named
-  `DK maintain`.
+  `DX maintain`.
 - 2026-05-15: Chose event-driven one-shot PR feedback responses instead of a
   long-running GitHub Actions polling loop.
 - 2026-05-15: Chose Copilot requested-reviewer integration by default, with

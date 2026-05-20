@@ -1,4 +1,4 @@
-# DK Autoresearch — Improvement Changelog
+# DX Autoresearch — Improvement Changelog
 
 Tracks all improvement iterations: what changed, whether it was kept or reverted, and the score delta.
 
@@ -17,9 +17,9 @@ Branch: research/autoresearch-v1 | Start commit: 90b07aa
 - Average score (7 scenarios): 88.9 → 90.9
 
 ### Iteration 11: Guardrails Improvements
-**Changes to DK:**
+**Changes to DX:**
 - `prompts/guardrails.md`: Added 6 new Production API Defaults (pagination, search/filter, timestamps, uniqueness constraints, request logging, health check). Added memory-bounded state to Resource Cleanup. Strengthened Test Integrity (isolation, minimum count >15, supertest). Strengthened Edge Case Coverage (Promise.all for concurrent, fake timers).
-- `skills/dkimplement/SKILL.md`: Added non-interactive guidance for algorithmic choices, REST API defaults, stateful system cleanup, HTTP middleware adapters.
+- `skills/dximplement/SKILL.md`: Added non-interactive guidance for algorithmic choices, REST API defaults, stateful system cleanup, HTTP middleware adapters.
 **Result:** 92.1 avg (7 scenarios, 3-run avg) — +3.2 points from baseline
 
 ### Iteration 12-13: Consistency Validation
@@ -41,7 +41,7 @@ Confirmed improvements hold. 3-run average: 92.1 (stable).
 
 ### Iteration 16-18: multi-file-feature Rubric Hardening (2026-03-23)
 **Changes to harness:**
-- multi-file-feature rubric: comprehensive API convention handling across 6+ DK patterns observed:
+- multi-file-feature rubric: comprehensive API convention handling across 6+ DX patterns observed:
   - Cart: `addItem(obj, qty)` vs `addItem({...destructured})` vs `addItem(id,name,price,qty,cat)` — pass qty both in object and as second arg to cover all patterns
   - Price fields: `price` vs `priceInCents` vs `priceCents` — include all three in every item object
   - Inventory: `addProduct(obj)` vs `addProduct(id, qty)` vs `addStock(id, qty)` — try all conventions
@@ -61,7 +61,7 @@ Confirmed improvements hold. 3-run average: 92.1 (stable).
 - Run 4: correctness=59→82 after fixes (total=82, missing: qty discount + one-coupon restriction)
 - Run 5: correctness=82 (similar pattern)
 - Average correctness: ~85 (up from ~30-39 before fixes)
-**Key insight:** DK produces a genuinely different API pattern on every run. The rubric now handles 6+ observed patterns but there will always be new variants. Remaining correctness losses are a mix of DK quality issues (missing qty discounts, no one-coupon enforcement) and unhandled API variations.
+**Key insight:** DX produces a genuinely different API pattern on every run. The rubric now handles 6+ observed patterns but there will always be new variants. Remaining correctness losses are a mix of DX quality issues (missing qty discounts, no one-coupon enforcement) and unhandled API variations.
 
 ### Iteration 19: Full 12-Scenario Suite Run (2026-03-23)
 **Full suite with all rubric fixes (commit 420e915):**
@@ -117,19 +117,19 @@ Confirmed improvements hold. 3-run average: 92.1 (stable).
 Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL injection false positive). Other deltas within run-to-run variance (±2).
 
 **Remaining weak spots (not rubric bugs):**
-- react-component-lib verification=66: DK's Jest tests fail (48/57 tests fail) — genuine test quality issue
-- edge-no-tests test_quality=70: DK writes minimal Go tests
+- react-component-lib verification=66: DX's Jest tests fail (48/57 tests fail) — genuine test quality issue
+- edge-no-tests test_quality=70: DX writes minimal Go tests
 - data-validation-lib correctness=89: US-only phone, no all-zeros CC, same-day date ranges
 
-### Iteration 22: DK Prompt Improvements from improve.sh (2026-03-24)
-**Changes to DK (commit 906cc58):**
+### Iteration 22: DX Prompt Improvements from improve.sh (2026-03-24)
+**Changes to DX (commit 906cc58):**
 - `prompts/guardrails.md`: Added Go Library Defaults (rune-aware, doc comments, table-driven tests, benchmarks)
 - `prompts/guardrails.md`: Added React Component Library Defaults (a11y, forwardRef, Jest+Testing Library config)
 - `prompts/guardrails.md`: Added Data Validation Library Defaults (intl phone, CC formatting, boundary inputs)
 - `prompts/guardrails.md`: Added Rate Limiter & Throttle Defaults (rich metadata, multiple algorithms, TypeScript)
 - `prompts/guardrails.md`: Added "Verify adoption" to Refactoring Quality
-- `skills/dkimplement/SKILL.md`: Stronger test requirements (>20 test cases, CLI-specific test guidance)
-- `skills/dkimplement/SKILL.md`: Explicit TypeScript/Go verification before proceeding
+- `skills/dximplement/SKILL.md`: Stronger test requirements (>20 test cases, CLI-specific test guidance)
+- `skills/dximplement/SKILL.md`: Explicit TypeScript/Go verification before proceeding
 
 **Run ID:** run-20260324-105555 | **Commit:** 906cc58 | **12-scenario average: 89.0**
 | Scenario | Correctness | Test | Robust | Verif | Issue | CQ | Total | Delta |
@@ -149,9 +149,9 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 
 **Key findings:**
 - Targeted improvements worked: cli-todo-app test_quality 75→90 (+3), edge-no-tests test_quality 70→85 (+4), edge-ambiguous-spec robustness 83→98 (+5)
-- react-component-lib verification=33: DK uses `@testing-library/jest-dom` but doesn't add it to tsconfig.json `types` array, causing `tsc --noEmit` to fail on all custom matchers
+- react-component-lib verification=33: DX uses `@testing-library/jest-dom` but doesn't add it to tsconfig.json `types` array, causing `tsc --noEmit` to fail on all custom matchers
 - Average dipped 89.9→89.0 due to react-component-lib and normal run-to-run variance (±5 per scenario)
-- Net signal: DK improvements are positive, react-component-lib needs TypeScript types fix
+- Net signal: DX improvements are positive, react-component-lib needs TypeScript types fix
 
 ### Iteration 22b: Jest-dom TypeScript Types Fix (2026-03-24)
 **Change (commit e04d1a7):**
@@ -162,7 +162,7 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 ### Iteration 23: Language-Agnostic Prompt Rewrite + Pass-Rate Scoring (2026-03-24)
 **Changes (commit 8b420e2):**
 - `prompts/guardrails.md`: Major rewrite to language/framework-agnostic principles. Added "Common Mistakes to Avoid" section, anti-pattern blocks for APIs/Go/React/validation/testing/WebSocket/SQL. Fixed `setupFilesAfterEnv` (was `setupFilesAfterFramework`). Added jsdom Tab key limitation.
-- `skills/dkimplement/SKILL.md`: Generic verification instructions, non-interactive anti-patterns
+- `skills/dximplement/SKILL.md`: Generic verification instructions, non-interactive anti-patterns
 - `research/improve.sh`: Added language-agnosticism enforcement rules
 - `research/lib/score.sh`: Test verification now uses 95% pass-rate threshold instead of binary pass/fail
 - `research/AGENTS.md`: Document language-agnostic requirement
@@ -177,8 +177,8 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 | issue_detection | 100 | 100 | = |
 
 **Key fixes:**
-1. `setupFilesAfterEnv` — DK had been using `setupFilesAfterSetup` (invalid key), so jest-dom never loaded at runtime
-2. jsdom Tab key guidance — DK no longer writes Tab navigation tests that fail in jsdom
+1. `setupFilesAfterEnv` — DX had been using `setupFilesAfterSetup` (invalid key), so jest-dom never loaded at runtime
+2. jsdom Tab key guidance — DX no longer writes Tab navigation tests that fail in jsdom
 3. Pass-rate scoring — 77/78 tests passing (98.7%) now counts as pass instead of fail
 
 ### Iteration 24: edge-ambiguous-spec Rubric Fix + Platform Type Guidance (2026-03-25)
@@ -187,7 +187,7 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 - **guardrails.md (commit 0561049):** Added platform type declaration guidance — "Don't use platform-specific APIs without platform type declarations" (fixes `setInterval().unref()` / `node:http` type errors)
 - **Full 12-scenario validation (commit 2e85aab):** Confirmed improvements hold across all scenarios
 
-**Result (fresh DK run):** edge-ambiguous-spec **94** (prev best: 89)
+**Result (fresh DX run):** edge-ambiguous-spec **94** (prev best: 89)
 | Dimension | Before (rubric bug) | After | Delta |
 |---|---|---|---|
 | correctness | 73 | 98 | **+25** |
@@ -202,12 +202,12 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 
 ### Iteration 25: cli-todo-app Rubric Fix + setupFilesAfterEnv Re-add (2026-03-25)
 **Changes:**
-- **cli-todo-app rubric (commit f30f42d):** Line 369 `node "$entry" add 2>/dev/null` → `node "$entry" add >/dev/null 2>&1`. DK's `console.log` usage text leaked into score capture, causing `_clamp` to return 0 on `^[0-9]+$` regex. Only triggered when DK writes usage info to stdout (3 of ~24 runs).
+- **cli-todo-app rubric (commit f30f42d):** Line 369 `node "$entry" add 2>/dev/null` → `node "$entry" add >/dev/null 2>&1`. DX's `console.log` usage text leaked into score capture, causing `_clamp` to return 0 on `^[0-9]+$` regex. Only triggered when DX writes usage info to stdout (3 of ~24 runs).
 - **guardrails.md (commit 027bc5a):** Added explicit `setupFilesAfterEnv` spelling guidance with NOT-list (`setupFiles`, `setupFilesAfterSetup`, `setupFilesAfterFramework`). Added jsdom Tab navigation limitation. Previous iteration documented this fix but never wrote it to guardrails.md.
 
-**Results (fresh DK runs):**
+**Results (fresh DX runs):**
 - cli-todo-app: **90** (robustness 0→97) — rubric fix validated
-- react-component-lib: **92** (verification 66→100) — DK now uses `setupFilesAfterEnv` correctly
+- react-component-lib: **92** (verification 66→100) — DX now uses `setupFilesAfterEnv` correctly
 
 **12-scenario latest average: 89.4**
 | Scenario | Total | Weak dimension |
@@ -227,10 +227,10 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 
 ### Iteration 26: edge-no-tests Rubric Fix + improve.sh Syntax Fix (2026-03-25)
 **Changes:**
-- **edge-no-tests rubric (commit f496b81):** Replaced hardcoded single-file lookup (`strutil.go`, `str_util.go`, etc.) with `find "$ws" -name "*.go"` to handle DK splitting into `reverse.go`, `capitalize.go`, `truncate.go`, `slugify.go`. Renamed `_dk_rubric_test.go` → `dkrubric_test.go` (Go ignores files with leading `_`). Tightened PASS checks to use specific markers (`PASS_REV_BASIC` etc.) instead of generic `*"PASS"*` which matched Go's package-level output.
+- **edge-no-tests rubric (commit f496b81):** Replaced hardcoded single-file lookup (`strutil.go`, `str_util.go`, etc.) with `find "$ws" -name "*.go"` to handle DX splitting into `reverse.go`, `capitalize.go`, `truncate.go`, `slugify.go`. Renamed `_dx_rubric_test.go` → `dxrubric_test.go` (Go ignores files with leading `_`). Tightened PASS checks to use specific markers (`PASS_REV_BASIC` etc.) instead of generic `*"PASS"*` which matched Go's package-level output.
 - **improve.sh (commit 046c2b0):** Fixed bash syntax errors — unescaped double quotes `("don't do X")` and escaped backticks `\`+=\`` inside double-quoted string caused parse failure. improve.sh was broken since it was written (always errored on line 123).
 
-**Result (fresh DK run):** edge-no-tests **87** (correctness 5→95, robustness 0→80)
+**Result (fresh DX run):** edge-no-tests **87** (correctness 5→95, robustness 0→80)
 - edge-ambiguous-spec also re-run: **94** (confirming previous 85 was variance)
 
 ### Iteration 27: 'fail 0' Regex Fix in 4 Rubrics (2026-03-25)
@@ -240,7 +240,7 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 - Changed `FAIL` → `FAIL(?!\s+0)` (negative lookahead excludes `fail 0`)
 - Also removed bare `error` from 3 rubrics — test names like "should return error for X" caused false positives
 
-**Results (fresh DK runs):**
+**Results (fresh DX runs):**
 - websocket-chat: **92** (test_quality 75→100)
 - sql-orm-api: **92** (test_quality 80→90)
 - rest-api-crud: **92** (test_quality 95→100)
@@ -255,7 +255,7 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 - **SKILL.md:** Updated test guidance to specify "at least three test files" and organized test structure for CLI tools
 
 **Rubric fix (commit dd23cbf):**
-- **edge-no-tests:** Detect Go package name dynamically instead of hardcoding `package strutil`. DK consistently uses `strutil` but if it ever chose `stringutil`, `main`, etc., all injected tests would fail to compile → 0 correctness
+- **edge-no-tests:** Detect Go package name dynamically instead of hardcoding `package strutil`. DX consistently uses `strutil` but if it ever chose `stringutil`, `main`, etc., all injected tests would fail to compile → 0 correctness
 
 **Results (12-scenario runs):**
 - cli-todo-app: **92** (up from 90, robustness 95)

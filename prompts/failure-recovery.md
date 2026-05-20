@@ -89,8 +89,8 @@ If you have already run this analysis in a previous iteration and chose a strate
 When accepting findings as debt (via ACCEPT_WITH_DEBT, SPLIT_TASK, or RELAX_CRITERIA), record each item in the debt ledger:
 
 ```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-cat >> "$(dk_debt_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")" <<'DEBT'
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+cat >> "$(dx_debt_file "${DEX_SESSION_ID:-$(dx_session_id)}")" <<'DEBT'
 - **[TYPE]** | Severity: [low|medium] | [description]
   - File: [file:line if applicable]
   - Reason deferred: [why this was not fixed]

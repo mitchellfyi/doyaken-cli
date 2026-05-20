@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2088,SC1091
-# doyaken install — one-time global setup
+# dex install — one-time global setup
 # SC2088 suppressed: tilde in display strings is intentionally literal (e.g., "~/.claude/skills").
 set -euo pipefail
 
-if [[ -z "${DOYAKEN_DIR:-}" ]]; then
+if [[ -z "${DEX_DIR:-}" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  DOYAKEN_DIR="$(dirname "$SCRIPT_DIR")"
-  export DOYAKEN_DIR
+  DEX_DIR="$(dirname "$SCRIPT_DIR")"
+  export DEX_DIR
 fi
-source "$DOYAKEN_DIR/lib/common.sh"
+source "$DEX_DIR/lib/common.sh"
 CLAUDE_DIR="$HOME/.claude"
 ZSHRC="$HOME/.zshrc"
 
-echo "Doyaken — Global Install"
+echo "Dex — Global Install"
 echo ""
 
 # Ensure ~/.claude directory exists (Claude Code normally creates it, but we
@@ -23,93 +23,94 @@ mkdir -p "$CLAUDE_DIR"
 # 1. Symlink skills
 if [[ -L "$CLAUDE_DIR/skills" ]]; then
   current=$(readlink "$CLAUDE_DIR/skills")
-	  if [[ "$current" == "$DOYAKEN_DIR/skills" ]]; then
-	    dk_ok "~/.claude/skills → $DOYAKEN_DIR/skills"
+	  if [[ "$current" == "$DEX_DIR/skills" ]]; then
+	    dx_ok "~/.claude/skills → $DEX_DIR/skills"
 	  else
 	    rm "$CLAUDE_DIR/skills"
-	    if ln -s "$DOYAKEN_DIR/skills" "$CLAUDE_DIR/skills"; then
-	      dk_done "Updated ~/.claude/skills → $DOYAKEN_DIR/skills (was: $current)"
+	    if ln -s "$DEX_DIR/skills" "$CLAUDE_DIR/skills"; then
+	      dx_done "Updated ~/.claude/skills → $DEX_DIR/skills (was: $current)"
 	    else
-	      dk_error "Failed to symlink ~/.claude/skills"
+	      dx_error "Failed to symlink ~/.claude/skills"
 	    fi
 	  fi
 elif [[ -d "$CLAUDE_DIR/skills" ]]; then
-  dk_warn "~/.claude/skills exists as a directory — back up and re-run:"
-  echo "       mv ~/.claude/skills ~/.claude/skills.bak && dk install"
+  if ! dx_install_claude_skill_links "$CLAUDE_DIR/skills"; then
+    dx_warn "Continuing install after incomplete Claude skill link repair"
+  fi
 else
-  if ln -s "$DOYAKEN_DIR/skills" "$CLAUDE_DIR/skills"; then
-    dk_done "Symlinked ~/.claude/skills → $DOYAKEN_DIR/skills"
+  if ln -s "$DEX_DIR/skills" "$CLAUDE_DIR/skills"; then
+    dx_done "Symlinked ~/.claude/skills → $DEX_DIR/skills"
   else
-    dk_error "Failed to symlink ~/.claude/skills"
+    dx_error "Failed to symlink ~/.claude/skills"
   fi
 fi
 
 # 2. Symlink agents
 if [[ -L "$CLAUDE_DIR/agents" ]]; then
   current=$(readlink "$CLAUDE_DIR/agents")
-	  if [[ "$current" == "$DOYAKEN_DIR/agents" ]]; then
-	    dk_ok "~/.claude/agents → $DOYAKEN_DIR/agents"
+	  if [[ "$current" == "$DEX_DIR/agents" ]]; then
+	    dx_ok "~/.claude/agents → $DEX_DIR/agents"
 	  else
 	    rm "$CLAUDE_DIR/agents"
-	    if ln -s "$DOYAKEN_DIR/agents" "$CLAUDE_DIR/agents"; then
-	      dk_done "Updated ~/.claude/agents → $DOYAKEN_DIR/agents (was: $current)"
+	    if ln -s "$DEX_DIR/agents" "$CLAUDE_DIR/agents"; then
+	      dx_done "Updated ~/.claude/agents → $DEX_DIR/agents (was: $current)"
 	    else
-	      dk_error "Failed to symlink ~/.claude/agents"
+	      dx_error "Failed to symlink ~/.claude/agents"
 	    fi
 	  fi
 elif [[ -d "$CLAUDE_DIR/agents" ]]; then
-  dk_warn "~/.claude/agents exists as a directory — back up and re-run:"
-  echo "       mv ~/.claude/agents ~/.claude/agents.bak && dk install"
+  dx_warn "~/.claude/agents exists as a directory — back up and re-run:"
+  echo "       mv ~/.claude/agents ~/.claude/agents.bak && dx install"
 else
-  if ln -s "$DOYAKEN_DIR/agents" "$CLAUDE_DIR/agents"; then
-    dk_done "Symlinked ~/.claude/agents → $DOYAKEN_DIR/agents"
+  if ln -s "$DEX_DIR/agents" "$CLAUDE_DIR/agents"; then
+    dx_done "Symlinked ~/.claude/agents → $DEX_DIR/agents"
   else
-    dk_error "Failed to symlink ~/.claude/agents"
+    dx_error "Failed to symlink ~/.claude/agents"
   fi
 fi
 
 # 3. Install or repair conservative Claude/Codex tooling.
-if ! dk_bootstrap_agent_tooling "" "repair"; then
-  dk_warn "Continuing install without complete Claude/Codex tooling bootstrap"
+if ! dx_bootstrap_agent_tooling "" "repair"; then
+  dx_warn "Continuing install without complete Claude/Codex tooling bootstrap"
 fi
 
-# 4. Source dk.sh in ~/.zshrc
-if grep -qE 'doyaken/dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$ZSHRC" 2>/dev/null; then
-  # Ensure DOYAKEN_DIR export exists (upgrade path: older installs lack it)
-  if ! grep -qE '^export DOYAKEN_DIR=' "$ZSHRC" 2>/dev/null; then
+# 4. Source dx.sh in ~/.zshrc
+if grep -qE 'dex(-cli)?/dx\.sh|DEX_DIR.*/dx\.sh' "$ZSHRC" 2>/dev/null; then
+  # Ensure DEX_DIR export exists (upgrade path: older installs lack it)
+  if ! grep -qE '^export DEX_DIR=' "$ZSHRC" 2>/dev/null; then
     # Insert the export line before the existing source line.
     # Uses awk instead of sed -i to avoid BSD/GNU sed portability issues.
-    _DKDIR="$DOYAKEN_DIR" awk '
-      /doyaken\/dk\.sh|DOYAKEN_DIR.*\/dk\.sh/ && !inserted { print "export DOYAKEN_DIR=\"" ENVIRON["_DKDIR"] "\""; inserted=1 }
+    _DXDIR="$DEX_DIR" awk '
+      /dex(-cli)?\/dx\.sh|DEX_DIR.*\/dx\.sh/ && !inserted { print "export DEX_DIR=\"" ENVIRON["_DXDIR"] "\""; inserted=1 }
       { print }
     ' "$ZSHRC" > "${ZSHRC}.tmp" && mv "${ZSHRC}.tmp" "$ZSHRC"
-    dk_done "Added DOYAKEN_DIR export to ~/.zshrc (upgrade)"
+    dx_done "Added DEX_DIR export to ~/.zshrc (upgrade)"
   else
-    dk_ok "dk.sh already sourced in ~/.zshrc"
+    dx_ok "dx.sh already sourced in ~/.zshrc"
   fi
 else
-  # Check for old Doyaken source lines (different path)
-  if grep -qE 'doyaken.*dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$ZSHRC" 2>/dev/null; then
-    dk_info "Found old Doyaken dk.sh source line — replacing..."
+  # Check for old Dex or pre-rename source lines.
+  if grep -qE 'dex.*dx\.sh|DEX_DIR.*/dx\.sh|doyaken.*dk\.sh|DOYAKEN_DIR.*/dk\.sh' "$ZSHRC" 2>/dev/null; then
+    dx_info "Found old Dex/Doyaken shell source line — replacing..."
     # grep -v exits 1 when no lines survive filtering, which is valid when
-    # .zshrc only contained old Doyaken lines.
-    grep -vE 'doyaken.*dk\.sh|DOYAKEN_DIR.*/dk\.sh|export DOYAKEN_DIR=' "$ZSHRC" > "${ZSHRC}.tmp" || true
+    # .zshrc only contained old Dex/Doyaken lines.
+    grep -vE 'dex.*dx\.sh|DEX_DIR.*/dx\.sh|export DEX_DIR=|doyaken.*dk\.sh|DOYAKEN_DIR.*/dk\.sh|export DOYAKEN_DIR=' "$ZSHRC" > "${ZSHRC}.tmp" || true
     mv "${ZSHRC}.tmp" "$ZSHRC"
   fi
   {
     echo ""
-    echo "# Doyaken"
-    echo "export DOYAKEN_DIR=\"$DOYAKEN_DIR\""
-    echo "source \"\$DOYAKEN_DIR/dk.sh\""
+    echo "# Dex"
+    echo "export DEX_DIR=\"$DEX_DIR\""
+    echo "source \"\$DEX_DIR/dx.sh\""
   } >> "$ZSHRC"
-  dk_done "Added DOYAKEN_DIR export and source to ~/.zshrc"
+  dx_done "Added DEX_DIR export and source to ~/.zshrc"
 fi
 
 # 5. Make scripts executable
-chmod +x "$DOYAKEN_DIR/hooks/"*.sh "$DOYAKEN_DIR/hooks/"*.py "$DOYAKEN_DIR/bin/"*.sh 2>/dev/null
-dk_done "Made scripts executable"
+chmod +x "$DEX_DIR/hooks/"*.sh "$DEX_DIR/hooks/"*.py "$DEX_DIR/bin/"*.sh 2>/dev/null
+dx_done "Made scripts executable"
 
 echo ""
 echo "Install complete. Run: source ~/.zshrc"
 echo ""
-echo "Next: cd to a repo and run 'dk init' to bootstrap it."
+echo "Next: cd to a repo and run 'dx init' to bootstrap it."

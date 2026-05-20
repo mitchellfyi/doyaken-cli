@@ -4,17 +4,17 @@
 # for markdown-based guard evaluation.
 set -euo pipefail
 
-__dk_post_commit_hook_field() {
+__dx_post_commit_hook_field() {
   local raw="$1" field="$2"
   [[ -n "$raw" ]] || return 1
-  DK_HOOK_RAW="$raw" python3 - "$field" <<'PY'
+  DX_HOOK_RAW="$raw" python3 - "$field" <<'PY'
 import json
 import os
 import sys
 
 field = sys.argv[1]
 try:
-    payload = json.loads(os.environ.get("DK_HOOK_RAW", ""))
+    payload = json.loads(os.environ.get("DX_HOOK_RAW", ""))
 except Exception:
     sys.exit(1)
 
@@ -32,25 +32,25 @@ print(value)
 PY
 }
 
-__dk_post_commit_is_json_payload() {
+__dx_post_commit_is_json_payload() {
   local raw="$1"
   [[ -n "$raw" ]] || return 1
-  DK_HOOK_RAW="$raw" python3 - <<'PY'
+  DX_HOOK_RAW="$raw" python3 - <<'PY'
 import json
 import os
 import sys
 
 try:
-    json.loads(os.environ.get("DK_HOOK_RAW", ""))
+    json.loads(os.environ.get("DX_HOOK_RAW", ""))
 except Exception:
     sys.exit(1)
 sys.exit(0)
 PY
 }
 
-__dk_post_commit_is_git_commit() {
+__dx_post_commit_is_git_commit() {
   local command_text="$1"
-  DK_HOOK_COMMAND="$command_text" python3 - <<'PY'
+  DX_HOOK_COMMAND="$command_text" python3 - <<'PY'
 import os
 import re
 import shlex
@@ -742,10 +742,10 @@ def apply_literal_variables(value, variables=None):
 
 def resolve_shell_token(cwd, path, variables=None):
     path = apply_literal_variables(path, variables)
-    doyaken_dir = os.environ.get('DOYAKEN_DIR', '')
-    path = re.sub(r'\$\{DOYAKEN_DIR:-[^}]*\}', doyaken_dir, path)
-    path = path.replace('${DOYAKEN_DIR}', os.environ.get('DOYAKEN_DIR', ''))
-    path = path.replace('$DOYAKEN_DIR', os.environ.get('DOYAKEN_DIR', ''))
+    dex_dir = os.environ.get('DEX_DIR', '')
+    path = re.sub(r'\$\{DEX_DIR:-[^}]*\}', dex_dir, path)
+    path = path.replace('${DEX_DIR}', os.environ.get('DEX_DIR', ''))
+    path = path.replace('$DEX_DIR', os.environ.get('DEX_DIR', ''))
     path = os.path.expanduser(os.path.expandvars(path))
     if '$' in path or '`' in path:
         return ''
@@ -2690,7 +2690,7 @@ def has_git_commit(text, cwd, depth=0):
     return None
 
 
-target = has_git_commit(os.environ.get('DK_HOOK_COMMAND', ''), os.getcwd())
+target = has_git_commit(os.environ.get('DX_HOOK_COMMAND', ''), os.getcwd())
 if not target:
     sys.exit(1)
 print(target)
@@ -2711,9 +2711,9 @@ fi
 # comments containing "git commit", etc.
 TOOL_INPUT="$HOOK_INPUT"
 if [[ -n "$HOOK_INPUT" ]]; then
-  TOOL_INPUT=$(__dk_post_commit_hook_field "$HOOK_INPUT" "command" 2>/dev/null || printf '%s' "$HOOK_INPUT")
+  TOOL_INPUT=$(__dx_post_commit_hook_field "$HOOK_INPUT" "command" 2>/dev/null || printf '%s' "$HOOK_INPUT")
 fi
-COMMIT_REPO=$(__dk_post_commit_is_git_commit "$TOOL_INPUT") || {
+COMMIT_REPO=$(__dx_post_commit_is_git_commit "$TOOL_INPUT") || {
   exit 0
 }
 
@@ -2722,9 +2722,9 @@ COMMIT_REPO=$(__dk_post_commit_is_git_commit "$TOOL_INPUT") || {
 TOOL_EXIT=""
 HOOK_INPUT_IS_JSON=0
 if [[ -n "$HOOK_INPUT" ]]; then
-  if __dk_post_commit_is_json_payload "$HOOK_INPUT"; then
+  if __dx_post_commit_is_json_payload "$HOOK_INPUT"; then
     HOOK_INPUT_IS_JSON=1
-    TOOL_EXIT=$(__dk_post_commit_hook_field "$HOOK_INPUT" "exit_code" 2>/dev/null || printf '0')
+    TOOL_EXIT=$(__dx_post_commit_hook_field "$HOOK_INPUT" "exit_code" 2>/dev/null || printf '0')
   fi
 fi
 if [[ -z "$TOOL_EXIT" && $HOOK_INPUT_IS_JSON -eq 0 ]]; then
@@ -2736,18 +2736,18 @@ if [[ "$TOOL_EXIT" != "0" ]]; then
 fi
 
 # Delegate to guard handler for markdown-based guard evaluation
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 COMMITTED_FILES=$(git -C "$COMMIT_REPO" diff-tree --root --no-commit-id --name-only -r HEAD 2>/dev/null || echo "")
 COMMIT_MSG=$(git -C "$COMMIT_REPO" log -1 --pretty=format:%s 2>/dev/null || echo "")
 
-export DOYAKEN_GUARD_EVENT="commit"
+export DEX_GUARD_EVENT="commit"
 export CLAUDE_TOOL_USE_INPUT="${COMMITTED_FILES}"$'\n'"${COMMIT_MSG}"
 
 GUARD_EXIT=0
 if [[ -d "$COMMIT_REPO" ]]; then
-  (cd "$COMMIT_REPO" && python3 "$DOYAKEN_DIR/hooks/guard-handler.py") || GUARD_EXIT=$?
+  (cd "$COMMIT_REPO" && python3 "$DEX_DIR/hooks/guard-handler.py") || GUARD_EXIT=$?
 else
-  python3 "$DOYAKEN_DIR/hooks/guard-handler.py" || GUARD_EXIT=$?
+  python3 "$DEX_DIR/hooks/guard-handler.py" || GUARD_EXIT=$?
 fi
 
 # Validate conventional commit format (handled here, not in guards, because

@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
-# doyaken init — bootstrap current repo for Doyaken
-# Creates .doyaken/ skeleton, then uses Claude Code CLI to analyze
+# dex init — bootstrap current repo for Dex
+# Creates .dex/ skeleton, then uses Claude Code CLI to analyze
 # the codebase and generate project-specific configuration.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 INIT_PROVIDER_SESSION_ID=""
-__dk_init_cleanup() {
+__dx_init_cleanup() {
   if [[ -n "${INIT_PROVIDER_SESSION_ID:-}" ]]; then
-    dk_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID" 2>/dev/null || true
+    dx_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID" 2>/dev/null || true
   fi
 }
-trap __dk_init_cleanup EXIT
+trap __dx_init_cleanup EXIT
 trap 'printf "\nInterrupted.\n"; exit 130' INT
 
 usage() {
   cat <<'USAGE'
-Usage: dk init [options]
+Usage: dx init [options]
 
-Bootstrap the current repository with Doyaken project context.
+Bootstrap the current repository with Dex project context.
 
 Options:
   --skip-analysis                    Create/update local files without provider analysis
   --skip-config                      Skip interactive reviewer/config prompts
-  --install-maintenance-workflow     Install .github/workflows/dk-maintain.yml
+  --install-maintenance-workflow     Install .github/workflows/dx-maintain.yml
   -h, --help                         Show this help
 USAGE
 }
@@ -46,7 +46,7 @@ for arg in "$@"; do
       exit 0
       ;;
     *)
-      dk_error "Unknown init option: $arg"
+      dx_error "Unknown init option: $arg"
       usage
       exit 1
       ;;
@@ -58,60 +58,60 @@ if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
   repo_root=""
 fi
 if [[ -z "$repo_root" ]]; then
-  dk_error "Not in a git repository."
+  dx_error "Not in a git repository."
   exit 1
 fi
 
 repo_name=$(basename "$repo_root")
-echo "Doyaken — Init: $repo_name"
+echo "Dex — Init: $repo_name"
 echo ""
 
-# ── 1. Create .doyaken/ skeleton ──────────────────────────────────────
+# ── 1. Create .dex/ skeleton ──────────────────────────────────────
 
-mkdir -p "$repo_root/.doyaken"
+mkdir -p "$repo_root/.dex"
 
 # .gitignore for worktree artifacts (don't overwrite — user may have added custom entries)
-doyaken_gitignore="$repo_root/.doyaken/.gitignore"
-if [[ ! -f "$doyaken_gitignore" ]]; then
-  cat > "$doyaken_gitignore" << 'GITIGNORE'
+dex_gitignore="$repo_root/.dex/.gitignore"
+if [[ ! -f "$dex_gitignore" ]]; then
+  cat > "$dex_gitignore" << 'GITIGNORE'
 worktrees/
 GITIGNORE
-  dk_done "Created .doyaken/.gitignore"
+  dx_done "Created .dex/.gitignore"
 else
-  dk_ok ".doyaken/.gitignore already exists"
+  dx_ok ".dex/.gitignore already exists"
 fi
 
-# Minimal doyaken.md (will be overwritten by codebase analysis if run)
-doyaken_md="$repo_root/.doyaken/doyaken.md"
-if [[ ! -f "$doyaken_md" ]]; then
-  cat > "$doyaken_md" << 'DOYAKENMD'
-# Doyaken
+# Minimal dex.md (will be overwritten by codebase analysis if run)
+dex_md="$repo_root/.dex/dex.md"
+if [[ ! -f "$dex_md" ]]; then
+  cat > "$dex_md" << 'DEXMD'
+# Dex
 
-This project uses Doyaken for workflow automation.
+This project uses Dex for workflow automation.
 
 ## Autonomous workflow
 
-From the terminal, run `dk <ticket-number>` to start the full autonomous lifecycle (Plan → Implement → Review → Verify & Commit → PR → Complete) in an isolated worktree. You can also run `dk "description"` for freeform tasks, or `dk --no-worktree <ticket-or-description>` to set up the normal lifecycle branch in the current checkout without creating a worktree.
+From the terminal, run `dx <ticket-number>` to start the full autonomous lifecycle (Plan → Implement → Review → Verify & Commit → PR → Complete) in an isolated worktree. You can also run `dx "description"` for freeform tasks, or `dx --no-worktree <ticket-or-description>` to set up the normal lifecycle branch in the current checkout without creating a worktree.
 
 ## One-off prompt (no ticket)
 
-Run `dkloop <prompt>` to execute a prompt in a loop until Claude confirms it's fully implemented. Works in the current directory — no worktree or ticket needed.
+Run `dxloop <prompt>` to execute a prompt in a loop until Claude confirms it's fully implemented. Works in the current directory — no worktree or ticket needed.
 
 ## Inside Claude Code CLI
 
-If you're already in a Claude Code session, run `/doyaken` to begin the ticket lifecycle interactively.
+If you're already in a Claude Code session, run `/dex` to begin the ticket lifecycle interactively.
 
 ## Commands
 
-Run `dk help` in the terminal for all available commands.
+Run `dx help` in the terminal for all available commands.
 
 ## Maintenance
 
 | Setting | Value |
 |---------|-------|
 | enabled | true |
-| branch_prefix | doyaken/maintain/ |
-| label | doyaken-maintenance |
+| branch_prefix | dex/maintain/ |
+| label | dex-maintenance |
 | default_mode | report |
 | max_prs | 1 |
 | low_risk_fix_categories | docs, rules, guards, memory, tests |
@@ -119,53 +119,53 @@ Run `dk help` in the terminal for all available commands.
 
 `fix-scoped` may only patch the low-risk categories listed above unless a repo
 maintainer expands this table.
-DOYAKENMD
-  dk_done "Created .doyaken/doyaken.md (minimal)"
+DEXMD
+  dx_done "Created .dex/dex.md (minimal)"
 else
-  dk_ok ".doyaken/doyaken.md already exists"
+  dx_ok ".dex/dex.md already exists"
 fi
 
-# AGENTS.md is the source of truth for generated Doyaken project context.
-doyaken_agents_md="$repo_root/.doyaken/AGENTS.md"
-if [[ -f "$doyaken_agents_md" ]] && grep -qF '@doyaken.md' "$doyaken_agents_md" 2>/dev/null; then
-  dk_ok ".doyaken/AGENTS.md already imports doyaken.md"
-elif [[ -f "$doyaken_agents_md" ]]; then
-  # File exists but doesn't import doyaken.md — prepend the import.
-  { printf '@doyaken.md\n\n'; cat "$doyaken_agents_md"; } > "${doyaken_agents_md}.tmp" && mv "${doyaken_agents_md}.tmp" "$doyaken_agents_md"
-  dk_done "Added @import to existing .doyaken/AGENTS.md"
+# AGENTS.md is the source of truth for generated Dex project context.
+dex_agents_md="$repo_root/.dex/AGENTS.md"
+if [[ -f "$dex_agents_md" ]] && grep -qF '@dex.md' "$dex_agents_md" 2>/dev/null; then
+  dx_ok ".dex/AGENTS.md already imports dex.md"
+elif [[ -f "$dex_agents_md" ]]; then
+  # File exists but doesn't import dex.md — prepend the import.
+  { printf '@dex.md\n\n'; cat "$dex_agents_md"; } > "${dex_agents_md}.tmp" && mv "${dex_agents_md}.tmp" "$dex_agents_md"
+  dx_done "Added @import to existing .dex/AGENTS.md"
 else
-  printf '@doyaken.md\n' > "${doyaken_agents_md}.tmp" && mv "${doyaken_agents_md}.tmp" "$doyaken_agents_md"
-  dk_done "Created .doyaken/AGENTS.md with @import"
+  printf '@dex.md\n' > "${dex_agents_md}.tmp" && mv "${dex_agents_md}.tmp" "$dex_agents_md"
+  dx_done "Created .dex/AGENTS.md with @import"
 fi
 
 # CLAUDE.md remains as a compatibility pointer for Claude Code.
-doyaken_claude_md="$repo_root/.doyaken/CLAUDE.md"
-if [[ -f "$doyaken_claude_md" ]] && grep -qF '@AGENTS.md' "$doyaken_claude_md" 2>/dev/null; then
-  dk_ok ".doyaken/CLAUDE.md already points to AGENTS.md"
-elif [[ -f "$doyaken_claude_md" ]] && [[ "$(sed '/^[[:space:]]*$/d' "$doyaken_claude_md")" == "@doyaken.md" ]]; then
-  printf '@AGENTS.md\n' > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
-  dk_done "Updated .doyaken/CLAUDE.md to point to AGENTS.md"
-elif [[ -f "$doyaken_claude_md" ]]; then
+dex_claude_md="$repo_root/.dex/CLAUDE.md"
+if [[ -f "$dex_claude_md" ]] && grep -qF '@AGENTS.md' "$dex_claude_md" 2>/dev/null; then
+  dx_ok ".dex/CLAUDE.md already points to AGENTS.md"
+elif [[ -f "$dex_claude_md" ]] && [[ "$(sed '/^[[:space:]]*$/d' "$dex_claude_md")" == "@dex.md" ]]; then
+  printf '@AGENTS.md\n' > "${dex_claude_md}.tmp" && mv "${dex_claude_md}.tmp" "$dex_claude_md"
+  dx_done "Updated .dex/CLAUDE.md to point to AGENTS.md"
+elif [[ -f "$dex_claude_md" ]]; then
   # Preserve custom Claude instructions, but route generated context through AGENTS.md.
-  { printf '@AGENTS.md\n\n'; cat "$doyaken_claude_md"; } > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
-  dk_done "Added AGENTS.md pointer to existing .doyaken/CLAUDE.md"
+  { printf '@AGENTS.md\n\n'; cat "$dex_claude_md"; } > "${dex_claude_md}.tmp" && mv "${dex_claude_md}.tmp" "$dex_claude_md"
+  dx_done "Added AGENTS.md pointer to existing .dex/CLAUDE.md"
 else
-  printf '@AGENTS.md\n' > "${doyaken_claude_md}.tmp" && mv "${doyaken_claude_md}.tmp" "$doyaken_claude_md"
-  dk_done "Created .doyaken/CLAUDE.md pointing to AGENTS.md"
+  printf '@AGENTS.md\n' > "${dex_claude_md}.tmp" && mv "${dex_claude_md}.tmp" "$dex_claude_md"
+  dx_done "Created .dex/CLAUDE.md pointing to AGENTS.md"
 fi
 
-# Memory index scaffold. Durable entries are added by codebase analysis or dk sync;
+# Memory index scaffold. Durable entries are added by codebase analysis or dx sync;
 # raw observations live outside the repo.
-memory_dir="$repo_root/.doyaken/memory"
+memory_dir="$repo_root/.dex/memory"
 mkdir -p "$memory_dir/domains"
 memory_index="$memory_dir/index.md"
 if [[ ! -f "$memory_index" ]]; then
   cat > "${memory_index}.tmp" << 'MEMORYINDEX'
-# Doyaken Memory Index
+# Dex Memory Index
 
 No durable repo memory has been promoted yet.
 
-Run `/dksync` or `dk sync` after repeated review comments, CI failures,
+Run `/dxsync` or `dx sync` after repeated review comments, CI failures,
 maintenance runs, or durable workflow lessons create evidence worth preserving.
 
 ## Domains
@@ -174,29 +174,29 @@ maintenance runs, or durable workflow lessons create evidence worth preserving.
 |--------|------|-----------|--------|
 MEMORYINDEX
   mv "${memory_index}.tmp" "$memory_index"
-  dk_done "Created .doyaken/memory/index.md"
+  dx_done "Created .dex/memory/index.md"
 else
-  dk_ok ".doyaken/memory/index.md already exists"
+  dx_ok ".dex/memory/index.md already exists"
 fi
 
 echo ""
 echo "Skeleton created."
 
-# ── 2. Ensure global Doyaken tooling is available ─────────────────────
+# ── 2. Ensure global Dex tooling is available ─────────────────────
 
 CODEX_SKILL_COUNT=0
 TOOL_BOOTSTRAP_RAN=0
-if [[ "${DOYAKEN_SKIP_TOOL_BOOTSTRAP:-0}" == "1" ]]; then
-  dk_skip "Skipping Claude/Codex tooling bootstrap (already handled by caller)"
+if [[ "${DEX_SKIP_TOOL_BOOTSTRAP:-0}" == "1" ]]; then
+  dx_skip "Skipping Claude/Codex tooling bootstrap (already handled by caller)"
 else
   TOOL_BOOTSTRAP_RAN=1
-  if ! dk_bootstrap_agent_tooling "$repo_root" "repair"; then
-    dk_warn "Continuing init without complete Claude/Codex tooling bootstrap"
+  if ! dx_bootstrap_agent_tooling "$repo_root" "repair"; then
+    dx_warn "Continuing init without complete Claude/Codex tooling bootstrap"
   fi
 fi
 
 if command -v codex &>/dev/null; then
-  CODEX_SKILL_COUNT=$(dk_count_codex_doyaken_skills)
+  CODEX_SKILL_COUNT=$(dx_count_codex_dex_skills)
 fi
 
 # ── 3. Codebase analysis via Claude Code CLI ──────────────────────────
@@ -205,12 +205,12 @@ if [[ $SKIP_ANALYSIS -eq 1 ]]; then
   echo ""
   echo "Skipped codebase analysis (--skip-analysis)."
   echo "To generate project-specific config later, run:"
-  echo "  dk init --skip-config"
+  echo "  dx init --skip-config"
 elif ! command -v claude &>/dev/null; then
   echo ""
   echo "Claude Code CLI not found. Skipping codebase analysis."
   echo "Install Claude Code CLI, then run:"
-  echo "  dk init --skip-config"
+  echo "  dx init --skip-config"
 else
   echo ""
   echo "Analyzing codebase with Claude Code CLI..."
@@ -218,29 +218,29 @@ else
   echo ""
   printf '[....]  Starting analysis...'
 
-  # -p runs a one-shot prompt; Claude writes files directly to .doyaken/
+  # -p runs a one-shot prompt; Claude writes files directly to .dex/
   # --verbose --output-format stream-json enables real-time progress.
-  dk_provider_apply
-  analysis_prompt=$(cat "$DOYAKEN_DIR/prompts/init-analysis.md")
-  provider_prompt=$(dk_provider_prompt)
-  INIT_PROVIDER_SESSION_ID="init-$(dk_unique_session_id)"
-  dk_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID"
+  dx_provider_apply
+  analysis_prompt=$(cat "$DEX_DIR/prompts/init-analysis.md")
+  provider_prompt=$(dx_provider_prompt)
+  INIT_PROVIDER_SESSION_ID="init-$(dx_unique_session_id)"
+  dx_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID"
   set +o pipefail
-  DOYAKEN_SESSION_ID="$INIT_PROVIDER_SESSION_ID" dk_provider_claude -p "${analysis_prompt}${provider_prompt}" \
-    --model "$DK_CLAUDE_MODEL" --effort "$DK_CLAUDE_EFFORT" \
+  DEX_SESSION_ID="$INIT_PROVIDER_SESSION_ID" dx_provider_claude -p "${analysis_prompt}${provider_prompt}" \
+    --model "$DX_CLAUDE_MODEL" --effort "$DX_CLAUDE_EFFORT" \
     --dangerously-skip-permissions --permission-mode bypassPermissions \
     --verbose --output-format stream-json --include-partial-messages \
-    | dk_progress_filter
+    | dx_progress_filter
   CLAUDE_EXIT=${PIPESTATUS[0]}
   set -o pipefail
-  dk_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID"
+  dx_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID"
   INIT_PROVIDER_SESSION_ID=""
   if [[ $CLAUDE_EXIT -ne 0 ]]; then
     echo ""
     echo "WARNING: Codebase analysis exited with code $CLAUDE_EXIT."
-    echo "The .doyaken/ skeleton was created but project-specific config may be incomplete."
+    echo "The .dex/ skeleton was created but project-specific config may be incomplete."
     echo "You can re-run the analysis manually:"
-    echo "  dk init --skip-config"
+    echo "  dx init --skip-config"
   fi
 fi
 
@@ -248,31 +248,31 @@ fi
 
 if [[ $SKIP_CONFIG -eq 0 ]]; then
   echo ""
-  bash "$DOYAKEN_DIR/bin/config.sh"
+  bash "$DEX_DIR/bin/config.sh"
 else
   echo ""
   echo "Skipped integration config (--skip-config)."
-  echo "To configure later, run: dk config"
+  echo "To configure later, run: dx config"
 fi
 
 if [[ $INSTALL_MAINTENANCE_WORKFLOW -eq 1 ]]; then
   echo ""
-  bash "$DOYAKEN_DIR/bin/maintain.sh" install-workflow
+  bash "$DEX_DIR/bin/maintain.sh" install-workflow
 fi
 
 echo ""
 echo "Init complete for: $repo_name"
 echo ""
 echo "What happened:"
-echo "  - .doyaken/ created (worktrees, config, gitignored artifacts)"
-echo "  - .doyaken/AGENTS.md imports .doyaken/doyaken.md"
-echo "  - .doyaken/CLAUDE.md points to .doyaken/AGENTS.md"
-echo "  - .doyaken/memory/index.md is ready for durable repo memory"
+echo "  - .dex/ created (worktrees, config, gitignored artifacts)"
+echo "  - .dex/AGENTS.md imports .dex/dex.md"
+echo "  - .dex/CLAUDE.md points to .dex/AGENTS.md"
+echo "  - .dex/memory/index.md is ready for durable repo memory"
 if [[ "$CODEX_SKILL_COUNT" -gt 0 ]]; then
-  echo "  - ${CODEX_SKILL_COUNT} Doyaken skill link(s) available in $(dk_codex_skills_dir) for Codex CLI"
+  echo "  - ${CODEX_SKILL_COUNT} Dex skill link(s) available in $(dx_codex_skills_dir) for Codex CLI"
 fi
 if [[ "$TOOL_BOOTSTRAP_RAN" -eq 1 ]]; then
-  echo "  - Claude/Codex tooling checked and repaired with Doyaken links, official MCPs, and safe official plugins"
+  echo "  - Claude/Codex tooling checked and repaired with Dex links, official MCPs, and safe official plugins"
 fi
 if [[ $SKIP_ANALYSIS -eq 0 ]] && command -v claude &>/dev/null; then
   echo "  - Claude analyzed the codebase and generated project-specific config"
@@ -281,7 +281,7 @@ if [[ $SKIP_CONFIG -eq 0 ]]; then
   echo "  - Integrations configured (ticket tracker, optional MCPs)"
 fi
 if [[ $INSTALL_MAINTENANCE_WORKFLOW -eq 1 ]]; then
-  echo "  - DK maintain GitHub workflow installed"
+  echo "  - DX maintain GitHub workflow installed"
 fi
 echo ""
-echo "Next: run 'dk <ticket-number>' to start a worktree, or 'dk --no-worktree <task>' to branch in-place"
+echo "Next: run 'dx <ticket-number>' to start a worktree, or 'dx --no-worktree <task>' to branch in-place"

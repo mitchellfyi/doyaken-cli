@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Rubric for: edge-no-tests
-# Key test: DK should write tests even though the prompt doesn't ask for them.
-# Target: a "perfect" DK implementation should score ~80-85, not 100.
+# Key test: DX should write tests even though the prompt doesn't ask for them.
+# Target: a "perfect" DX implementation should score ~80-85, not 100.
 # This is a HARD scenario — the prompt never mentions tests, but good engineering
 # practice demands them.
 #
 # Scoring totals: correctness=100, test_quality=100, robustness=100
-# Expected "good DK" scores: correctness ~75, test_quality ~65, robustness ~60
+# Expected "good DX" scores: correctness ~75, test_quality ~65, robustness ~60
 # Overall weighted: ~80-85
 
 rubric_correctness() {
@@ -15,7 +15,7 @@ rubric_correctness() {
 
   [[ -f "$ws/go.mod" ]] && score=$((score + 5))
 
-  # Find any Go source file (DK may split across multiple files)
+  # Find any Go source file (DX may split across multiple files)
   local go_files
   go_files=$(find "$ws" -maxdepth 1 -name "*.go" ! -name "*_test.go" 2>/dev/null | head -1)
   [[ -z "$go_files" ]] && { echo "$score"; return; }
@@ -30,9 +30,9 @@ rubric_correctness() {
   # All correctness checks inject a temporary test file into the package,
   # run it via `go test`, then clean up. This avoids import resolution issues.
   # Note: filename must NOT start with _ or . (Go ignores those files).
-  local tmptest="$ws/dkrubric_test.go"
+  local tmptest="$ws/dxrubric_test.go"
 
-  # Detect the actual package name from Go source files (DK may use strutil, stringutil, main, etc.)
+  # Detect the actual package name from Go source files (DX may use strutil, stringutil, main, etc.)
   local pkg_name
   # shellcheck disable=SC2086  # go_files is a find-produced file list for grep.
   pkg_name=$(grep -m1 '^package ' $go_files 2>/dev/null | awk '{print $2}') || true
@@ -388,13 +388,13 @@ rubric_test_quality() {
 
   # ============================================================
   # THIS IS THE KEY DIMENSION: The prompt NEVER asks for tests.
-  # A great DK should write them anyway — that's the whole point
+  # A great DX should write them anyway — that's the whole point
   # of this scenario.
   # ============================================================
 
   # Step 1: Do test files exist at all? (CRITICAL — 40pt bonus)
   local test_files
-  test_files=$(find "$ws" -name "*_test.go" ! -name "dkrubric*" 2>/dev/null | wc -l | tr -d ' ')
+  test_files=$(find "$ws" -name "*_test.go" ! -name "dxrubric*" 2>/dev/null | wc -l | tr -d ' ')
 
   if [[ $test_files -gt 0 ]]; then
     score=$((score + 40))  # Massive bonus for writing tests unprompted
@@ -406,7 +406,7 @@ rubric_test_quality() {
 
   # Step 2: Tests actually pass (not just present)
   local tests_output
-  # Run DK's tests (exclude our rubric injected tests by name prefix).
+  # Run DX's tests (exclude our rubric injected tests by name prefix).
   # The rubric test files are cleaned up before this runs, so this is just a safety measure.
   tests_output=$(cd "$ws" && go test ./... -count=1 2>&1) || true
   if [[ "$tests_output" == *"PASS"* && "$tests_output" != *"FAIL"* ]]; then
@@ -416,7 +416,7 @@ rubric_test_quality() {
   # Step 3: Tests cover ALL 4 functions
   local funcs_tested=0
   for func in "Reverse" "Capitalize" "Truncate" "Slugify"; do
-    if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -ql "$func" {} + 2>/dev/null; then
+    if find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -ql "$func" {} + 2>/dev/null; then
       funcs_tested=$((funcs_tested + 1))
     fi
   done
@@ -424,36 +424,36 @@ rubric_test_quality() {
   [[ $funcs_tested -ge 4 ]] && score=$((score + 5))
 
   # Step 4: Table-driven tests (idiomatic Go)
-  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -qlE '\[\]struct|testCases|testcases|tests\s*:=|cases\s*:=|tt\.|tc\.' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -qlE '\[\]struct|testCases|testcases|tests\s*:=|cases\s*:=|tt\.|tc\.' {} + 2>/dev/null; then
     score=$((score + 8))
   fi
 
   # Step 5: Edge cases in tests (empty strings, Unicode, long strings)
   local edge_cases=0
   # Check for empty string test cases
-  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -ql '""' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -ql '""' {} + 2>/dev/null; then
     edge_cases=$((edge_cases + 1))
   fi
   # Check for Unicode test cases
-  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -qlE 'unicode|rune|utf|emoji|héllo|café|accented|ñ|ü|é' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -qlE 'unicode|rune|utf|emoji|héllo|café|accented|ñ|ü|é' {} + 2>/dev/null; then
     edge_cases=$((edge_cases + 1))
   fi
   # Check for long string or boundary tests
-  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -qlE 'Repeat|long|boundary|10000|1000|large' {} + 2>/dev/null; then
+  if find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -qlE 'Repeat|long|boundary|10000|1000|large' {} + 2>/dev/null; then
     edge_cases=$((edge_cases + 1))
   fi
   [[ $edge_cases -ge 1 ]] && score=$((score + 5))
   [[ $edge_cases -ge 2 ]] && score=$((score + 5))
   [[ $edge_cases -ge 3 ]] && score=$((score + 7))
 
-  # Step 6: Benchmark tests (bonus — very few DKs will do this)
-  if find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -ql "func Benchmark" {} + 2>/dev/null; then
+  # Step 6: Benchmark tests (bonus — very few DXs will do this)
+  if find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -ql "func Benchmark" {} + 2>/dev/null; then
     score=$((score + 5))
   fi
 
   # Step 7: Test count — more tests = more thorough
   local test_func_count
-  test_func_count=$(find "$ws" -name "*_test.go" ! -name "dkrubric*" -exec grep -c "func Test" {} + 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}') || true
+  test_func_count=$(find "$ws" -name "*_test.go" ! -name "dxrubric*" -exec grep -c "func Test" {} + 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}') || true
   [[ $test_func_count -ge 4 ]] && score=$((score + 5))
   [[ $test_func_count -ge 8 ]] && score=$((score + 5))
 
@@ -464,7 +464,7 @@ rubric_robustness() {
   local ws="$1"
   local score=0
 
-  # Find all Go source files (DK may split across multiple files)
+  # Find all Go source files (DX may split across multiple files)
   local src_files
   src_files=$(find "$ws" -maxdepth 1 -name "*.go" ! -name "*_test.go" 2>/dev/null)
   [[ -z "$src_files" ]] && { echo "0"; return; }
@@ -538,7 +538,7 @@ rubric_robustness() {
   fi
 
   # --- Thread safety: concurrent calls don't panic --- (10pts)
-  local tmptest="$ws/dkrubric_test.go"
+  local tmptest="$ws/dxrubric_test.go"
   cat > "$tmptest" <<GOEOF
 package ${pkg_name}
 
@@ -579,12 +579,12 @@ GOEOF
   echo "$score"
 }
 
-# Custom issue detection: specifically check if DK's self-review caught the Unicode issue
+# Custom issue detection: specifically check if DX's self-review caught the Unicode issue
 rubric_issue_detection() {
   local ws="$1" result_dir="$2"
   local score=50
 
-  # Check if DK mentioned Unicode handling in its output
+  # Check if DX mentioned Unicode handling in its output
   if [[ -f "$result_dir/stream.jsonl" ]]; then
     if grep -qi "unicode\|rune\|utf" "$result_dir/stream.jsonl" 2>/dev/null; then
       score=$((score + 25))  # Recognized the Unicode issue

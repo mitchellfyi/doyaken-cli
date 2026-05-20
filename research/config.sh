@@ -8,7 +8,7 @@ set -euo pipefail
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 RESEARCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOYAKEN_DIR="$(cd "$RESEARCH_DIR/.." && pwd)"
+DEX_DIR="$(cd "$RESEARCH_DIR/.." && pwd)"
 
 SCENARIOS_DIR="$RESEARCH_DIR/scenarios"
 WORKSPACES_DIR="$RESEARCH_DIR/workspaces"

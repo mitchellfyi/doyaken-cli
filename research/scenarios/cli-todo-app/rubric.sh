@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rubric for: cli-todo-app
-# Hardened rubric — a "perfect" DK implementation targets ~85-90, not 100.
+# Hardened rubric — a "perfect" DX implementation targets ~85-90, not 100.
 
 # Helper: find the CLI entry point
 _find_entry() {

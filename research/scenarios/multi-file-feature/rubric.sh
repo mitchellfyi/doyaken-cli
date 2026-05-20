@@ -49,7 +49,7 @@ JSEOF
 }
 
 # ── Helper: adaptive addItem that tries multiple calling conventions ────────
-# Handles 3 DK architecture patterns:
+# Handles 3 DX architecture patterns:
 #   A) Cart stores product info directly: addItem({id,name,price,category}, qty) or addItem(id,name,price,qty,cat)
 #   B) Cart fetches from inventory catalog: addItem(productId, qty) after inv.addProduct({id,name,priceInCents,category,stock})
 _add_item_js() {
@@ -527,7 +527,7 @@ rubric_correctness() {
       let result;
 
       // Convention 1: checkout({cart: Cart, inventory: InvMgr, pricing: PricingEngine, ...})
-      // This is the DK-style full-object pattern
+      // This is the DX-style full-object pattern
       if (!result && CartCls && InvCls && PriceCls) {
         try {
           const inv = new InvCls();

@@ -1,21 +1,21 @@
 # Autonomous Mode (Phase Audit Loops)
 
-Doyaken runs the ticket lifecycle as a series of phases, each with its own quality-gated audit loop. When Claude tries to stop during a phase, the Stop hook injects a phase-specific audit prompt that critically reviews the work done. The loop continues until the audit is satisfied and the completion signal is detected.
+Dex runs the ticket lifecycle as a series of phases, each with its own quality-gated audit loop. When Claude tries to stop during a phase, the Stop hook injects a phase-specific audit prompt that critically reviews the work done. The loop continues until the audit is satisfied and the completion signal is detected.
 
 ## How It Works
 
 ```
-User runs: dk 999
+User runs: dx 999
   |
   v
 Wrapper creates worktree, starts Phase 0 (Setup)
-(`dk --no-worktree` skips worktree creation and uses the current checkout)
+(`dx --no-worktree` skips worktree creation and uses the current checkout)
   |
   v
-Claude starts with DOYAKEN_LOOP_ACTIVE=1
+Claude starts with DEX_LOOP_ACTIVE=1
   |
   v
-Claude works on the phase (e.g., /dkplan, /dkimplement)
+Claude works on the phase (e.g., /dxplan, /dximplement)
   |
   v
 Claude tries to stop
@@ -48,13 +48,13 @@ Each phase has its own audit prompt in `prompts/phase-audits/`:
 | 0. Setup | `0-setup.md` | Ticket read + assigned, branch renamed + pushed, ticket status In Progress, meta sidecar updated |
 | 1. Plan | `1-plan.md` | Completeness, edge cases, dependencies, scope, user approval |
 | 2. Implement | `2-implement.md` | Task completion, TDD verification, UI capture evidence, evidence table |
-| 3. Review | `3-review-loop.md` | `/dkreviewloop` requiring the resolved profile's clean full-scope review waves |
+| 3. Review | `3-review-loop.md` | `/dxreviewloop` requiring the resolved profile's clean full-scope review waves |
 | 4. Verify & Commit | `4-verify.md` | All checks passing, commit quality, pushed to origin |
 | 5. PR | `5-pr.md` | Description quality, scope match, draft PR created with `request` reviewers attached |
-| 6. Complete | `6-complete.md` | Cycle loop: mark ready, request reviewers, post mention comment, monitor CI/reviews through `/dkwatchpr`, address failures, re-request after each push, close ticket, clean up local worktree/branch |
+| 6. Complete | `6-complete.md` | Cycle loop: mark ready, request reviewers, post mention comment, monitor CI/reviews through `/dxwatchpr`, address failures, re-request after each push, close ticket, clean up local worktree/branch |
 
-The review audit (Phase 3) is adaptive. Phase 3 runs `/dkreviewloop`, which
-starts from `DOYAKEN_REVIEW_PROFILE=auto`: light for tiny/docs-only changes,
+The review audit (Phase 3) is adaptive. Phase 3 runs `/dxreviewloop`, which
+starts from `DEX_REVIEW_PROFILE=auto`: light for tiny/docs-only changes,
 standard for normal changes, and thorough for high-risk or broad changes. Each
 wave builds a compact context pack, runs deterministic checks, harvests issues in
 the fresh wave orchestrator, uses targeted read-only specialists only when the
@@ -63,13 +63,13 @@ rechecks affected surfaces. A wave that fixes anything writes `FINDINGS_FIXED:N`
 which resets the outer clean counter. A wave can write `ESCALATE_THOROUGH:reason`
 when the profile is too shallow.
 
-For browser UI changes, Phase 2 also requires before/after UI capture evidence before handoff to review. `/dkuicapture` stores screenshots, videos, traces, browser logs, and a `visual-evidence.md` upload manifest under `~/.claude/.doyaken-artifacts/` and links them in the implementation evidence. See [ui-capture.md](ui-capture.md).
+For browser UI changes, Phase 2 also requires before/after UI capture evidence before handoff to review. `/dxuicapture` stores screenshots, videos, traces, browser logs, and a `visual-evidence.md` upload manifest under `~/.claude/.dex-artifacts/` and links them in the implementation evidence. See [ui-capture.md](ui-capture.md).
 
-Phase 6 (Complete) is autonomous and bounded: it reads `## Reviewers` from `.doyaken/doyaken.md` to know who to request reviews from. The user is brought into the loop as a configured reviewer. The autonomous loop waits at least `DOYAKEN_COMPLETE_WAIT_MINUTES` (default 5) per cycle for CI and reviews, addresses failures through `/dkwatchpr` and `/dkprreview`, re-requests reviewers after each push, and closes the ticket once everything is approved and CI is green. After `DOYAKEN_COMPLETE_MAX_CYCLES` (default 3) idle cycles with no progress, it pauses with manual follow-up instructions. It never merges the PR.
+Phase 6 (Complete) is autonomous and bounded: it reads `## Reviewers` from `.dex/dex.md` to know who to request reviews from. The user is brought into the loop as a configured reviewer. The autonomous loop waits at least `DEX_COMPLETE_WAIT_MINUTES` (default 5) per cycle for CI and reviews, addresses failures through `/dxwatchpr` and `/dxprreview`, re-requests reviewers after each push, and closes the ticket once everything is approved and CI is green. After `DEX_COMPLETE_MAX_CYCLES` (default 3) idle cycles with no progress, it pauses with manual follow-up instructions. It never merges the PR.
 
-When the user submits a direct prompt during Phase 6, the `UserPromptSubmit` hook writes a `.watch-pause` marker. Scheduled `/dkwatchpr` cycles must no-op while the marker is active, so manual work is not interrupted by CI/review polling commands. The pause expires after `DOYAKEN_WATCH_PAUSE_TTL_SECONDS` (default `60m 0s`) unless the user runs `/dkcomplete` or asks to resume watching.
+When the user submits a direct prompt during Phase 6, the `UserPromptSubmit` hook writes a `.watch-pause` marker. Scheduled `/dxwatchpr` cycles must no-op while the marker is active, so manual work is not interrupted by CI/review polling commands. The pause expires after `DEX_WATCH_PAUSE_TTL_SECONDS` (default `60m 0s`) unless the user runs `/dxcomplete` or asks to resume watching.
 
-Each watcher cycle also has a runtime lock with a default budget of `2m 0s`. If a later `/loop` tick fires while the previous `/dkwatchpr` cycle is still within that budget, the later tick skips instead of starting overlapping GitHub or CI work. Individual watcher shell commands default to `0m 30s`.
+Each watcher cycle also has a runtime lock with a default budget of `2m 0s`. If a later `/loop` tick fires while the previous `/dxwatchpr` cycle is still within that budget, the later tick skips instead of starting overlapping GitHub or CI work. Individual watcher shell commands default to `0m 30s`.
 
 After Phase 1 approval, the Stop hook advances through normal Phase 2-5
 handoffs in the same Claude session without asking whether to continue. A phase pauses only when it hits an
@@ -83,18 +83,18 @@ Audit prompts are editable markdown files. Changes take effect on the next loop 
 
 Two activation mechanisms, depending on context:
 
-**From the terminal** (via `dk` or `dkloop`):
+**From the terminal** (via `dx` or `dxloop`):
 ```bash
-dk 999  # Sets DOYAKEN_LOOP_ACTIVE=1 in the environment
-dkloop "add rate limiting"  # Same mechanism
+dx 999  # Sets DEX_LOOP_ACTIVE=1 in the environment
+dxloop "add rate limiting"  # Same mechanism
 ```
 
-**From inside an existing Claude Code session** (via `/dkloop` skill):
-The `/dkloop` skill creates an `.active` signal file in `~/.claude/.doyaken-loops/`. The Stop hook checks for this file as an alternative to the environment variable, since env vars can't be injected into a running process.
+**From inside an existing Claude Code session** (via `/dxloop` skill):
+The `/dxloop` skill creates an `.active` signal file in `~/.claude/.dex-loops/`. The Stop hook checks for this file as an alternative to the environment variable, since env vars can't be injected into a running process.
 
 ```bash
-# The /dkloop skill does this internally:
-touch "$(dk_active_file "$(dk_session_id)")"
+# The /dxloop skill does this internally:
+touch "$(dx_active_file "$(dx_session_id)")"
 ```
 
 The `.active` file is cleaned up automatically when the loop completes (`.complete` file found) or reaches max iterations.
@@ -102,36 +102,36 @@ The `.active` file is cleaned up automatically when the loop completes (`.comple
 To run without the audit loop:
 
 ```bash
-cd .doyaken/worktrees/ticket-999
-claude --model opus --dangerously-skip-permissions --permission-mode bypassPermissions  # No DOYAKEN_LOOP_ACTIVE set, no .active file
+cd .dex/worktrees/ticket-999
+claude --model opus --dangerously-skip-permissions --permission-mode bypassPermissions  # No DEX_LOOP_ACTIVE set, no .active file
 ```
 
-## In-Place Lifecycle (`dk --no-worktree`)
+## In-Place Lifecycle (`dx --no-worktree`)
 
 For tickets or tasks where you do not want a separate checkout, use:
 
 ```bash
-dk --no-worktree 999
-dk --no-worktree "fix login bug"
+dx --no-worktree 999
+dx --no-worktree "fix login bug"
 ```
 
-This runs the same six-phase lifecycle in the current git checkout. Doyaken does
+This runs the same six-phase lifecycle in the current git checkout. Dex does
 not create a worktree, but it still prepares the normal lifecycle branch
 (`worktree-ticket-*` or `worktree-task-*`) in the current checkout, using
 `origin/<default>` as the starting point just like worktree mode. Phase 4 commits
-and pushes that branch. If uncommitted changes are present and Doyaken would need
+and pushes that branch. If uncommitted changes are present and Dex would need
 to switch or create the lifecycle branch, it stops so you can commit or stash
-first. `dk --resume` resumes the most recent worktree or in-place lifecycle.
+first. `dx --resume` resumes the most recent worktree or in-place lifecycle.
 
-## Prompt Loop Mode (`dkloop`)
+## Prompt Loop Mode (`dxloop`)
 
-For ad-hoc tasks that don't need the full phased lifecycle, `dkloop` runs a single prompt in a loop until the AI confirms everything is implemented:
+For ad-hoc tasks that don't need the full phased lifecycle, `dxloop` runs a single prompt in a loop until the AI confirms everything is implemented:
 
 ```bash
-dkloop Add rate limiting to the /api/users endpoint. Support 100 req/min per API key with Redis backing.
+dxloop Add rate limiting to the /api/users endpoint. Support 100 req/min per API key with Redis backing.
 ```
 
-This uses the same Stop hook infrastructure as `dk`, but:
+This uses the same Stop hook infrastructure as `dx`, but:
 - Runs in the **current directory** (no worktree created)
 - Uses a single generic audit prompt (`prompts/phase-audits/prompt-loop.md`)
 - Completion promise is `PROMPT_COMPLETE`
@@ -139,7 +139,7 @@ This uses the same Stop hook infrastructure as `dk`, but:
 
 The audit prompt extracts requirements from the original prompt and verifies each one on every iteration, continuing until all requirements are implemented and quality review passes.
 
-Override max iterations: `DOYAKEN_LOOP_MAX_ITERATIONS=15 dkloop fix the bug`
+Override max iterations: `DEX_LOOP_MAX_ITERATIONS=15 dxloop fix the bug`
 
 ## Completion Signals
 
@@ -152,8 +152,8 @@ Each phase has its own completion promise:
 | 3 | `PHASE_3_COMPLETE` |
 | 4 | `PHASE_4_COMPLETE` |
 | 5 | `PHASE_5_COMPLETE` |
-| 6 | `DOYAKEN_TICKET_COMPLETE` |
-| dkloop | `PROMPT_COMPLETE` |
+| 6 | `DEX_TICKET_COMPLETE` |
+| dxloop | `PROMPT_COMPLETE` |
 
 Claude should only output the promise after the audit criteria are fully met.
 
@@ -161,7 +161,7 @@ Claude should only output the promise after the audit criteria are fully met.
 
 Long-running sessions (especially Phase 2) can trigger conversation compaction when the context window fills. Two mechanisms ensure Claude retains phase awareness after compaction:
 
-**System prompt context file** (`--append-system-prompt-file`): `dk.sh` generates a context file at `~/.claude/.doyaken-phases/<session_id>.system-context` containing lifecycle context, completion protocol, and worktree path. This is passed via `--append-system-prompt-file` and persists through compaction as part of the system prompt. In same-session mode, the Stop hook's latest phase handoff instruction supersedes the initial phase label in this file.
+**System prompt context file** (`--append-system-prompt-file`): `dx.sh` generates a context file at `~/.claude/.dex-phases/<session_id>.system-context` containing lifecycle context, completion protocol, and worktree path. This is passed via `--append-system-prompt-file` and persists through compaction as part of the system prompt. In same-session mode, the Stop hook's latest phase handoff instruction supersedes the initial phase label in this file.
 
 **PreCompact hook**: The `PreCompact` hook fires before compaction begins and reminds Claude to re-orient using its system context. This is a supplementary safety net alongside the system prompt file.
 
@@ -169,7 +169,7 @@ Long-running sessions (especially Phase 2) can trigger conversation compaction w
 
 Phases hand off inside the same Claude session. The Stop hook updates the phase state/config files, injects the next phase instructions, and exits with the hook-blocking status so Claude keeps working without requiring `/exit` or a manual resume.
 
-Phase 3 still gets independent review coverage because `/dkreviewloop` spawns
+Phase 3 still gets independent review coverage because `/dxreviewloop` spawns
 fresh full-scope review waves.
 
 ## Status Line
@@ -179,18 +179,18 @@ During autonomous phases (2-6), a custom status line displays live information i
 - Audit loop iteration count (e.g., `Audit 3/30`)
 - Total elapsed time (e.g., `4m 22s`)
 
-The status line is driven by `bin/status-line.sh` which reads state files from `~/.claude/.doyaken-phases/` and `~/.claude/.doyaken-loops/`. It is injected per-session via `--settings` and does not affect the global settings.
+The status line is driven by `bin/status-line.sh` which reads state files from `~/.claude/.dex-phases/` and `~/.claude/.dex-loops/`. It is injected per-session via `--settings` and does not affect the global settings.
 
 ## Safety Controls
 
 ### Max Iterations
 
-Default: 30 iterations per phase. When the limit is reached, the Stop hook pauses the current phase and asks Claude to summarize the blocker. The `.complete` file is NOT written, so `dk --resume` continues from the same phase after intervention.
+Default: 30 iterations per phase. When the limit is reached, the Stop hook pauses the current phase and asks Claude to summarize the blocker. The `.complete` file is NOT written, so `dx --resume` continues from the same phase after intervention.
 
 Override with:
 
 ```bash
-DOYAKEN_LOOP_MAX_ITERATIONS=50 dk 999
+DEX_LOOP_MAX_ITERATIONS=50 dx 999
 ```
 
 ### Escalation
@@ -205,72 +205,72 @@ Even in autonomous mode, Claude stops and escalates to the user for:
 
 ### Manual Override
 
-The user can always interrupt by providing input or pressing Ctrl+C. Phase state is saved so `dk 999` or `dk --resume` picks up where it left off.
+The user can always interrupt by providing input or pressing Ctrl+C. Phase state is saved so `dx 999` or `dx --resume` picks up where it left off.
 
 ### PR-Linked Resumption
 
 After a PR has been created (Phase 5 done), you can resume the session linked to that PR from any machine:
 
 ```bash
-dk --from-pr 42         # Resume by PR number
-dk --from-pr https://github.com/org/repo/pull/42  # Or by URL
+dx --from-pr 42         # Resume by PR number
+dx --from-pr https://github.com/org/repo/pull/42  # Or by URL
 ```
 
 This is useful for one-off interventions (e.g., addressing a review comment) without needing the full phased lifecycle.
 
 ## State Management
 
-Loop state is stored in `~/.claude/.doyaken-loops/`:
+Loop state is stored in `~/.claude/.dex-loops/`:
 - `.state` — iteration count (e.g., `repo-myapp-123456789-worktree-ticket-999.state`)
-- `.complete` — completion signal, written by phase audit prompts or `/dkcomplete`
-- `.active` — activation signal for in-session `/dkloop` (alternative to `DOYAKEN_LOOP_ACTIVE` env var)
-- `.prompt` — original freeform task or `dkloop` prompt, re-injected during audits and kept outside the git checkout
-- `.handoff-mode` — marker that this `dk` run should advance phases in-session
+- `.complete` — completion signal, written by phase audit prompts or `/dxcomplete`
+- `.active` — activation signal for in-session `/dxloop` (alternative to `DEX_LOOP_ACTIVE` env var)
+- `.prompt` — original freeform task or `dxloop` prompt, re-injected during audits and kept outside the git checkout
+- `.handoff-mode` — marker that this `dx` run should advance phases in-session
 - `.paused` — one-shot marker that lets an inline session exit after reporting a safety-net pause
 - `.watch-pause` — marker that scheduled Phase 6 PR watcher should no-op after a direct user prompt
-- `.watch-lock` — per-watcher overlap lock that bounds one scheduled `/dkwatchpr` cycle
-- `.phase-1.started` / `.phase-1.ready` — Phase 1 markers written by `dkplan`; the Stop hook does not count plan audit iterations until the approval marker exists
-- `.phase-2.ready` — Phase 2 marker written by `dkimplement` only after every acceptance criterion and verification gate is complete; the Stop hook ignores `PHASE_2_COMPLETE` without it
-- `.phase-3.busy` — Phase 3 marker written by `dkreviewloop` while a review wave is running; the Stop hook does not count audit iterations while waiting
+- `.watch-lock` — per-watcher overlap lock that bounds one scheduled `/dxwatchpr` cycle
+- `.phase-1.started` / `.phase-1.ready` — Phase 1 markers written by `dxplan`; the Stop hook does not count plan audit iterations until the approval marker exists
+- `.phase-2.ready` — Phase 2 marker written by `dximplement` only after every acceptance criterion and verification gate is complete; the Stop hook ignores `PHASE_2_COMPLETE` without it
+- `.phase-3.busy` — Phase 3 marker written by `dxreviewloop` while a review wave is running; the Stop hook does not count audit iterations while waiting
 - `.phase-3.busy-notice` — timestamp used to throttle repeated Phase 3 busy-gate notices while the same review pass is still running
 - `.review-context` — compact context pack shared by one or more Phase 3 review waves
 - The session ID is derived from a stable repo key plus the worktree directory name (stable across branch renames and unique across repos)
-- Loop files are cleaned up on completion, by `dkrm`, and by `dkclean`
-- Old files (7+ days) are pruned by `dkclean`
+- Loop files are cleaned up on completion, by `dxrm`, and by `dxclean`
+- Old files (7+ days) are pruned by `dxclean`
 
-Phase state is stored in `~/.claude/.doyaken-phases/`:
+Phase state is stored in `~/.claude/.dex-phases/`:
 - One `.phase` file per worktree, tracking which phase is current (1-6; 7 = ticket complete)
 - One `.times` file per worktree, tracking start times for elapsed calculations
 - One `.system-context` file per worktree, used by `--append-system-prompt-file` for compaction resilience (regenerated each phase, cleaned up by `SessionEnd` hook)
 - One `.branch` file per lifecycle session, used by in-place mode to resume on the correct branch after branch renames or shell navigation
 
-UI artifacts are stored separately in `~/.claude/.doyaken-artifacts/` so screenshots, videos, traces, flow scripts, logs, and PR upload manifests stay out of git.
+UI artifacts are stored separately in `~/.claude/.dex-artifacts/` so screenshots, videos, traces, flow scripts, logs, and PR upload manifests stay out of git.
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DOYAKEN_LOOP_ACTIVE` | `0` | Set to `1` to enable the phase audit loop |
-| `DOYAKEN_LOOP_MAX_ITERATIONS` | `30` | Max iterations per phase before forced stop |
-| `DOYAKEN_LOOP_MIN_AUDITS` | (per-phase) | Min audit iterations before completion is authorized |
-| `DOYAKEN_LOOP_PROMISE` | `DOYAKEN_TICKET_COMPLETE` | Completion signal for the current phase |
-| `DOYAKEN_LOOP_PROMPT` | (from file) | Audit prompt injected on each loop iteration |
-| `DOYAKEN_LOOP_PHASE` | (set by wrapper) | Current phase number (1-6) or `prompt-loop`, used to find audit file |
-| `DOYAKEN_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
-| `DOYAKEN_PHASE_N_MIN_AUDITS` | (per-phase) | Per-phase override for min audit iterations (e.g., `DOYAKEN_PHASE_2_MIN_AUDITS=5`) |
-| `DOYAKEN_REVIEW_PROFILE` | `auto` | Starting Phase 3 review depth: `auto`, `light`, `standard`, or `thorough` |
-| `DOYAKEN_REVIEW_CLEAN_PASSES` | profile-based | Exact consecutive `CLEAN` review waves required to advance Phase 3 |
-| `DOYAKEN_REVIEW_MAX_ITERATIONS` | profile-based | Exact max review iterations before Phase 3 pauses |
-| `DOYAKEN_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review wave may stay in progress before the lifecycle pauses |
-| `DOYAKEN_REVIEW_PASS_NOTICE_INTERVAL` | `120` (2m 0s) | Minimum seconds between repeated Phase 3 busy-gate notices for the same review pass |
-| `DOYAKEN_REVIEW_PASS_RECHECK_SECONDS` | `45` (0m 45s) | Seconds the Stop hook quietly polls for a busy Phase 3 review pass to finish before re-blocking |
-| `DOYAKEN_WATCH_CYCLE_TIMEOUT_SECONDS` | `120` (2m 0s) | Maximum runtime budget for one scheduled Phase 6 watcher invocation |
-| `DOYAKEN_WATCH_COMMAND_TIMEOUT_SECONDS` | `30` (0m 30s) | Maximum runtime for one GitHub/local shell command inside a watcher cycle |
-| `DOYAKEN_WATCH_PAUSE_TTL_SECONDS` | `3600` (60m 0s) | Seconds scheduled Phase 6 watchers stay paused after a direct user prompt; set to 0 for no automatic expiry |
-| `DOYAKEN_COMPLETE_MAX_CYCLES` | `3` | Max idle cycles before Phase 6 pauses for manual follow-up |
-| `DOYAKEN_COMPLETE_WAIT_MINUTES` | `5` | Minimum wait window per Phase 6 cycle (minutes) |
-| `DK_ARTIFACT_DIR` | `~/.claude/.doyaken-artifacts` | Screenshots, videos, traces, and logs produced by Doyaken |
-| `DK_TOOL_DIR` | `~/.claude/.doyaken-tools` | Doyaken-managed external tooling cache |
+| `DEX_LOOP_ACTIVE` | `0` | Set to `1` to enable the phase audit loop |
+| `DEX_LOOP_MAX_ITERATIONS` | `30` | Max iterations per phase before forced stop |
+| `DEX_LOOP_MIN_AUDITS` | (per-phase) | Min audit iterations before completion is authorized |
+| `DEX_LOOP_PROMISE` | `DEX_TICKET_COMPLETE` | Completion signal for the current phase |
+| `DEX_LOOP_PROMPT` | (from file) | Audit prompt injected on each loop iteration |
+| `DEX_LOOP_PHASE` | (set by wrapper) | Current phase number (1-6) or `prompt-loop`, used to find audit file |
+| `DEX_SESSION_TIMEOUT` | `86400` | Session timeout in seconds (24h). Set to 0 to disable. |
+| `DEX_PHASE_N_MIN_AUDITS` | (per-phase) | Per-phase override for min audit iterations (e.g., `DEX_PHASE_2_MIN_AUDITS=5`) |
+| `DEX_REVIEW_PROFILE` | `auto` | Starting Phase 3 review depth: `auto`, `light`, `standard`, or `thorough` |
+| `DEX_REVIEW_CLEAN_PASSES` | profile-based | Exact consecutive `CLEAN` review waves required to advance Phase 3 |
+| `DEX_REVIEW_MAX_ITERATIONS` | profile-based | Exact max review iterations before Phase 3 pauses |
+| `DEX_REVIEW_PASS_TIMEOUT` | `900` (15m 0s) | Seconds a Phase 3 review wave may stay in progress before the lifecycle pauses |
+| `DEX_REVIEW_PASS_NOTICE_INTERVAL` | `120` (2m 0s) | Minimum seconds between repeated Phase 3 busy-gate notices for the same review pass |
+| `DEX_REVIEW_PASS_RECHECK_SECONDS` | `45` (0m 45s) | Seconds the Stop hook quietly polls for a busy Phase 3 review pass to finish before re-blocking |
+| `DEX_WATCH_CYCLE_TIMEOUT_SECONDS` | `120` (2m 0s) | Maximum runtime budget for one scheduled Phase 6 watcher invocation |
+| `DEX_WATCH_COMMAND_TIMEOUT_SECONDS` | `30` (0m 30s) | Maximum runtime for one GitHub/local shell command inside a watcher cycle |
+| `DEX_WATCH_PAUSE_TTL_SECONDS` | `3600` (60m 0s) | Seconds scheduled Phase 6 watchers stay paused after a direct user prompt; set to 0 for no automatic expiry |
+| `DEX_COMPLETE_MAX_CYCLES` | `3` | Max idle cycles before Phase 6 pauses for manual follow-up |
+| `DEX_COMPLETE_WAIT_MINUTES` | `5` | Minimum wait window per Phase 6 cycle (minutes) |
+| `DX_ARTIFACT_DIR` | `~/.claude/.dex-artifacts` | Screenshots, videos, traces, and logs produced by Dex |
+| `DX_TOOL_DIR` | `~/.claude/.dex-tools` | Dex-managed external tooling cache |
 
 ## Troubleshooting
 
@@ -284,13 +284,13 @@ The Stop hook should inject the next phase directly into the Claude screen. If
 you return to a shell prompt and nothing starts, run:
 
 ```bash
-dk --resume
+dx --resume
 ```
 
 ### Loop stops too early
 
-Check that `DOYAKEN_LOOP_ACTIVE=1` is set in the environment. The `dk` command sets this automatically, but manual `claude` invocations don't.
+Check that `DEX_LOOP_ACTIVE=1` is set in the environment. The `dx` command sets this automatically, but manual `claude` invocations don't.
 
 ### High API costs
 
-Reduce `DOYAKEN_LOOP_MAX_ITERATIONS` for smaller tickets. The default of 30 is tuned for medium-sized features. For simple bug fixes, 10-15 is sufficient.
+Reduce `DEX_LOOP_MAX_ITERATIONS` for smaller tickets. The default of 30 is tuned for medium-sized features. For simple bug fixes, 10-15 is sufficient.

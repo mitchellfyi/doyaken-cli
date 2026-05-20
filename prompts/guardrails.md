@@ -1,6 +1,6 @@
 # Implementation Guardrails
 
-Reference document for doyaken skills. Read when referenced by `/dkplan`, `/dkimplement`, or `/dkloop`.
+Reference document for dex skills. Read when referenced by `/dxplan`, `/dximplement`, or `/dxloop`.
 
 ## HARD STOPS — Override All Other Priorities
 

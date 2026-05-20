@@ -21,10 +21,10 @@ workspace_create() {
 
   mkdir -p "$ws"
   git -C "$ws" init --quiet
-  git -C "$ws" config user.name "Doyaken Research"
-  git -C "$ws" config user.email "research@doyaken.local"
+  git -C "$ws" config user.name "Dex Research"
+  git -C "$ws" config user.email "research@dex.local"
 
-  # Minimal gitignore so DK's output is clean
+  # Minimal gitignore so DX's output is clean
   cat > "$ws/.gitignore" <<'GITIGNORE'
 node_modules/
 __pycache__/
@@ -70,7 +70,7 @@ workspace_destroy() {
 }
 
 # workspace_diff <scenario_name>
-# Show the full diff of what DK created/modified in the workspace.
+# Show the full diff of what DX created/modified in the workspace.
 workspace_diff() {
   local ws
   ws=$(workspace_dir "$1")
@@ -85,7 +85,7 @@ workspace_diff() {
 }
 
 # workspace_files_changed <scenario_name>
-# List all files created or modified by DK.
+# List all files created or modified by DX.
 workspace_files_changed() {
   local ws
   ws=$(workspace_dir "$1")

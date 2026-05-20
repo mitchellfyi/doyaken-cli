@@ -11,10 +11,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 # parent repo's files. This function bridges that gap.
 _inject_workspace_context() {
   local ws="$1"
-  local guardrails_file="$DOYAKEN_DIR/prompts/guardrails.md"
-  local implement_skill="$DOYAKEN_DIR/skills/dkimplement/SKILL.md"
+  local guardrails_file="$DEX_DIR/prompts/guardrails.md"
+  local implement_skill="$DEX_DIR/skills/dximplement/SKILL.md"
 
-  # Extract the non-interactive mode guidance from dkimplement
+  # Extract the non-interactive mode guidance from dximplement
   local noninteractive_guidance=""
   if [[ -f "$implement_skill" ]]; then
     noninteractive_guidance=$(awk '/\*\*When running non-interactively\*\*/{found=1} found{if(/^When stopping for scope/)exit; print}' "$implement_skill")
@@ -43,7 +43,7 @@ CLAUDEMD
 capture_run() {
   local scenario="$1"
   local result_dir="$2"
-  local mode="${3:-dkloop}"
+  local mode="${3:-dxloop}"
 
   local ws
   ws=$(workspace_dir "$scenario")
@@ -79,7 +79,7 @@ capture_run() {
   if [[ "$mode" == "--lifecycle" ]]; then
     _capture_lifecycle "$scenario" "$ws" "$result_dir" "$prompt" "$timeout" || exit_code=$?
   else
-    _capture_dkloop "$scenario" "$ws" "$result_dir" "$prompt" "$timeout" || exit_code=$?
+    _capture_dxloop "$scenario" "$ws" "$result_dir" "$prompt" "$timeout" || exit_code=$?
   fi
 
   local end_epoch
@@ -111,17 +111,17 @@ capture_run() {
 
 # ── Internal execution modes ───────────────────────────────────────────────
 
-# Default mode: single claude -p invocation, similar to dkloop behavior.
+# Default mode: single claude -p invocation, similar to dxloop behavior.
 # The prompt includes instructions to plan, implement, verify, and self-review.
-_capture_dkloop() {
+_capture_dxloop() {
   local scenario="$1" ws="$2" result_dir="$3" prompt="$4" timeout="$5"
 
   # Inject guardrails into workspace as CLAUDE.md so Claude auto-reads them.
   # Without this, the workspace's own .git root isolates it from the parent repo's
-  # guardrails.md, skill files, and AGENTS.md — making DK prompt improvements invisible.
+  # guardrails.md, skill files, and AGENTS.md — making DX prompt improvements invisible.
   _inject_workspace_context "$ws"
 
-  # Build the full prompt with DK skill instructions
+  # Build the full prompt with DX skill instructions
   local full_prompt
   full_prompt="You are working in an empty project directory. Your task:
 
@@ -141,7 +141,7 @@ Work autonomously. Create all files from scratch. Do not ask questions — make 
   local session_id
   session_id="research-${scenario}-$(date +%s)-$$"
 
-  # Ensure DK state dirs exist for the stop hook
+  # Ensure DX state dirs exist for the stop hook
   local state_dir="${WORKSPACES_DIR}/.state"
   local loop_dir="${WORKSPACES_DIR}/.loops"
   mkdir -p "$state_dir" "$loop_dir"
@@ -150,10 +150,10 @@ Work autonomously. Create all files from scratch. Do not ask questions — make 
 
   # Run Claude in the workspace directory
   (cd "$ws" && \
-    DOYAKEN_DIR="$DOYAKEN_DIR" \
-    DOYAKEN_SESSION_ID="$session_id" \
-    DK_STATE_DIR="$state_dir" \
-    DK_LOOP_DIR="$loop_dir" \
+    DEX_DIR="$DEX_DIR" \
+    DEX_SESSION_ID="$session_id" \
+    DX_STATE_DIR="$state_dir" \
+    DX_LOOP_DIR="$loop_dir" \
     timeout "${timeout}s" \
     claude -p \
       --model "$CLAUDE_MODEL" \
@@ -189,10 +189,10 @@ _capture_lifecycle() {
   log_info "Phase 1: Planning"
   local plan_exit=0
   (cd "$ws" && \
-    DOYAKEN_DIR="$DOYAKEN_DIR" \
-    DOYAKEN_SESSION_ID="$session_id" \
-    DK_STATE_DIR="$state_dir" \
-    DK_LOOP_DIR="$loop_dir" \
+    DEX_DIR="$DEX_DIR" \
+    DEX_SESSION_ID="$session_id" \
+    DX_STATE_DIR="$state_dir" \
+    DX_LOOP_DIR="$loop_dir" \
     timeout "${half_timeout}s" \
     claude -p \
       --model "$CLAUDE_MODEL" \
@@ -213,20 +213,20 @@ ${prompt}" \
   # Phase 2: Implement + Verify
   log_info "Phase 2: Implement + Verify"
   local audit_prompt=""
-  local audit_file="$DOYAKEN_DIR/prompts/phase-audits/prompt-loop.md"
+  local audit_file="$DEX_DIR/prompts/phase-audits/prompt-loop.md"
   [[ -f "$audit_file" ]] && audit_prompt=$(cat "$audit_file")
 
   local impl_exit=0
   (cd "$ws" && \
-    DOYAKEN_DIR="$DOYAKEN_DIR" \
-    DOYAKEN_SESSION_ID="$session_id" \
-    DOYAKEN_LOOP_ACTIVE=1 \
-    DOYAKEN_LOOP_PROMISE="PROMPT_COMPLETE" \
-    DOYAKEN_LOOP_PHASE="prompt-loop" \
-    DOYAKEN_LOOP_MAX_ITERATIONS="$MAX_LOOP_ITERATIONS" \
-    DOYAKEN_LOOP_PROMPT="$audit_prompt" \
-    DK_STATE_DIR="$state_dir" \
-    DK_LOOP_DIR="$loop_dir" \
+    DEX_DIR="$DEX_DIR" \
+    DEX_SESSION_ID="$session_id" \
+    DEX_LOOP_ACTIVE=1 \
+    DEX_LOOP_PROMISE="PROMPT_COMPLETE" \
+    DEX_LOOP_PHASE="prompt-loop" \
+    DEX_LOOP_MAX_ITERATIONS="$MAX_LOOP_ITERATIONS" \
+    DEX_LOOP_PROMPT="$audit_prompt" \
+    DX_STATE_DIR="$state_dir" \
+    DX_LOOP_DIR="$loop_dir" \
     timeout "${half_timeout}s" \
     claude -p \
       --model "$CLAUDE_MODEL" \

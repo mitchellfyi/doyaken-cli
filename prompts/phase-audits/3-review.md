@@ -1,5 +1,5 @@
-Before stopping, complete exactly one full Doyaken review wave for the current
-`/dkreviewloop` iteration.
+Before stopping, complete exactly one full Dex review wave for the current
+`/dxreviewloop` iteration.
 
 You are in the **Review phase**. Your job in this iteration is to review the
 caller-supplied scope, fix verified findings that are safe to fix, write the
@@ -12,15 +12,15 @@ switch, rename, or delete branches or worktrees.
 
 ## Required Workflow
 
-1. Invoke the Skill tool with skill: `dkreview` and `--single-pass`.
+1. Invoke the Skill tool with skill: `dxreview` and `--single-pass`.
 2. Follow `prompts/review-wave.md` as the source of truth.
 3. Use the full-scope diff/stat/file-name commands supplied by the caller. If any
    other prompt suggests only `origin/<default>...HEAD`, override it with the
    supplied full-scope commands. If the caller supplies an entire-codebase
    inventory because no current change set exists, review that codebase scope
    and do not stop only because `git diff` is empty.
-4. Build or refresh the review context pack in global Doyaken state using
-   `dk_review_context_file`. This is the first substantive action: write a
+4. Build or refresh the review context pack in global Dex state using
+   `dx_review_context_file`. This is the first substantive action: write a
    non-empty skeleton pack, `test -s` it, and read back the first 80 lines before
    broad semantic exploration or specialist spawning.
 5. Run deterministic checks first.
@@ -36,7 +36,7 @@ switch, rename, or delete branches or worktrees.
 
 ## Result Signal Rules
 
-Write exactly one of these values to `$(dk_review_result_file "$SESSION_ID")`:
+Write exactly one of these values to `$(dx_review_result_file "$SESSION_ID")`:
 
 - `CLEAN`
 - `FINDINGS_FIXED:N`
@@ -91,5 +91,5 @@ All of these must be true before you stop:
 - No commit, push, branch creation, PR creation/update, or external reviewer
   request happened in this iteration.
 
-When those criteria are met, stop. The outer `/dkreviewloop` owns the three
+When those criteria are met, stop. The outer `/dxreviewloop` owns the three
 consecutive `CLEAN` gate.

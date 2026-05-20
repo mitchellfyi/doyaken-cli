@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# Doyaken status line — displayed persistently in Claude Code TUI via statusLine setting.
-# Reads phase state, audit loop iteration, and elapsed time from Doyaken state files.
+# Dex status line — displayed persistently in Claude Code TUI via statusLine setting.
+# Reads phase state, audit loop iteration, and elapsed time from Dex state files.
 # Must be fast (<50ms) since it runs on every TUI render cycle.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
-SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
+SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
 
 # Phase info
 PHASE="?"
-PHASE_FILE=$(dk_state_file "$SESSION_ID")
+PHASE_FILE=$(dx_state_file "$SESSION_ID")
 if [[ -f "$PHASE_FILE" ]]; then
   PHASE=$(cat "$PHASE_FILE" 2>/dev/null || echo "?")
 fi
 
 # Audit loop iteration
 ITER=""
-LOOP_FILE=$(dk_loop_file "$SESSION_ID")
+LOOP_FILE=$(dx_loop_file "$SESSION_ID")
 if [[ -f "$LOOP_FILE" ]]; then
   ITER=$(cut -d: -f1 "$LOOP_FILE" 2>/dev/null || echo "0")
-  MAX="${DOYAKEN_LOOP_MAX_ITERATIONS:-30}"
+  MAX="${DEX_LOOP_MAX_ITERATIONS:-30}"
   ITER=" | Audit ${ITER}/${MAX}"
 fi
 
 # Elapsed time from times file
 ELAPSED=""
-TIMES_FILE=$(dk_times_file "$SESSION_ID")
+TIMES_FILE=$(dx_times_file "$SESSION_ID")
 if [[ -f "$TIMES_FILE" ]]; then
   TOTAL_START=$(head -1 "$TIMES_FILE" 2>/dev/null | cut -d: -f2)
   if [[ -n "${TOTAL_START:-}" ]]; then

@@ -1,6 +1,6 @@
 # UI Capture
 
-Doyaken can capture visual evidence for browser-facing changes. The default path is automatic: if Phase 2 changes UI code, `/dkimplement` invokes `/dkuicapture` before UI edits for baseline evidence and again after implementation before review. Phase 5 (`/dkpr`) refreshes after evidence when needed and hands the user upload-ready files for the PR.
+Dex can capture visual evidence for browser-facing changes. The default path is automatic: if Phase 2 changes UI code, `/dximplement` invokes `/dxuicapture` before UI edits for baseline evidence and again after implementation before review. Phase 5 (`/dxpr`) refreshes after evidence when needed and hands the user upload-ready files for the PR.
 
 ## What It Captures
 
@@ -14,31 +14,31 @@ Doyaken can capture visual evidence for browser-facing changes. The default path
 Artifacts are written outside the repo:
 
 ```text
-~/.claude/.doyaken-artifacts/ui/<session>/
+~/.claude/.dex-artifacts/ui/<session>/
 ```
 
-Override with `DK_ARTIFACT_DIR`. These files are evidence, not source, and should not be committed. If the capture output path is inside the repo, `ui-capture.sh` refuses to write unless that path is gitignored.
+Override with `DX_ARTIFACT_DIR`. These files are evidence, not source, and should not be committed. If the capture output path is inside the repo, `ui-capture.sh` refuses to write unless that path is gitignored.
 
-GitHub does not render local artifact paths as images. Doyaken gives the user the manifest and local file paths, then the user uploads before/after screenshots manually to the PR body or a PR comment.
+GitHub does not render local artifact paths as images. Dex gives the user the manifest and local file paths, then the user uploads before/after screenshots manually to the PR body or a PR comment.
 
 ## Setup
 
-`dk install`, `dk init`, `dk sync`, and `dk tools bootstrap` install or repair the browser tooling:
+`dx install`, `dx init`, `dx sync`, and `dx tools bootstrap` install or repair the browser tooling:
 
-- Playwright in `~/.claude/.doyaken-tools/ui-capture/`
+- Playwright in `~/.claude/.dex-tools/ui-capture/`
 - Playwright MCP for Claude and Codex when those CLIs are installed
 - Chrome DevTools MCP for Claude and Codex when those CLIs are installed
 
 Check status:
 
 ```bash
-dk status
+dx status
 ```
 
 Repair manually:
 
 ```bash
-bash "$DOYAKEN_DIR/bin/ui-capture.sh" --install-only
+bash "$DEX_DIR/bin/ui-capture.sh" --install-only
 ```
 
 ## Before/After Workflow
@@ -61,7 +61,7 @@ Before capture: unavailable — UI was already modified before capture.
 Start the app with the repo's normal dev command, then run:
 
 ```bash
-bash "$DOYAKEN_DIR/bin/ui-capture.sh" \
+bash "$DEX_DIR/bin/ui-capture.sh" \
   --url "http://127.0.0.1:3000" \
   --name "before-home-page" \
   --desktop \
@@ -81,14 +81,14 @@ module.exports = async ({ page, screenshot }) => {
 ```
 
 ```bash
-bash "$DOYAKEN_DIR/bin/ui-capture.sh" \
+bash "$DEX_DIR/bin/ui-capture.sh" \
   --url "http://127.0.0.1:3000/settings" \
   --name "settings-flow" \
   --desktop \
   --mobile \
   --video \
   --trace \
-  --flow "$HOME/.claude/.doyaken-artifacts/ui/manual/settings-flow.cjs"
+  --flow "$HOME/.claude/.dex-artifacts/ui/manual/settings-flow.cjs"
 ```
 
 The command prints absolute paths for the screenshots, traces, videos, metadata, logs, and session manifest. It also appends the capture run to `visual-evidence.md`. Use those paths as markdown links in the Phase 2 evidence.
@@ -112,8 +112,8 @@ Fix real runtime issues before Phase 2 completes. If an entry is expected or unr
 
 | Symptom | Fix |
 |---------|-----|
-| `Node.js, npm, and npx are required` | Install Node.js, then rerun `dk install` |
-| MCP servers are incomplete | Run `bash "$DOYAKEN_DIR/bin/ui-capture.sh" --install-only` |
+| `Node.js, npm, and npx are required` | Install Node.js, then rerun `dx install` |
+| MCP servers are incomplete | Run `bash "$DEX_DIR/bin/ui-capture.sh" --install-only` |
 | App is not reachable | Start the dev server first and use the printed local URL |
 | Video is missing | Pass `--video`; video files are written after the browser context closes |
 | Trace will not open | Use Playwright Trace Viewer, or rerun with `--trace` if the ZIP is missing |

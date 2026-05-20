@@ -1,12 +1,12 @@
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  DK AUTORESEARCH — Suite Run
+  DX AUTORESEARCH — Suite Run
 
   Run ID:    run-20260324-105555
   Iteration: 0
-  DK commit: 906cc58
+  DX commit: 906cc58
   Model:     opus
-  Mode:      dkloop
+  Mode:      dxloop
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [0;36m[INFO][0m Running 12 scenario(s): auth-jwt-api buggy-code-fix cli-todo-app data-validation-lib edge-ambiguous-spec edge-no-tests multi-file-feature react-component-lib refactor-duplication rest-api-crud sql-orm-api websocket-chat
@@ -15,7 +15,7 @@
 [0;35m[STEP][0m [1/12] auth-jwt-api
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: auth-jwt-api
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/auth-jwt-api
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/auth-jwt-api
 [0;35m[STEP][0m Executing scenario: auth-jwt-api (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario auth-jwt-api completed in 877s
@@ -32,7 +32,7 @@
 [0;35m[STEP][0m [2/12] buggy-code-fix
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: buggy-code-fix
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/buggy-code-fix
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/buggy-code-fix
 [0;35m[STEP][0m Executing scenario: buggy-code-fix (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario buggy-code-fix completed in 133s
@@ -49,7 +49,7 @@
 [0;35m[STEP][0m [3/12] cli-todo-app
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: cli-todo-app
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/cli-todo-app
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/cli-todo-app
 [0;35m[STEP][0m Executing scenario: cli-todo-app (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario cli-todo-app completed in 147s
@@ -66,7 +66,7 @@
 [0;35m[STEP][0m [4/12] data-validation-lib
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: data-validation-lib
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/data-validation-lib
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/data-validation-lib
 [0;35m[STEP][0m Executing scenario: data-validation-lib (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario data-validation-lib completed in 283s
@@ -83,7 +83,7 @@
 [0;35m[STEP][0m [5/12] edge-ambiguous-spec
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: edge-ambiguous-spec
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/edge-ambiguous-spec
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/edge-ambiguous-spec
 [0;35m[STEP][0m Executing scenario: edge-ambiguous-spec (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario edge-ambiguous-spec completed in 272s
@@ -100,7 +100,7 @@
 [0;35m[STEP][0m [6/12] edge-no-tests
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: edge-no-tests
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/edge-no-tests
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/edge-no-tests
 [0;35m[STEP][0m Executing scenario: edge-no-tests (timeout: 600s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario edge-no-tests completed in 109s
@@ -117,7 +117,7 @@
 [0;35m[STEP][0m [7/12] multi-file-feature
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: multi-file-feature
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/multi-file-feature
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/multi-file-feature
 [0;35m[STEP][0m Executing scenario: multi-file-feature (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario multi-file-feature completed in 501s
@@ -134,7 +134,7 @@
 [0;35m[STEP][0m [8/12] react-component-lib
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: react-component-lib
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/react-component-lib
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/react-component-lib
 [0;35m[STEP][0m Executing scenario: react-component-lib (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;33m[WARN][0m Scenario react-component-lib exited with code 124 in 901s
@@ -151,7 +151,7 @@
 [0;35m[STEP][0m [9/12] refactor-duplication
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: refactor-duplication
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/refactor-duplication
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/refactor-duplication
 [0;35m[STEP][0m Executing scenario: refactor-duplication (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario refactor-duplication completed in 253s
@@ -168,7 +168,7 @@
 [0;35m[STEP][0m [10/12] rest-api-crud
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: rest-api-crud
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/rest-api-crud
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/rest-api-crud
 [0;35m[STEP][0m Executing scenario: rest-api-crud (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario rest-api-crud completed in 139s
@@ -185,7 +185,7 @@
 [0;35m[STEP][0m [11/12] sql-orm-api
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: sql-orm-api
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/sql-orm-api
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/sql-orm-api
 [0;35m[STEP][0m Executing scenario: sql-orm-api (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario sql-orm-api completed in 822s
@@ -202,7 +202,7 @@
 [0;35m[STEP][0m [12/12] websocket-chat
 ────────────────────────────────────────────────────────────────────
 [0;36m[INFO][0m Resetting workspace: websocket-chat
-[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/workspaces/websocket-chat
+[0;36m[INFO][0m Created workspace: /Users/mitchell/Dropbox/work/Personal/dex/research/workspaces/websocket-chat
 [0;35m[STEP][0m Executing scenario: websocket-chat (timeout: 900s)
 [0;36m[INFO][0m Injected CLAUDE.md into workspace
 [0;32m[OK][0m Scenario websocket-chat completed in 511s
@@ -239,8 +239,8 @@ AVERAGE                                                                   89.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Run complete: run-20260324-105555
   Average score: 89 / 100
-  Results: /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/results/run-20260324-105555
-  Scores:  /Users/mitchell/Dropbox/work/Personal/doyaken-cli/research/results/scores.tsv
+  Results: /Users/mitchell/Dropbox/work/Personal/dex/research/results/run-20260324-105555
+  Scores:  /Users/mitchell/Dropbox/work/Personal/dex/research/results/scores.tsv
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 run-20260324-105555

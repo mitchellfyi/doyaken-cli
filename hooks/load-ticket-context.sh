@@ -5,7 +5,7 @@
 # Feeds context into the phase system — see docs/autonomous-mode.md for lifecycle flow.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
@@ -23,8 +23,8 @@ if [[ "$BRANCH" != worktree-task-* ]]; then
 fi
 
 REPO_TOP=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-SESSION_ID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
-TASK_PROMPT_FILE=$(dk_prompt_file "$SESSION_ID")
+SESSION_ID="${DEX_SESSION_ID:-$(dx_session_id)}"
+TASK_PROMPT_FILE=$(dx_prompt_file "$SESSION_ID")
 
 if [[ -n "$TICKET_NUM" ]]; then
   echo "Ticket number: ${TICKET_NUM}"
@@ -32,7 +32,7 @@ if [[ -n "$TICKET_NUM" ]]; then
   echo ""
 
   # Load instructions template and substitute variables
-  INSTRUCTIONS_FILE="$DOYAKEN_DIR/prompts/ticket-instructions.md"
+  INSTRUCTIONS_FILE="$DEX_DIR/prompts/ticket-instructions.md"
   if [[ -f "$INSTRUCTIONS_FILE" ]]; then
     # Use bash substitution instead of sed to avoid special character issues
     # in branch names (& and | break sed replacement/delimiter)
@@ -46,27 +46,27 @@ elif [[ -f "$TASK_PROMPT_FILE" ]]; then
   echo ""
   echo "Task: $(cat "$TASK_PROMPT_FILE")"
   echo ""
-  echo "Use /doyaken to begin work on this task, or work on it directly."
-elif [[ -f "$REPO_TOP/.doyaken-prompt" ]]; then
+  echo "Use /dex to begin work on this task, or work on it directly."
+elif [[ -f "$REPO_TOP/.dex-prompt" ]]; then
   echo "Branch: ${BRANCH}"
   echo ""
-  echo "Task: $(cat "$REPO_TOP/.doyaken-prompt")"
+  echo "Task: $(cat "$REPO_TOP/.dex-prompt")"
   echo ""
-  echo "Use /doyaken to begin work on this task, or work on it directly."
+  echo "Use /dex to begin work on this task, or work on it directly."
 else
   echo "Branch: ${BRANCH}"
   echo ""
   echo "No ticket number detected in branch name."
-  echo "You can still use /doyaken to begin work — context will be gathered from the user and codebase."
+  echo "You can still use /dex to begin work — context will be gathered from the user and codebase."
 fi
 
 # Context-aware behavioural hints based on changed files.
-# These generic patterns work without dk init — they detect common directory
+# These generic patterns work without dx init — they detect common directory
 # conventions (frontend/, backend/, migrations/, etc.). Project-specific focus
-# areas can be defined in .doyaken/rules/ after running dk init.
+# areas can be defined in .dex/rules/ after running dx init.
 # Uses origin/ prefix so the diff compares against the remote default branch,
-# not a potentially stale local copy (consistent with dk.sh __dk_show_header).
-DEFAULT_BRANCH=$(dk_default_branch "$REPO_TOP")
+# not a potentially stale local copy (consistent with dx.sh __dx_show_header).
+DEFAULT_BRANCH=$(dx_default_branch "$REPO_TOP")
 CHANGED_FILES=$(git diff "origin/${DEFAULT_BRANCH}...HEAD" --name-only 2>/dev/null || echo "")
 FOCUS_AREAS=""
 
@@ -86,11 +86,11 @@ fi
 if [[ -n "$FOCUS_AREAS" ]]; then
   echo ""
   echo "Focus areas detected:${FOCUS_AREAS}"
-  echo "Prioritise reading the relevant rules from .doyaken/rules/ for these areas."
+  echo "Prioritise reading the relevant rules from .dex/rules/ for these areas."
 fi
 
-if [[ -f "$REPO_TOP/.doyaken/memory/index.md" ]]; then
+if [[ -f "$REPO_TOP/.dex/memory/index.md" ]]; then
   echo ""
-  echo "Repo memory index detected: .doyaken/memory/index.md"
+  echo "Repo memory index detected: .dex/memory/index.md"
   echo "Load only active memory entries whose scope matches the task, changed files, or current phase."
 fi

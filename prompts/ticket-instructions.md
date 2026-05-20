@@ -1,4 +1,4 @@
-IMPORTANT: These steps run in Phase 0 (Setup) of the `dk` lifecycle. Phase 0 runs in NORMAL mode (no plan mode), so you can write to git and the tracker before Phase 1 begins. Use the ticket tracker configured in doyaken.md § Integrations. If no tracker is configured, skip tracker steps. Do NOT call `EnterPlanMode` during this phase.
+IMPORTANT: These steps run in Phase 0 (Setup) of the `dx` lifecycle. Phase 0 runs in NORMAL mode (no plan mode), so you can write to git and the tracker before Phase 1 begins. Use the ticket tracker configured in dex.md § Integrations. If no tracker is configured, skip tracker steps. Do NOT call `EnterPlanMode` during this phase.
 
 1. Gather ticket context from the configured ticket tracker:
 
@@ -7,7 +7,7 @@ IMPORTANT: These steps run in Phase 0 (Setup) of the `dk` lifecycle. Phase 0 run
    - If the tracker supports assignees: check the assignee. If assigned to someone else, STOP and warn. If unassigned, assign to the current user (for Linear: use `save_issue` with `assignee: "me"`).
    - If no tracker is configured: use the branch name `{{BRANCH}}` and the local filesystem for context. Ask the user what they want to work on.
 
-2. Rename and push the branch — **do NOT create the draft PR yet**. The PR is created later by `/dkpr` (Phase 5) once the implementation has been committed. Creating it upfront on an empty branch fails with "No commits between main and …" and forces an empty bootstrap commit; deferring avoids that whole dance.
+2. Rename and push the branch — **do NOT create the draft PR yet**. The PR is created later by `/dxpr` (Phase 5) once the implementation has been committed. Creating it upfront on an empty branch fails with "No commits between main and …" and forces an empty bootstrap commit; deferring avoids that whole dance.
 
    **If ticket context was found**:
    - Rename to match the ticket's git branch name (returned by the tracker — e.g., Linear's `branchName` field from `get_issue`):
@@ -23,11 +23,11 @@ IMPORTANT: These steps run in Phase 0 (Setup) of the `dk` lifecycle. Phase 0 run
      git push -u origin {{BRANCH}}
      ```
 
-   - After renaming, update the per-session meta sidecar so `dk <N>` can find this worktree later even though the branch no longer matches `worktree-ticket-*`:
+   - After renaming, update the per-session meta sidecar so `dx <N>` can find this worktree later even though the branch no longer matches `worktree-ticket-*`:
      ```bash
-     source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-     SID="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
-     dk_meta_write "$SID" "tracker_key=<KEY-N>" "current_branch=$(git rev-parse --abbrev-ref HEAD)"
+     source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+     SID="${DEX_SESSION_ID:-$(dx_session_id)}"
+     dx_meta_write "$SID" "tracker_key=<KEY-N>" "current_branch=$(git rev-parse --abbrev-ref HEAD)"
      ```
      Use the tracker's key (e.g. `ENG-999`). If no tracker is configured, only the `current_branch` field is required.
 
@@ -46,8 +46,8 @@ IMPORTANT: These steps run in Phase 0 (Setup) of the `dk` lifecycle. Phase 0 run
 6. Once setup steps 1–5 are complete, write the Phase 0 ready marker so the Stop hook can audit and advance:
 
    ```bash
-   source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-   touch "$(dk_phase_ready_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}" 0)"
+   source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+   touch "$(dx_phase_ready_file "${DEX_SESSION_ID:-$(dx_session_id)}" 0)"
    ```
 
-   Then print a brief one-line summary of what was set up (branch, ticket status, assignee) and stop once. Do NOT call `EnterPlanMode`, do NOT invoke `/dkplan`, and do NOT wait for a "ready to start?" prompt — the Stop hook will inject Phase 1 instructions automatically. The user can interrupt at any time if they want to redirect.
+   Then print a brief one-line summary of what was set up (branch, ticket status, assignee) and stop once. Do NOT call `EnterPlanMode`, do NOT invoke `/dxplan`, and do NOT wait for a "ready to start?" prompt — the Stop hook will inject Phase 1 instructions automatically. The user can interrupt at any time if they want to redirect.

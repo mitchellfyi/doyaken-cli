@@ -46,12 +46,12 @@ For each acceptance criterion from the plan, fill in the evidence table:
 - If a local port is busy or a service is unavailable, resolve it locally (for example, use another port or start the missing service) and rerun the required verification. Do not substitute future CI for a required Phase 2 check.
 - Use a plain GitHub Markdown table or short bullets. Do not use Unicode box-drawing tables; they wrap poorly in Claude Code transcripts.
 
-## Step 4: `.doyaken/` Freshness
+## Step 4: `.dex/` Freshness
 
 Check if your implementation introduced any of these:
-- New dependencies or tooling changes → `.doyaken/doyaken.md` § Tech Stack / Quality Gates updated?
-- New code patterns or conventions → relevant `.doyaken/rules/*.md` updated?
-- New security boundaries or sensitive paths → `.doyaken/guards/` updated?
+- New dependencies or tooling changes → `.dex/dex.md` § Tech Stack / Quality Gates updated?
+- New code patterns or conventions → relevant `.dex/rules/*.md` updated?
+- New security boundaries or sensitive paths → `.dex/guards/` updated?
 
 If updates are needed but missing, make them now.
 
@@ -61,20 +61,20 @@ If you discovered conventions, repeated failure patterns, review expectations,
 or interface details that would help future tasks, decide where they belong:
 
 - Clear, current project rule that future agents should follow now -> update the
-  relevant `.doyaken/rules/*.md` file.
+  relevant `.dex/rules/*.md` file.
 - Enforceable safety pattern with a narrow detector -> add or update a
-  `.doyaken/guards/*.md` rule.
+  `.dex/guards/*.md` rule.
 - Durable lesson that needs evidence, recurrence, or review before becoming
-  trusted -> run `/dksync --dry-run` or include it in the Phase 2 summary as a
-  candidate observation for `dk sync`.
+  trusted -> run `/dxsync --dry-run` or include it in the Phase 2 summary as a
+  candidate observation for `dx sync`.
 
-Do not create `.doyaken/learnings.md`. Raw observations are not trusted memory.
-Durable memory belongs in `.doyaken/memory/domains/` only after `/dksync` or
-`dk sync` promotes it through a reviewable diff.
+Do not create `.dex/learnings.md`. Raw observations are not trusted memory.
+Durable memory belongs in `.dex/memory/domains/` only after `/dxsync` or
+`dx sync` promotes it through a reviewable diff.
 
 ## Step 6: UI Capture Evidence
 
-If the implementation affects browser UI, run `/dkuicapture` before stopping.
+If the implementation affects browser UI, run `/dxuicapture` before stopping.
 
 Required evidence for UI-affecting changes:
 
@@ -84,11 +84,11 @@ Required evidence for UI-affecting changes:
 - Playwright trace for captured routes/views
 - Video for interactive flows (clicks, forms, navigation, modals, menus, drag/drop, auth, checkout, onboarding, uploads)
 - Console, page, network, and HTTP error logs checked
-- `visual-evidence.md` manifest under Doyaken's artifact directory, with before and after links grouped for PR upload
+- `visual-evidence.md` manifest under Dex's artifact directory, with before and after links grouped for PR upload
 - Absolute links to all screenshots/videos/traces/logs included in the evidence table or final Phase 2 summary
 
-Artifacts must live under Doyaken's artifact directory (`${DK_ARTIFACT_DIR:-~/.claude/.doyaken-artifacts}`) and must not be committed or staged.
-If `DK_ARTIFACT_DIR` points inside the repo, verify the artifact path is gitignored before writing captures.
+Artifacts must live under Dex's artifact directory (`${DX_ARTIFACT_DIR:-~/.claude/.dex-artifacts}`) and must not be committed or staged.
+If `DX_ARTIFACT_DIR` points inside the repo, verify the artifact path is gitignored before writing captures.
 
 If the implementation does not affect browser UI, include:
 
@@ -105,14 +105,14 @@ ALL of these must be true before you stop:
 - No acceptance criterion or verification gate is deferred, skipped, blocked, or delegated to future CI
 - No TODO/FIXME/debugging artifacts remain
 - No background agents or long-running verification commands started during Phase 2 are still in flight
-- Any needed `.doyaken/` updates are staged
+- Any needed `.dex/` updates are staged
 - UI capture evidence is linked for UI-affecting changes, including before/after evidence or a before-unavailable reason, or UI capture is explicitly N/A
 
-Before writing the completion signal in a terminal `dk` lifecycle, write the Phase 2 ready marker. Do this only after every completion criterion above is true:
+Before writing the completion signal in a terminal `dx` lifecycle, write the Phase 2 ready marker. Do this only after every completion criterion above is true:
 
 ```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
-touch "$(dk_phase_ready_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}" 2)"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
+touch "$(dx_phase_ready_file "${DEX_SESSION_ID:-$(dx_session_id)}" 2)"
 ```
 
 When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions. The next phase (Review) will perform deep adversarial code review.

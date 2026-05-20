@@ -14,7 +14,7 @@ report_init_tsv() {
       "run_id" "timestamp" "iteration" "scenario" \
       "correctness" "test_quality" "robustness" "verification" \
       "issue_detection" "code_quality" "total" \
-      "dk_commit" "duration_s" "cost_usd" \
+      "dx_commit" "duration_s" "cost_usd" \
       > "$SCORES_TSV"
   fi
 }
@@ -50,8 +50,8 @@ report_append_score() {
     duration=$(json_field "$timing_file" "duration_s")
   fi
 
-  local dk_commit
-  dk_commit=$(dk_commit_hash)
+  local dx_commit
+  dx_commit=$(dx_commit_hash)
   local timestamp
   timestamp=$(date +%s)
 
@@ -59,7 +59,7 @@ report_append_score() {
     "$run_id" "$timestamp" "$iteration" "$scenario" \
     "$correctness" "$test_quality" "$robustness" "$verification" \
     "$issue_detection" "$code_quality" "$total" \
-    "$dk_commit" "$duration" "$cost" \
+    "$dx_commit" "$duration" "$cost" \
     >> "$SCORES_TSV"
 }
 

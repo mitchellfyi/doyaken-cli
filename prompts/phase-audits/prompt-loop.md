@@ -4,7 +4,7 @@ If you haven't already, read the implementation guardrails from `prompts/guardra
 
 ## Step 1: Acceptance Criteria Extraction
 
-Your original task prompt is reprinted above (under "Original Task Prompt"). If it is not visible, read it from the file path in your system prompt using the Read tool, or check `~/.claude/.doyaken-loops/` for a `.prompt` file matching your session.
+Your original task prompt is reprinted above (under "Original Task Prompt"). If it is not visible, read it from the file path in your system prompt using the Read tool, or check `~/.claude/.dex-loops/` for a `.prompt` file matching your session.
 
 List every distinct acceptance criterion as a numbered list — this list is your contract for all subsequent steps.
 
@@ -20,13 +20,13 @@ Verify your understanding against the guardrails:
 - Can you answer the five understanding-check questions from `prompts/guardrails.md`?
 - Have you identified the failure modes and resource cleanup needs?
 
-**Session classification:** Run `git diff --name-only` and `git status --porcelain`. If any production code files were created or modified (not just docs/config), this is a **code-change session**. Otherwise it is a **non-code session**. This classification determines whether the `/dkreview --single-pass` review wave runs in subsequent steps.
+**Session classification:** Run `git diff --name-only` and `git status --porcelain`. If any production code files were created or modified (not just docs/config), this is a **code-change session**. Otherwise it is a **non-code session**. This classification determines whether the `/dxreview --single-pass` review wave runs in subsequent steps.
 
-## Step 2: Self-Review via /dkreview --single-pass (code-change sessions only)
+## Step 2: Self-Review via /dxreview --single-pass (code-change sessions only)
 
 **Skip this step if this is a non-code session.**
 
-Run `/dkreview --single-pass` on your changes (if you haven't already since your last code change). This audit loop already owns repetition, so do not invoke `/dkreview` in its default looping mode here. The single-pass review wave handles deterministic checks, issue harvest, verifier triage, batch fixes, and targeted recheck.
+Run `/dxreview --single-pass` on your changes (if you haven't already since your last code change). This audit loop already owns repetition, so do not invoke `/dxreview` in its default looping mode here. The single-pass review wave handles deterministic checks, issue harvest, verifier triage, batch fixes, and targeted recheck.
 
 Read the report carefully. If the review wave applied fixes, restart this audit from Step 1 so the acceptance criteria and current diff are fresh. If findings remain, record them for the inventory in Step 5.
 
@@ -34,7 +34,7 @@ Read the report carefully. If the review wave applied fixes, restart this audit 
 
 **CRITICAL: Do NOT fix anything during this step. Only find and record.**
 
-Perform four manual review passes over ALL your changes, in addition to any `/dkreview --single-pass` findings from Step 2. For each issue, record: `[INV-N] file:line | Pass | Severity | Description`
+Perform four manual review passes over ALL your changes, in addition to any `/dxreview --single-pass` findings from Step 2. For each issue, record: `[INV-N] file:line | Pass | Severity | Description`
 
 Reference `prompts/review.md` for the full criteria behind each pass.
 
@@ -78,9 +78,9 @@ Run `git diff` against the base branch and review ALL changes together:
 ## Step 4: Fallback Independent Self-Reviewer Agent (code-change sessions only)
 
 **Skip this step if this is a non-code session.**
-**Skip this step if `/dkreview --single-pass` completed a review wave successfully.**
+**Skip this step if `/dxreview --single-pass` completed a review wave successfully.**
 
-If `/dkreview --single-pass` could not run because the Skill tool or required specialist/verifier agents were unavailable, spawn the `self-reviewer` agent to get an independent review perspective. Provide:
+If `/dxreview --single-pass` could not run because the Skill tool or required specialist/verifier agents were unavailable, spawn the `self-reviewer` agent to get an independent review perspective. Provide:
 - The acceptance criteria list from Step 1 (copy verbatim)
 - The current branch name and base branch (from `git rev-parse --abbrev-ref HEAD` and the default branch)
 - Which areas of the codebase have changed files (from `git diff --name-only`)
@@ -96,15 +96,15 @@ Merge findings from all sources into a single inventory. Deduplicate by file:lin
 
 | # | File:Line | Source | Pass | Severity | Description |
 |---|-----------|--------|------|----------|-------------|
-| INV-1 | ... | dkreview | A | high | ... |
+| INV-1 | ... | dxreview | A | high | ... |
 | INV-2 | ... | manual | C | medium | ... |
 | INV-3 | ... | agent | B | high | ... |
 
 Total: N findings (X high, Y medium, Z low)
 ```
 
-Source values: `dkreview`, `manual`, `agent`.
-If `/dkreview --single-pass` did not run (non-code session), omit that source.
+Source values: `dxreview`, `manual`, `agent`.
+If `/dxreview --single-pass` did not run (non-code session), omit that source.
 If the self-reviewer agent was not spawned, omit that source.
 
 - If the inventory is **empty** → skip to Step 7.
@@ -115,9 +115,9 @@ If the self-reviewer agent was not spawned, omit that source.
 After building the inventory, compute and record a findings hash so the stop hook can detect stuck loops:
 
 ```bash
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 FINDINGS_HASH=$(echo "<sorted list of INV-N descriptions>" | shasum -a 256 | cut -c1-16)
-echo "$FINDINGS_HASH" >> "$(dk_findings_file "${DOYAKEN_SESSION_ID:-$(dk_session_id)}")"
+echo "$FINDINGS_HASH" >> "$(dx_findings_file "${DEX_SESSION_ID:-$(dx_session_id)}")"
 ```
 
 Replace `<sorted list of INV-N descriptions>` with the actual finding descriptions from your inventory, sorted alphabetically, one per line. If the inventory is empty, use the string "EMPTY".
@@ -126,17 +126,17 @@ Replace `<sorted list of INV-N descriptions>` with the actual finding descriptio
 
 1. Fix all inventory items in severity order (high → medium → low).
 2. After ALL fixes are applied:
-   - **Code-change sessions:** re-run `/dkreview --single-pass` on the **full scope** (not just modified files).
+   - **Code-change sessions:** re-run `/dxreview --single-pass` on the **full scope** (not just modified files).
    - Re-run your manual passes (Step 3) on the **entire change set** — fixes can regress untouched files.
-   - Re-spawn the self-reviewer agent only if `/dkreview --single-pass` could not run. **Maximum 3 total fallback agent spawns** (including the initial spawn in Step 4).
+   - Re-spawn the self-reviewer agent only if `/dxreview --single-pass` could not run. **Maximum 3 total fallback agent spawns** (including the initial spawn in Step 4).
 3. If new findings → add to inventory, fix, and re-verify. **Maximum 3 cycles.**
 4. Do NOT proceed with known findings. If findings persist after 3 cycles, continue fixing — the iteration limit in the stop hook is the only safety valve, not this step.
 
-## Step 7: /dkverify Quality Pipeline (code-change sessions only)
+## Step 7: /dxverify Quality Pipeline (code-change sessions only)
 
 **Skip this step if this is a non-code session.**
 
-Run /dkverify to execute the full quality verification pipeline:
+Run /dxverify to execute the full quality verification pipeline:
 1. Format — auto-fix formatting issues
 2. Lint — auto-fix where possible, manual fix where not
 3. Type-check — fix type errors
@@ -166,29 +166,29 @@ For each acceptance criterion from Step 1, fill in the evidence table:
 - Prose claims ("I verified this") are NOT evidence. Cite specific locations.
 - Any NOT MET entry blocks completion — go back and implement/test it.
 
-## Step 9: `.doyaken/` Freshness (if applicable)
+## Step 9: `.dex/` Freshness (if applicable)
 
-If the project has a `.doyaken/` directory, check whether your changes introduced:
-- New dependencies or tooling changes → `.doyaken/doyaken.md` updated?
-- New code patterns or conventions → relevant `.doyaken/rules/*.md` updated?
-- New security boundaries or sensitive paths → `.doyaken/guards/` updated?
-- Durable repo lessons that should help future agents → `/dksync --dry-run`
-  run, or candidate observations recorded in the final summary for `dk sync`
+If the project has a `.dex/` directory, check whether your changes introduced:
+- New dependencies or tooling changes → `.dex/dex.md` updated?
+- New code patterns or conventions → relevant `.dex/rules/*.md` updated?
+- New security boundaries or sensitive paths → `.dex/guards/` updated?
+- Durable repo lessons that should help future agents → `/dxsync --dry-run`
+  run, or candidate observations recorded in the final summary for `dx sync`
 
 If updates are needed but missing, make them now.
-Do not create `.doyaken/learnings.md`; raw observations must be promoted through
-`/dksync` or `dk sync` before they become trusted memory.
+Do not create `.dex/learnings.md`; raw observations must be promoted through
+`/dxsync` or `dx sync` before they become trusted memory.
 
 ## Completion Gate
 
 ALL of these must be true before you stop:
 - Every acceptance criterion from Step 1 has status MET in the evidence table (Step 8)
 - The findings inventory from your last re-verification (Step 6) is empty
-- **Code-change sessions:** `/dkreview --single-pass` result is `CLEAN`, AND you have run `/dkreview --single-pass` AFTER your most recent code change
-- **Code-change sessions:** /dkverify passes — format, lint, typecheck, tests all green (Step 7)
-- Any needed `.doyaken/` updates are applied (Step 9)
+- **Code-change sessions:** `/dxreview --single-pass` result is `CLEAN`, AND you have run `/dxreview --single-pass` AFTER your most recent code change
+- **Code-change sessions:** /dxverify passes — format, lint, typecheck, tests all green (Step 7)
+- Any needed `.dex/` updates are applied (Step 9)
 - You have re-verified AFTER your most recent change of any kind
 
-Do NOT stop if any acceptance criterion is NOT MET, any findings remain, `/dkreview --single-pass` is not `CLEAN` (for code changes), or /dkverify has failures (for code changes). Fix first, then re-audit from Step 3.
+Do NOT stop if any acceptance criterion is NOT MET, any findings remain, `/dxreview --single-pass` is not `CLEAN` (for code changes), or /dxverify has failures (for code changes). Fix first, then re-audit from Step 3.
 
 When all criteria are met, stop. The Stop hook will verify your work and provide completion instructions after sufficient consecutive clean audit passes.

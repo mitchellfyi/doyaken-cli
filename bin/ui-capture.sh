@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
-# doyaken UI capture — Playwright-backed screenshots, traces, and videos
+# dex UI capture — Playwright-backed screenshots, traces, and videos
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 usage() {
   cat <<'USAGE'
@@ -12,7 +12,7 @@ Usage:
   ui-capture.sh --install-only
 
 Artifacts are written to:
-  ${DK_ARTIFACT_DIR:-~/.claude/.doyaken-artifacts}/ui/<session>/
+  ${DX_ARTIFACT_DIR:-~/.claude/.dex-artifacts}/ui/<session>/
 USAGE
 }
 
@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --url)
       [[ $# -ge 2 ]] || {
-        dk_error "--url requires a value"
+        dx_error "--url requires a value"
         usage
         exit 2
       }
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --name)
       [[ $# -ge 2 ]] || {
-        dk_error "--name requires a value"
+        dx_error "--name requires a value"
         usage
         exit 2
       }
@@ -57,7 +57,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --out)
       [[ $# -ge 2 ]] || {
-        dk_error "--out requires a value"
+        dx_error "--out requires a value"
         usage
         exit 2
       }
@@ -71,7 +71,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --flow|--wait-ms)
       [[ $# -ge 2 ]] || {
-        dk_error "$1 requires a value"
+        dx_error "$1 requires a value"
         usage
         exit 2
       }
@@ -83,28 +83,28 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      dk_error "Unknown argument: $1"
+      dx_error "Unknown argument: $1"
       usage
       exit 2
       ;;
   esac
 done
 
-if ! dk_install_ui_capture_playwright; then
-  dk_error "UI capture tooling is not ready"
+if ! dx_install_ui_capture_playwright; then
+  dx_error "UI capture tooling is not ready"
   exit 1
 fi
 
 mcp_failed=0
-dk_install_claude_ui_mcp_servers || mcp_failed=1
-dk_install_codex_ui_mcp_servers || mcp_failed=1
+dx_install_claude_ui_mcp_servers || mcp_failed=1
+dx_install_codex_ui_mcp_servers || mcp_failed=1
 
 if [[ "$mcp_failed" -eq 1 ]]; then
   if [[ "$install_only" -eq 1 ]]; then
-    dk_error "Browser MCP server setup is incomplete"
+    dx_error "Browser MCP server setup is incomplete"
     exit 1
   fi
-  dk_warn "Browser MCP server setup is incomplete; continuing with deterministic Playwright capture"
+  dx_warn "Browser MCP server setup is incomplete; continuing with deterministic Playwright capture"
 fi
 
 if [[ "$install_only" -eq 1 ]]; then
@@ -112,17 +112,17 @@ if [[ "$install_only" -eq 1 ]]; then
 fi
 
 if [[ -z "$url" ]]; then
-  dk_error "Missing required --url"
+  dx_error "Missing required --url"
   usage
   exit 2
 fi
 
-session_id="${DOYAKEN_SESSION_ID:-$(dk_session_id)}"
+session_id="${DEX_SESSION_ID:-$(dx_session_id)}"
 run_name=$(slugify "$name")
 [[ -n "$run_name" ]] || run_name="capture"
 
 if [[ -z "$out_dir" ]]; then
-  out_dir=$(dk_ui_capture_run_dir "$session_id" "$run_name")
+  out_dir=$(dx_ui_capture_run_dir "$session_id" "$run_name")
   runner_args+=("--out" "$out_dir")
 fi
 
@@ -137,7 +137,7 @@ if [[ -n "$repo_root" ]]; then
   case "$abs_out_dir" in
     "$repo_root"/*)
       if ! git check-ignore -q "$abs_out_dir"; then
-        dk_error "UI artifact directory is inside the repo and is not ignored: $abs_out_dir"
+        dx_error "UI artifact directory is inside the repo and is not ignored: $abs_out_dir"
         exit 1
       fi
       ;;
@@ -146,14 +146,14 @@ fi
 
 mkdir -p "$out_dir"
 
-dk_info "Capturing UI artifacts for ${url}"
+dx_info "Capturing UI artifacts for ${url}"
 capture_output=$(
-  DK_UI_CAPTURE_TOOLS_DIR="$(dk_ui_capture_tools_dir)" \
-    node "$DOYAKEN_DIR/scripts/ui-capture.cjs" "${runner_args[@]}"
+  DX_UI_CAPTURE_TOOLS_DIR="$(dx_ui_capture_tools_dir)" \
+    node "$DEX_DIR/scripts/ui-capture.cjs" "${runner_args[@]}"
 )
 printf '%s\n' "$capture_output"
 
-manifest="$(dk_ui_capture_manifest_file "$session_id")"
+manifest="$(dx_ui_capture_manifest_file "$session_id")"
 mkdir -p "$(dirname "$manifest")"
 if [[ ! -f "$manifest" ]]; then
   {

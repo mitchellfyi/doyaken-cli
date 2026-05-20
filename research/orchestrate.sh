@@ -40,9 +40,9 @@ safety_check_branch
 safety_check_clean
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  DK AUTORESEARCH — Autonomous Orchestrator"
+echo "  DX AUTORESEARCH — Autonomous Orchestrator"
 echo ""
-echo "  Branch:     $(dk_branch)"
+echo "  Branch:     $(dx_branch)"
 echo "  Max cycles: ${MAX_CYCLES:-∞}"
 echo "  Interval:   ${INTERVAL}s"
 echo "  Started:    $(date)"
@@ -110,22 +110,22 @@ while true; do
     _orchestrate_log "All scenarios scoring 90+! Merging to main."
 
     # Commit any pending changes
-    if [[ -n "$(git -C "$DOYAKEN_DIR" status --porcelain)" ]]; then
-      (cd "$DOYAKEN_DIR" && git add -A && git commit -m "research: all scenarios 90+ (cycle $CYCLE, aggregate $AGG_SCORE)
+    if [[ -n "$(git -C "$DEX_DIR" status --porcelain)" ]]; then
+      (cd "$DEX_DIR" && git add -A && git commit -m "research: all scenarios 90+ (cycle $CYCLE, aggregate $AGG_SCORE)
 
-Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>") || true
+Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>") || true
     fi
 
     # Merge to main
     current_branch=""
-    current_branch=$(dk_branch)
+    current_branch=$(dx_branch)
     if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
-      (cd "$DOYAKEN_DIR" && \
+      (cd "$DEX_DIR" && \
         git checkout main && \
         git merge "$current_branch" --no-ff -m "Merge research: all scenarios 90+ (aggregate $AGG_SCORE)" && \
         git checkout "$current_branch") || {
           _orchestrate_log "Merge to main failed — continuing on research branch"
-          (cd "$DOYAKEN_DIR" && git checkout "$current_branch") 2>/dev/null || true
+          (cd "$DEX_DIR" && git checkout "$current_branch") 2>/dev/null || true
         }
     fi
   fi
@@ -141,7 +141,7 @@ Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>") || true
       safety_tag_checkpoint "cycle-$CYCLE"
 
       # Apply
-      if (cd "$DOYAKEN_DIR" && git apply "$PATCH_FILE" 2>/dev/null); then
+      if (cd "$DEX_DIR" && git apply "$PATCH_FILE" 2>/dev/null); then
         _orchestrate_log "Applied improvement patch"
 
         # Validate with a quick run
@@ -155,21 +155,21 @@ Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>") || true
             _orchestrate_log "Improvement accepted (Δ $(python3 -c "print(round($NEW_SCORE - $AGG_SCORE, 1))"))"
 
             # Commit
-            (cd "$DOYAKEN_DIR" && git add -A && git commit -m "research: improve DK (cycle $CYCLE, $AGG_SCORE → $NEW_SCORE)
+            (cd "$DEX_DIR" && git add -A && git commit -m "research: improve DX (cycle $CYCLE, $AGG_SCORE → $NEW_SCORE)
 
-Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>") || true
+Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>") || true
 
             # Merge to main if improved
             if python3 -c "exit(0 if $NEW_SCORE > $AGG_SCORE else 1)" 2>/dev/null; then
               current_branch=""
-              current_branch=$(dk_branch)
+              current_branch=$(dx_branch)
               if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
-                (cd "$DOYAKEN_DIR" && \
+                (cd "$DEX_DIR" && \
                   git checkout main && \
                   git merge "$current_branch" --no-ff -m "Merge research improvement: cycle $CYCLE ($AGG_SCORE → $NEW_SCORE)" && \
                   git checkout "$current_branch") || {
                     _orchestrate_log "Merge failed — staying on research branch"
-                    (cd "$DOYAKEN_DIR" && git checkout "$current_branch") 2>/dev/null || true
+                    (cd "$DEX_DIR" && git checkout "$current_branch") 2>/dev/null || true
                   }
               fi
             fi

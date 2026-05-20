@@ -53,7 +53,7 @@ setTimeout(() => { console.log('TIMEOUT'); process.exit(1); }, $timeout);
 }
 
 # Helper: try sending a join message in multiple formats, return the one that works.
-# This handles DK implementing different message schemas.
+# This handles DX implementing different message schemas.
 _try_join() {
   local port="$1"
   local ws_dir="$2"
@@ -226,7 +226,7 @@ except:
   fi
   score=$((score + 5))
 
-  # Detect the message format DK used
+  # Detect the message format DX used
   local fmt
   fmt=$(_try_join "$port" "$ws" "detect" "Probe")
 

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/load-ticket-context.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/load-ticket-context.sh\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/user-prompt-submit.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/user-prompt-submit.sh\""
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; DOYAKEN_GUARD_EVENT=bash python3 \"$DOYAKEN_DIR/hooks/guard-handler.py\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; DEX_GUARD_EVENT=bash python3 \"$DEX_DIR/hooks/guard-handler.py\""
           }
         ]
       },
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; DOYAKEN_GUARD_EVENT=file python3 \"$DOYAKEN_DIR/hooks/guard-handler.py\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; DEX_GUARD_EVENT=file python3 \"$DEX_DIR/hooks/guard-handler.py\""
           }
         ]
       }
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/post-commit-guard.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/post-commit-guard.sh\""
           }
         ]
       }
@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/phase-loop.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/phase-loop.sh\""
           }
         ]
       },
@@ -68,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/stop-sound.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/stop-sound.sh\""
           }
         ]
       }
@@ -79,7 +79,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/pre-compact.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/pre-compact.sh\""
           }
         ]
       }
@@ -90,7 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export DOYAKEN_DIR=\"${DOYAKEN_DIR:-$HOME/work/doyaken}\"; bash \"$DOYAKEN_DIR/hooks/session-end.sh\""
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/session-end.sh\""
           }
         ]
       }

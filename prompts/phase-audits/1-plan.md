@@ -1,10 +1,10 @@
 > **Note:** Phase 1 uses `--dangerously-skip-permissions` plus
 > `--permission-mode bypassPermissions` with Claude calling `EnterPlanMode` as
 > its first action. Plan quality checks are built into the
-> /dkplan skill (Step 4: Plan Quality Checklist) and enforced before
+> /dxplan skill (Step 4: Plan Quality Checklist) and enforced before
 > ExitPlanMode is called. After the user approves the plan, this Stop hook audit
 > verifies the approved plan and authorizes the same-session handoff to Phase 2.
-> This audit only runs after dkplan writes the Phase 1 approval marker.
+> This audit only runs after dxplan writes the Phase 1 approval marker.
 
 Before stopping, critically audit your plan:
 

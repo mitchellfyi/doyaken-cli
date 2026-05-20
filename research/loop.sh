@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Research harness — outer improvement loop
-# Runs suite → analyzes failures → improves DK → validates → repeats.
+# Runs suite → analyzes failures → improves DX → validates → repeats.
 #
 # Usage:
 #   ./research/loop.sh                          # Default: 20 iterations
@@ -63,10 +63,10 @@ safety_check_clean
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  DK AUTORESEARCH — Improvement Loop"
+echo "  DX AUTORESEARCH — Improvement Loop"
 echo ""
-echo "  Branch:         $(dk_branch)"
-echo "  DK commit:      $(dk_commit_hash)"
+echo "  Branch:         $(dx_branch)"
+echo "  DX commit:      $(dx_commit_hash)"
 echo "  Max iterations: $MAX_ITER"
 echo "  Cost limit:     \$$COST_LIMIT"
 echo "  Scenario:       ${SCENARIO_FLAG:-all}"
@@ -83,7 +83,7 @@ _changelog() {
 
 _changelog ""
 _changelog "## Loop: $(date +%Y-%m-%d\ %H:%M:%S)"
-_changelog "Branch: $(dk_branch) | Start commit: $(dk_commit_hash)"
+_changelog "Branch: $(dx_branch) | Start commit: $(dx_commit_hash)"
 _changelog ""
 
 # ── Baseline run ───────────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ for iter in $(seq 1 "$MAX_ITER"); do
   # Use `patch` instead of `git apply` for better fuzz/offset tolerance
   part_idx=0
   while [[ -f "${PATCH_FILE}.${part_idx}" ]]; do
-    if (cd "$DOYAKEN_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "${PATCH_FILE}.${part_idx}" 2>/dev/null); then
+    if (cd "$DEX_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "${PATCH_FILE}.${part_idx}" 2>/dev/null); then
       applied=$((applied + 1))
     else
       log_warn "Patch part $part_idx failed to apply"
@@ -146,7 +146,7 @@ for iter in $(seq 1 "$MAX_ITER"); do
 
   # Fallback: try applying the combined patch if no parts exist
   if [[ $part_idx -eq 0 ]]; then
-    if (cd "$DOYAKEN_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "$PATCH_FILE" 2>/dev/null); then
+    if (cd "$DEX_DIR" && patch -p1 --fuzz=3 --no-backup-if-mismatch < "$PATCH_FILE" 2>/dev/null); then
       applied=1
     fi
   fi
@@ -163,11 +163,11 @@ for iter in $(seq 1 "$MAX_ITER"); do
   cp "$PATCH_FILE" "$IMPROVEMENTS_DIR/applied/$(basename "$PATCH_FILE")"
 
   # Commit the change
-  (cd "$DOYAKEN_DIR" && \
+  (cd "$DEX_DIR" && \
     git add -A && \
-    git commit -m "research: iteration $iter — improve DK based on harness results
+    git commit -m "research: iteration $iter — improve DX based on harness results
 
-Co-Authored-By: DK Autoresearch <noreply@doyaken.ai>" 2>/dev/null) || true
+Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
 
   log_info "Applied and committed changes"
 
@@ -251,8 +251,8 @@ echo "  Baseline score:  $BASELINE_SCORE"
 echo "  Final score:     $FINAL_SCORE"
 echo "  Total improvement: $(python3 -c "print(round($FINAL_SCORE - $BASELINE_SCORE, 1))" 2>/dev/null || echo "?")"
 echo "  Iterations run:  $ITERS_COMPLETED"
-echo "  DK commit:       $(dk_commit_hash)"
-echo "  Branch:          $(dk_branch)"
+echo "  DX commit:       $(dx_commit_hash)"
+echo "  Branch:          $(dx_branch)"
 echo ""
 echo "  Changelog:       $CHANGELOG"
 echo "  Scores history:  $SCORES_TSV"

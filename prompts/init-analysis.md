@@ -1,6 +1,6 @@
-# Doyaken Init — Codebase Analysis
+# Dex Init — Codebase Analysis
 
-Analyze this codebase and generate project-specific Doyaken configuration. Write all output files to `.doyaken/` in the current repo.
+Analyze this codebase and generate project-specific Dex configuration. Write all output files to `.dex/` in the current repo.
 
 ## Step 1: Analyze the Codebase
 
@@ -36,16 +36,16 @@ Explore the repo to understand:
 
 ## Step 2: Integrations
 
-Integration configuration (ticket tracker, Figma, Sentry, Vercel, Grafana) is handled interactively by `dk config`, which runs after codebase analysis. Include the `## Integrations` section in the `.doyaken/doyaken.md` template below with placeholder values — it will be populated by the config step.
+Integration configuration (ticket tracker, Figma, Sentry, Vercel, Grafana) is handled interactively by `dx config`, which runs after codebase analysis. Include the `## Integrations` section in the `.dex/dex.md` template below with placeholder values — it will be populated by the config step.
 
 ## Step 3: Generate Configuration
 
 Write these files:
 
-### `.doyaken/doyaken.md`
+### `.dex/dex.md`
 
 ```markdown
-# Doyaken — [Project Name]
+# Dex — [Project Name]
 
 ## Tech Stack
 [List languages, frameworks, and key tools discovered]
@@ -93,18 +93,18 @@ from normal GitHub usernames only.
 
 | Handle | Type | Notes |
 |--------|------|-------|
-| @[auth-user] | request | Authenticated GitHub user (auto-detected by `dk config`) |
+| @[auth-user] | request | Authenticated GitHub user (auto-detected by `dx config`) |
 | Copilot | request | GitHub Copilot review |
 
-If the table is empty or only contains `_none_` rows, Phase 6 skips review-request and mention steps. Edit rows directly or rerun `dk config`.
+If the table is empty or only contains `_none_` rows, Phase 6 skips review-request and mention steps. Edit rows directly or rerun `dx config`.
 
 ## Rules
-[Reference any rule files generated in .doyaken/rules/]
-[Reference `.doyaken/review-rules.md` if generated]
-[Reference `.doyaken/memory/index.md` if generated]
+[Reference any rule files generated in .dex/rules/]
+[Reference `.dex/review-rules.md` if generated]
+[Reference `.dex/memory/index.md` if generated]
 
 ## Memory
-`.doyaken/memory/index.md` maps durable repo memory to paths, phases, and
+`.dex/memory/index.md` maps durable repo memory to paths, phases, and
 workflows. Agents should load only scoped active entries and verify them against
 current code before relying on them.
 
@@ -113,8 +113,8 @@ current code before relying on them.
 | Setting | Value |
 |---------|-------|
 | enabled | true |
-| branch_prefix | doyaken/maintain/ |
-| label | doyaken-maintenance |
+| branch_prefix | dex/maintain/ |
+| label | dex-maintenance |
 | default_mode | report |
 | max_prs | 1 |
 | low_risk_fix_categories | docs, rules, guards, memory, tests |
@@ -122,17 +122,17 @@ current code before relying on them.
 
 `fix-scoped` may only patch the configured low-risk categories above, plus
 verification updates in matching test files, unless a repo maintainer expands
-this table. Publication is handled by the DK maintain
+this table. Publication is handled by the DX maintain
 CLI wrapper after the provider exits so GitHub write credentials are not exposed
 to the agent process.
 
 ## Workflow
-Run `/doyaken` to begin the autonomous ticket lifecycle.
-Run `/dksync` or `dk sync` to refresh repo memory after significant repo,
+Run `/dex` to begin the autonomous ticket lifecycle.
+Run `/dxsync` or `dx sync` to refresh repo memory after significant repo,
 workflow, review, or CI changes.
 ```
 
-### `.doyaken/rules/*.md` (one per major area of the codebase)
+### `.dex/rules/*.md` (one per major area of the codebase)
 
 For each significant area (e.g., backend, frontend, shared library), generate a rule file with:
 - Architecture patterns specific to this codebase
@@ -145,10 +145,10 @@ Name them descriptively: `backend.md`, `frontend.md`, `api.md`, `database.md`, e
 
 Only generate rules for areas that have enough established patterns to document. Don't generate rules for trivial or obvious things. Each rule file should be genuinely useful for someone working in that area.
 
-### `.doyaken/review-rules.md` (path-specific review focus)
+### `.dex/review-rules.md` (path-specific review focus)
 
 Generate this file when the codebase has meaningful path-specific review focus.
-Use it to tell Doyaken review waves where specialist reviewers should spend
+Use it to tell Dex review waves where specialist reviewers should spend
 attention. Include concise sections for applicable areas such as:
 
 - frontend/UI paths: accessibility, responsive layout, state/data contracts,
@@ -164,9 +164,9 @@ attention. Include concise sections for applicable areas such as:
 Do not duplicate generic review criteria from `prompts/review.md`; capture only
 project-specific focus by path or subsystem.
 
-### `.doyaken/memory/index.md`
+### `.dex/memory/index.md`
 
-Create `.doyaken/memory/index.md` as the retrieval map for durable repo memory.
+Create `.dex/memory/index.md` as the retrieval map for durable repo memory.
 This file should be compact. It tells future agents which memory domain files to
 load for specific paths, phases, commands, or workflows.
 
@@ -174,11 +174,11 @@ Initial repos often do not have enough evidence for durable memory. In that
 case, create the index with an explicit empty state:
 
 ```markdown
-# Doyaken Memory Index
+# Dex Memory Index
 
 No durable repo memory has been promoted yet.
 
-Run `/dksync` or `dk sync` after repeated review comments, CI failures,
+Run `/dxsync` or `dx sync` after repeated review comments, CI failures,
 maintenance runs, or durable workflow lessons create evidence worth preserving.
 
 ## Domains
@@ -188,14 +188,14 @@ maintenance runs, or durable workflow lessons create evidence worth preserving.
 ```
 
 If the repo already contains strong, current, evidenced conventions, create
-focused memory files under `.doyaken/memory/domains/` and reference them from the
+focused memory files under `.dex/memory/domains/` and reference them from the
 index. Let the repo shape the domains: choose names based on how future agents
 need context, such as `review-quality`, `verification-ci`,
 `architecture-decisions`, `security-guards`, `workflow-operations`, or a
 repo-specific subsystem such as `auth`, `migrations`, or `frontend-ui`.
 
 Avoid catch-all domains such as `misc`, `general`, or `learnings`. If a lesson
-does not fit a clear domain, leave it out until `/dksync` has enough evidence to
+does not fit a clear domain, leave it out until `/dxsync` has enough evidence to
 organize it.
 
 Only promote durable lessons that have evidence in current files, docs, tests,
@@ -214,10 +214,10 @@ Memory entries must include:
 - `Evidence`
 - `Future agent behavior`
 
-Do not create `.doyaken/learnings.md`. Session observations belong in external
-Doyaken run state until `/dksync` promotes them through a reviewable diff.
+Do not create `.dex/learnings.md`. Session observations belong in external
+Dex run state until `/dxsync` promotes them through a reviewable diff.
 
-### `.doyaken/guards/*.md` (project-specific guards)
+### `.dex/guards/*.md` (project-specific guards)
 
 Generate guards for:
 - **Files that should never be committed** — environment-specific files, generated configs. Use `event: commit`, `action: block`.
@@ -236,17 +236,17 @@ action: warn|block
 Message shown when the guard triggers.
 ```
 
-Only generate guards that are specific to THIS project. Generic guards (destructive commands, sensitive files, hardcoded secrets) already ship with Doyaken.
+Only generate guards that are specific to THIS project. Generic guards (destructive commands, sensitive files, hardcoded secrets) already ship with Dex.
 
 ## Step 4: Update Instruction Entrypoints
 
-Ensure `.doyaken/AGENTS.md` is the source of truth for generated Doyaken project context and imports the generated doyaken.md:
+Ensure `.dex/AGENTS.md` is the source of truth for generated Dex project context and imports the generated dex.md:
 
 ```
-@doyaken.md
+@dex.md
 ```
 
-Ensure `.doyaken/CLAUDE.md` remains a compatibility pointer to `.doyaken/AGENTS.md`:
+Ensure `.dex/CLAUDE.md` remains a compatibility pointer to `.dex/AGENTS.md`:
 
 ```
 @AGENTS.md

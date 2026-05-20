@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
-# doyaken tools — inspect or repair Claude/Codex tooling bootstrap.
+# dex tools — inspect or repair Claude/Codex tooling bootstrap.
 set -euo pipefail
 
-source "${DOYAKEN_DIR:-$HOME/work/doyaken}/lib/common.sh"
+source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 usage() {
   cat <<'USAGE'
-Usage: dk tools [command]
+Usage: dx tools [command]
 
-Inspect or repair Doyaken's conservative Claude/Codex tooling bootstrap.
+Inspect or repair Dex's conservative Claude/Codex tooling bootstrap.
 
 Commands:
-  bootstrap    Check and repair Doyaken links, official MCPs, and safe official plugins
+  bootstrap    Check and repair Dex links, official MCPs, and safe official plugins
   doctor       Check tooling state without changing global configuration
   check        Alias for doctor
   -h, --help   Show this help
@@ -29,30 +29,30 @@ fi
 cmd="${1:-doctor}"
 case "$cmd" in
   bootstrap)
-    echo "Doyaken - Tools Bootstrap"
+    echo "Dex - Tools Bootstrap"
     echo ""
-    if ! dk_bootstrap_agent_tooling "$repo_root" "repair"; then
-      dk_warn "Tooling bootstrap finished with warnings"
+    if ! dx_bootstrap_agent_tooling "$repo_root" "repair"; then
+      dx_warn "Tooling bootstrap finished with warnings"
       exit 1
     fi
     echo ""
-    dk_done "Tooling bootstrap complete"
+    dx_done "Tooling bootstrap complete"
     ;;
   doctor|check)
-    echo "Doyaken - Tools Doctor"
+    echo "Dex - Tools Doctor"
     echo ""
-    if ! dk_bootstrap_agent_tooling "$repo_root" "check"; then
-      dk_warn "Tooling drift detected; run 'dk tools bootstrap' to repair it."
+    if ! dx_bootstrap_agent_tooling "$repo_root" "check"; then
+      dx_warn "Tooling drift detected; run 'dx tools bootstrap' to repair it."
       exit 1
     fi
     echo ""
-    dk_done "Tooling check passed"
+    dx_done "Tooling check passed"
     ;;
   -h|--help|help)
     usage
     ;;
   *)
-    dk_error "Unknown tools command: $cmd"
+    dx_error "Unknown tools command: $cmd"
     usage
     exit 1
     ;;
