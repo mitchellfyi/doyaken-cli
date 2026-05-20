@@ -12,6 +12,8 @@ resolved profile: `light`, `standard`, or `thorough`.
 - Run deterministic checks before semantic review.
 - Specialist/verifier agents are read-only; only the wave orchestrator may edit.
 - Do not commit, push, create branches, create or update PRs, or poll reviewers.
+- Do not create or switch worktrees or branches. A review wave runs in the
+  current checkout; only `dk <ticket-or-description>` owns lifecycle setup.
 - Acceptance criteria come only from the current caller; otherwise use `N/A`.
 - `CLEAN` means zero verified findings and zero fixes in this wave.
 
@@ -138,6 +140,11 @@ If verified findings exist:
 
 Write `FINDINGS_FIXED:N` when all verified findings were fixed and rechecked.
 Never write `CLEAN` after applying a fix in the same wave.
+
+Do not stop after merely finding or reporting verified issues. `FINDINGS:N` is
+allowed only when verified findings remain after a concrete local fix attempt is
+blocked, unsafe, or requires user judgment; include the residual reason in the
+context pack and final report.
 
 ## 6. Result Signal
 

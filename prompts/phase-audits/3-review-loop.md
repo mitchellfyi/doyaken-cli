@@ -4,6 +4,8 @@ loop. Do NOT stop until every step below passes.
 This lifecycle advances phases in the same Claude session. Phase 3 gets
 independent review coverage by running `/dkreviewloop`, which spawns fresh
 full-scope review waves and requires the resolved profile's clean-pass gate.
+Fresh review waves run in the current checkout. They must not run Phase 0 setup,
+create worktrees, switch branches, rename branches, or call `dk <ticket-or-task>`.
 
 ## Completion Criteria
 
@@ -20,6 +22,9 @@ All of these must be true before you stop:
   counter and do not count as clean.
 - Any findings discovered by the loop were fixed.
 - The review was re-run after the most recent code change.
+- The loop did not stop after a pass that merely found or reported issues; those
+  issues were fixed when safe, then the loop continued until the clean-pass gate
+  succeeded or a true blocker remained.
 - No new commits, pushes, PR creation, or PR updates are performed from this audit point forward. If one already happened earlier in Phase 3, report it as an ordering warning and continue only after `/dkreviewloop` reaches `SUCCESS`; do not deadlock on an irreversible past action.
 
 If any criterion is not met, run `/dkreviewloop` or fix the remaining findings

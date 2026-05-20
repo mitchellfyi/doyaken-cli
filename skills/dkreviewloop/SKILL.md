@@ -9,6 +9,16 @@ Run `/dkreview --single-pass` in fresh review-wave sessions until the resolved
 review profile reaches its consecutive `CLEAN` gate. This is the default Review
 phase used by `dk`.
 
+## Workspace Boundary
+
+`/dkreviewloop` is a one-off review command unless it is invoked from an active
+`dk` lifecycle. Run it in the current checkout exactly as found.
+
+Do not run `dk <ticket-or-description>`, `dk --no-worktree`, Phase 0 setup, or
+any branch/worktree setup from this skill. Do not create, switch, rename, or
+delete branches or worktrees. "Fresh review-wave session" means a fresh review
+agent/context for the same checkout; it does not mean a fresh git workspace.
+
 ## Profiles
 
 The shell wrapper starts with `DOYAKEN_REVIEW_PROFILE` or `auto`:
@@ -43,8 +53,15 @@ caller-supplied file inventory commands as the authoritative scope.
 
 ## Per-Pass Contract
 
-Each iteration is a fresh review-wave orchestrator. It may fix verified findings;
-specialist/verifier agents it invokes are read-only.
+Each iteration is a fresh review-wave orchestrator. It must fix verified findings
+that are safe to fix in the caller-supplied scope; specialist/verifier agents it
+invokes are read-only.
+
+A pass that only reports findings is incomplete. If a wave finds verified issues,
+the orchestrator fixes them, re-runs the affected checks/review, writes
+`FINDINGS_FIXED:N`, resets the clean counter, and immediately continues the loop.
+Do not stop after a finding report. Stop only after the clean-pass gate succeeds,
+or when a real blocker remains after attempted local resolution.
 
 When running inside a `dk` lifecycle, mark the pass busy before waiting on the
 fresh wave and remove the marker immediately after it returns:
@@ -73,7 +90,7 @@ context.
 ## Counting
 
 - `CLEAN`: increment clean count.
-- `FINDINGS_FIXED:N`, `FINDINGS:N`, `BLOCKED:reason`: reset clean count.
+- `FINDINGS_FIXED:N`, `FINDINGS:N`, `BLOCKED:reason`: reset clean count and continue unless a real blocker remains.
 - `ESCALATE_THOROUGH:reason`: reset clean count and continue as thorough.
 - Missing/unknown result: treat as non-clean and stop if unrecoverable.
 

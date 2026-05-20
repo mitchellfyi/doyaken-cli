@@ -37,9 +37,19 @@ Follow `prompts/review-wave.md` as the source of truth. In one wave:
    review once.
 7. Write the review result signal and findings hash.
 
+Run in the current checkout. Do not run `dk <ticket-or-description>`, Phase 0
+setup, or any branch/worktree setup from this skill. Do not create, switch,
+rename, or delete branches or worktrees.
+
 Collect all candidate issues before fixing anything. Do not add a separate
 general reviewer just to harvest issues; the fresh review-wave loop already owns
 that pass. The point is one aggressive inventory followed by one batch fix.
+
+Do not stop after only reporting verified findings. If verified findings are
+safe to fix in scope, fix them, re-run affected checks/review, and write
+`FINDINGS_FIXED:N`. Write `FINDINGS:N` only for residual verified findings that
+remain after a concrete local fix attempt is blocked, unsafe, or requires user
+judgment.
 
 If no plan or ticket criteria are supplied by the current caller, mark
 criteria-dependent evidence as `N/A`. Do not infer acceptance criteria from stale

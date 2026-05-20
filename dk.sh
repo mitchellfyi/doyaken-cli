@@ -2194,12 +2194,13 @@ Review depth profile for this pass: \`__REVIEW_PROFILE__\`.
 - \`standard\`: orchestrator issue harvest, targeted specialist reviewers for concrete changed domains, verifier triage.
 - \`thorough\`: full specialist fan-out, verifier triage, batch fix, targeted recheck.
 
-Follow the audit prompt and \`prompts/review-wave.md\`: first materialize a non-empty compact context pack, run deterministic checks, harvest candidate issues according to the depth profile, verify and deduplicate findings, batch-fix verified issues, re-check, and write the review result signal file.
+Follow the audit prompt and \`prompts/review-wave.md\`: first materialize a non-empty compact context pack, run deterministic checks, harvest candidate issues according to the depth profile, verify and deduplicate findings, batch-fix verified issues, re-check, and write the review result signal file. Run in the current checkout; do not create or switch branches or worktrees.
 
 Result semantics:
 - Write \`CLEAN\` only if this wave found zero verified findings and applied zero fixes.
 - Write \`FINDINGS_FIXED:N\` if this wave found and fixed N verified findings; this intentionally resets the outer clean-pass counter.
-- Write \`FINDINGS:N\` or \`BLOCKED:reason\` if issues remain or the wave cannot complete.
+- Do not stop after only reporting verified findings. Fix safe verified findings before writing the result.
+- Write \`FINDINGS:N\` only if verified findings remain after a concrete local fix attempt is blocked, unsafe, or requires user judgment. Write \`BLOCKED:reason\` if the wave cannot complete.
 - Write \`ESCALATE_THOROUGH:reason\` if the profile is too shallow for the observed risk. Examples: auth/security/data-loss risk, public contract changes, broad dependency impact, complex shell/hooks/CI behavior, unclear acceptance coverage, or the wave/verifier cannot rule out serious issues at the current depth.
 
 If no approved plan / acceptance criteria are explicitly available in this prompt for this scope, mark plan-dependent sections (acceptance criteria verification, evidence table) as N/A and proceed without them. Do not infer criteria from stale session prompt files, previous conversation turns, session titles, AGENTS instructions, or unrelated ticket context.

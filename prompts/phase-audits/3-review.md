@@ -2,9 +2,13 @@ Before stopping, complete exactly one full Doyaken review wave for the current
 `/dkreviewloop` iteration.
 
 You are in the **Review phase**. Your job in this iteration is to review the
-caller-supplied scope, fix verified findings when possible, write the review
-result signal, and then stop so the outer loop can decide whether the clean-pass
-counter advances or resets.
+caller-supplied scope, fix verified findings that are safe to fix, write the
+review result signal, and then stop so the outer loop can decide whether the
+clean-pass counter advances or resets.
+
+Run in the current checkout. Do not run `dk <ticket-or-description>`, Phase 0
+setup, or any branch/worktree setup from this review skill. Do not create,
+switch, rename, or delete branches or worktrees.
 
 ## Required Workflow
 
@@ -48,8 +52,14 @@ That is a successful pass execution, but it intentionally resets the outer clean
 counter. Do not keep reviewing inside the same iteration just to turn it into
 `CLEAN`.
 
-If verified findings remain, write `FINDINGS:N`. If required tooling/context is
-missing and cannot be resolved locally, write `BLOCKED:reason`.
+Do not stop after only reporting verified findings. If verified findings are
+safe to fix in scope, fix them, re-run affected checks/review, and write
+`FINDINGS_FIXED:N`.
+
+If verified findings remain after a concrete local fix attempt is blocked,
+unsafe, or requires user judgment, write `FINDINGS:N`. If required
+tooling/context is missing and cannot be resolved locally, write
+`BLOCKED:reason`.
 
 If the current review profile is too shallow for the observed risk, write
 `ESCALATE_THOROUGH:reason` so the outer loop restarts with thorough review.
