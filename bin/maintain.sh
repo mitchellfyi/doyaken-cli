@@ -687,6 +687,9 @@ __dx_maintain_push_branch() {
     remote_url="https://github.com/${repo}.git"
     token_file=$(mktemp "${TMPDIR:-/tmp}/dex-maintain-token.XXXXXX")
     askpass_file=$(mktemp "${TMPDIR:-/tmp}/dex-maintain-askpass.XXXXXX")
+    # Belt-and-suspenders: RETURN trap ensures cleanup even on unexpected exits.
+    # shellcheck disable=SC2064
+    trap "rm -f '${token_file}' '${askpass_file}'" RETURN
     chmod 600 "$token_file"
     printf '%s' "$token" > "$token_file"
     cat > "$askpass_file" <<'ASKPASS'
@@ -721,6 +724,9 @@ __dx_maintain_fetch_branch() {
     remote_url="https://github.com/${repo}.git"
     token_file=$(mktemp "${TMPDIR:-/tmp}/dex-maintain-token.XXXXXX")
     askpass_file=$(mktemp "${TMPDIR:-/tmp}/dex-maintain-askpass.XXXXXX")
+    # Belt-and-suspenders: RETURN trap ensures cleanup even on unexpected exits.
+    # shellcheck disable=SC2064
+    trap "rm -f '${token_file}' '${askpass_file}'" RETURN
     chmod 600 "$token_file"
     printf '%s' "$token" > "$token_file"
     cat > "$askpass_file" <<'ASKPASS'

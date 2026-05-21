@@ -8,6 +8,10 @@ set -euo pipefail
 source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+# Sanitise the branch name before embedding it in template substitutions.
+# git branch names are constrained, but strip anything outside the safe set
+# to prevent unexpected behaviour in bash ${var//pattern/replacement}.
+BRANCH="${BRANCH//[^A-Za-z0-9._\/\-]/_}"
 
 # Skip ticket extraction for task worktrees (e.g., worktree-task-fix-bug-123)
 TICKET_NUM=""

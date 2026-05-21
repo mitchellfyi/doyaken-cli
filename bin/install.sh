@@ -59,6 +59,12 @@ else
   dx_done "Added DEX_DIR export and source to ~/.zshrc"
 fi
 
+# Warn users whose login shell is not zsh; dx.sh requires zsh to function.
+if [[ "${SHELL:-}" != */zsh ]]; then
+  dx_warn "Your current shell is '${SHELL:-unknown}'. Dex requires zsh — dx.sh uses zsh-only syntax."
+  dx_warn "Switch to zsh (chsh -s \$(which zsh)) or source ~/.zshrc from a zsh session to use Dex."
+fi
+
 # 4. Make scripts executable
 chmod +x "$DEX_DIR/hooks/"*.sh "$DEX_DIR/hooks/"*.py "$DEX_DIR/bin/"*.sh 2>/dev/null
 dx_done "Made scripts executable"

@@ -44,22 +44,22 @@ dx_repo_root() {
   echo "$root"
 }
 
-# Source sibling libraries
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/git.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/session.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/output.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/worktree.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/provider.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/codex.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/ui-capture.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/agent-tools.sh"
-# shellcheck disable=SC1091
-source "$DEX_DIR/lib/maintenance.sh"
+# Source sibling libraries — guard each call so partial installs get a clear error.
+__dx_require_lib() {
+  local lib="$DEX_DIR/lib/$1"
+  if [[ ! -f "$lib" ]]; then
+    printf 'dex: missing library %s — reinstall Dex or check DEX_DIR\n' "$lib" >&2
+    return 1
+  fi
+  # shellcheck disable=SC1090
+  source "$lib"
+}
+__dx_require_lib git.sh
+__dx_require_lib session.sh
+__dx_require_lib output.sh
+__dx_require_lib worktree.sh
+__dx_require_lib provider.sh
+__dx_require_lib codex.sh
+__dx_require_lib ui-capture.sh
+__dx_require_lib agent-tools.sh
+__dx_require_lib maintenance.sh

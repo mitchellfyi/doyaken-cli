@@ -661,24 +661,25 @@ dx_provider_apply() {
   DX_PROVIDER_LAST_PROVIDER_PLAN_EFFORT="$DX_PROVIDER_PLAN_EFFORT"
 }
 
+# __dx_provider_env_unset_args prints all env var names that should be stripped
+# from the environment before launching claude/codex for provider isolation.
+# Callers read the output to build env_args arrays.
+__dx_provider_env_unset_args() {
+  dx_provider_external_env_names
+  dx_provider_config_auth_env_unsets
+  dx_provider_claude_override_env_names
+}
+
 dx_provider_claude() {
   [[ -n "${DX_PROVIDER_ENGINE:-}" ]] || dx_provider_apply || return 1
   if [[ -n "${DEX_SESSION_ID:-}" ]]; then
     dx_provider_write_session_state "$DEX_SESSION_ID" || return 1
   fi
   local env_args=()
-  local provider_external_env_name
-  while IFS= read -r provider_external_env_name; do
-    [[ -n "$provider_external_env_name" ]] && env_args+=(-u "$provider_external_env_name")
-  done < <(dx_provider_external_env_names)
-  local provider_auth_env_name
-  while IFS= read -r provider_auth_env_name; do
-    [[ -n "$provider_auth_env_name" ]] && env_args+=(-u "$provider_auth_env_name")
-  done < <(dx_provider_config_auth_env_unsets)
-  local provider_override_env_name
-  while IFS= read -r provider_override_env_name; do
-    [[ -n "$provider_override_env_name" ]] && env_args+=(-u "$provider_override_env_name")
-  done < <(dx_provider_claude_override_env_names)
+  local _env_name
+  while IFS= read -r _env_name; do
+    [[ -n "$_env_name" ]] && env_args+=(-u "$_env_name")
+  done < <(__dx_provider_env_unset_args)
 
   case "$DX_PROVIDER_ENGINE" in
     anthropic-gateway)
@@ -759,18 +760,10 @@ dx_provider_codex() {
   fi
 
   local env_args=()
-  local provider_external_env_name
-  while IFS= read -r provider_external_env_name; do
-    [[ -n "$provider_external_env_name" ]] && env_args+=(-u "$provider_external_env_name")
-  done < <(dx_provider_external_env_names)
-  local provider_auth_env_name
-  while IFS= read -r provider_auth_env_name; do
-    [[ -n "$provider_auth_env_name" ]] && env_args+=(-u "$provider_auth_env_name")
-  done < <(dx_provider_config_auth_env_unsets)
-  local provider_override_env_name
-  while IFS= read -r provider_override_env_name; do
-    [[ -n "$provider_override_env_name" ]] && env_args+=(-u "$provider_override_env_name")
-  done < <(dx_provider_claude_override_env_names)
+  local _env_name
+  while IFS= read -r _env_name; do
+    [[ -n "$_env_name" ]] && env_args+=(-u "$_env_name")
+  done < <(__dx_provider_env_unset_args)
   env_args+=(-u DX_PROVIDER_CODEX_WRAPPER)
   env "${env_args[@]}" codex "$@"
 }
@@ -871,18 +864,10 @@ dx_provider_codex_wrapper_args() {
 dx_provider_claude_diagnostic() {
   [[ -n "${DX_PROVIDER_ENGINE:-}" ]] || dx_provider_apply || return 1
   local env_args=()
-  local provider_external_env_name
-  while IFS= read -r provider_external_env_name; do
-    [[ -n "$provider_external_env_name" ]] && env_args+=(-u "$provider_external_env_name")
-  done < <(dx_provider_external_env_names)
-  local provider_auth_env_name
-  while IFS= read -r provider_auth_env_name; do
-    [[ -n "$provider_auth_env_name" ]] && env_args+=(-u "$provider_auth_env_name")
-  done < <(dx_provider_config_auth_env_unsets)
-  local provider_override_env_name
-  while IFS= read -r provider_override_env_name; do
-    [[ -n "$provider_override_env_name" ]] && env_args+=(-u "$provider_override_env_name")
-  done < <(dx_provider_claude_override_env_names)
+  local _env_name
+  while IFS= read -r _env_name; do
+    [[ -n "$_env_name" ]] && env_args+=(-u "$_env_name")
+  done < <(__dx_provider_env_unset_args)
   env_args+=(
     DX_PROVIDER_PROFILE="$DX_PROVIDER_PROFILE_RESOLVED"
     DX_PROVIDER_ENGINE="$DX_PROVIDER_ENGINE"
@@ -1066,14 +1051,14 @@ finally:
 }
 
 dx_provider_subscription_safe_check() {
-  local ok=0
+  local problems=0
   local provider_external_env_name provider_external_env_value
   while IFS= read -r provider_external_env_name; do
     [[ -n "$provider_external_env_name" ]] || continue
     provider_external_env_value=$(dx_provider_env_value "$provider_external_env_name")
     if [[ -n "$provider_external_env_value" ]]; then
       dx_error "${provider_external_env_name} is set; it can route Claude/Codex through API, gateway, or provider-billed auth instead of subscription auth."
-      ok=1
+      problems=1
     fi
   done < <(dx_provider_external_env_names)
   local provider_auth_env_name
@@ -1083,31 +1068,31 @@ dx_provider_subscription_safe_check() {
       provider_auth_env_value=$(dx_provider_env_value "$provider_auth_env_name")
       if [[ -n "$provider_auth_env_value" ]]; then
         dx_error "${provider_auth_env_name} is set; it matches a configured provider auth_env and may expose gateway/API credentials."
-        ok=1
+        problems=1
       fi
     fi
   done < <(dx_provider_config_auth_env_unsets)
   if ! dx_provider_claude_override_env_check; then
-    ok=1
+    problems=1
   fi
-  if [[ $ok -ne 0 ]]; then
+  if [[ $problems -ne 0 ]]; then
     dx_info "Unset API/gateway and model override env vars. DX_ALLOW_API_BILLED_AUTH=1 only tolerates API/gateway billing vars."
   fi
-  return $ok
+  return $problems
 }
 
 dx_provider_claude_override_env_check() {
-  local ok=0
+  local problems=0
   local override_env_name override_env_value
   while IFS= read -r override_env_name; do
     [[ -n "$override_env_name" ]] || continue
     override_env_value=$(dx_provider_env_value "$override_env_name")
     if [[ -n "$override_env_value" ]]; then
       dx_error "${override_env_name} is set; it can override provider profile model or effort routing."
-      ok=1
+      problems=1
     fi
   done < <(dx_provider_claude_override_env_names)
-  return $ok
+  return $problems
 }
 
 dx_provider_valid_env_name() {

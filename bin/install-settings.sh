@@ -124,7 +124,39 @@ __dx_record_managed_worktree_dirs() {
 }
 
 settings_template=$(<"$DEX_DIR/settings.json")
-local_settings=${settings_template//\$HOME\/work\/dex/$DEX_DIR}
+
+# Substitute the default install path with the actual DEX_DIR, handling arbitrary
+# path characters (quotes, backslashes, etc.) that would corrupt a raw bash
+# string replacement embedded in JSON.
+if command -v python3 >/dev/null 2>&1; then
+  local_settings=$(python3 - "$DEX_DIR/settings.json" "$DEX_DIR" <<'PY'
+import json, sys
+
+def _replace(obj, old, new):
+    if isinstance(obj, str):
+        return obj.replace(old, new)
+    if isinstance(obj, list):
+        return [_replace(item, old, new) for item in obj]
+    if isinstance(obj, dict):
+        return {k: _replace(v, old, new) for k, v in obj.items()}
+    return obj
+
+with open(sys.argv[1], encoding='utf-8') as fh:
+    data = json.load(fh)
+print(json.dumps(_replace(data, '$HOME/work/dex', sys.argv[2]), indent=2))
+PY
+  ) || { say_error "Failed to customise settings template via python3"; exit 1; }
+elif command -v jq >/dev/null 2>&1; then
+  # jq ≥1.6: walk + gsub; dollar sign must be escaped as \$ in the regex.
+  local_settings=$(jq \
+    --arg new "$DEX_DIR" \
+    'walk(if type == "string" then gsub("\\$HOME/work/dex"; $new) else . end)' \
+    "$DEX_DIR/settings.json" 2>/dev/null) \
+    || { say_error "Failed to customise settings template via jq"; exit 1; }
+else
+  # Last-resort fallback — safe for typical paths that contain no JSON-special chars.
+  local_settings=${settings_template//\$HOME\/work\/dex/$DEX_DIR}
+fi
 
 if [[ -f "$SETTINGS_FILE" ]]; then
   if command -v jq >/dev/null 2>&1; then

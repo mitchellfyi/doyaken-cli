@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 format_duration() {
   local secs=$1
+  [[ "$secs" =~ ^[0-9]+$ ]] || secs=0
   if [[ $secs -lt 60 ]]; then
     echo "${secs}s"
   elif [[ $secs -lt 3600 ]]; then

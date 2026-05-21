@@ -754,6 +754,7 @@ __dx_resolve_existing_workspace_by_ticket() {
 # _dx_workspace_mode, _dx_session_id.
 # Returns 0 if worktree exists or was created, 1 on error.
 # See: docs/autonomous-mode.md for the full lifecycle that follows worktree creation.
+unalias __dx_setup_worktree 2>/dev/null; unfunction __dx_setup_worktree 2>/dev/null
 __dx_setup_worktree() {
   local raw_input="$1"
 
@@ -999,7 +1000,8 @@ __dx_build_system_context() {
 
   local phase_label
   phase_label=$(__dx_phase_name "$step")
-  cat > "$ctx_file" <<EOF
+  local _ctx_tmp="${ctx_file}.tmp.$$"
+  cat > "$_ctx_tmp" <<EOF
 You are Dex, running the Dex lifecycle for ${wt_name}.
 Initial phase: Phase ${step} (${phase_label}).
 Workspace: ${wt_dir}
@@ -1009,6 +1011,7 @@ Workspace mode: ${workspace_mode}
 
 Original dx request: ${raw_input:-$wt_name}
 EOF
+  mv -f "$_ctx_tmp" "$ctx_file"
 
   if [[ "$workspace_mode" == "in-place" ]]; then
     cat >> "$ctx_file" <<EOF

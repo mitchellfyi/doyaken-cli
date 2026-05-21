@@ -119,8 +119,7 @@ while true; do
   printf "Reviewer: "
   read -r reviewer_line
   [[ -z "$reviewer_line" ]] && break
-  rev_handle=$(echo "$reviewer_line" | awk '{print $1}')
-  rev_type=$(echo "$reviewer_line" | awk '{print $2}')
+  read -r rev_handle rev_type _ <<< "$reviewer_line"
   case "$rev_type" in
     request|mention) ;;
     *) echo "  Invalid type '$rev_type' — must be 'request' or 'mention'. Try again."; continue ;;
