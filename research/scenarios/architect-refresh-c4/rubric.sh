@@ -22,7 +22,7 @@ rubric_correctness() {
 
   # Three mermaid fences
   local mermaid_count
-  mermaid_count=$(grep -c '^```mermaid' "$doc" 2>/dev/null || echo 0)
+  mermaid_count=$(grep -c '^```mermaid' "$doc" 2>/dev/null || true)
   if [[ "$mermaid_count" -ge 3 ]]; then
     score=$((score + 25))
   elif [[ "$mermaid_count" -ge 1 ]]; then
@@ -68,7 +68,7 @@ rubric_robustness() {
   grep -qiE 'plug[- ]point|reusab|extens|integration point' "$doc" && score=$((score + 25))
 
   # Component table or listing with file paths
-  grep -qiE '\\| .*src/.*\\||/[a-z]+/[a-z]+\\.js' "$doc" && score=$((score + 25))
+  grep -qiE 'src/.*[.]js|/[a-z]+/[a-z]+[.]js' "$doc" && score=$((score + 25))
 
   # Did NOT modify the seed source files
   local modified_seed=0

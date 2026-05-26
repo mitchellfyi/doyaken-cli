@@ -50,13 +50,23 @@ try:
     d = json.load(open(os.environ["SC"]))
     w = d.get("weights")
     if isinstance(w, dict):
+        keys = [
+            "correctness",
+            "test_quality",
+            "robustness",
+            "verification",
+            "issue_detection",
+            "code_quality",
+        ]
+        if not all(k in w for k in keys):
+            raise ValueError("incomplete weights override")
         out = [
-            int(w.get("correctness", os.environ["W_CORR"])),
-            int(w.get("test_quality", os.environ["W_TEST"])),
-            int(w.get("robustness", os.environ["W_ROB"])),
-            int(w.get("verification", os.environ["W_VER"])),
-            int(w.get("issue_detection", os.environ["W_ISS"])),
-            int(w.get("code_quality", os.environ["W_CODE"])),
+            int(w["correctness"]),
+            int(w["test_quality"]),
+            int(w["robustness"]),
+            int(w["verification"]),
+            int(w["issue_detection"]),
+            int(w["code_quality"]),
         ]
         if sum(out) == 100:
             print(" ".join(str(x) for x in out))

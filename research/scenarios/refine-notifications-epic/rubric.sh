@@ -41,7 +41,7 @@ rubric_correctness() {
   done
 
   local ticket_count
-  ticket_count=$(grep -cE '^(###|####|- \*\*|\* \*\*)' "$doc" 2>/dev/null || echo 0)
+  ticket_count=$(grep -cE '^(###|####|- \*\*|\* \*\*)' "$doc" 2>/dev/null || true)
   if [[ "$ticket_count" -ge 4 ]]; then
     score=$((score + 20))
   elif [[ "$ticket_count" -ge 2 ]]; then

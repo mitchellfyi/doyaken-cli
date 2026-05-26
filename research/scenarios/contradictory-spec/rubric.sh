@@ -43,7 +43,7 @@ rubric_robustness() {
 
   # Discusses cost/tradeoff explicitly per option (not just lists options)
   local cost_mentions
-  cost_mentions=$(grep -cEi 'costs?|tradeoff|trade[- ]off|sacrifices?|gives up' "$doc")
+  cost_mentions=$(grep -cEi 'costs?|tradeoff|trade[- ]off|sacrifices?|gives up' "$doc" 2>/dev/null || true)
   if [[ "$cost_mentions" -ge 3 ]]; then
     score=$((score + 35))
   elif [[ "$cost_mentions" -ge 1 ]]; then
