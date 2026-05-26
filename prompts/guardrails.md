@@ -76,6 +76,7 @@ These are recurring mistakes observed across many implementations. Check against
 - **Don't keep unreachable defensive branches.** If a branch cannot execute under the function's stated preconditions, delete it or make the precondition explicit. A fallback kept "just in case" is dead code: it weakens coverage signal, adds review noise, and obscures the real contract.
 - **Don't bend tests to fit a flawed implementation.** When a new test fails, first decide whether the implementation or the expectation is wrong. Fix the test only when the expectation conflicts with the spec or with a deliberate documented interpretation. If the implementation matches deprecated, known-broken, or accidental behavior, fix the implementation.
 - **Don't bury the required deliverable.** When the prompt names a specific output (a file path, a directory layout, a document, a runnable command), create a minimal version at the exact named path as one of your first concrete actions, then fill it in. A non-existent file at the required path scores nothing — no amount of supporting planning, scaffolding, or tests compensates for a missing primary deliverable.
+- **Don't gloss over enumerated requirements.** When a prompt lists items (5 bugs to fix, 4 endpoints to expose, 6 sections to include, a "required file structure (must follow exactly)"), treat the enumeration as a literal checklist. Before declaring done, walk every numbered or bulleted item against a concrete artifact in your output — a `file:line`, a test name, a section heading. An item with no corresponding artifact is missing work, not optional polish, and one missed item often masks more.
 - **Don't postpone test execution to the end.** Run the test suite incrementally as modules become complete, not only as a final step. Tests that exist on disk but were never executed are not verification, and a single late run risks discovering failures with no time left to diagnose them.
 
 ### Fail Fast, Fail Loud
@@ -126,6 +127,18 @@ These are implied requirements for any production-quality API, even when the spe
 - Don't return plain text error messages. Always return structured error responses with a descriptive message field.
 - Don't implement PUT without also implementing PATCH. Clients that only need to update one field shouldn't have to send the entire resource.
 - Don't store passwords in plain text, even in demo projects. Use bcrypt/argon2/scrypt for hashing. This is a non-negotiable security baseline.
+
+### Document and Analysis Deliverables
+
+When the deliverable is a document (design doc, refinement, architecture map, RFC, ADR, or any prompt that says "produce X.md" or "do not implement code"):
+
+- **Exact path compliance**: Create the document at the exact path the prompt names, not a similar path. `design.md` when the prompt said `DESIGN.md` is a missing deliverable; the document at the wrong path scores nothing.
+- **Section coverage**: When the prompt enumerates required sections (numbered or bulleted), every one must appear as a heading in the output. Treat the prompt's enumeration as a literal table of contents and re-read it before stopping to confirm each section is present and non-empty.
+- **Exhaustive enumeration**: When asked to "list all conflicts", "identify risks", or "decompose into at least N tickets", be exhaustive. Underfilling — listing 3 conflicts when 5 are visible, or 4 tickets when the spec said "at least four" and there is clearly room for more — reads as partial work. Re-read the source material before stopping and confirm each surfaced item is grounded in a specific reference.
+- **Diagram syntax**: When a document includes diagrams (mermaid, ascii, dot, plantuml), verify the syntax against the renderer's grammar before declaring done. For mermaid, every fenced block must open with a valid directive (e.g., `C4Context`, `C4Container`, `sequenceDiagram`) and close with matching backtick fences. Render mentally or via a linter; do not ship a broken diagram.
+- **Source grounding**: When the document describes existing code (architecture maps, audits, post-mortems), name only components that actually exist. Read the source first; do not invent boxes that look plausible, and do not omit components that are present in the code.
+- **Options and recommendation together**: For decision documents, a list of options without a chosen path reads as analysis paralysis; a recommendation without alternatives reads as unsupported. Both must be present, with the recommendation explicit about which requirements it prioritises and which it pushes back on.
+- **No stray code**: If the prompt says "do not implement code", "no source files", or "documents only", obey it strictly. Configuration files, schemas, migrations, and stub implementations all count as code under this constraint.
 
 ### Module & Library Deliverables
 
