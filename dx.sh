@@ -12,6 +12,8 @@
 # Provides:
 #   dx <number>             Start/resume the full autonomous lifecycle (Plan → Complete) for a ticket
 #   dx "description"        Same, for a task without a ticket
+#   dx --agent codex <task> Use a different agent for this invocation
+#   dx --model <model>      Pass a model override to the selected agent
 #   dx --resume             Resume the most recent session
 #   dx --from-pr <N>        Resume session linked to a PR
 #   dxcomplete              Standalone completion workflow (recovery / non-dx PRs)
@@ -51,17 +53,27 @@ __dx_cli() {
     config)    bash "$DEX_DIR/bin/config.sh" "$@" ;;
     provider)  dx_provider_command "$@" ;;
     research)
-      local _dx_has_max_cycles=0 _dx_arg
+      local _dx_has_max_cycles=0 _dx_has_runner=0 _dx_research_help=0 _dx_arg
+      local _dx_research_args=("$@")
       for _dx_arg in "$@"; do
         if [[ "$_dx_arg" == "--max-cycles" || "$_dx_arg" == --max-cycles=* ]]; then
           _dx_has_max_cycles=1
-          break
+        elif [[ "$_dx_arg" == "--runner" || "$_dx_arg" == --runner=* ]]; then
+          _dx_has_runner=1
+        elif [[ "$_dx_arg" == "--help" || "$_dx_arg" == "-h" ]]; then
+          _dx_research_help=1
         fi
       done
+      if [[ $_dx_research_help -eq 0 && $_dx_has_runner -eq 0 ]]; then
+        dx_provider_apply || return 1
+        if [[ "${DX_PROVIDER_AGENT:-claude}" == "codex" ]]; then
+          _dx_research_args=(--runner codex "${_dx_research_args[@]}")
+        fi
+      fi
       if [[ $_dx_has_max_cycles -eq 0 ]]; then
-        bash "$DEX_DIR/research/orchestrate.sh" --max-cycles 20 "$@"
+        bash "$DEX_DIR/research/orchestrate.sh" --max-cycles 20 "${_dx_research_args[@]}"
       else
-        bash "$DEX_DIR/research/orchestrate.sh" "$@"
+        bash "$DEX_DIR/research/orchestrate.sh" "${_dx_research_args[@]}"
       fi
       ;;
     uninit)    bash "$DEX_DIR/bin/uninit.sh" "$@" ;;
@@ -72,6 +84,10 @@ __dx_cli() {
     status)    bash "$DEX_DIR/bin/status.sh" "$@" ;;
     help|--help|-h)
       echo "Dex — workflow automation for Claude Code"
+      echo ""
+      echo "Global options:"
+      echo "  --agent <claude|codex>  Use this agent for the current invocation"
+      echo "  --model <model>         Pass this model to the selected agent"
       echo ""
       echo "Commands:"
       echo "  dx install          Global install (skills, hooks, zshrc)"
@@ -95,6 +111,7 @@ __dx_cli() {
       echo "Worktree commands:"
       echo "  dx <number>            Run autonomous lifecycle (Plan → Complete) for a ticket"
       echo "  dx \"<description>\"     Same, for a task without a ticket"
+      echo "  dx --agent codex --model gpt-5.3-codex \"<task>\""
       echo "  dx --no-worktree <task> Run lifecycle in the current checkout instead"
       echo "  dx --resume            Resume the most recent session"
       echo "  dx --from-pr <N>      Resume session linked to a PR"
@@ -196,7 +213,7 @@ fi
 
 # Default Claude flags for all dx-launched sessions:
 #   --chrome           Enable browser automation tools (MCP)
-#   --model            Use Opus for autonomous multi-phase work by default.
+#   --model            Use Opus 4.7 for autonomous multi-phase work by default.
 #                      Override with DX_CLAUDE_MODEL for gateways/custom models.
 #   --dangerously-skip-permissions       No interactive permission prompts.
 #   --permission-mode bypassPermissions  Keep Claude's permission mode explicit.
@@ -209,8 +226,8 @@ __dx_refresh_provider() {
   DX_PLAN_FLAGS=(--chrome --model "$DX_PLAN_MODEL" --dangerously-skip-permissions --permission-mode bypassPermissions --effort "$DX_PLAN_EFFORT")
 }
 
-DX_CLAUDE_FLAGS=(--chrome --model "${DX_CLAUDE_MODEL:-opus}" --dangerously-skip-permissions --permission-mode bypassPermissions --effort "${DX_CLAUDE_EFFORT:-max}")
-DX_PLAN_FLAGS=(--chrome --model "${DX_PLAN_MODEL:-${DX_CLAUDE_MODEL:-opus}}" --dangerously-skip-permissions --permission-mode bypassPermissions --effort "${DX_PLAN_EFFORT:-${DX_CLAUDE_EFFORT:-max}}")
+DX_CLAUDE_FLAGS=(--chrome --model "${DX_CLAUDE_MODEL:-claude-opus-4-7}" --dangerously-skip-permissions --permission-mode bypassPermissions --effort "${DX_CLAUDE_EFFORT:-max}")
+DX_PLAN_FLAGS=(--chrome --model "${DX_PLAN_MODEL:-${DX_CLAUDE_MODEL:-claude-opus-4-7}}" --dangerously-skip-permissions --permission-mode bypassPermissions --effort "${DX_PLAN_EFFORT:-${DX_CLAUDE_EFFORT:-max}}")
 
 # Phase 1 uses dangerous skip permissions plus bypassPermissions to avoid
 # interactive prompts. Claude calls EnterPlanMode as its first action to
@@ -1472,6 +1489,7 @@ dx() {
   if [[ $# -eq 0 ]]; then
     echo "Usage: dx <NUMBER>        (e.g. dx 999, dx ENG-999)"
     echo "       dx \"<description>\" (e.g. dx \"fix login bug\")"
+    echo "       dx --agent codex --model gpt-5.3-codex \"<task>\""
     echo "       dx --no-worktree <task>"
     echo "       dx --resume        Resume the most recent session"
     echo "       dx --from-pr <N>   Resume session linked to a PR"
@@ -1482,8 +1500,42 @@ dx() {
   fi
 
   local use_worktree=1
+  local dx_agent_flag=""
+  local dx_model_flag=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --agent)
+        if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == --* ]]; then
+          dx_error "Usage: dx --agent <claude|codex> <command-or-task>"
+          return 1
+        fi
+        dx_agent_flag="$2"
+        shift 2
+        ;;
+      --agent=*)
+        dx_agent_flag="${1#--agent=}"
+        if [[ -z "$dx_agent_flag" ]]; then
+          dx_error "Usage: dx --agent <claude|codex> <command-or-task>"
+          return 1
+        fi
+        shift
+        ;;
+      --model)
+        if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == --* ]]; then
+          dx_error "Usage: dx --model <model> <command-or-task>"
+          return 1
+        fi
+        dx_model_flag="$2"
+        shift 2
+        ;;
+      --model=*)
+        dx_model_flag="${1#--model=}"
+        if [[ -z "$dx_model_flag" ]]; then
+          dx_error "Usage: dx --model <model> <command-or-task>"
+          return 1
+        fi
+        shift
+        ;;
       --no-worktree|--in-place|--here)
         use_worktree=0
         shift
@@ -1498,8 +1550,17 @@ dx() {
     esac
   done
 
+  if [[ -n "$dx_agent_flag" ]]; then
+    dx_agent_flag=$(dx_agent_normalize "$dx_agent_flag") || return 1
+    local -x DX_AGENT_OVERRIDE="$dx_agent_flag"
+  fi
+  if [[ -n "$dx_model_flag" ]]; then
+    dx_provider_validate_model_field "dx --model" "$dx_model_flag" || return 1
+    local -x DX_MODEL_OVERRIDE="$dx_model_flag"
+  fi
+
   if [[ $# -eq 0 ]]; then
-    echo "Usage: dx --no-worktree <NUMBER|description>"
+    echo "Usage: dx [--agent <claude|codex>] [--model <model>] <NUMBER|description|command>"
     return 1
   fi
 

@@ -36,6 +36,7 @@ prompts/             Prompt templates for skills/agents
   phase-audits/      Phase-specific audit prompts (1-6 + prompt-loop)
 skills/              Lifecycle skills (17 total, linked into ~/.claude/skills/)
 .dex/                Per-project config (this directory)
+  providers.json     Repo-local default agent/provider profile
 ```
 
 ## Files to Never Commit
@@ -59,6 +60,13 @@ skills/              Lifecycle skills (17 total, linked into ~/.claude/skills/)
 
 When an integration is "not configured", skip any workflow steps that reference it.
 For ticket tracking: use the enabled tracker for all status updates, context gathering, and ticket lifecycle management.
+
+## Provider
+
+This repo uses `.dex/providers.json` to default Dex runs to the Codex agent with
+`gpt-5.3-codex`. Use `dx --agent claude` for a one-run fallback to the built-in
+Claude/Opus 4.7 profile.
+
 ## Reviewers
 
 Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:

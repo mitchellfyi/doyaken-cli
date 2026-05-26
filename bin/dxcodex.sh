@@ -33,6 +33,8 @@ case "$subcmd" in
     ;;
 esac
 
+# Re-resolve from the selected provider profile. Keep DX_MODEL_OVERRIDE intact
+# so `dx --agent codex --model <model>` reaches this wrapper through Claude.
 unset DX_CODEX_MODEL
 dx_provider_apply
 if [[ "$DX_PROVIDER_ENGINE" != "codex-plugin" ]]; then

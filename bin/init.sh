@@ -97,6 +97,17 @@ From the terminal, run `dx <ticket-number>` to start the full autonomous lifecyc
 
 Run `dxloop <prompt>` to execute a prompt in a loop until Claude confirms it's fully implemented. Works in the current directory — no worktree or ticket needed.
 
+## Agent and model
+
+Dex defaults to Claude on Opus 4.7. Override a single run with:
+
+```bash
+dx --agent codex --model gpt-5.3-codex "<task>"
+```
+
+Use `.dex/providers.json` for repo defaults, or `dx provider use --repo <profile>`
+for built-in profiles.
+
 ## Inside Claude Code CLI
 
 If you're already in a Claude Code session, run `/dex` to begin the ticket lifecycle interactively.
@@ -213,7 +224,7 @@ elif ! command -v claude &>/dev/null; then
   echo "  dx init --skip-config"
 else
   echo ""
-  echo "Analyzing codebase with Claude Code CLI..."
+  echo "Analyzing codebase with the active Dex provider..."
   echo "This discovers your tech stack, quality gates, and conventions."
   echo ""
   printf '[....]  Starting analysis...'

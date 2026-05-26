@@ -39,6 +39,7 @@ Per-project (created by `dx init`):
   AGENTS.md          @import of dex.md (generated context source of truth)
   CLAUDE.md          @import of AGENTS.md (Claude Code compatibility pointer)
   review-rules.md    Optional path-specific focus for Dex review waves
+  providers.json      Optional repo-local provider/agent defaults
   rules/             Coding conventions (generated from codebase analysis)
   guards/            Project-specific guard rules (generated)
   worktrees/         Worktree directories (gitignored, ephemeral)
@@ -174,7 +175,12 @@ Stored in `prompts/`. Referenced by skills and CLI harness prompts via
 
 ### Provider launch policy
 
-Dex-launched Claude Code sessions must include `--dangerously-skip-permissions` plus `--permission-mode bypassPermissions`. Codex delegation must go through `bin/dxcodex.sh`, which owns `--ignore-user-config` and `--dangerously-bypass-approvals-and-sandbox`; do not reintroduce `--full-auto` for Dex-managed Codex work.
+Dex exposes stable agent names (`claude`, `codex`) through `dx --agent`, while
+`lib/provider.sh` owns the mapping to provider profiles and engines. Keep new
+agent support behind that provider layer rather than branching on agent names
+throughout `dx.sh`.
+
+Dex-launched Claude Code sessions must include `--dangerously-skip-permissions` plus `--permission-mode bypassPermissions`. Codex delegation must go through `bin/dxcodex.sh`, which owns `--ignore-user-config` and `--dangerously-bypass-approvals-and-sandbox`; do not reintroduce `--full-auto` for Dex-managed Codex work. `dx --model <model>` targets the selected agent: Claude gets `claude --model`, while Codex gets `codex exec --model` through the wrapper.
 
 ### Hook integration
 
@@ -331,9 +337,12 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 | `DEX_COMPLETE_WAIT_MINUTES` | Minimum wait window per Phase 6 cycle (minutes) | 5 |
 | `DEX_SESSION_ID` | Unique session ID (set by dxloop for stop hook) | unset |
 | `CODEX_HOME` | Codex config root used for Dex skill links | `~/.codex` |
+| `DX_AGENT` / `DX_AGENT_OVERRIDE` | Agent override (`claude` or `codex`) | profile/default |
+| `DX_MODEL` / `DX_MODEL_OVERRIDE` | Model override for the selected agent | profile/default |
 | `DX_PROVIDER_PROFILE` | Provider profile override (`claude-subscription`, `codex-subscription`, or custom) | config/default |
 | `DX_CLAUDE_MODEL` | Override Claude Code model passed to `--model` | profile model |
 | `DX_PLAN_MODEL` | Override Phase 1/plan model | `DX_CLAUDE_MODEL` or profile plan model |
+| `DX_CODEX_MODEL` | Resolved Codex model passed through `bin/dxcodex.sh` | profile/default |
 | `DX_CLAUDE_EFFORT` | Override Claude Code `--effort` | profile effort |
 | `DX_PLAN_EFFORT` | Override Phase 1/plan effort | `DX_CLAUDE_EFFORT` or profile plan effort |
 | `DX_ALLOW_API_BILLED_AUTH` | Allow `dx provider doctor` to tolerate API/gateway env vars | `0` |

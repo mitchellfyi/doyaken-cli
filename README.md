@@ -87,10 +87,11 @@ dx init                    # Analyze the current repo and create .dex/
 dx sync                    # Refresh durable repo memory and rules
 dx 1234                    # Run the full lifecycle for a ticket
 dx "task description"      # Run the full lifecycle for a free-form task
+dx --agent codex --model gpt-5.3-codex "fix flaky import"
 dx --no-worktree 1234      # Run the lifecycle in the current checkout
 dxreviewloop               # Review current changes without the full lifecycle
 dxcomplete                 # Resume PR completion for the current branch
-dx provider current        # Show active Claude/Codex execution profile
+dx provider current        # Show active agent/provider/model resolution
 dx tools bootstrap         # Install/refresh browser MCPs, docs MCP, and plugins
 ```
 
@@ -118,6 +119,7 @@ It does not commit those artifacts.
   AGENTS.md         Imports dex.md for agent context
   CLAUDE.md         Claude Code compatibility pointer
   review-rules.md   Optional path-specific review focus
+  providers.json    Optional repo-local provider/agent defaults
   rules/            Generated coding conventions
   guards/           Project-specific safety guards
   memory/           Durable repo memory
@@ -130,9 +132,17 @@ every run.
 
 ## Provider Profiles
 
-Dex keeps Claude Code as the lifecycle harness because it relies on Claude Code
-hooks, skills, plan mode, and same-session handoff. You can still route
-substantive work through supported profiles:
+Dex defaults to the `claude` agent on Claude Opus 4.7. You can override one run
+from the terminal:
+
+```bash
+dx --agent claude --model claude-opus-4-7 1234
+dx --agent codex --model gpt-5.3-codex "add the export job"
+```
+
+For Codex runs, Claude Code remains the lifecycle harness because Dex relies on
+Claude Code hooks, skills, plan mode, and same-session handoff. Substantive
+coding and review work is delegated through Dex's Codex wrapper.
 
 - `claude-subscription` - direct Claude Code via Claude subscription auth.
 - `codex-subscription` - Claude remains the harness while coding/review work is
@@ -141,8 +151,12 @@ substantive work through supported profiles:
 ```bash
 dx provider list
 dx provider use codex-subscription
+dx provider use --repo codex-subscription
 dx provider doctor
 ```
+
+Repo defaults live in `.dex/providers.json`; user defaults live in
+`~/.dex/providers.json`. CLI flags win for the current invocation only.
 
 Subscription-safe profiles strip API-provider environment variables from
 launched subprocesses and require Dex-managed wrappers for delegated Codex work.

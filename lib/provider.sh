@@ -1,9 +1,10 @@
 # shellcheck shell=bash
 # Dex provider profile helpers.
 #
-# Profiles select how Dex should spend model work while keeping Claude Code
-# as the outer lifecycle harness. Subscription-safe profiles intentionally avoid
-# API-key credentials that would bypass subscription billing.
+# Profiles select how Dex should spend model work. The public agent layer maps
+# stable names such as "claude" and "codex" onto those profiles so CLI flags do
+# not need to know internal engine names. Subscription-safe profiles
+# intentionally avoid API-key credentials that would bypass subscription billing.
 
 DX_PROVIDER_GLOBAL_CONFIG="$HOME/.dex/providers.json"
 
@@ -216,14 +217,14 @@ __dx_provider_builtin_get() {
   case "$profile:$key" in
     claude-subscription:engine) printf '%s\n' "claude" ;;
     claude-subscription:auth) printf '%s\n' "subscription" ;;
-    claude-subscription:model) printf '%s\n' "opus" ;;
-    claude-subscription:plan_model) printf '%s\n' "opus" ;;
+    claude-subscription:model) printf '%s\n' "claude-opus-4-7" ;;
+    claude-subscription:plan_model) printf '%s\n' "claude-opus-4-7" ;;
     claude-subscription:effort) printf '%s\n' "max" ;;
     claude-subscription:plan_effort) printf '%s\n' "max" ;;
     codex-subscription:engine) printf '%s\n' "codex-plugin" ;;
     codex-subscription:auth) printf '%s\n' "chatgpt-subscription" ;;
-    codex-subscription:model) printf '%s\n' "opus" ;;
-    codex-subscription:plan_model) printf '%s\n' "opus" ;;
+    codex-subscription:model) printf '%s\n' "claude-opus-4-7" ;;
+    codex-subscription:plan_model) printf '%s\n' "claude-opus-4-7" ;;
     codex-subscription:effort) printf '%s\n' "max" ;;
     codex-subscription:plan_effort) printf '%s\n' "max" ;;
     *) return 1 ;;
@@ -489,6 +490,60 @@ dx_provider_cleanup_session_state() {
   fi
 }
 
+dx_agent_normalize() {
+  local agent="${1:-}"
+  case "$agent" in
+    ""|default|Default|claude|Claude|claude-code|ClaudeCode|claudecode)
+      printf '%s\n' "claude"
+      ;;
+    codex|Codex|codex-cli|openai-codex|OpenAICodex)
+      printf '%s\n' "codex"
+      ;;
+    *)
+      dx_error "Unsupported agent: $agent"
+      dx_info "Supported agents: claude, codex"
+      return 1
+      ;;
+  esac
+}
+
+dx_agent_label() {
+  case "$1" in
+    codex) printf '%s\n' "Codex" ;;
+    *) printf '%s\n' "Claude" ;;
+  esac
+}
+
+dx_agent_default_profile() {
+  case "$1" in
+    claude) printf '%s\n' "claude-subscription" ;;
+    codex) printf '%s\n' "codex-subscription" ;;
+    *) return 1 ;;
+  esac
+}
+
+dx_agent_for_engine() {
+  case "$1" in
+    claude|anthropic-gateway) printf '%s\n' "claude" ;;
+    codex-plugin) printf '%s\n' "codex" ;;
+    *) return 1 ;;
+  esac
+}
+
+dx_provider_profile_agent() {
+  local profile="$1" preferred="${2:-auto}" source engine
+  source=$(dx_provider_resolve_source "$profile" "$preferred") || return 1
+  engine=$(dx_provider_get "$profile" "engine" "$source" 2>/dev/null || true)
+  [[ -n "$engine" ]] || return 1
+  dx_agent_for_engine "$engine"
+}
+
+dx_provider_profile_matches_agent() {
+  local profile="$1" preferred="$2" agent="$3" profile_agent
+  profile_agent=$(dx_provider_profile_agent "$profile" "$preferred" 2>/dev/null || true)
+  [[ "$profile_agent" == "$agent" ]]
+}
+
 dx_agent_host() {
   case "${DEX_AGENT_HOST:-${DX_AGENT_HOST:-auto}}" in
     codex|Codex)
@@ -542,9 +597,32 @@ dx_provider_codex_exec() {
 }
 
 dx_provider_apply() {
-  local preferred_source="auto" default_profile explicit_engine
+  local preferred_source="auto" default_profile explicit_engine agent_override="" model_override=""
   dx_provider_validate_config_files || return 1
-  if [[ -n "${DX_PROVIDER_PROFILE:-}" ]]; then
+  if [[ -n "${DX_AGENT_OVERRIDE:-}" ]]; then
+    agent_override=$(dx_agent_normalize "$DX_AGENT_OVERRIDE") || return 1
+  elif [[ -n "${DX_AGENT:-}" ]]; then
+    agent_override=$(dx_agent_normalize "$DX_AGENT") || return 1
+  fi
+  model_override="${DX_MODEL_OVERRIDE:-${DX_MODEL:-}}"
+  dx_provider_validate_model_field "DX_MODEL override" "$model_override" || return 1
+
+  if [[ -n "$agent_override" ]]; then
+    default_profile=$(dx_provider_repo_default_profile 2>/dev/null || true)
+    if [[ -n "$default_profile" ]] && dx_provider_profile_matches_agent "$default_profile" "repo" "$agent_override"; then
+      DX_PROVIDER_PROFILE_RESOLVED="$default_profile"
+      preferred_source="repo"
+    else
+      default_profile=$(__dx_provider_json_default "$DX_PROVIDER_GLOBAL_CONFIG" 2>/dev/null || true)
+      if [[ -n "$default_profile" ]] && dx_provider_profile_matches_agent "$default_profile" "global" "$agent_override"; then
+        DX_PROVIDER_PROFILE_RESOLVED="$default_profile"
+        preferred_source="global"
+      else
+        DX_PROVIDER_PROFILE_RESOLVED=$(dx_agent_default_profile "$agent_override") || return 1
+        preferred_source="builtin"
+      fi
+    fi
+  elif [[ -n "${DX_PROVIDER_PROFILE:-}" ]]; then
     DX_PROVIDER_PROFILE_RESOLVED="$DX_PROVIDER_PROFILE"
     if dx_provider_is_builtin "$DX_PROVIDER_PROFILE_RESOLVED"; then
       preferred_source="builtin"
@@ -603,11 +681,12 @@ dx_provider_apply() {
       return 1
       ;;
   esac
+  DX_PROVIDER_AGENT=$(dx_agent_for_engine "$DX_PROVIDER_ENGINE")
 
   DX_PROVIDER_AUTH=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "auth" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "")
   DX_PROVIDER_BASE_URL=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "base_url" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "")
   DX_PROVIDER_AUTH_ENV=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "auth_env" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "")
-  DX_PROVIDER_MODEL=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "model" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "opus")
+  DX_PROVIDER_MODEL=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "model" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "claude-opus-4-7")
   DX_PROVIDER_PLAN_MODEL=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "plan_model" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "$DX_PROVIDER_MODEL")
   # shellcheck disable=SC2034
   DX_PROVIDER_HAIKU_MODEL=$(dx_provider_get "$DX_PROVIDER_PROFILE_RESOLVED" "haiku_model" "$DX_PROVIDER_SOURCE" 2>/dev/null || echo "$DX_PROVIDER_MODEL")
@@ -618,16 +697,24 @@ dx_provider_apply() {
   dx_provider_validate_model_field "Provider profile ${DX_PROVIDER_PROFILE_RESOLVED} plan_model" "$DX_PROVIDER_PLAN_MODEL" || return 1
   dx_provider_validate_model_field "Provider profile ${DX_PROVIDER_PROFILE_RESOLVED} haiku_model" "$DX_PROVIDER_HAIKU_MODEL" || return 1
   dx_provider_validate_model_field "Provider profile ${DX_PROVIDER_PROFILE_RESOLVED} codex_model" "$DX_CODEX_MODEL" || return 1
-
-  if [[ -n "${DX_CLAUDE_MODEL:-}" && "${DX_CLAUDE_MODEL}" != "${DX_PROVIDER_LAST_CLAUDE_MODEL:-}" && "${DX_CLAUDE_MODEL}" != "${DX_PROVIDER_LAST_PROVIDER_MODEL:-}" ]]; then
-    DX_USER_CLAUDE_MODEL="$DX_CLAUDE_MODEL"
-  elif [[ -z "${DX_CLAUDE_MODEL:-}" || "${DX_CLAUDE_MODEL:-}" == "${DX_PROVIDER_LAST_PROVIDER_MODEL:-}" ]]; then
-    DX_USER_CLAUDE_MODEL=""
+  if [[ "$DX_PROVIDER_ENGINE" == "codex-plugin" && -n "$model_override" ]]; then
+    DX_CODEX_MODEL="$model_override"
   fi
-  if [[ -n "${DX_PLAN_MODEL:-}" && "${DX_PLAN_MODEL}" != "${DX_PROVIDER_LAST_PLAN_MODEL:-}" && "${DX_PLAN_MODEL}" != "${DX_PROVIDER_LAST_PROVIDER_PLAN_MODEL:-}" ]]; then
-    DX_USER_PLAN_MODEL="$DX_PLAN_MODEL"
-  elif [[ -z "${DX_PLAN_MODEL:-}" || "${DX_PLAN_MODEL:-}" == "${DX_PROVIDER_LAST_PROVIDER_PLAN_MODEL:-}" ]]; then
-    DX_USER_PLAN_MODEL=""
+
+  if [[ "$DX_PROVIDER_ENGINE" != "codex-plugin" && -n "$model_override" ]]; then
+    DX_USER_CLAUDE_MODEL="$model_override"
+    DX_USER_PLAN_MODEL="$model_override"
+  else
+    if [[ -n "${DX_CLAUDE_MODEL:-}" && "${DX_CLAUDE_MODEL}" != "${DX_PROVIDER_LAST_CLAUDE_MODEL:-}" && "${DX_CLAUDE_MODEL}" != "${DX_PROVIDER_LAST_PROVIDER_MODEL:-}" ]]; then
+      DX_USER_CLAUDE_MODEL="$DX_CLAUDE_MODEL"
+    elif [[ -z "${DX_CLAUDE_MODEL:-}" || "${DX_CLAUDE_MODEL:-}" == "${DX_PROVIDER_LAST_PROVIDER_MODEL:-}" ]]; then
+      DX_USER_CLAUDE_MODEL=""
+    fi
+    if [[ -n "${DX_PLAN_MODEL:-}" && "${DX_PLAN_MODEL}" != "${DX_PROVIDER_LAST_PLAN_MODEL:-}" && "${DX_PLAN_MODEL}" != "${DX_PROVIDER_LAST_PROVIDER_PLAN_MODEL:-}" ]]; then
+      DX_USER_PLAN_MODEL="$DX_PLAN_MODEL"
+    elif [[ -z "${DX_PLAN_MODEL:-}" || "${DX_PLAN_MODEL:-}" == "${DX_PROVIDER_LAST_PROVIDER_PLAN_MODEL:-}" ]]; then
+      DX_USER_PLAN_MODEL=""
+    fi
   fi
   if [[ -n "${DX_CLAUDE_EFFORT:-}" && "${DX_CLAUDE_EFFORT}" != "${DX_PROVIDER_LAST_CLAUDE_EFFORT:-}" && "${DX_CLAUDE_EFFORT}" != "${DX_PROVIDER_LAST_PROVIDER_EFFORT:-}" ]]; then
     DX_USER_CLAUDE_EFFORT="$DX_CLAUDE_EFFORT"
@@ -645,6 +732,7 @@ dx_provider_apply() {
   DX_PLAN_MODEL="${DX_USER_PLAN_MODEL:-${DX_USER_CLAUDE_MODEL:-$DX_PROVIDER_PLAN_MODEL}}"
   dx_provider_validate_model_field "DX_CLAUDE_MODEL" "$DX_CLAUDE_MODEL" || return 1
   dx_provider_validate_model_field "DX_PLAN_MODEL" "$DX_PLAN_MODEL" || return 1
+  dx_provider_validate_model_field "DX_CODEX_MODEL" "$DX_CODEX_MODEL" || return 1
   DX_CLAUDE_EFFORT="${DX_USER_CLAUDE_EFFORT:-$DX_PROVIDER_EFFORT}"
   # shellcheck disable=SC2034
   DX_PLAN_EFFORT="${DX_USER_PLAN_EFFORT:-${DX_USER_CLAUDE_EFFORT:-$DX_PROVIDER_PLAN_EFFORT}}"
@@ -732,7 +820,10 @@ dx_provider_claude() {
       env_args+=(
         DX_PROVIDER_PROFILE="$DX_PROVIDER_PROFILE_RESOLVED"
         DX_PROVIDER_ENGINE="$DX_PROVIDER_ENGINE"
+        DX_PROVIDER_AGENT="${DX_PROVIDER_AGENT:-codex}"
         DX_CODEX_MODEL="${DX_CODEX_MODEL:-}"
+        DX_AGENT_OVERRIDE="${DX_AGENT_OVERRIDE:-}"
+        DX_MODEL_OVERRIDE="${DX_MODEL_OVERRIDE:-}"
       )
       env \
         "${env_args[@]}" \
@@ -742,6 +833,7 @@ dx_provider_claude() {
       env_args+=(
         DX_PROVIDER_PROFILE="$DX_PROVIDER_PROFILE_RESOLVED"
         DX_PROVIDER_ENGINE="$DX_PROVIDER_ENGINE"
+        DX_PROVIDER_AGENT="${DX_PROVIDER_AGENT:-claude}"
       )
       env \
         "${env_args[@]}" \
@@ -986,6 +1078,10 @@ EOF
 
 dx_provider_list() {
   dx_provider_validate_config_files || return 1
+  printf '%s\n' "Agents:"
+  printf '  %s\n' "claude                  Direct Claude Code lifecycle agent"
+  printf '  %s\n' "codex                   Codex CLI delegation with Claude Code lifecycle harness"
+  printf '\n'
   printf '%s\n' "Built-in profiles:"
   printf '  %s\n' "claude-subscription     Claude Code with Claude subscription OAuth"
   printf '  %s\n' "codex-subscription      Claude Code harness with Codex CLI subscription delegation"
@@ -1007,12 +1103,15 @@ for name in sorted(data.get("profiles", {})):
 
 dx_provider_current() {
   dx_provider_apply || return 1
+  dx_info "Agent:   $(dx_agent_label "$DX_PROVIDER_AGENT")"
   dx_info "Profile: ${DX_PROVIDER_PROFILE_RESOLVED}"
   dx_info "Engine:  ${DX_PROVIDER_ENGINE}"
   dx_info "Auth:    ${DX_PROVIDER_AUTH:-unknown}"
-  dx_info "Claude:  ${DX_CLAUDE_MODEL} (${DX_CLAUDE_EFFORT})"
   if [[ "$DX_PROVIDER_ENGINE" == "codex-plugin" ]]; then
+    dx_info "Harness: ${DX_CLAUDE_MODEL} (${DX_CLAUDE_EFFORT})"
     dx_info "Codex:   ${DX_CODEX_MODEL:-default}"
+  else
+    dx_info "Claude:  ${DX_CLAUDE_MODEL} (${DX_CLAUDE_EFFORT})"
   fi
   if [[ "$DX_PROVIDER_ENGINE" == "anthropic-gateway" ]]; then
     dx_info "Gateway: ${DX_PROVIDER_BASE_URL:-not configured}"
@@ -1299,6 +1398,10 @@ dx_provider_command() {
       ;;
     help|--help|-h)
       printf '%s\n' "Usage: dx provider <command>"
+      printf '%s\n' ""
+      printf '%s\n' "Global run overrides:"
+      printf '%s\n' "  dx --agent <claude|codex> <command-or-task>"
+      printf '%s\n' "  dx --model <model> <command-or-task>"
       printf '%s\n' ""
       printf '%s\n' "Commands:"
       printf '%s\n' "  list                    Show built-in and configured profiles"
