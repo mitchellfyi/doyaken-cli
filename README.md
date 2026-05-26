@@ -92,7 +92,7 @@ dx --no-worktree 1234      # Run the lifecycle in the current checkout
 dxreviewloop               # Review current changes without the full lifecycle
 dxcomplete                 # Resume PR completion for the current branch
 dx provider current        # Show active agent/provider/model resolution
-dx tools bootstrap         # Install/refresh browser MCPs, docs MCP, and plugins
+dx tools bootstrap         # Install/refresh RTK, browser MCPs, docs MCP, and plugins
 ```
 
 `dex` and `dexter` are aliases for `dx`.
@@ -105,9 +105,14 @@ dx tools bootstrap         # Install/refresh browser MCPs, docs MCP, and plugins
 - Optional: Codex CLI if you want the `codex-subscription` provider profile.
 - Optional: `shellcheck`, language toolchains, and test tools used by your repo.
 
-Dex installs Playwright UI-capture tooling into `~/.claude/.dex-tools/` and
-stores screenshots, traces, logs, and videos under `~/.claude/.dex-artifacts/`.
-It does not commit those artifacts.
+Dex installs Playwright UI-capture tooling and RTK token-reduction tooling into
+`~/.claude/.dex-tools/`. Screenshots, traces, logs, and videos are stored under
+`~/.claude/.dex-artifacts/`. Dex does not commit those artifacts.
+
+RTK support is installed by `dx install`, `dx init`, `dx sync`, and
+`dx tools bootstrap`. Claude Code sessions get a fail-open Bash rewrite hook;
+Codex gets global instructions to prefix shell commands with RTK when compact
+output is enough. Set `DX_RTK_ENABLED=0` to skip this bootstrap.
 
 ## Project Context
 

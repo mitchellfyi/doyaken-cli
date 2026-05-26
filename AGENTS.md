@@ -124,8 +124,9 @@ The corresponding MCP servers are listed and authenticated through claude.ai or 
 Dex may install a narrow official tooling allowlist during `dx install`,
 `dx init`, and `dx sync`: Dex Claude/Codex skill links, browser MCPs,
 OpenAI docs MCP, the OpenAI Codex Claude plugin when Codex is installed,
-`frontend-design` for detected frontend repos, and official language LSP
-plugins for detected TypeScript/JavaScript, Python, Rust, or Go repos. Do not
+`frontend-design` for detected frontend repos, official language LSP
+plugins for detected TypeScript/JavaScript, Python, Rust, or Go repos, and the
+RTK token-reduction binary plus Dex-managed RTK hook/instruction files. Do not
 add broad behavior-changing plugins, community marketplaces, or vendor
 integration plugins to the default bootstrap path.
 
@@ -286,6 +287,7 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 | `codex.sh` | Codex CLI skill installation helpers | `dx_install_codex_skills()`, `dx_count_dex_skills()`, `dx_codex_dex_skills_complete()`, `dx_uninstall_codex_skills()` |
 | `git.sh` | Git helpers | `dx_default_branch()`, `dx_slugify()` |
 | `provider.sh` | Provider/model profile resolution, launch wrapping, and diagnostics | `dx_provider_apply()`, `dx_provider_claude()`, `dx_provider_command()`, `dx_provider_doctor()` |
+| `rtk.sh` | RTK token-reduction bootstrap and checks | `dx_install_rtk_tooling()`, `dx_check_rtk_tooling()`, `dx_rtk_resolved_binary()` |
 | `session.sh` | Session ID derivation, state file paths | `dx_session_id()`, `dx_provider_state_file()`, `dx_cleanup_session()` |
 | `output.sh` | Formatted user-facing output | `dx_done()`, `dx_ok()`, `dx_warn()`, `dx_error()`, etc. |
 | `ui-capture.sh` | Playwright/UI capture tooling, artifact paths, MCP bootstrap | `dx_install_ui_capture_tooling()`, `dx_ui_capture_run_dir()`, `dx_ui_capture_playwright_ready()` |
@@ -322,6 +324,10 @@ When modifying shell scripts, ensure they pass `shellcheck` if you have it avail
 | `DX_LOOP_DIR` | Loop state directory | `~/.claude/.dex-loops` |
 | `DX_ARTIFACT_DIR` | Dex-generated screenshots, videos, traces, and logs | `~/.claude/.dex-artifacts` |
 | `DX_TOOL_DIR` | Dex-managed external tooling cache | `~/.claude/.dex-tools` |
+| `DX_RTK_ENABLED` | Enable RTK token-reduction bootstrap (`0` disables) | `1` |
+| `DX_RTK_BIN` | Override RTK binary path used by Dex hooks/checks | unset |
+| `DX_RTK_INSTALL_DIR` | RTK binary install directory | `$DX_TOOL_DIR/rtk/bin` |
+| `DX_RTK_VERSION` | Pin RTK release installed by Dex | latest GitHub release |
 | `DEX_LOOP_ACTIVE` | Enable phase audit loop | unset |
 | `DEX_LOOP_PHASE` | Current phase (1-6 or "prompt-loop") | unset |
 | `DEX_PHASE_HANDOFF` | Same-session phase handoff marker (`inline` for `dx`) | unset |

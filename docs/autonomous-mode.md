@@ -278,6 +278,10 @@ UI artifacts are stored separately in `~/.claude/.dex-artifacts/` so screenshots
 | `DEX_COMPLETE_WAIT_MINUTES` | `5` | Minimum wait window per Phase 6 cycle (minutes) |
 | `DX_ARTIFACT_DIR` | `~/.claude/.dex-artifacts` | Screenshots, videos, traces, and logs produced by Dex |
 | `DX_TOOL_DIR` | `~/.claude/.dex-tools` | Dex-managed external tooling cache |
+| `DX_RTK_ENABLED` | `1` | Set to `0` to skip RTK token-reduction bootstrap |
+| `DX_RTK_BIN` | unset | RTK binary path override for hooks and checks |
+| `DX_RTK_INSTALL_DIR` | `$DX_TOOL_DIR/rtk/bin` | RTK binary install directory |
+| `DX_RTK_VERSION` | latest release | RTK release pin for Dex installs |
 
 ## Troubleshooting
 

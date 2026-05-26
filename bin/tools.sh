@@ -9,10 +9,10 @@ usage() {
   cat <<'USAGE'
 Usage: dx tools [command]
 
-Inspect or install Dex's conservative Claude/Codex tooling bootstrap.
+Inspect or install Dex's Claude/Codex tooling bootstrap.
 
 Commands:
-  bootstrap    Install Dex links, official MCPs, and safe official plugins
+  bootstrap    Install Dex links, RTK, official MCPs, and safe official plugins
   doctor       Check tooling state without changing global configuration
   check        Alias for doctor
   -h, --help   Show this help

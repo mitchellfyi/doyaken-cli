@@ -67,7 +67,7 @@ __dx_managed_dirs_added_by_merge() {
         or contains("$HOME/work/dex/hooks/")
         or contains("$DEX_DIR/hooks/")
         or (contains("export DEX_DIR=") and contains("/hooks/"))
-        or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
+        or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|rtk-claude-hook\\.sh|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
       );
     def existing_has_dex_hooks:
       [($docs[0].hooks // {}) | to_entries[]? | .value[]? | .hooks[]? | .command | select(is_dex_cmd)] | length > 0;
@@ -182,7 +182,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
           or contains("$HOME/work/dex/hooks/")
           or contains("$DEX_DIR/hooks/")
           or (contains("export DEX_DIR=") and contains("/hooks/"))
-          or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
+          or test("(^|[[:space:]\\\"])[^[:space:]\\\"]*/dex(-cli)?/hooks/(load-ticket-context\\.sh|user-prompt-submit\\.sh|guard-handler\\.py|rtk-claude-hook\\.sh|post-commit-guard\\.sh|phase-loop\\.sh|stop-sound\\.sh|pre-compact\\.sh|session-end\\.sh)([[:space:]\\\"]|$)")
         );
       .[0] + {hooks: (reduce (.[1].hooks | to_entries[]) as $e (
         (.[0].hooks // {});

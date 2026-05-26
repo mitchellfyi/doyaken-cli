@@ -70,6 +70,12 @@ else
   echo "  UI Tools:  Playwright not installed — run 'dx install'"
 fi
 
+if rtk_binary=$(dx_rtk_resolved_binary 2>/dev/null); then
+  echo "  RTK:       installed ($rtk_binary)"
+else
+  echo "  RTK:       not installed or wrong binary — run 'dx install'"
+fi
+
 if command -v claude &>/dev/null; then
   if dx_claude_mcp_server_exists "playwright" && dx_claude_mcp_server_exists "chrome-devtools"; then
     echo "  Claude MCP: Playwright + Chrome DevTools configured"

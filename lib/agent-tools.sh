@@ -635,6 +635,7 @@ dx_bootstrap_agent_tooling() {
     dx_check_claude_dex_links || failed=1
     dx_check_codex_skill_links || failed=1
     dx_check_ui_capture_tooling || failed=1
+    dx_check_rtk_tooling || failed=1
     dx_check_openai_docs_mcp_servers || failed=1
     dx_check_safe_official_claude_plugins "$root" || failed=1
     return "$failed"
@@ -650,6 +651,7 @@ dx_bootstrap_agent_tooling() {
   fi
 
   dx_install_ui_capture_tooling || failed=1
+  dx_install_rtk_tooling || failed=1
   dx_install_openai_docs_mcp_servers || failed=1
   dx_install_safe_official_claude_plugins "$root" || failed=1
   dx_refresh_claude_settings 1 || failed=1

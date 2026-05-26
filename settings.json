@@ -29,6 +29,10 @@
           {
             "type": "command",
             "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; DEX_GUARD_EVENT=bash python3 \"$DEX_DIR/hooks/guard-handler.py\""
+          },
+          {
+            "type": "command",
+            "command": "export DEX_DIR=\"${DEX_DIR:-$HOME/work/dex}\"; bash \"$DEX_DIR/hooks/rtk-claude-hook.sh\""
           }
         ]
       },
