@@ -8,6 +8,7 @@
 #   ./research/loop.sh --cost-limit 100         # Custom cost limit (USD)
 #   ./research/loop.sh --scenario cli-todo-app  # Focus on one scenario
 #   ./research/loop.sh --skip-llm-judge         # Faster runs without LLM scoring
+#   ./research/loop.sh --allow-main             # Intentionally run on main/master
 
 set -euo pipefail
 
@@ -25,6 +26,7 @@ COST_LIMIT="$COST_LIMIT_USD"
 SCENARIO_FLAG=""
 SKIP_LLM_FLAG=""
 RUN_FLAGS=()
+ALLOW_MAIN=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -46,8 +48,12 @@ while [[ $# -gt 0 ]]; do
       RUN_FLAGS+=("--skip-llm-judge")
       shift
       ;;
+    --allow-main)
+      ALLOW_MAIN=1
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 [--max-iterations N] [--cost-limit USD] [--scenario name] [--skip-llm-judge]"
+      echo "Usage: $0 [--max-iterations N] [--cost-limit USD] [--scenario name] [--skip-llm-judge] [--allow-main]"
       exit 0
       ;;
     *)
@@ -56,6 +62,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ $ALLOW_MAIN -eq 1 ]]; then
+  export RESEARCH_ALLOW_MAIN=1
+fi
 
 # ── Safety checks ──────────────────────────────────────────────────────────
 safety_check_branch
@@ -161,15 +171,7 @@ for iter in $(seq 1 "$MAX_ITER"); do
 
   # Copy patch to applied/
   cp "$PATCH_FILE" "$IMPROVEMENTS_DIR/applied/$(basename "$PATCH_FILE")"
-
-  # Commit the change
-  (cd "$DEX_DIR" && \
-    git add -A && \
-    git commit -m "research: iteration $iter — improve DX based on harness results
-
-Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
-
-  log_info "Applied and committed changes"
+  log_info "Applied changes; validating before commit"
 
   # ── Smoke test ─────────────────────────────────────────────────────────
   log_step "Running smoke test ($SMOKE_SCENARIO)..."
@@ -183,7 +185,7 @@ Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
     # Check if smoke test regressed significantly
     if [[ $SMOKE_SCORE -lt 10 ]]; then
       log_warn "Smoke test score critically low ($SMOKE_SCORE). Reverting."
-      safety_revert_to_checkpoint "$iter"
+      safety_reverse_patch "$PATCH_FILE" || exit 1
       _changelog "### Iteration $iter: REVERT (smoke test score: $SMOKE_SCORE)"
       continue
     fi
@@ -198,7 +200,7 @@ Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
 
   if [[ ! -f "$CURR_DIR/summary.json" ]]; then
     log_warn "Suite run failed. Reverting."
-    safety_revert_to_checkpoint "$iter"
+    safety_reverse_patch "$PATCH_FILE" || exit 1
     _changelog "### Iteration $iter: REVERT (suite run failed)"
     continue
   fi
@@ -209,7 +211,7 @@ Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
   # ── Check regression ───────────────────────────────────────────────────
   if ! safety_check_regression "$PREV_SUMMARY" "$CURR_DIR/summary.json" 2>&1; then
     log_warn "Regression detected. Reverting."
-    safety_revert_to_checkpoint "$iter"
+    safety_reverse_patch "$PATCH_FILE" || exit 1
     _changelog "### Iteration $iter: REVERT (regression — score: $CURR_SCORE)"
     continue
   fi
@@ -224,6 +226,15 @@ Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
   _changelog "### Iteration $iter: KEEP (score: $CURR_SCORE, Δ $DELTA)"
   _changelog "$(report_comparison "$PREV_SUMMARY" "$CURR_DIR/summary.json" 2>/dev/null || echo "")"
   _changelog ""
+
+  (cd "$DEX_DIR" && \
+    git add -A && \
+    git commit \
+      -m "research: iteration $iter - improve DX based on harness results" \
+      -m "Accepted generated research changes after smoke and full-suite validation." \
+      -m "Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>" 2>/dev/null) || true
+
+  log_info "Committed accepted changes"
 
   PREV_SUMMARY="$CURR_DIR/summary.json"
   PREV_RUN_ID="$CURR_RUN_ID"

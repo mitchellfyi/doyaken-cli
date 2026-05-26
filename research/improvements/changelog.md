@@ -272,3 +272,18 @@ Rubric fixes validated: edge-ambiguous-spec +7 (naming), sql-orm-api +5 (SQL inj
 **improve.sh:** No actionable proposals — all scenarios above improvement threshold.
 
 **12-scenario latest average: 89.5** (variance dip — best-ever average is 94.0)
+
+### Manual Run: improve.sh Oversight + README Ordering (2026-05-26)
+**Harness fixes:**
+- **research/improve.sh:** Includes timed-out, nonzero-exit, and weak-dimension scenarios in proposal context even when total score is above 80.
+- **research/improve.sh:** Summarizes stream-json output before sending it to the proposal model, avoiding raw thinking signatures and large file payloads.
+- **research/improve.sh:** Rejects patches that pass scope validation but cannot be applied by `git apply --check` or the loop's per-part `patch --dry-run` fallback.
+
+**Prompt changes:**
+- **guardrails.md:** Added language-agnostic guidance against unreachable defensive branches and changing failing tests to fit flawed implementations.
+- **guardrails.md / dximplement:** Treat README/docs as required deliverables to draft early, not final polish.
+
+**Validation:**
+- Baseline edge-no-tests run `run-20260526-082450`: **87** total, exit 124, duration 600s, robustness 70.
+- Post-change edge-no-tests run `run-20260526-084424`: **87** total, exit 0, duration 576s, robustness 80.
+- Signal: aggregate unchanged, but the timeout/README failure was removed and robustness improved by 10 points. Test quality dropped 90 -> 85, so this needs broader reruns before treating it as a net score gain.

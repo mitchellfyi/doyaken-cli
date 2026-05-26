@@ -7,6 +7,7 @@
 #   ./research/orchestrate.sh                    # Run continuously
 #   ./research/orchestrate.sh --max-cycles 5     # Limit cycles
 #   ./research/orchestrate.sh --interval 600     # Check every 10 min (default)
+#   ./research/orchestrate.sh --allow-main       # Intentionally run on main/master
 
 set -euo pipefail
 
@@ -22,18 +23,24 @@ source "$SCRIPT_DIR/lib/safety.sh"
 MAX_CYCLES=0   # 0 = infinite
 INTERVAL=600   # seconds between cycles
 CYCLE=0
+ALLOW_MAIN=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --max-cycles) MAX_CYCLES="$2"; shift 2 ;;
     --interval) INTERVAL="$2"; shift 2 ;;
+    --allow-main) ALLOW_MAIN=1; shift ;;
     --help|-h)
-      echo "Usage: $0 [--max-cycles N] [--interval SECONDS]"
+      echo "Usage: $0 [--max-cycles N] [--interval SECONDS] [--allow-main]"
       exit 0
       ;;
     *) shift ;;
   esac
 done
+
+if [[ $ALLOW_MAIN -eq 1 ]]; then
+  export RESEARCH_ALLOW_MAIN=1
+fi
 
 # ── Pre-flight safety checks ──────────────────────────────────────────────
 safety_check_branch
@@ -51,6 +58,23 @@ echo ""
 
 _orchestrate_log() {
   echo "[$(date +%H:%M:%S)] $*" | tee -a "$RESEARCH_DIR/orchestrate.log"
+}
+
+_orchestrate_commit_pending() {
+  local subject="$1"
+  local body="${2:-}"
+
+  if [[ -z "$(git -C "$DEX_DIR" status --porcelain)" ]]; then
+    return 0
+  fi
+
+  if (cd "$DEX_DIR" && git add -A && git commit -m "$subject" -m "$body" -m "Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>"); then
+    _orchestrate_log "Committed pending changes: $subject"
+    return 0
+  fi
+
+  _orchestrate_log "Commit failed: $subject"
+  return 1
 }
 
 # ── Main loop ──────────────────────────────────────────────────────────────
@@ -110,11 +134,9 @@ while true; do
     _orchestrate_log "All scenarios scoring 90+! Merging to main."
 
     # Commit any pending changes
-    if [[ -n "$(git -C "$DEX_DIR" status --porcelain)" ]]; then
-      (cd "$DEX_DIR" && git add -A && git commit -m "research: all scenarios 90+ (cycle $CYCLE, aggregate $AGG_SCORE)
-
-Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>") || true
-    fi
+    _orchestrate_commit_pending \
+      "research: all scenarios 90+ (cycle $CYCLE, aggregate $AGG_SCORE)" \
+      "Recorded research results for a passing cycle."
 
     # Merge to main
     current_branch=""
@@ -155,9 +177,9 @@ Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>") || true
             _orchestrate_log "Improvement accepted (Δ $(python3 -c "print(round($NEW_SCORE - $AGG_SCORE, 1))"))"
 
             # Commit
-            (cd "$DEX_DIR" && git add -A && git commit -m "research: improve DX (cycle $CYCLE, $AGG_SCORE → $NEW_SCORE)
-
-Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>") || true
+            _orchestrate_commit_pending \
+              "research: improve DX (cycle $CYCLE, $AGG_SCORE to $NEW_SCORE)" \
+              "Accepted generated research improvements after validation."
 
             # Merge to main if improved
             if python3 -c "exit(0 if $NEW_SCORE > $AGG_SCORE else 1)" 2>/dev/null; then
@@ -175,14 +197,23 @@ Co-Authored-By: DX Autoresearch <noreply@dexcode.ai>") || true
             fi
           else
             _orchestrate_log "Improvement regressed. Reverting."
-            safety_revert_to_checkpoint "cycle-$CYCLE"
+            safety_reverse_patch "$PATCH_FILE" || exit 1
+            _orchestrate_commit_pending \
+              "research: record rejected cycle $CYCLE results" \
+              "Generated patch was rejected after validation. The patch was reversed without rewriting branch history."
           fi
         fi
       else
         _orchestrate_log "Patch failed to apply"
+        _orchestrate_commit_pending \
+          "research: record cycle $CYCLE results" \
+          "Generated patch failed to apply. Recorded the suite results for analysis."
       fi
     else
       _orchestrate_log "No improvement patch generated"
+      _orchestrate_commit_pending \
+        "research: record cycle $CYCLE results" \
+        "No applicable improvement patch was generated. Recorded the suite results for analysis."
     fi
   fi
 

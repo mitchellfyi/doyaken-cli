@@ -6,10 +6,16 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 # safety_check_branch
-# Abort if on main/master.
+# Abort if on main/master unless the caller explicitly opted into main mode.
 safety_check_branch() {
   if is_main_branch; then
+    if [[ "${RESEARCH_ALLOW_MAIN:-0}" == "1" ]]; then
+      log_warn "Running research workflow on $(dx_branch) because RESEARCH_ALLOW_MAIN=1"
+      return 0
+    fi
+
     log_error "Refusing to run improvement loop on main/master branch."
+    log_error "To run on main intentionally, pass --allow-main or set RESEARCH_ALLOW_MAIN=1."
     log_error "Create a research branch first: git checkout -b research/improve-\$(date +%Y%m%d)"
     return 1
   fi
@@ -47,6 +53,52 @@ safety_revert_to_checkpoint() {
   log_warn "Reverting to checkpoint: $tag"
   git -C "$DEX_DIR" reset --hard "$tag" 2>/dev/null
   log_success "Reverted to $tag"
+}
+
+# safety_reverse_patch <patch-file>
+# Remove an uncommitted generated patch without rewriting branch history.
+safety_reverse_patch() {
+  local patch_file="$1"
+  local part_idx=0
+  local reversed=0
+  local parts=()
+  local part
+
+  if [[ -z "$patch_file" || ! -f "$patch_file" ]]; then
+    log_error "Patch file not found: $patch_file"
+    return 1
+  fi
+
+  if git -C "$DEX_DIR" apply --reverse --check "$patch_file" 2>/dev/null; then
+    git -C "$DEX_DIR" apply --reverse "$patch_file"
+    log_success "Reversed generated patch"
+    return 0
+  fi
+
+  while [[ -f "${patch_file}.${part_idx}" ]]; do
+    parts+=("${patch_file}.${part_idx}")
+    part_idx=$((part_idx + 1))
+  done
+
+  if [[ ${#parts[@]} -eq 0 ]]; then
+    parts=("$patch_file")
+  fi
+
+  for ((part_idx=${#parts[@]} - 1; part_idx >= 0; part_idx--)); do
+    part="${parts[$part_idx]}"
+    if (cd "$DEX_DIR" && patch -p1 --reverse --dry-run --fuzz=3 --no-backup-if-mismatch < "$part" >/dev/null 2>&1); then
+      (cd "$DEX_DIR" && patch -p1 --reverse --fuzz=3 --no-backup-if-mismatch < "$part" >/dev/null)
+      reversed=$((reversed + 1))
+    fi
+  done
+
+  if [[ $reversed -gt 0 ]]; then
+    log_success "Reversed $reversed generated patch part(s)"
+    return 0
+  fi
+
+  log_error "Could not reverse generated patch cleanly"
+  return 1
 }
 
 # safety_check_regression <prev_summary_json> <curr_summary_json>

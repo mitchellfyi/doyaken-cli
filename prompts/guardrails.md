@@ -73,6 +73,8 @@ These are recurring mistakes observed across many implementations. Check against
 - **Don't rely on environment-specific focus simulation without validating it.** Headless DOM and browser simulators vary in how they emit focus, blur, and keyboard navigation events. If a focus-management test is flaky or unsupported in the chosen environment, use the framework's documented lower-level focus/blur helpers or run the interaction in a real browser test.
 - **Don't use platform-specific APIs without platform type declarations.** If you use runtime-specific APIs (timers, filesystem, HTTP, process signals) in a typed language, ensure the platform's type declarations are included. Without them, the code runs fine but the type checker reports errors on platform-provided methods and modules.
 - **Don't concatenate strings in a loop.** Use the language's efficient string builder (StringBuilder, strings.Builder, StringIO, etc.) instead of repeated concatenation, which allocates a new string on every iteration.
+- **Don't keep unreachable defensive branches.** If a branch cannot execute under the function's stated preconditions, delete it or make the precondition explicit. A fallback kept "just in case" is dead code: it weakens coverage signal, adds review noise, and obscures the real contract.
+- **Don't bend tests to fit a flawed implementation.** When a new test fails, first decide whether the implementation or the expectation is wrong. Fix the test only when the expectation conflicts with the spec or with a deliberate documented interpretation. If the implementation matches deprecated, known-broken, or accidental behavior, fix the implementation.
 
 ### Fail Fast, Fail Loud
 
@@ -128,7 +130,7 @@ These are implied requirements for any production-quality API, even when the spe
 When creating a standalone library, package, or module:
 
 - **Standard importability**: The module must be loadable via the language's standard mechanism without requiring the consumer to run a separate build step. If using a compiled language or transpiler, configure the build so installation triggers compilation automatically.
-- **README.md**: Always include a README documenting what the library does, usage with code examples, and the rationale behind non-obvious design decisions.
+- **README.md**: Always include a README documenting what the library does, usage with code examples, and the rationale behind non-obvious design decisions. Treat it as a required deliverable, not a final polish task. Draft it once the public API is stable enough to describe, then refine it after verification so a time-bounded run does not ship an undocumented library.
 - **Conventional naming**: Export the primary API using the most natural name for the domain. Avoid abbreviations in public exports.
 - **Doc comments on all exports**: Every exported function, type, and constant must have a documentation comment following the language's convention.
 

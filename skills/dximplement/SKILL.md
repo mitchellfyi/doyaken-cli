@@ -75,6 +75,7 @@ If during implementation you discover:
 - Don't write 20 tests for one function and zero for another. Spread test coverage evenly across all public APIs, commands, or functions.
 - Don't create multiple interacting modules without an integration test. If Module A calls Module B, write a test that exercises A→B together, not just each in isolation.
 - Don't assume the first API design you choose is stable. After implementing, run the tests — if the tests import your module and call your functions, the API is real. If you change function signatures after writing tests, update the tests too.
+- Don't save the README or other required documentation for the final task on library/module work. Draft it in the first half of the task list once the public API is stable enough to describe; an unexpected retry or wall-clock limit should not leave the deliverable undocumented.
 
 When stopping for scope changes, do NOT output a completion promise (e.g., `PHASE_2_COMPLETE`). Simply halt and wait for user input. The phase audit loop will detect that the completion signal file was not written and keep the session alive. Once the user provides direction, resume implementation from where you left off.
 

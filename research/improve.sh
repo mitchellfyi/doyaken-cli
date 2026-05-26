@@ -38,6 +38,83 @@ log_step "Analyzing results from: $(basename "$RUN_DIR")"
 
 # ── Gather failure details ─────────────────────────────────────────────────
 
+stream_excerpt() {
+  local stream_file="$1"
+
+  [[ -f "$stream_file" ]] || {
+    echo "(no stream)"
+    return 0
+  }
+
+  python3 - "$stream_file" <<'PYEOF'
+import collections
+import json
+import sys
+
+stream_file = sys.argv[1]
+
+def compact(value, limit=900):
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    value = " ".join(value.split())
+    if len(value) > limit:
+        return value[:limit] + "... [truncated]"
+    return value
+
+events = collections.deque(maxlen=80)
+with open(stream_file, encoding="utf-8", errors="replace") as fh:
+    for raw in fh:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            event = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        events.append(event)
+
+for event in events:
+    event_type = event.get("type", "event")
+    message = event.get("message") or {}
+    role = message.get("role", event_type)
+    content = message.get("content") or []
+    if not isinstance(content, list):
+        content = [{"type": "text", "text": content}]
+
+    if not content and "tool_use_result" in event:
+        print(f"{role}: tool result {compact(event.get('tool_use_result'), 700)}")
+        continue
+
+    for item in content:
+        item_type = item.get("type")
+        if item_type == "thinking":
+            continue
+        if item_type == "text":
+            print(f"{role}: {compact(item.get('text'), 900)}")
+            continue
+        if item_type == "tool_use":
+            name = item.get("name", "tool")
+            tool_input = item.get("input") or {}
+            if name == "Bash":
+                detail = tool_input.get("description") or tool_input.get("command")
+                print(f"{role}: tool_use Bash - {compact(detail, 500)}")
+            elif name in {"Write", "Edit", "MultiEdit", "Read"}:
+                path = tool_input.get("file_path") or tool_input.get("path") or "(unknown path)"
+                content_value = tool_input.get("content")
+                suffix = f" ({len(content_value)} chars)" if isinstance(content_value, str) else ""
+                print(f"{role}: tool_use {name} {path}{suffix}")
+            else:
+                print(f"{role}: tool_use {name} - {compact(tool_input, 500)}")
+            continue
+        if item_type == "tool_result":
+            print(f"{role}: tool_result {compact(item.get('content'), 900)}")
+            continue
+        print(f"{role}: {item_type or 'content'} {compact(item, 500)}")
+PYEOF
+}
+
 # Build the analysis prompt
 ANALYSIS_PROMPT="You are analyzing the results of an AI agent testing harness for Dex (DX), a workflow automation framework for Claude Code.
 
@@ -50,7 +127,7 @@ $(cat "$RUN_DIR/summary.json")
 ## Failure Details
 "
 
-# Add per-scenario details for low-scoring scenarios
+# Add per-scenario details for low-scoring, weak-dimension, or timed-out scenarios.
 for scenario_dir in "$RUN_DIR"/*/; do
   [[ -d "$scenario_dir" ]] || continue
   scenario=$(basename "$scenario_dir")
@@ -59,10 +136,37 @@ for scenario_dir in "$RUN_DIR"/*/; do
   total=$(json_field "$scenario_dir/rubric-results.json" "total")
   [[ -z "$total" ]] && continue
 
-  # Include scenarios scoring below 80
-  if [[ $total -lt 80 ]]; then
+  include_reason=""
+
+  if [[ "$total" =~ ^[0-9]+$ && $total -lt 80 ]]; then
+    include_reason="total score below 80"
+  fi
+
+  timing_file="$scenario_dir/timing.json"
+  exit_code="0"
+  if [[ -f "$timing_file" ]]; then
+    exit_code=$(json_field "$timing_file" "exit_code")
+    [[ "$exit_code" =~ ^[0-9]+$ ]] || exit_code="0"
+    if [[ "$exit_code" -ne 0 ]]; then
+      include_reason="${include_reason:+$include_reason; }exit code $exit_code"
+    fi
+  fi
+
+  for dimension in correctness test_quality robustness verification issue_detection; do
+    dimension_score=$(json_field "$scenario_dir/rubric-results.json" "$dimension")
+    if [[ "$dimension_score" =~ ^[0-9]+$ && "$dimension_score" -lt 75 ]]; then
+      include_reason="${include_reason:+$include_reason; }$dimension score $dimension_score"
+    fi
+  done
+
+  if [[ -n "$include_reason" ]]; then
     ANALYSIS_PROMPT+="
 ### Scenario: $scenario (Score: $total/100)
+
+Included because: $include_reason
+
+#### Timing:
+$(cat "$timing_file" 2>/dev/null || echo "(no timing)")
 
 #### Rubric Scores:
 $(cat "$scenario_dir/rubric-results.json" 2>/dev/null)
@@ -72,6 +176,9 @@ $(cat "$SCENARIOS_DIR/$scenario/prompt.md" 2>/dev/null || echo "(not found)")
 
 #### DX Output (last 100 lines of stderr, which includes hook/guard messages):
 $(tail -100 "$scenario_dir/stderr.log" 2>/dev/null || echo "(no stderr)")
+
+#### DX Stream Summary (last 80 events):
+$(stream_excerpt "$scenario_dir/stream.jsonl")
 
 "
   fi
@@ -285,9 +392,37 @@ if ! cat "$PATCH_FILE" | safety_validate_diff; then
   exit 1
 fi
 
+apply_hint="cd $DEX_DIR && git apply $PATCH_FILE"
+patch_applicable=0
+if git -C "$DEX_DIR" apply --check "$PATCH_FILE" 2>/dev/null; then
+  patch_applicable=1
+else
+  part_idx=0
+  applicable_parts=0
+  while [[ -f "${PATCH_FILE}.${part_idx}" ]]; do
+    if (cd "$DEX_DIR" && patch -p1 --dry-run --fuzz=3 --no-backup-if-mismatch < "${PATCH_FILE}.${part_idx}" >/dev/null 2>&1); then
+      applicable_parts=$((applicable_parts + 1))
+    else
+      log_warn "Patch part $part_idx is not applicable"
+    fi
+    part_idx=$((part_idx + 1))
+  done
+
+  if [[ $part_idx -gt 0 && $applicable_parts -eq $part_idx ]]; then
+    patch_applicable=1
+    apply_hint="cd $DEX_DIR && for f in $PATCH_FILE.*; do patch -p1 --fuzz=3 --no-backup-if-mismatch < \"\$f\"; done"
+  fi
+fi
+
+if [[ $patch_applicable -ne 1 ]]; then
+  log_error "Proposed patch is within scope but is not applicable. Rejecting."
+  log_info "Review the full proposal: $PROPOSAL_FILE"
+  exit 1
+fi
+
 log_success "Proposal validated. Patch ready: $PATCH_FILE"
 echo ""
-echo "To apply:  cd $DEX_DIR && git apply $PATCH_FILE"
+echo "To apply:  $apply_hint"
 echo "To review: cat $PROPOSAL_FILE"
 
 # Output the patch file path for loop.sh
