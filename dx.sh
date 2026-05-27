@@ -1251,6 +1251,7 @@ __dx_run_phases_inline() {
   fi
   dx_run_maybe_emit_started "$run_id" "Dex lifecycle started" "{\"command\":\"dx\",\"start_phase\":${step},\"workspace_mode\":\"${workspace_mode}\",\"workspace_name\":\"${wt_name}\"}"
   dx_event_maybe_emit_phase_started "$run_id" "$step" "$(__dx_phase_name "$step")" "launcher"
+  dx_run_log_append_safe "$run_id" "info" "dx" "Lifecycle started at Phase ${step}: $(__dx_phase_name "$step")"
 
   local had_times_file=0
   [[ -f "$times_file" ]] && had_times_file=1
@@ -1329,6 +1330,7 @@ __dx_run_phases_inline() {
   paused_file=$(dx_paused_file "$session_id")
   if [[ -f "$paused_file" ]]; then
     dx_event_emit_for_session "$session_id" "run.blocked" "warn" "Dex lifecycle paused at Phase ${final_step}: $(__dx_phase_name "$final_step")" "$final_step" "{\"reason\":\"manual-intervention\"}"
+    dx_run_log_append_for_session "$session_id" "warn" "dx" "Lifecycle paused at Phase ${final_step}: manual intervention requested"
     dx_run_write_summary_for_session "$session_id" "blocked" "Paused at Phase ${final_step}: $(__dx_phase_name "$final_step")"
     rm -f \
       "$(dx_active_file "$session_id")" \
@@ -1359,6 +1361,7 @@ __dx_run_phases_inline() {
 
     rm -f "$loop_file" "$(dx_active_file "$session_id")" "$(dx_loop_config_file "$session_id")" "$(dx_handoff_mode_file "$session_id")" "$(dx_paused_file "$session_id")" 2>/dev/null
     dx_event_emit_for_session "$session_id" "run.blocked" "warn" "Dex lifecycle paused at Phase ${final_step}: $(__dx_phase_name "$final_step")" "$final_step" "{\"reason\":\"${pause_reason}\"}"
+    dx_run_log_append_for_session "$session_id" "warn" "dx" "Lifecycle paused at Phase ${final_step}: ${pause_reason}"
     dx_run_write_summary_for_session "$session_id" "blocked" "Paused at Phase ${final_step}: ${pause_reason}"
     dx_provider_cleanup_session_state "$session_id"
 
@@ -1369,6 +1372,7 @@ __dx_run_phases_inline() {
   fi
 
 	  if [[ "$final_step" -ge 7 ]]; then
+	    dx_run_log_append_for_session "$session_id" "info" "dx" "Ticket lifecycle complete"
 	    dx_provider_cleanup_session_state "$session_id"
 	    rm -f "$(dx_active_file "$session_id")" "$(dx_loop_config_file "$session_id")" "$(dx_handoff_mode_file "$session_id")" 2>/dev/null
 	    __dx_show_header "$wt_name" 7 "$wt_dir" "$default_branch" "$session_id" "$workspace_mode"
@@ -1380,6 +1384,7 @@ __dx_run_phases_inline() {
 
   if [[ $exit_code -ne 0 ]]; then
     dx_event_emit_for_session "$session_id" "run.failed" "error" "Dex lifecycle exited at Phase ${final_step}: $(__dx_phase_name "$final_step")" "$final_step" "{\"exit_code\":${exit_code}}"
+    dx_run_log_append_for_session "$session_id" "error" "dx" "Lifecycle exited at Phase ${final_step} with code ${exit_code}"
     dx_run_write_summary_for_session "$session_id" "failed" "Exited at Phase ${final_step} with code ${exit_code}"
     echo ""
     echo "Paused at Phase ${final_step}: $(__dx_phase_name "$final_step") (exit ${exit_code})"
@@ -1389,6 +1394,7 @@ __dx_run_phases_inline() {
 
   echo ""
   dx_event_emit_for_session "$session_id" "run.blocked" "warn" "Claude session exited before Dex lifecycle completed" "$final_step" "{\"reason\":\"session-exited\"}"
+  dx_run_log_append_for_session "$session_id" "warn" "dx" "Claude session exited before lifecycle completed at Phase ${final_step}"
   dx_run_write_summary_for_session "$session_id" "blocked" "Claude session exited at Phase ${final_step}"
   echo "Claude session exited at Phase ${final_step}: $(__dx_phase_name "$final_step")."
   echo "Resume with: ${resume_hint}"

@@ -50,15 +50,24 @@ assert_dir "$run_dir"
 assert_dir "$(dx_run_artifacts_dir "$run_id")"
 assert_file "$(dx_run_spec_file "$run_id")"
 assert_file "$(dx_run_logs_file "$run_id")"
+assert_file "$(dx_run_artifact_manifest_file "$run_id")"
 
 dx_run_maybe_emit_started "$run_id" "Test run started" '{"command":"test"}'
 dx_event_maybe_emit_phase_started "$run_id" "1" "Plan" "test"
 dx_event_emit "$run_id" "plan.created" "info" "Plan created" "1" '{"items":2}'
 dx_event_emit "$run_id" "phase.completed" "info" "Phase 1 completed" "1" '{"duration_s":3,"iterations":1}'
+artifact_file="$(dx_run_artifact_file "$run_id" "reports/test-output.txt")"
+mkdir -p "$(dirname "$artifact_file")"
+printf 'test output\n' > "$artifact_file"
+dx_run_register_artifact "$run_id" "test_output" "reports/test-output.txt" "Test output" '{"command":"test"}'
+dx_run_log_append "$run_id" "info" "test" "Saved token=supersecret and sk-12345678901234567890"
+printf 'provider github_pat_12345678901234567890 secret=plain\n' | dx_run_log_tee "$run_id" "provider" > "$TMP_DIR/tee-output.txt"
 dx_run_write_summary "$run_id" "completed" "events test completed"
 
 assert_file "$(dx_run_events_file "$run_id")"
 assert_file "$(dx_run_summary_file "$run_id")"
+assert_file "$(dx_run_artifact_manifest_file "$run_id")"
+assert_file "$(dx_run_artifact_file "$run_id" "run-summary.md")"
 
 python3 - "$run_dir" "$run_id" "$ROOT" <<'PY'
 import json
@@ -81,12 +90,14 @@ events = [
     for line in (run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
     if line.strip()
 ]
-assert [event["sequence"] for event in events] == [1, 2, 3, 4]
+assert [event["sequence"] for event in events] == [1, 2, 3, 4, 5, 6]
 assert [event["type"] for event in events] == [
     "run.started",
     "phase.started",
     "plan.created",
     "phase.completed",
+    "artifact.created",
+    "artifact.created",
 ]
 for event in events:
     assert event["id"].startswith("evt_")
@@ -98,11 +109,33 @@ for event in events:
 
 assert events[1]["phase"] == "1"
 assert events[2]["data"]["items"] == 2
+assert events[4]["data"]["path"] == "reports/test-output.txt"
+assert events[5]["data"]["path"] == "run-summary.md"
 
 summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
 assert summary["run_id"] == run_id
 assert summary["status"] == "completed"
-assert summary["last_sequence"] == 4
+assert summary["last_sequence"] == 6
+
+manifest = json.loads((run_dir / "artifacts" / "manifest.json").read_text(encoding="utf-8"))
+artifacts = manifest["artifacts"]
+assert [artifact["path"] for artifact in artifacts] == ["reports/test-output.txt", "run-summary.md"]
+assert artifacts[0]["type"] == "test_output"
+assert artifacts[0]["size_bytes"] == len("test output\n")
+assert artifacts[0]["metadata"]["command"] == "test"
+assert artifacts[1]["type"] == "run_summary"
+
+log_text = (run_dir / "logs.txt").read_text(encoding="utf-8")
+assert "[test]" in log_text
+assert "[provider]" in log_text
+assert "token=[REDACTED]" in log_text
+assert "secret=[REDACTED]" in log_text
+assert "supersecret" not in log_text
+assert "github_pat_12345678901234567890" not in log_text
+assert "sk-12345678901234567890" not in log_text
+
+tee_text = (run_dir.parent.parent / "tee-output.txt").read_text(encoding="utf-8")
+assert "github_pat_12345678901234567890" in tee_text
 PY
 
 printf 'events tests passed\n'

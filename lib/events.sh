@@ -44,6 +44,7 @@ dx_run_events_file() { printf '%s/events.jsonl\n' "$(dx_run_dir "$1")"; }
 dx_run_logs_file() { printf '%s/logs.txt\n' "$(dx_run_dir "$1")"; }
 dx_run_summary_file() { printf '%s/summary.json\n' "$(dx_run_dir "$1")"; }
 dx_run_artifacts_dir() { printf '%s/artifacts\n' "$(dx_run_dir "$1")"; }
+dx_run_artifact_manifest_file() { printf '%s/manifest.json\n' "$(dx_run_artifacts_dir "$1")"; }
 dx_run_sequence_file() { printf '%s/.sequence\n' "$(dx_run_dir "$1")"; }
 dx_run_started_marker_file() { printf '%s/.run-started-emitted\n' "$(dx_run_dir "$1")"; }
 dx_run_phase_started_marker_file() { printf '%s/.phase-%s-started-emitted\n' "$(dx_run_dir "$1")" "$2"; }
@@ -195,10 +196,278 @@ dx_run_prepare() {
 
   mkdir -p "$run_dir" "$(dx_run_artifacts_dir "$run_id")"
   [[ -f "$(dx_run_logs_file "$run_id")" ]] || : > "$(dx_run_logs_file "$run_id")"
+  dx_run_artifact_manifest_prepare "$run_id" || return 1
   if [[ ! -f "$spec_file" ]]; then
     dx_run_write_spec "$run_id" "$session_id" "$repo_dir" "$workspace_mode" "$workspace_name" "$raw_input" "$command_name" || return 1
   fi
   printf '%s\n' "$run_id"
+}
+
+dx_run_artifact_manifest_prepare() {
+  local run_id="$1" manifest_file
+  dx_run_validate_id "$run_id" || return 1
+  manifest_file=$(dx_run_artifact_manifest_file "$run_id") || return 1
+
+  DX_RUN_ARTIFACT_MANIFEST_FILE="$manifest_file" python3 - <<'PY'
+import json
+import os
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+manifest_path = Path(os.environ["DX_RUN_ARTIFACT_MANIFEST_FILE"])
+manifest_path.parent.mkdir(parents=True, exist_ok=True)
+if manifest_path.exists():
+    raise SystemExit(0)
+
+manifest = {
+    "schema_version": 1,
+    "artifacts": [],
+    "created_at": utc_now(),
+    "updated_at": utc_now(),
+}
+tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(manifest_path.parent), delete=False)
+try:
+    with tmp:
+        json.dump(manifest, tmp, indent=2, sort_keys=True)
+        tmp.write("\n")
+    os.replace(tmp.name, manifest_path)
+except Exception:
+    try:
+        os.unlink(tmp.name)
+    except OSError:
+        pass
+    raise
+PY
+}
+
+dx_run_artifact_file() {
+  local run_id="$1" rel_path="$2"
+  dx_run_validate_id "$run_id" || return 1
+  [[ -n "$rel_path" ]] || return 1
+
+  DX_RUN_ARTIFACT_DIR="$(dx_run_artifacts_dir "$run_id")" \
+  DX_RUN_ARTIFACT_REL_PATH="$rel_path" \
+  python3 - <<'PY'
+import os
+import sys
+from pathlib import Path, PurePosixPath
+
+root = Path(os.environ["DX_RUN_ARTIFACT_DIR"]).resolve()
+rel_raw = os.environ["DX_RUN_ARTIFACT_REL_PATH"]
+rel = PurePosixPath(rel_raw)
+if rel.is_absolute() or not rel.parts or any(part in ("", ".", "..") for part in rel.parts):
+    raise SystemExit(1)
+target = (root / Path(*rel.parts)).resolve()
+if target != root and root not in target.parents:
+    raise SystemExit(1)
+print(target)
+PY
+}
+
+dx_run_register_artifact() {
+  local run_id="$1" artifact_type="$2" rel_path="$3" title="$4" metadata_json="${5:-}"
+  local manifest_file artifact_root event_data
+  [[ -n "$metadata_json" ]] || metadata_json="{}"
+  dx_run_validate_id "$run_id" || return 1
+  dx_event_validate_type "$artifact_type" || return 1
+  [[ -n "$rel_path" && -n "$title" ]] || return 1
+  manifest_file=$(dx_run_artifact_manifest_file "$run_id") || return 1
+  artifact_root=$(dx_run_artifacts_dir "$run_id") || return 1
+  dx_run_artifact_manifest_prepare "$run_id" || return 1
+
+  event_data=$(DX_RUN_ARTIFACT_MANIFEST_FILE="$manifest_file" \
+    DX_RUN_ARTIFACT_ROOT="$artifact_root" \
+    DX_RUN_ARTIFACT_TYPE="$artifact_type" \
+    DX_RUN_ARTIFACT_PATH="$rel_path" \
+    DX_RUN_ARTIFACT_TITLE="$title" \
+    python3 - "$metadata_json" <<'PY'
+import hashlib
+import json
+import os
+import sys
+import tempfile
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def safe_artifact_path(root, rel_raw):
+    rel = PurePosixPath(rel_raw)
+    if rel.is_absolute() or not rel.parts or any(part in ("", ".", "..") for part in rel.parts):
+        raise SystemExit("unsafe artifact path")
+    target = (root / Path(*rel.parts)).resolve()
+    if target != root and root not in target.parents:
+        raise SystemExit("unsafe artifact path")
+    return rel, target
+
+
+metadata = json.loads(sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "{}")
+if not isinstance(metadata, dict):
+    raise SystemExit("artifact metadata must be a JSON object")
+
+manifest_path = Path(os.environ["DX_RUN_ARTIFACT_MANIFEST_FILE"])
+root = Path(os.environ["DX_RUN_ARTIFACT_ROOT"]).resolve()
+root.mkdir(parents=True, exist_ok=True)
+rel, target = safe_artifact_path(root, os.environ["DX_RUN_ARTIFACT_PATH"])
+
+manifest = {"schema_version": 1, "artifacts": [], "created_at": utc_now(), "updated_at": utc_now()}
+if manifest_path.exists():
+    with manifest_path.open("r", encoding="utf-8") as fh:
+        loaded = json.load(fh)
+        if isinstance(loaded, dict):
+            manifest.update(loaded)
+            if not isinstance(manifest.get("artifacts"), list):
+                manifest["artifacts"] = []
+
+size_bytes = target.stat().st_size if target.exists() else None
+sha256 = None
+if target.exists() and target.is_file():
+    digest = hashlib.sha256()
+    with target.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    sha256 = digest.hexdigest()
+
+artifact = None
+for item in manifest["artifacts"]:
+    if item.get("type") == os.environ["DX_RUN_ARTIFACT_TYPE"] and item.get("path") == rel.as_posix():
+        artifact = item
+        break
+
+created = artifact is None
+if artifact is None:
+    artifact = {"id": f"art_{uuid.uuid4().hex[:12]}"}
+    manifest["artifacts"].append(artifact)
+
+artifact.update(
+    {
+        "type": os.environ["DX_RUN_ARTIFACT_TYPE"],
+        "path": rel.as_posix(),
+        "title": os.environ["DX_RUN_ARTIFACT_TITLE"],
+        "created_at": artifact.get("created_at") or utc_now(),
+        "updated_at": utc_now(),
+        "size_bytes": size_bytes,
+        "sha256": sha256,
+        "metadata": metadata,
+    }
+)
+manifest["updated_at"] = utc_now()
+
+tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(manifest_path.parent), delete=False)
+try:
+    with tmp:
+        json.dump(manifest, tmp, indent=2, sort_keys=True)
+        tmp.write("\n")
+    os.replace(tmp.name, manifest_path)
+except Exception:
+    try:
+        os.unlink(tmp.name)
+    except OSError:
+        pass
+    raise
+
+print(json.dumps({
+    "artifact_id": artifact["id"],
+    "type": artifact["type"],
+    "path": artifact["path"],
+    "title": artifact["title"],
+    "size_bytes": size_bytes,
+    "created": created,
+}, sort_keys=True, separators=(",", ":")))
+PY
+  ) || return 1
+
+  dx_event_emit_safe "$run_id" "artifact.created" "info" "Artifact captured: ${title}" "" "$event_data"
+}
+
+dx_run_register_artifact_safe() {
+  dx_run_register_artifact "$@" 2>/dev/null || return 0
+}
+
+dx_run_log_append() {
+  local run_id="$1" level="${2:-info}" source="${3:-dex}" message="${4:-}" log_file
+  dx_run_validate_id "$run_id" || return 1
+  dx_event_validate_severity "$level" || return 1
+  log_file=$(dx_run_logs_file "$run_id") || return 1
+
+  DX_RUN_LOG_FILE="$log_file" \
+  DX_RUN_LOG_LEVEL="$level" \
+  DX_RUN_LOG_SOURCE="$source" \
+  DX_RUN_LOG_MESSAGE="$message" \
+  python3 - <<'PY'
+import os
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+SECRET_PATTERNS = [
+    re.compile(r"(?i)(\b[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASS|API[_-]?KEY|AUTH)[A-Z0-9_]*\s*[=:]\s*)([\"']?)[^\"'\s]+"),
+    re.compile(r"(?i)(authorization\s*:\s*(?:bearer|basic)\s+)[A-Za-z0-9._~+/=-]+"),
+    re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{16,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
+    re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
+]
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def redact(text):
+    text = SECRET_PATTERNS[0].sub(r"\1\2[REDACTED]", text)
+    text = SECRET_PATTERNS[1].sub(r"\1[REDACTED]", text)
+    for pattern in SECRET_PATTERNS[2:]:
+        text = pattern.sub("[REDACTED]", text)
+    return text
+
+
+log_path = Path(os.environ["DX_RUN_LOG_FILE"])
+log_path.parent.mkdir(parents=True, exist_ok=True)
+line = "[{ts}] [{level}] [{source}] {message}\n".format(
+    ts=utc_now(),
+    level=os.environ.get("DX_RUN_LOG_LEVEL", "info"),
+    source=os.environ.get("DX_RUN_LOG_SOURCE", "dex"),
+    message=redact(os.environ.get("DX_RUN_LOG_MESSAGE", "")),
+)
+with log_path.open("a", encoding="utf-8") as fh:
+    fh.write(line)
+PY
+}
+
+dx_run_log_append_safe() {
+  dx_run_log_append "$@" 2>/dev/null || return 0
+}
+
+dx_run_log_append_for_session() {
+  local session_id="$1" run_id
+  shift
+  run_id=$(dx_run_read_for_session "$session_id" 2>/dev/null || true)
+  [[ -n "$run_id" ]] || return 0
+  dx_run_log_append_safe "$run_id" "$@"
+}
+
+dx_run_log_tee() {
+  local run_id="$1" source="${2:-harness}" line
+  if ! dx_run_validate_id "$run_id"; then
+    cat
+    return 0
+  fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    dx_run_log_append_safe "$run_id" "info" "$source" "$line"
+  done
 }
 
 __dx_event_acquire_lock() {
@@ -363,6 +632,7 @@ dx_run_write_summary() {
   local run_id="$1" run_status="$2" message="${3:-}" summary_file
   dx_run_validate_id "$run_id" || return 1
   summary_file=$(dx_run_summary_file "$run_id") || return 1
+  dx_run_write_summary_artifact "$run_id" "$run_status" "$message" 2>/dev/null || true
 
   DX_RUN_SUMMARY_FILE="$summary_file" \
   DX_RUN_ID_VALUE="$run_id" \
@@ -411,6 +681,75 @@ except Exception:
         pass
     raise
 PY
+}
+
+dx_run_write_summary_artifact() {
+  local run_id="$1" run_status="$2" message="${3:-}" artifact_file
+  dx_run_validate_id "$run_id" || return 1
+  artifact_file=$(dx_run_artifact_file "$run_id" "run-summary.md") || return 1
+
+  DX_RUN_SUMMARY_ARTIFACT_FILE="$artifact_file" \
+  DX_RUN_ID_VALUE="$run_id" \
+  DX_RUN_STATUS="$run_status" \
+  DX_RUN_MESSAGE="$message" \
+  DX_RUN_SUMMARY_JSON_PATH="$(dx_run_summary_file "$run_id")" \
+  python3 - <<'PY'
+import os
+import re
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+SECRET_PATTERNS = [
+    re.compile(r"(?i)(\b[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASS|API[_-]?KEY|AUTH)[A-Z0-9_]*\s*[=:]\s*)([\"']?)[^\"'\s]+"),
+    re.compile(r"(?i)(authorization\s*:\s*(?:bearer|basic)\s+)[A-Za-z0-9._~+/=-]+"),
+    re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{16,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
+    re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
+]
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def redact(text):
+    text = SECRET_PATTERNS[0].sub(r"\1\2[REDACTED]", text)
+    text = SECRET_PATTERNS[1].sub(r"\1[REDACTED]", text)
+    for pattern in SECRET_PATTERNS[2:]:
+        text = pattern.sub("[REDACTED]", text)
+    return text
+
+
+artifact_path = Path(os.environ["DX_RUN_SUMMARY_ARTIFACT_FILE"])
+artifact_path.parent.mkdir(parents=True, exist_ok=True)
+content = "\n".join(
+    [
+        "# Dex Run Summary",
+        "",
+        f"- Run ID: `{os.environ['DX_RUN_ID_VALUE']}`",
+        f"- Status: `{os.environ.get('DX_RUN_STATUS', 'unknown')}`",
+        f"- Message: {redact(os.environ.get('DX_RUN_MESSAGE', ''))}",
+        f"- Summary JSON: `{os.environ.get('DX_RUN_SUMMARY_JSON_PATH', '')}`",
+        f"- Updated at: {utc_now()}",
+        "",
+    ]
+)
+tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(artifact_path.parent), delete=False)
+try:
+    with tmp:
+        tmp.write(content)
+    os.replace(tmp.name, artifact_path)
+except Exception:
+    try:
+        os.unlink(tmp.name)
+    except OSError:
+        pass
+    raise
+PY
+  dx_run_register_artifact_safe "$run_id" "run_summary" "run-summary.md" "Run summary" "{\"status\":\"${run_status}\"}"
 }
 
 dx_run_write_summary_safe() {

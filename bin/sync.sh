@@ -13,12 +13,15 @@ __dx_sync_cleanup() {
   if [[ -n "${SYNC_RUN_ID:-}" ]]; then
     if [[ $status -eq 0 ]]; then
       dx_event_emit_safe "$SYNC_RUN_ID" "run.completed" "info" "Dex sync completed" "" "{\"command\":\"dx sync\"}"
+      dx_run_log_append_safe "$SYNC_RUN_ID" "info" "sync" "Dex sync completed"
       dx_run_write_summary_safe "$SYNC_RUN_ID" "completed" "Dex sync completed"
     elif [[ $status -eq 130 ]]; then
       dx_event_emit_safe "$SYNC_RUN_ID" "run.blocked" "warn" "Dex sync interrupted" "" "{\"command\":\"dx sync\",\"exit_code\":${status}}"
+      dx_run_log_append_safe "$SYNC_RUN_ID" "warn" "sync" "Dex sync interrupted"
       dx_run_write_summary_safe "$SYNC_RUN_ID" "blocked" "Dex sync interrupted"
     else
       dx_event_emit_safe "$SYNC_RUN_ID" "run.failed" "error" "Dex sync failed" "" "{\"command\":\"dx sync\",\"exit_code\":${status}}"
+      dx_run_log_append_safe "$SYNC_RUN_ID" "error" "sync" "Dex sync failed with code ${status}"
       dx_run_write_summary_safe "$SYNC_RUN_ID" "failed" "Dex sync failed with code ${status}"
     fi
   fi
@@ -147,6 +150,7 @@ SYNC_RUN_SESSION_ID="sync-$(dx_unique_session_id)"
 if SYNC_RUN_ID=$(dx_run_prepare "$SYNC_RUN_SESSION_ID" "$repo_root" "current-checkout" "$repo_name" "dx sync $*" "dx sync"); then
   export DEX_RUN_ID="$SYNC_RUN_ID"
   dx_run_maybe_emit_started "$SYNC_RUN_ID" "Dex sync started" "{\"command\":\"dx sync\"}"
+  dx_run_log_append_safe "$SYNC_RUN_ID" "info" "sync" "Dex sync started for ${repo_name}"
   dx_info "Run id: $SYNC_RUN_ID"
 else
   dx_warn "Continuing without a local Dex run journal."
@@ -259,7 +263,8 @@ DEX_SESSION_ID="$SYNC_PROVIDER_SESSION_ID" DEX_RUN_ID="${SYNC_RUN_ID:-}" DX_RUN_
   --model "$DX_CLAUDE_MODEL" --effort "$DX_CLAUDE_EFFORT" \
   --dangerously-skip-permissions --permission-mode bypassPermissions \
   --verbose --output-format stream-json --include-partial-messages \
-  | dx_progress_filter
+  | dx_progress_filter \
+  | dx_run_log_tee "${SYNC_RUN_ID:-}" "sync-provider"
 CLAUDE_EXIT=${PIPESTATUS[0]}
 set -o pipefail
 set -e

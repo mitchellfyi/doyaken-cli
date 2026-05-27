@@ -15,12 +15,15 @@ __dx_init_cleanup() {
   if [[ -n "${INIT_RUN_ID:-}" ]]; then
     if [[ $status -eq 0 ]]; then
       dx_event_emit_safe "$INIT_RUN_ID" "run.completed" "info" "Dex init completed" "" "{\"command\":\"dx init\"}"
+      dx_run_log_append_safe "$INIT_RUN_ID" "info" "init" "Dex init completed"
       dx_run_write_summary_safe "$INIT_RUN_ID" "completed" "Dex init completed"
     elif [[ $status -eq 130 ]]; then
       dx_event_emit_safe "$INIT_RUN_ID" "run.blocked" "warn" "Dex init interrupted" "" "{\"command\":\"dx init\",\"exit_code\":${status}}"
+      dx_run_log_append_safe "$INIT_RUN_ID" "warn" "init" "Dex init interrupted"
       dx_run_write_summary_safe "$INIT_RUN_ID" "blocked" "Dex init interrupted"
     else
       dx_event_emit_safe "$INIT_RUN_ID" "run.failed" "error" "Dex init failed" "" "{\"command\":\"dx init\",\"exit_code\":${status}}"
+      dx_run_log_append_safe "$INIT_RUN_ID" "error" "init" "Dex init failed with code ${status}"
       dx_run_write_summary_safe "$INIT_RUN_ID" "failed" "Dex init failed with code ${status}"
     fi
   fi
@@ -85,6 +88,7 @@ INIT_RUN_SESSION_ID="init-$(dx_unique_session_id)"
 if INIT_RUN_ID=$(dx_run_prepare "$INIT_RUN_SESSION_ID" "$repo_root" "current-checkout" "$repo_name" "dx init $*" "dx init"); then
   export DEX_RUN_ID="$INIT_RUN_ID"
   dx_run_maybe_emit_started "$INIT_RUN_ID" "Dex init started" "{\"command\":\"dx init\"}"
+  dx_run_log_append_safe "$INIT_RUN_ID" "info" "init" "Dex init started for ${repo_name}"
   dx_info "Run id: $INIT_RUN_ID"
 else
   dx_warn "Continuing without a local Dex run journal."
@@ -266,7 +270,8 @@ else
     --model "$DX_CLAUDE_MODEL" --effort "$DX_CLAUDE_EFFORT" \
     --dangerously-skip-permissions --permission-mode bypassPermissions \
     --verbose --output-format stream-json --include-partial-messages \
-    | dx_progress_filter
+    | dx_progress_filter \
+    | dx_run_log_tee "${INIT_RUN_ID:-}" "init-provider"
   CLAUDE_EXIT=${PIPESTATUS[0]}
   set -o pipefail
   dx_provider_cleanup_session_state "$INIT_PROVIDER_SESSION_ID"

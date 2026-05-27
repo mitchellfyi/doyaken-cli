@@ -190,14 +190,16 @@ The status line is driven by `bin/status-line.sh` which reads state files from `
 
 ## Run Events
 
-Provider-backed Dex commands create a run ID and a local event journal under
+Provider-backed Dex commands create a run ID and local run data under
 `~/.dex/runs/<run_id>/`. The main lifecycle emits `run.*` and `phase.*` events
 as the Stop hook advances, blocks, or completes phases. `dx init` and `dx sync`
 also emit run-level start and finish events.
 
-Events are append-only JSONL for machines. Human-facing phase logs still live in
-`~/.claude/.dex-phases/<session_id>.log`. See [events.md](events.md) for the
-schema and storage layout.
+Events are append-only JSONL for machines. `logs.txt` stores redacted
+human-readable run detail, and `artifacts/manifest.json` records local evidence
+files such as run summaries. The existing TSV phase log still lives in
+`~/.claude/.dex-phases/<session_id>.log` for backward compatibility. See
+[events.md](events.md) for the schema and storage layout.
 
 ## Safety Controls
 
