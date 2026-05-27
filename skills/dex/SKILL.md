@@ -80,7 +80,7 @@ The terminal `dx` lifecycle runs phases in the same Claude Code session. Each ph
 4. **[STOP]** if a loop escalates (CI failures after 3 attempts, architectural review comments, secrets scan, scope conflict).
 5. After each push: re-request `request` reviewers and post a fresh mention comment so reviewers know there's something new.
 6. After `DEX_COMPLETE_MAX_CYCLES` (default 3) idle cycles with no progress, escalate to the user.
-7. When CI green AND all `request` reviewers have approved, run `/dxcomplete`'s final verification — update tracker to Done, print summary.
+7. When CI green AND all successfully requested `request` reviewers have approved, run `/dxcomplete`'s final verification — update tracker to Done, print summary.
 8. Output `DEX_TICKET_COMPLETE` once verification passes.
 
 ## Resuming

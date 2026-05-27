@@ -61,12 +61,14 @@ If any `request` reviewer from the config is missing, attach them now (idempoten
 
 ```bash
 source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
-reviewer=$(dx_maintenance_normalize_reviewer "<handle>")
-gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
+dx_maintenance_request_reviewer "$PR_NUM" "<handle>"
 ```
 
 Normalize `Copilot`, `@copilot`, or Copilot aliases to `@copilot`. For normal
 GitHub usernames, strip a leading `@` before passing the handle to `gh`.
+`dx_maintenance_request_reviewer` does that normalization and treats GitHub
+"reviewer is not requestable for this repository" failures as warnings. Do not
+pipe review-request command output into `jq`.
 
 If the `## Reviewers` section is missing or empty (or contains only the `_none_` placeholder), skip this step — the user has chosen not to assign anyone.
 

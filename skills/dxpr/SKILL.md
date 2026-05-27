@@ -105,14 +105,14 @@ Read the `## Reviewers` section of `.dex/dex.md`. For every row whose Type colum
 
 ```bash
 source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
-reviewer=$(dx_maintenance_normalize_reviewer "<handle>")
-gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
+dx_maintenance_request_reviewer "$PR_NUM" "<handle>"
 ```
 
 Notes:
-- `gh pr edit --add-reviewer` is idempotent — re-running on a PR that already has the reviewer is a no-op.
+- `dx_maintenance_request_reviewer` normalizes handles and wraps `gh pr edit --add-reviewer`; it is idempotent when GitHub accepts the reviewer.
 - GitHub does NOT send notifications for review requests on a **draft** PR. The notifications fire when Phase 6 marks the PR ready. Attaching reviewers now is purely so they're already in place when the PR goes ready.
 - Normalize `Copilot`, `@copilot`, or Copilot aliases to `@copilot`. GitHub CLI requires the special `@copilot` value for Copilot review requests.
+- If GitHub says the reviewer is not requestable for this repository (for example Copilot is unavailable or a user is not a collaborator), record the warning and continue; do not pipe the error text into `jq`.
 - Skip rows whose Type is `mention` — those are posted as PR comments by Phase 6, not added as review requests.
 - Skip the placeholder row (`_none_` handle) — it means the user has chosen not to assign anyone.
 - Strip a leading `@` from normal GitHub usernames if present (e.g., `@octocat` → `octocat`). Do not strip `@copilot`.

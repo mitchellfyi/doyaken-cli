@@ -50,11 +50,13 @@ Read the `## Reviewers` section from `.dex/dex.md`. Parse rows where the second 
 ### Request reviewers (`request` type)
 
 For each `request`-type reviewer, normalize the handle with
-`dx_maintenance_normalize_reviewer` and call
-`gh pr edit "$PR_NUM" --add-reviewer "<normalized-handle>"`. This strips the
-leading `@` for normal usernames, but preserves GitHub CLI's special `@copilot`
-value for Copilot review requests. This is idempotent — GitHub no-ops if
-already requested.
+`dx_maintenance_request_reviewer "$PR_NUM" "<handle>"`. This strips the leading
+`@` for normal usernames, but preserves GitHub CLI's special `@copilot` value
+for Copilot review requests. This is idempotent when GitHub accepts the reviewer.
+If GitHub says a reviewer is not requestable for this repository, log the warning
+and continue. Do not pipe review-request command output into `jq`.
+Only reviewers successfully accepted by GitHub as native review requests gate
+completion approval. Non-requestable reviewers are warnings, not blockers.
 
 ### Post mention comment (`mention` type)
 
@@ -119,9 +121,9 @@ gh pr checks "$PR_NUM"  # CI status
 gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pulls/$PR_NUM/reviews
 ```
 
-### Case A — All CI green and all `request`-type reviewers have approved
+### Case A — All CI green and all successfully requested `request`-type reviewers have approved
 
-Note: `mention`-type reviewers (AI bots) do not issue native GitHub reviews and DO NOT gate completion via review state. Their substantive comments should already be addressed via `/dxprreview` during the cycle. Only `request`-type reviewers' approval status matters for Case A.
+Note: `mention`-type reviewers (AI bots) do not issue native GitHub reviews and DO NOT gate completion via review state. Their substantive comments should already be addressed via `/dxprreview` during the cycle. Only successfully requested `request`-type reviewers' approval status matters for Case A.
 
 Update the ticket (if a tracker is configured — see `dex.md § Integrations`). Print the completion summary (per `skills/dxcomplete/SKILL.md` Step 5). Cycle is done — proceed to Termination.
 
@@ -129,7 +131,7 @@ Update the ticket (if a tracker is configured — see `dex.md § Integrations`).
 
 If new commits were pushed during the cycle (`/dxwatchpr` fixed CI or `/dxprreview` addressed comments), re-trigger reviewers:
 
-- For each `request` reviewer: normalize the handle and run `gh pr edit "$PR_NUM" --add-reviewer "<normalized-handle>"` again — they get a fresh notification that there's something new.
+- For each `request` reviewer: run `dx_maintenance_request_reviewer "$PR_NUM" "<handle>"` again — they get a fresh notification when GitHub accepts the reviewer.
 - For each `mention` reviewer: post a new comment such as `Updated: @<handle>, please re-review.` after applying `humanizer`.
 
 Increment the cycle counter (use arithmetic, not parameter expansion — `NEW_CYCLE=$((CYCLE + 1))`), reset `LAST_EPOCH` to now, write `"${NEW_CYCLE}:${NOW}"` to the state file. Stop. Next iteration starts a new wait window.
@@ -168,7 +170,7 @@ For hard escalations, print the escalation reason with cited file:line evidence,
 
 ## Termination
 
-Cycle ends successfully only when **Case A** is reached: CI green and all configured reviewers approved. Completion means the ticket is closed and the local Dex worktree/branch can be removed; it never means merging the PR.
+Cycle ends successfully only when **Case A** is reached: CI green and all successfully requested reviewers approved. Completion means the ticket is closed and the local Dex worktree/branch can be removed; it never means merging the PR.
 
 Cycle pauses with escalation when:
 - `CYCLE >= DEX_COMPLETE_MAX_CYCLES` (default 3) and checks/approvals are not green
@@ -183,6 +185,6 @@ Only Case A may write `.complete`. Timeout and hard escalation paths must stop w
 - The PR is no longer a draft (`gh pr view --json isDraft -q .isDraft` returns `false`)
 - All `request` reviewers have been requested at least once
 - One mention comment has been posted for `mention` reviewers (if any)
-- All CI checks green AND all `request`-type reviewers approved AND ticket marked Done (if tracker configured). `mention`-type reviewers do NOT gate completion.
+- All CI checks green AND all successfully requested `request`-type reviewers approved AND ticket marked Done (if tracker configured). `mention`-type reviewers and non-requestable reviewers do NOT gate completion.
 
 Do NOT emit `DEX_TICKET_COMPLETE` until the Stop hook authorizes completion via the audit-iteration threshold. Follow the standard pattern.

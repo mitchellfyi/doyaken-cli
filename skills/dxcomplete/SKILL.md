@@ -44,9 +44,13 @@ Read the `## Reviewers` section of `.dex/dex.md`. Parse rows into two lists:
 - `REQUEST_REVIEWERS` — rows where Type is `request`
 - `MENTION_REVIEWERS` — rows where Type is `mention`
 
-Normalize request reviewer handles with `dx_maintenance_normalize_reviewer`
-before passing to `gh pr edit --add-reviewer`. This strips leading `@` from
+Request reviewers with `dx_maintenance_request_reviewer`, which normalizes
+handles before calling `gh pr edit --add-reviewer`. This strips leading `@` from
 normal usernames but preserves GitHub CLI's special `@copilot` reviewer value.
+If GitHub says a reviewer is not requestable for this repository, log the
+warning and continue; do not pipe the error text into `jq`.
+Only reviewers successfully accepted by GitHub as native review requests gate
+completion approval. Non-requestable reviewers are warnings, not blockers.
 Keep the original `@` form for `@mention` comments.
 
 If the section is missing, contains only the `_none_` placeholder, or both lists are empty, log a notice and skip the reviewer-related steps (the user has chosen not to assign anyone).
@@ -70,8 +74,7 @@ When setup runs:
    ```bash
    source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
    for h in "${REQUEST_REVIEWERS[@]}"; do
-     reviewer=$(dx_maintenance_normalize_reviewer "$h")
-     gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
+     dx_maintenance_request_reviewer "$PR_NUM" "$h"
    done
    ```
 
@@ -92,7 +95,7 @@ When setup runs:
 /loop 5m /dxwatchpr
 ```
 
-This checks CI status, fixes CI failures when appropriate, addresses review comments via `/dxprreview`, and cancels itself when checks are green and all configured reviews are approved.
+This checks CI status, fixes CI failures when appropriate, addresses review comments via `/dxprreview`, and cancels itself when checks are green and all successfully requested reviews are approved.
 
 If the user sends a direct prompt during Phase 6, the `UserPromptSubmit` hook pauses scheduled watcher cycles for `DEX_WATCH_PAUSE_TTL_SECONDS` (default `60m 0s`). During that pause the watcher skill must skip GitHub/CI commands until the user runs `/dxcomplete` or asks to resume watching.
 
@@ -111,7 +114,7 @@ gh pr checks "$PR_NUM"
 gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pulls/$PR_NUM/reviews
 ```
 
-- **All CI green AND all configured `request` reviewers approved** → proceed to Step 6 (final verification + close).
+- **All CI green AND all successfully requested `request` reviewers approved** → proceed to Step 6 (final verification + close).
 - **New commits were pushed** (e.g., `/dxwatchpr` fixed CI or `/dxprreview` addressed comments) → re-request reviewers and re-post the mention comment so reviewers know there's something new. Increment cycle, reset wait window.
 - **Cycle was idle** (no new commits, no new approvals, checks/reviews not green) → increment cycle. If `cycle_count >= DEX_COMPLETE_MAX_CYCLES`, pause with the manual follow-up notice; otherwise keep waiting.
 - **Hard escalation** (3 same-check CI fails, scope change requested, secrets failure, architectural disagreement) → stop and escalate immediately with cited evidence.
@@ -121,7 +124,7 @@ gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pulls/$PR_NU
 Once Case A in Step 5 is met:
 
 1. **CI**: All checks green (`gh pr checks $PR_NUM` reports all pass).
-2. **Reviews**: All `request` reviewers approved, no unresolved comments.
+2. **Reviews**: All successfully requested `request` reviewers approved, no unresolved comments.
 3. **Mention reviewers**: Best-effort — if a `mention` reviewer commented with an actionable concern, it should already have been addressed by `/dxprreview`. The mention reviewers don't gate completion via review state.
 4. **Tasks**: All implementation tasks marked completed.
 

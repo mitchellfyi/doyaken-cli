@@ -143,8 +143,7 @@ if [[ "$PRE_HEAD" != "$POST_HEAD" ]]; then
   source "${DEX_DIR:-$HOME/work/dex}/lib/common.sh"
   # For each request-type reviewer:
   for h in "${REQUEST_REVIEWERS[@]}"; do
-    reviewer=$(dx_maintenance_normalize_reviewer "$h")
-    gh pr edit "$PR_NUM" --add-reviewer "$reviewer"
+    dx_maintenance_request_reviewer "$PR_NUM" "$h"
   done
   # For each mention-type reviewer, post a fresh comment:
   if [[ ${#MENTION_REVIEWERS[@]} -gt 0 ]]; then
@@ -156,11 +155,11 @@ if [[ "$PRE_HEAD" != "$POST_HEAD" ]]; then
 fi
 ```
 
-`gh pr edit --add-reviewer` is idempotent. Re-running on a reviewer that's already requested triggers a fresh notification on supported clients without duplicating the request.
+`dx_maintenance_request_reviewer` wraps idempotent `gh pr edit --add-reviewer` requests and treats non-requestable reviewers as warnings. Re-running on a reviewer that's already requested triggers a fresh notification on supported clients without duplicating the request.
 
 ### 6. Evaluate Completion
 
-**All checks pass, all reviews approved, no unresolved comments:**
+**All checks pass, all successfully requested reviews approved, no unresolved comments:**
 1. Cancel the PR monitoring loop: use `CronDelete` with the job ID.
 2. Report:
    - Total checks: X (all passed)

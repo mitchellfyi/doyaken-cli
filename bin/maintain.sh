@@ -797,7 +797,7 @@ __dx_maintain_pr_body_file() {
 }
 
 __dx_maintain_request_reviewers() {
-  local repo_root="$1" pr_num="$2" report_file="$3" trusted_ref="${4:-}" dex_md reviewer repo
+  local repo_root="$1" pr_num="$2" report_file="$3" trusted_ref="${4:-}" dex_md reviewer repo output command_status
   dex_md="$repo_root/.dex/dex.md"
   repo=$(__dx_maintain_repo_arg)
   {
@@ -841,12 +841,18 @@ __dx_maintain_request_reviewers() {
     printf '%s\n' "$reviewer"
   done | awk 'NF && !seen[$0]++' | while IFS= read -r reviewer; do
     if [[ -n "$repo" ]]; then
-      __dx_maintain_with_gh gh pr edit "$pr_num" --repo "$repo" --add-reviewer "$reviewer" >/dev/null 2>&1 || \
-        __dx_maintain_append_report_status "$report_file" "warning" "Could not request reviewer ${reviewer} on PR #${pr_num}."
+      output=$(__dx_maintain_with_gh gh pr edit "$pr_num" --repo "$repo" --add-reviewer "$reviewer" 2>&1) && command_status=0 || command_status=$?
     else
-      __dx_maintain_with_gh gh pr edit "$pr_num" --add-reviewer "$reviewer" >/dev/null 2>&1 || \
-      __dx_maintain_append_report_status "$report_file" "warning" "Could not request reviewer ${reviewer} on PR #${pr_num}."
+      output=$(__dx_maintain_with_gh gh pr edit "$pr_num" --add-reviewer "$reviewer" 2>&1) && command_status=0 || command_status=$?
     fi
+    if [[ "$command_status" -eq 0 ]]; then
+      continue
+    fi
+    if dx_maintenance_review_request_is_unavailable "$output"; then
+      __dx_maintain_append_report_status "$report_file" "warning" "Could not request reviewer ${reviewer} on PR #${pr_num}; GitHub says that reviewer is not requestable for this repository."
+      continue
+    fi
+    __dx_maintain_append_report_status "$report_file" "warning" "Could not request reviewer ${reviewer} on PR #${pr_num}."
   done
 }
 

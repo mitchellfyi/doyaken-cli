@@ -84,10 +84,11 @@ ask_yn "Datadog (observability + APM)?" "n" && DATADOG_STATUS="enabled"
 #
 # Phase 6 (Complete) marks the PR ready and assigns these reviewers.
 # Two assignment types:
-#   request — gh pr edit --add-reviewer <handle>  (humans, Copilot, anything GitHub supports)
+#   request — native GitHub review request via Dex's reviewer helper
 #   mention — @<handle> posted as a PR comment   (for AI agents that watch mentions)
 #
 # Defaults: current authenticated GitHub user + Copilot (both request type).
+# If GitHub does not allow a reviewer on this repo, Dex warns and continues.
 
 echo ""
 echo "Reviewers (assigned in Phase 6 when PR is marked ready):"
@@ -139,12 +140,13 @@ fi
 REVIEWERS="## Reviewers
 
 Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
-- \`request\` — \`gh pr edit --add-reviewer <handle>\` (humans, Copilot, anything GitHub supports)
+- \`request\` — native GitHub review request via Dex's reviewer helper
 - \`mention\` — \`@<handle>\` posted as a PR comment (for AI agents that watch mentions)
 
 When attaching request reviewers, Dex normalizes \`Copilot\`, \`@copilot\`,
 or Copilot aliases to GitHub CLI's special \`@copilot\` reviewer value. Normal
-GitHub usernames are passed without a leading \`@\`.
+GitHub usernames are passed without a leading \`@\`. If GitHub says a reviewer is
+not requestable for the repository, Dex records a warning and continues.
 
 | Handle | Type | Notes |
 |--------|------|-------|

@@ -84,12 +84,13 @@ For ticket tracking: use the enabled tracker for all status updates, context gat
 ## Reviewers
 
 Reviewers assigned when the PR is marked ready for review (Phase 6). Two types:
-- `request` — `gh pr edit --add-reviewer <handle>` (humans, Copilot, anything GitHub supports)
+- `request` — native GitHub review request via Dex's `dx_maintenance_request_reviewer` helper
 - `mention` — `@<handle>` posted as a PR comment (for AI agents that watch mentions)
 
 When attaching request reviewers, normalize `Copilot`, `@copilot`, or Copilot
 aliases to GitHub CLI's special `@copilot` reviewer value. Strip leading `@`
-from normal GitHub usernames only.
+from normal GitHub usernames only. If GitHub says a reviewer is not requestable
+for the repository, Dex records a warning and continues.
 
 | Handle | Type | Notes |
 |--------|------|-------|

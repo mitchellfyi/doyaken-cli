@@ -288,3 +288,60 @@ dx_maintenance_normalize_reviewer() {
       ;;
   esac
 }
+
+dx_maintenance_review_request_is_unavailable() {
+  local output="$1"
+  case "$output" in
+    *"Reviews may only be requested from collaborators"*|\
+    *"not a collaborator"*|\
+    *"Could not resolve to a node"*|\
+    *"Could not resolve to a User"*|\
+    *"not a user, team, or app"*|\
+    *"Review cannot be requested from pull request author"*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+dx_maintenance_request_reviewer() {
+  local pr_num="${1:-}" handle="${2:-}" repo="${3:-}" reviewer output command_status
+  local gh_args
+
+  if [[ -z "$pr_num" || -z "$handle" ]]; then
+    dx_error "Usage: dx_maintenance_request_reviewer <pr-number> <reviewer> [repo]"
+    return 2
+  fi
+
+  case "$handle" in
+    _none_|Handle|-|--|"") return 0 ;;
+  esac
+
+  reviewer=$(dx_maintenance_normalize_reviewer "$handle")
+  gh_args=(pr edit "$pr_num")
+  if [[ -n "$repo" ]]; then
+    gh_args+=(--repo "$repo")
+  fi
+  gh_args+=(--add-reviewer "$reviewer")
+
+  output=$(gh "${gh_args[@]}" 2>&1) && command_status=0 || command_status=$?
+  if [[ "$command_status" -eq 0 ]]; then
+    return 0
+  fi
+
+  if dx_maintenance_review_request_is_unavailable "$output"; then
+    dx_warn "Could not request reviewer ${reviewer} on PR #${pr_num}; GitHub says that reviewer is not requestable for this repository."
+    if [[ "$reviewer" == "@copilot" ]]; then
+      dx_info "GitHub supports @copilot review requests only when Copilot code review is enabled and requestable for the repository."
+    fi
+    return 0
+  fi
+
+  dx_error "Could not request reviewer ${reviewer} on PR #${pr_num}."
+  if [[ -n "$output" ]]; then
+    printf '%s\n' "$output" >&2
+  fi
+  return "$command_status"
+}
